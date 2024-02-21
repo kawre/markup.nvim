@@ -1,4 +1,4 @@
-local Object = require("nui.object")
+local Element = require("nui.element")
 local _ = require("nui.utils")._
 local is_type = require("nui.utils").is_type
 
@@ -9,7 +9,7 @@ local is_type = require("nui.utils").is_type
 
 ---@class NuiText
 ---@field protected extmark? nui_text_extmark
-local Text = Object("NuiText")
+local Text = Element:extend("NuiText")
 
 ---@param content string|NuiText text content or NuiText object
 ---@param extmark? string|nui_text_extmark highlight group name or extmark options

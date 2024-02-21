@@ -1,10 +1,10 @@
-local Object = require("nui.object")
+local Element = require("nui.element")
 local NuiText = require("nui.text")
 local defaults = require("nui.utils").defaults
 
----@class NuiLine
+---@class NuiLine : NuiElement
 ---@field _texts NuiText[]
-local Line = Object("NuiLine")
+local Line = Element:extend("NuiLine")
 
 ---@param texts? NuiText[]
 function Line:init(texts)
@@ -71,6 +71,12 @@ function Line:render(bufnr, ns_id, linenr_start, linenr_end)
   local content = self:content()
   vim.api.nvim_buf_set_lines(bufnr, row_start, row_end, false, { content })
   self:highlight(bufnr, ns_id, linenr_start)
+end
+
+---@param body NuiBody
+function Line:draw(body)
+  local line_index = body:get_line_idx(1)
+  self:render(body.bufnr, -1, line_index, line_index)
 end
 
 ---@alias NuiLine.constructor fun(texts?: NuiText[]): NuiLine
