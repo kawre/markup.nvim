@@ -2,11 +2,11 @@ local Block = require("nui.block")
 
 ---@class NuiBodyData : NuiBlockData
 ---@field line_index integer
----@field bufnr integer
----@field winid integer
 
 ---@class NuiBody : NuiBlock
 ---@field _ NuiBodyData
+---@field bufnr integer
+---@field winid integer
 local Body = Block:extend("NuiBody")
 
 ---@param inc? integer
@@ -36,16 +36,21 @@ end
 
 function Body:draw(data)
   self.bufnr = data.bufnr
-  self.win_id = data.winid
-  local content = self:content()
-
+  self.winid = data.winid
   self._.line_index = 1
 
+  local cursor_pos
+  if vim.api.nvim_win_is_valid(self.winid) then
+    cursor_pos = vim.api.nvim_win_get_cursor(self.winid)
+  end
   self:modifiable_portal(function()
-    for _, element in ipairs(content) do
-      element:draw(self)
-    end
+    vim.api.nvim_buf_set_lines(self.bufnr, 0, -1, false, {})
+    vim.api.nvim_buf_clear_namespace(self.bufnr, -1, 0, -1)
+    Body.super.draw(self, self)
   end)
+  if cursor_pos then
+    pcall(vim.api.nvim_win_set_cursor, self.winid, cursor_pos)
+  end
 end
 
 function Body:init() --
