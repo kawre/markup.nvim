@@ -1,5 +1,6 @@
 local Block = require("nui.block")
 local Line = require("nui.line")
+local Text = require("nui.text")
 
 ---@class NuiPadding : NuiBlock
 ---@field _ { padding: integer[] } | NuiBlockData
@@ -20,6 +21,9 @@ end
 ---@param content NuiElement[]
 function Padding:vertical_pad(content)
   local padding = self:get_padding()
+  if padding[1] == 0 and padding[3] == 0 then
+    return
+  end
 
   if padding[1] > 0 then
     for _, line in ipairs(create_vertical_padding(padding[1])) do
@@ -36,15 +40,22 @@ end
 
 ---@param content NuiElement[]
 function Padding:horizontal_pad(content)
+  local padding = self:get_padding()
+  if padding[2] == 0 and padding[4] == 0 then
+    return
+  end
+
   for _, element in ipairs(content) do
-    self:add_horizonal_pad(element)
+    self:add_horizonal_pad(element, padding)
   end
 end
 
 ---@param element NuiElement
-function Padding:add_horizonal_pad(element)
+---@param padding integer[]
+function Padding:add_horizonal_pad(element, padding)
   if element:is_instance_of(Line) then
-    -- table.insert(element._texts, 1, Indent(text or "\t", "leetcode_indent"))
+    local pad = padding[4] - padding[2]
+    table.insert(element._texts, 1, Text((" "):rep(pad)))
     return
   end
 
@@ -58,7 +69,7 @@ function Padding:content()
   local content = Padding.super.content(self)
 
   self:vertical_pad(content)
-  -- self:horizontal_pad(content)
+  self:horizontal_pad(content)
 
   return content
 end
