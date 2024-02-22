@@ -102,9 +102,31 @@ function Element:draw(body, parent)
         element:draw(body, self)
     end
 
-    if style.padding then
-        local pad = (" "):rep(style.padding[4] - style.padding[2])
+    local lines = vim.api.nvim_buf_get_lines(body.bufnr, 0, -1, false)
+    if style.padding or style.align then
+        local left_pad = 0
+        local win_len = vim.api.nvim_win_get_width(body.winid)
+
+        if style.padding then
+            left_pad = style.padding[4] - style.padding[2]
+        end
+
+        if style.align then
+            local longest_line = 0
+            for i = row, body:row() do
+                longest_line = math.max(longest_line, #lines[i])
+            end
+
+            if style.align == "center" then
+                left_pad = left_pad + math.floor((win_len - longest_line) / 2)
+            end
+        end
+
         for i = row, body:row() do
+            local pad = (" "):rep(left_pad)
+            if style.align == "right" then
+                pad = pad .. (" "):rep(win_len - #lines[i])
+            end
             vim.api.nvim_buf_set_text(body.bufnr, i - 1, 0, i - 1, 0, { pad })
         end
     end
