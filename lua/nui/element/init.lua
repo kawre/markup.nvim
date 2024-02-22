@@ -96,8 +96,17 @@ function Element:draw(body, parent)
         end
     end
 
+    local row = body:row()
+
     for _, element in ipairs(content) do
         element:draw(body, self)
+    end
+
+    if style.padding then
+        local pad = (" "):rep(style.padding[4] - style.padding[2])
+        for i = row, body:row() do
+            vim.api.nvim_buf_set_text(body.bufnr, i - 1, 0, i - 1, 0, { pad })
+        end
     end
 end
 
