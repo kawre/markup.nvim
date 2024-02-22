@@ -31,15 +31,19 @@ function Style:merge(class) --
 end
 
 function Style:get_padding()
-    if not self._.padding then
-        if self._.align then
-            return { 0, 0, 0, 0 }
-        end
-        return
-    end
-
     ---@type integer[]
     local padding = self._.padding
+
+    if not padding then
+        if self._.padding_top or self._.padding_right or self._.padding_bottom or self._.padding_left then
+            padding = { 0, 0, 0, 0 }
+        elseif self._.align then
+            return { 0, 0, 0, 0 }
+        else
+            return
+        end
+    end
+
     if #padding == 0 or #padding > 4 then
         error("padding can only have 1-4 values")
     end
