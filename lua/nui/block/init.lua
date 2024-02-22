@@ -3,7 +3,7 @@ local Line = require("nui.line")
 local Text = require("nui.text")
 
 ---@class NuiBlockData
----@field style NuiBlockStyle
+---@field style NuiStyle
 ---@field content NuiElement[]
 
 ---@class NuiBlock : NuiElement
@@ -32,7 +32,13 @@ function Block:content()
     i = i + 1
   end
 
-  return content
+  local style = self:get_style()
+  if style and style.padding then
+    local Padding = require("nui.block.padding")
+    return { Padding(content, style.padding) }
+  else
+    return content
+  end
 end
 
 function Block:draw(body)
@@ -60,16 +66,13 @@ function Block:append_child(element)
   table.insert(self._.content, element)
 end
 
----@param class string
----@param style NuiBlockStyle
-function Block:init(class, style) --
-  Block.super.init(self)
+-- ---@param classes string[]
+-- ---@param style NuiStyle
+-- function Block:init(id, classes, style) --
+--   Block.super.init(self, id, classes, style)
+-- end
 
-  -- self._.style = style:merge(class)
-  self._.content = {}
-end
-
----@alias NuiBlock.constructor fun(style?: NuiBlockStyle): NuiLine
+---@alias NuiBlock.constructor fun(classes?: string[], style?: NuiStyle): NuiLine
 ---@type NuiBlock|NuiBlock.constructor
 local NuiBlock = Block
 
