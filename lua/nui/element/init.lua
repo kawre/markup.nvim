@@ -1,8 +1,10 @@
 local Object = require("nui.object")
 local Style = require("nui.element.style")
+local Text = require("nui.text")
+local Inline = require("nui.element.inline")
 
 ---@type table<string, NuiElement>
-Elements = {}
+local Elements = {}
 
 ---@class NuiElement.data
 ---@field style? NuiStyle
@@ -14,15 +16,94 @@ Elements = {}
 ---@field _ NuiElement.data
 local Element = Object("NuiElement")
 
-function Element:get_style()
+---@return NuiStyle.data
+function Element:style()
   if not self._.style then
-    return
+    return {}
   end
+
   return self._.style:get()
 end
 
+---@return string[]
+function Element:class()
+  if not self._.class then
+    return {}
+  end
+
+  if type(self._.class) == "string" then
+    return { self._.class }
+  else
+    return self._.class
+  end
+end
+
+---@return string
+function Element:id()
+  return self._.id
+end
+
+---@param shallow? boolean
+---
+---@return NuiElement[]
+function Element:children(shallow)
+  if shallow then
+    local children = {}
+    for _, child in ipairs(self._.content) do
+      table.insert(children, child)
+    end
+    return children
+  else
+    return self._.content
+  end
+end
+
+---@return NuiElement[]
 function Element:content()
-  return self._.content
+  local content = {}
+
+  local i, len = 1, #self._.content
+  while i <= len do
+    local element = self._.content[i]
+
+    if element:is_instance_of(Text) then
+      local texts = { element }
+
+      while i + 1 <= len and self._.content[i + 1]:is_instance_of(Text) do
+        table.insert(texts, self._.content[i + 1])
+        i = i + 1
+      end
+
+      element = Inline(texts)
+    end
+
+    table.insert(content, element)
+    i = i + 1
+  end
+
+  return content
+end
+
+---@param element string|NuiText|NuiElement
+function Element:append(element)
+  if type(element) == "string" then
+    element = Text(element)
+  end
+
+  -- if element:is_instance_of(Text) then
+  --   element:set(element:content(), highlight)
+  -- end
+
+  table.insert(self:children(), element)
+end
+
+---@param body NuiBody
+---@param parent NuiElement
+function Element:draw(body, parent)
+  local content = self:children()
+  for _, element in ipairs(content) do
+    element:draw(body, self)
+  end
 end
 
 ---@param attributes NuiElement.attributes

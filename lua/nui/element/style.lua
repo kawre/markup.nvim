@@ -6,11 +6,17 @@ local Object = require("nui.object")
 ---@field padding_right? integer
 ---@field padding_bottom? integer
 ---@field padding_left? integer
----@field margin? integer[]
----@field margin_top? integer
----@field margin_right? integer
----@field margin_bottom? integer
----@field margin_left? integer
+-- -@field margin? integer[]
+-- -@field margin_top? integer
+-- -@field margin_right? integer
+-- -@field margin_bottom? integer
+-- -@field margin_left? integer
+---@field gap? integer
+---@field highlight? string
+---@field position? "left"|"center"|"right"
+
+---@class NuiStyle.data
+---@field padding integer[]
 ---@field gap? integer
 ---@field highlight? string
 ---@field position? "left"|"center"|"right"
@@ -26,6 +32,9 @@ end
 
 function Style:get_padding()
   if not self._.padding then
+    if self._.position then
+      return { 0, 0, 0, 0 }
+    end
     return
   end
 
@@ -49,47 +58,16 @@ function Style:get_padding()
   elseif self._.padding_bottom then
     padding[3] = self._.padding_bottom
   elseif self._.padding_left then
-    padding[4] = self._.padding_bottom
+    padding[4] = self._.padding_left
   end
 
   return padding
 end
 
-function Style:get_margin()
-  if not self._.margin then
-    return
-  end
-
-  ---@type integer[]
-  local margin = self._.margin
-  if #margin > 4 then
-    error("margin can only have 1-4 values")
-  end
-  if #margin == 1 then
-    margin = { margin[1], margin[1], margin[1], margin[1] }
-  elseif #margin == 2 then
-    margin = { margin[1], margin[2], margin[1], margin[2] }
-  elseif #margin == 3 then
-    margin = { margin[1], margin[2], margin[3], margin[2] }
-  end
-
-  if self._.margin_top then
-    margin[1] = self._.margin_top
-  elseif self._.margin_right then
-    margin[2] = self._.margin_right
-  elseif self._.margin_bottom then
-    margin[3] = self._.margin_bottom
-  elseif self._.margin_left then
-    margin[4] = self._.margin_bottom
-  end
-
-  return margin
-end
-
+---@return NuiStyle.data
 function Style:get()
   return {
     padding = self:get_padding(),
-    margin = self:get_margin(),
     gap = self._.gap,
     highlight = self._.highlight,
     position = self._.position,

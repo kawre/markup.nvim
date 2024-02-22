@@ -1,20 +1,20 @@
-local Object = require("nui.object")
+local Element = require("nui.element")
 local NuiText = require("nui.text")
 local defaults = require("nui.utils").defaults
 
----@class NuiLine
+---@class NuiInline : NuiElement
 ---@field _texts NuiText[]
-local Line = Object("NuiLine")
+local Inline = Element:extend("NuiInline")
 
 ---@param texts? NuiText[]
-function Line:init(texts)
+function Inline:init(texts)
   self._texts = defaults(texts, {})
 end
 
 ---@param content string|NuiText|NuiLine
 ---@param highlight? string|nui_text_extmark data for highlight
 ---@return NuiText|NuiLine
-function Line:append(content, highlight)
+function Inline:append(content, highlight)
   local block = content
   if type(block) == "string" then
     block = NuiText(block, highlight)
@@ -32,14 +32,14 @@ function Line:append(content, highlight)
 end
 
 ---@return string
-function Line:content()
+function Inline:content()
   return table.concat(vim.tbl_map(function(text)
     return text:content()
   end, self._texts))
 end
 
 ---@return number
-function Line:width()
+function Inline:width()
   local width = 0
   for _, text in ipairs(self._texts) do
     width = width + text:width()
@@ -52,7 +52,7 @@ end
 ---@param linenr number line number (1-indexed)
 ---@param ___byte_start___? integer start byte position (0-indexed)
 ---@return nil
-function Line:highlight(bufnr, ns_id, linenr, ___byte_start___)
+function Inline:highlight(bufnr, ns_id, linenr, ___byte_start___)
   local current_byte_start = ___byte_start___ or 0
   for _, text in ipairs(self._texts) do
     text:highlight(bufnr, ns_id, linenr, current_byte_start)
@@ -65,7 +65,7 @@ end
 ---@param linenr_start number start line number (1-indexed)
 ---@param linenr_end? number end line number (1-indexed)
 ---@return nil
-function Line:render(bufnr, ns_id, linenr_start, linenr_end)
+function Inline:render(bufnr, ns_id, linenr_start, linenr_end)
   local row_start = linenr_start - 1
   local row_end = linenr_end and linenr_end - 1 or row_start + 1
   local content = self:content()
@@ -73,8 +73,14 @@ function Line:render(bufnr, ns_id, linenr_start, linenr_end)
   self:highlight(bufnr, ns_id, linenr_start)
 end
 
----@alias NuiLine.constructor fun(texts?: NuiText[]): NuiLine
----@type NuiLine|NuiLine.constructor
-local NuiLine = Line
+---@param body NuiBody
+function Inline:draw(body, parent)
+  local line_index = body:get_line_idx(1)
+  self:render(body.bufnr, -1, line_index, line_index)
+end
 
-return NuiLine
+---@alias NuiInline.constructor fun(texts?: NuiText[]): NuiInline
+---@type NuiInline|NuiInline.constructor
+local NuiInline = Inline
+
+return NuiInline

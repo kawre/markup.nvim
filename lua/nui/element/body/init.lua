@@ -1,6 +1,6 @@
 local Block = require("nui.block")
 
----@class NuiBodyData : NuiBlockData
+---@class NuiBodyData : NuiBlock.data
 ---@field line_index integer
 
 ---@class NuiBody : NuiBlock
@@ -46,7 +46,7 @@ function Body:draw(data)
   self:modifiable_portal(function()
     vim.api.nvim_buf_set_lines(self.bufnr, 0, -1, false, {})
     vim.api.nvim_buf_clear_namespace(self.bufnr, -1, 0, -1)
-    Body.super.draw(self, self)
+    Body.super.draw(self, self, self)
   end)
   if cursor_pos then
     pcall(vim.api.nvim_win_set_cursor, self.winid, cursor_pos)
