@@ -1,17 +1,19 @@
 local Element = require("nui.element")
-local Inline = require("nui.element.inline")
-local Text = require("nui.text")
-
----@class NuiBlock.data
----@field style NuiStyle
----@field content NuiElement[]
 
 ---@class NuiBlock : NuiElement
----@field _ NuiBlock.data
-local Block = Element:extend("NuiBlock")
+local Block = Element:extend("ElementBlock")
 
----@alias NuiBlock.constructor fun(classes?: string[], style?: NuiStyle): NuiLine
----@type NuiBlock|NuiBlock.constructor
-local NuiBlock = Block
+---@param body NuiBody
+function Block:draw(body, ...)
+    local lines = vim.api.nvim_buf_get_lines(body.bufnr, 0, -1, false)
+    if lines[body:row()] ~= "" then
+        body:row(1)
+    end
+    Block.super.draw(self, body, ...)
+    body:row(1)
+end
 
-return NuiBlock
+---@type NuiBlock|NuiElement.constructor
+local ElementBlock = Block
+
+return ElementBlock
