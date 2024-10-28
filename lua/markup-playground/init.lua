@@ -19,7 +19,7 @@ function playground.open()
 
 	vim.api.nvim_create_autocmd("BufWritePost", {
 		callback = function()
-			local ok, err = pcall(vim.cmd, "luafile playground.lua")
+			local ok, err = pcall(vim.cmd.luafile, "playground.lua")
 			if not ok then
 				print(err)
 			end

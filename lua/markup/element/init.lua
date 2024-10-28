@@ -1,12 +1,8 @@
-local NuiLine = require("nui.line")
 local Text = require("markup.text")
-local Opts = require("leetcode-ui.opts")
-local utils = require("leetcode-ui.utils")
-local log = require("leetcode.logger")
 local Object = require("markup.object")
 
 ---@class markup.Element.props
----@field children markup.Element
+---@field children markup.Element[]
 ---@field color string
 ---@field max_width_chars integer
 ---@field extmark any
@@ -17,6 +13,10 @@ local Element = Object("MarkupElement")
 
 ---@param props markup.Element.constructor.props
 function Element:init(props)
+	if type(props) == "string" then
+		props = { children = { Text(props) } }
+	end
+
 	self._ = vim.tbl_deep_extend("force", {
 		children = {},
 		color = "Normal",
@@ -51,16 +51,12 @@ function Element:draw(window)
 	local content = self:content()
 
 	for _, obj in ipairs(content) do
-		if Object.is_instance(obj, Text) then
-			obj:render(window)
-		else
-			obj:draw(window)
-		end
+		obj:draw(window)
 	end
 end
 
 ---@class markup.Element.constructor.props
----@field children markup.Element
+---@field children markup.Element[]
 ---@field color? string
 ---@field max_width_chars? integer
 

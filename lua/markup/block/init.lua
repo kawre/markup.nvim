@@ -1,9 +1,4 @@
-local NuiLine = require("nui.line")
-local NuiText = require("nui.text")
-local Opts = require("leetcode-ui.opts")
-local utils = require("leetcode-ui.utils")
-local log = require("leetcode.logger")
-local Object = require("markup.object")
+local Element = require("markup.element")
 
 ---@class markup.Block.props : markup.Element.props
 ---@field children markup.Block
@@ -12,15 +7,25 @@ local Object = require("markup.object")
 
 ---@class markup.Block : markup.Element
 ---@field _ markup.Block.props
-local Block = Object("MarkupBlock")
+local Block = Element:extend("MarkupBlock")
 
-function Block:init(props)
-	self._ = vim.tbl_deep_extend("force", {
-		children = {},
-		color = "Normal",
-		max_width_chars = nil,
-	}, props)
+---@param window markup.Window
+function Block:draw(window)
+	local bufnr, row = window._.bufnr, window._.row
+	if vim.api.nvim_buf_get_lines(bufnr, row, -1, false)[1] ~= "" then
+		window:endl()
+	end
+	Block.super.draw(self, window)
+	window:endl()
 end
+
+-- function Block:init(props)
+-- 	self._ = vim.tbl_deep_extend("force", {
+-- 		children = {},
+-- 		color = "Normal",
+-- 		max_width_chars = nil,
+-- 	}, props)
+-- end
 
 ---@class markup.Block.constructor.props
 ---@field xd integer

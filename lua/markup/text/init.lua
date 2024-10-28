@@ -9,7 +9,7 @@ local Object = require("markup.object")
 ---@field protected extmark? nui_text_extmark
 local Text = Object("MarkupText")
 
----@param content string|NuiText text content or NuiText object
+---@param content string|markup.Text
 ---@param extmark? string|nui_text_extmark highlight group name or extmark options
 function Text:init(content, extmark)
 	if type(content) == "string" then
@@ -22,7 +22,7 @@ end
 
 ---@param content string text content
 ---@param extmark? string|nui_text_extmark highlight group name or extmark options
----@return NuiText
+---@return markup.Text
 function Text:set(content, extmark)
 	if self._content ~= content then
 		self._content = content
@@ -72,48 +72,19 @@ function Text:highlight(bufnr, ns_id, linenr, byte_start)
 end
 
 ---@param window markup.Window
-function Text:render(window)
-	local bufnr, ns_id, linenr_start, linenr_end, byte_start, byte_end =
-		window._.bufnr,
-		window._.ns_id,
-		window._.linenr_start,
-		window._.linenr_end,
-		window._.byte_start,
-		window._.byte_end
-
-	-- local row_start = linenr_start - 1
-	-- local row_end = linenr_end and linenr_end - 1 or row_start
-	local row_start = linenr_start
-	local row_end = row_start
-
-	-- local col_start = byte_start
-	-- local col_end = byte_end or byte_start + self:length()
-	local col_start = byte_start
-	local col_end = col_start
+function Text:draw(window)
+	local bufnr, ns_id, row_start, col_start = window._.bufnr, window._.ns_id, window._.row, window._.col
 
 	local content = self:content()
 
-	vim.api.nvim_buf_set_text(bufnr, row_start, col_start, row_end, col_end, { content })
+	vim.api.nvim_buf_set_text(bufnr, row_start, col_start, row_start, col_start, { content })
 
-	self:highlight(bufnr, ns_id, linenr_start, byte_start)
+	self:highlight(bufnr, ns_id, row_start, col_start)
 
-	window._.byte_start = col_start + self:length()
+	window._.col = window._.col + self:length()
 end
 
----@param bufnr number buffer number
----@param ns_id number namespace id
----@param linenr_start number start line number (1-indexed)
----@param char_start number start character position (0-indexed)
----@param linenr_end? number end line number (1-indexed)
----@param char_end? number end character position (0-indexed)
----@return nil
-function Text:render_char(bufnr, ns_id, linenr_start, char_start, linenr_end, char_end)
-	char_end = char_end or char_start + self:width()
-	local byte_range = _.char_to_byte_range(bufnr, linenr_start, char_start, char_end)
-	self:render(bufnr, ns_id, linenr_start, byte_range[1], linenr_end, byte_range[2])
-end
-
----@alias markup.Text.constructor fun(content: string|NuiText, extmark?: string|nui_text_extmark): NuiText
+---@alias markup.Text.constructor fun(content: string|markup.Text, extmark?: string|nui_text_extmark): markup.Text
 
 ---@type markup.Text.constructor
 local MarkupText = Text

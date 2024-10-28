@@ -1,17 +1,10 @@
-local NuiLine = require("nui.line")
-local NuiText = require("nui.text")
-local Opts = require("leetcode-ui.opts")
-local utils = require("leetcode-ui.utils")
-local log = require("leetcode.logger")
 local Object = require("markup.object")
 
 ---@class markup.Window.props
 ---@field winid integer
 ---@field bufnr integer
----@field linenr_start integer start line number (1-indexed)
----@field byte_start integer start byte position (0-indexed)
----@field linenr_end integer end line number (1-indexed)
----@field byte_end integer end byte position (0-indexed)
+---@field row integer start line number (1-indexed)
+---@field col integer start byte position (0-indexed)
 ---@field ns_id integer
 ---@field child markup.Element
 
@@ -30,26 +23,57 @@ function Window:init(props)
 		bufnr = 0,
 		child = nil,
 		ns_id = -1,
-		linenr_start = 1,
+		linenr_start = 0,
 		byte_start = 0,
-		linenr_end = nil,
-		byte_end = nil,
 	}, props)
+
+	local u = require("markup.utils")
+	u.buf_set_opts(self._.bufnr, {
+		modifiable = true,
+		buflisted = false,
+		matchpairs = "",
+		swapfile = false,
+		buftype = "nofile",
+		filetype = "preview",
+		synmaxcol = 0,
+	})
+	u.win_set_opts(self._.winid, {
+		wrap = false,
+		colorcolumn = "",
+		foldlevel = 999,
+		foldcolumn = "0",
+		cursorcolumn = false,
+		cursorline = false,
+		number = false,
+		relativenumber = false,
+		list = false,
+		spell = false,
+		signcolumn = "no",
+		winfixbuf = true,
+	})
 end
 
 function Window:draw()
 	self:clear()
 
-	self._.linenr_start = 0
-	self._.linenr_end = 0
+	self._.row = 0
+	self._.col = 0
 
-	self._.child:draw(self)
+	self:with_modifiable(function()
+		self._.child:draw(self)
+	end)
 end
 
 function Window:clear()
 	self:with_modifiable(function()
 		vim.api.nvim_buf_set_lines(self._.bufnr, 0, -1, false, {})
 	end)
+end
+
+function Window:endl()
+	self._.row = self._.row + 1
+	vim.api.nvim_buf_set_lines(self._.bufnr, self._.row, -1, false, { "" })
+	self._.col = 0
 end
 
 function Window:with_modifiable(fn)
