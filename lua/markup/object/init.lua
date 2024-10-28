@@ -157,7 +157,9 @@ end
 
 --luacheck: push no max line length
 
----@type (fun(name: string): table)|{ is_subclass: (fun(subclass: table, class: table): boolean), is_instance: (fun(instance: table, class: table): boolean) }
+---@class markup.Object
+---@field is_subclass fun(subclass: markup.Object, class: table): boolean
+---@field is_instance fun(instance: markup.Object, class: table): boolean
 local Object = setmetatable({
 	is_subclass = is_subclass,
 	is_instance = is_instance,
@@ -167,4 +169,9 @@ local Object = setmetatable({
 
 --luacheck: pop
 
-return Object
+---@alias markup.Object.constructor fun(name: string): markup.Object
+
+---@type markup.Object.constructor
+local MarkupObject = Object
+
+return MarkupObject
