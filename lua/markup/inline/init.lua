@@ -1,14 +1,13 @@
-local Element = require("markup.core.element")
-local Object = require("markup.core.object")
+local markup = require("markup")
 
----@class markup.Inline.props
+---@class markup.Inline.props : markup.Element.props
 ---@field children markup.Inline
 ---@field color string
 ---@field max_width_chars? integer
 
 ---@class markup.Inline : markup.Element
----@field props markup.Inline.props
-local Inline = Element:extend("MarkupInline")
+---@field _ markup.Inline.props
+local Inline = markup.Element:extend("MarkupInline")
 
 -- function Inline:init(props)
 -- 	self._ = vim.tbl_deep_extend("force", {
@@ -18,7 +17,11 @@ local Inline = Element:extend("MarkupInline")
 -- 	}, props)
 -- end
 
----@type fun(props: string | markup.Inline.props): markup.Inline
+---@class markup.Inline.constructor.props
+
+---@alias markup.Inline.constructor fun(props: string | markup.Inline.constructor.props): markup.Inline
+
+---@type markup.Inline.constructor
 local MarkupInline = Inline
 
 return MarkupInline

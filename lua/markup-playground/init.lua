@@ -1,3 +1,4 @@
+---@class markup-playground
 local playground = {}
 
 function playground.open()
@@ -25,6 +26,10 @@ function playground.open()
 			end
 		end,
 	})
+end
+
+function playground.setup()
+	vim.api.nvim_create_user_command("Markup", playground.open, {})
 end
 
 return playground

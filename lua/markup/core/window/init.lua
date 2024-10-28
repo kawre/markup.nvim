@@ -1,4 +1,4 @@
-local Object = require("markup.core.object")
+local markup = require("markup")
 
 ---@class markup.Window.props
 ---@field winid integer
@@ -7,7 +7,7 @@ local Object = require("markup.core.object")
 
 ---@class markup.Window : markup.Object
 ---@field _ markup.Window.props
-local Window = Object("MarkupWindow")
+local Window = markup.Object("MarkupWindow")
 
 ---@class markup.Window.constructor.props
 ---@field winid integer

@@ -1,4 +1,4 @@
-local Element = require("markup.core.element")
+local markup = require("markup")
 
 ---@class markup.Block.props : markup.Element.props
 ---@field children markup.Block
@@ -7,16 +7,16 @@ local Element = require("markup.core.element")
 
 ---@class markup.Block : markup.Element
 ---@field _ markup.Block.props
-local Block = Element:extend("MarkupBlock")
+local Block = markup.Element:extend("MarkupBlock")
 
----@param window markup.Window
-function Block:draw(window)
-	local bufnr, row = window._.bufnr, window._.row
+---@param renderer markup.Renderer
+function Block:draw(renderer)
+	local bufnr, row = renderer._.bufnr, renderer._.row
 	if vim.api.nvim_buf_get_lines(bufnr, row, -1, false)[1] ~= "" then
-		window:endl()
+		renderer:endl()
 	end
-	Block.super.draw(self, window)
-	window:endl()
+	Block.super.draw(self, renderer)
+	renderer:endl()
 end
 
 -- function Block:init(props)
@@ -30,7 +30,7 @@ end
 ---@class markup.Block.constructor.props
 ---@field xd integer
 
----@alias markup.Block.constructor fun(props: markup.Block.constructor.props): markup.Block
+---@alias markup.Block.constructor fun(props?: markup.Block.constructor.props): markup.Block
 
 ---@type markup.Block.constructor
 local MarkupBlock = Block

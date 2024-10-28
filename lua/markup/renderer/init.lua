@@ -1,4 +1,4 @@
-local Window = require("markup.core.window")
+local markup = require("markup")
 
 ---@class markup.Renderer.props : markup.Window.props
 ---@field winid integer
@@ -10,7 +10,7 @@ local Window = require("markup.core.window")
 
 ---@class markup.Renderer : markup.Window
 ---@field _ markup.Renderer.props
-local Renderer = Window:extend("MarkupRenderer")
+local Renderer = markup.Window:extend("MarkupRenderer")
 
 ---@param props markup.Renderer.constructor.props
 function Renderer:init(props)

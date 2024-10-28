@@ -1,5 +1,4 @@
-local Text = require("markup.core.text")
-local Object = require("markup.core.object")
+local markup = require("markup")
 
 ---@class markup.Element.props
 ---@field children markup.Element[]
@@ -9,21 +8,22 @@ local Object = require("markup.core.object")
 
 ---@class markup.Element : markup.Object
 ---@field _ markup.Element.props
-local Element = Object("MarkupElement")
+local Element = markup.Object("MarkupElement")
 
 ---@param props markup.Element.constructor.props
 function Element:init(props)
 	if type(props) == "string" then
-		props = { children = { Text(props) } }
+		props = { children = { markup.Text(props) } }
 	end
 
 	self._ = vim.tbl_deep_extend("force", {
 		children = {},
 		color = "Normal",
 		max_width_chars = nil,
-	}, props)
+	}, props or {})
 end
 
+---@return markup.Element[]
 function Element:content()
 	return self._.children
 end

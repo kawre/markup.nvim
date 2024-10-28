@@ -1,4 +1,4 @@
-local Object = require("markup.core.object")
+local markup = require("markup")
 
 ---@class nui_text_extmark
 ---@field id? integer
@@ -7,7 +7,7 @@ local Object = require("markup.core.object")
 
 ---@class markup.Text : markup.Object
 ---@field protected extmark? nui_text_extmark
-local Text = Object("MarkupText")
+local Text = markup.Object("MarkupText")
 
 ---@param content string|markup.Text
 ---@param extmark? string|nui_text_extmark highlight group name or extmark options
