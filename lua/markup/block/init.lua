@@ -1,4 +1,4 @@
-local Element = require("markup.element")
+local Element = require("markup.core.element")
 
 ---@class markup.Block.props : markup.Element.props
 ---@field children markup.Block

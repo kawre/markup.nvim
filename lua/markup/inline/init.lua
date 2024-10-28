@@ -1,5 +1,5 @@
-local Element = require("markup.element")
-local Object = require("markup.object")
+local Element = require("markup.core.element")
+local Object = require("markup.core.object")
 
 ---@class markup.Inline.props
 ---@field children markup.Inline

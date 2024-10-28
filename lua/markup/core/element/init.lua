@@ -1,5 +1,5 @@
-local Text = require("markup.text")
-local Object = require("markup.object")
+local Text = require("markup.core.text")
+local Object = require("markup.core.object")
 
 ---@class markup.Element.props
 ---@field children markup.Element[]
@@ -26,10 +26,6 @@ end
 
 function Element:content()
 	return self._.children
-end
-
-function Element:length()
-	return 0
 end
 
 ---@param content string | markup.Text | markup.Element

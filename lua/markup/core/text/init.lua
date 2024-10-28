@@ -1,4 +1,4 @@
-local Object = require("markup.object")
+local Object = require("markup.core.object")
 
 ---@class nui_text_extmark
 ---@field id? integer

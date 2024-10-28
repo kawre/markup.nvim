@@ -1,6 +1,6 @@
-local Object = require("markup.object")
+local Window = require("markup.core.window")
 
----@class markup.Window.props
+---@class markup.Renderer.props : markup.Window.props
 ---@field winid integer
 ---@field bufnr integer
 ---@field row integer start line number (1-indexed)
@@ -8,12 +8,12 @@ local Object = require("markup.object")
 ---@field ns_id integer
 ---@field child markup.Element
 
----@class markup.Window : markup.Object
----@field _ markup.Window.props
-local Window = Object("MarkupWindow")
+---@class markup.Renderer : markup.Window
+---@field _ markup.Renderer.props
+local Renderer = Window:extend("MarkupRenderer")
 
----@param props markup.Window.constructor.props
-function Window:init(props)
+---@param props markup.Renderer.constructor.props
+function Renderer:init(props)
 	if type(props) == "number" then
 		props = { winid = props }
 	end
@@ -53,7 +53,7 @@ function Window:init(props)
 	})
 end
 
-function Window:draw()
+function Renderer:draw()
 	self:clear()
 
 	self._.row = 0
@@ -64,19 +64,19 @@ function Window:draw()
 	end)
 end
 
-function Window:clear()
+function Renderer:clear()
 	self:with_modifiable(function()
 		vim.api.nvim_buf_set_lines(self._.bufnr, 0, -1, false, {})
 	end)
 end
 
-function Window:endl()
+function Renderer:endl()
 	self._.row = self._.row + 1
 	vim.api.nvim_buf_set_lines(self._.bufnr, self._.row, -1, false, { "" })
 	self._.col = 0
 end
 
-function Window:with_modifiable(fn)
+function Renderer:with_modifiable(fn)
 	local bufnr = self._.bufnr
 	if not (bufnr and vim.api.nvim_buf_is_valid(bufnr)) then
 		return
@@ -92,15 +92,15 @@ function Window:with_modifiable(fn)
 	end
 end
 
----@class markup.Window.constructor.props
+---@class markup.Renderer.constructor.props
 ---@field winid integer
 ---@field bufnr integer
 ---@field child markup.Element
 ---@field ns_id? integer
 
----@alias markup.Window.constructor fun(props: markup.Window.constructor.props): markup.Window
+---@alias markup.Renderer.constructor fun(props: markup.Renderer.constructor.props): markup.Renderer
 
----@type markup.Window.constructor
-local MarkupWindow = Window
+---@type markup.Renderer.constructor
+local MarkupRenderer = Renderer
 
-return MarkupWindow
+return MarkupRenderer
