@@ -1,54 +1,72 @@
 local markup = require("markup")
+local log = require("markup.logger")
 
 ---@alias markup.Box.align "start"|"center"|"end"
+---@alias markup.Box.direction "row"|"column"
 
 ---@class markup.Box.props : markup.Element.props
 ---@field align markup.Box.align
 ---@field spacing integer
+---@field direction markup.Box.direction
 
 ---@class markup.Box : markup.Element
 ---@field _ markup.Box.props
--- local Box = Element:extend("MarkupBox")
-local Box = markup.Object("MarkupBox")
+local Box = markup.Block:extend("MarkupBox")
 
 ---@param props markup.Box.constructor.props
 function Box:init(props)
-	self._ = vim.tbl_deep_extend("force", {
+	props = vim.tbl_deep_extend("force", {
 		align = "start",
+		direction = "column",
+		spacing = 0,
 		children = {},
 	}, props)
 
-	-- Box.super.init(self, props)
+	Box.super.init(self, props)
 end
 
-function Box:content()
-	local children = {}
-	local block = markup.Block()
+-- function Box:content()
+-- 	--    local children = self._.children
+-- 	--    local content = {}
+-- 	--
+-- 	-- for _, elem in ipairs(children) do
+-- 	--
+-- 	-- end
+--
+-- 	return self._.children
+-- end
 
-	-- for _, elem in ipairs(self._.children) do
-	-- 	if markup.Object.is_instance(elem, markup.Block) then
-	-- 		table.insert(lines, vim.deepcopy(block))
-	-- 		block._.children = {}
-	-- 	end
-	-- 	block:append(elem)
-	-- end
-
-	return self._.children
-end
-
----@param window markup.Window
-function Box:draw(window)
+---@param renderer markup.Renderer
+---@param parent markup.Element
+function Box:draw(renderer, parent)
 	local content = self:content()
 
-	for _, obj in ipairs(content) do
-		obj:draw(window)
+	renderer:endl()
+
+	for i, obj in ipairs(content) do
+		markup
+			[self._.direction == "row" and "Inline" or "Block"]({
+				children = obj:content(),
+			})
+			:draw(renderer, self)
+
+		if i ~= #content and self._.spacing then
+			if self._.direction == "row" then
+				renderer:pad(self._.spacing)
+			else
+				renderer:endl(self._.spacing)
+			end
+		end
 	end
+
+	renderer:endl()
 end
 
 ---@class markup.Box.constructor.props
 ---@field children markup.Element[]
----@field color? string
+---@field spacing? integer
 ---@field align? markup.Box.align
+---@field direction? markup.Box.direction
 
 ---@alias markup.Box.constructor fun(props: markup.Element | markup.Box.constructor.props): markup.Box
 

@@ -11,8 +11,9 @@ local Block = markup.Element:extend("MarkupBlock")
 
 ---@param renderer markup.Renderer
 function Block:draw(renderer)
-	local bufnr, row = renderer._.bufnr, renderer._.row
-	if vim.api.nvim_buf_get_lines(bufnr, row, -1, false)[1] ~= "" then
+	local row, col = renderer._.row, renderer._.col
+
+	if row ~= 0 or col ~= 0 then
 		renderer:endl()
 	end
 	Block.super.draw(self, renderer)
@@ -28,7 +29,6 @@ end
 -- end
 
 ---@class markup.Block.constructor.props
----@field xd integer
 
 ---@alias markup.Block.constructor fun(props?: markup.Block.constructor.props): markup.Block
 

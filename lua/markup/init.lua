@@ -9,6 +9,7 @@
 ---@field Object markup.Object.constructor
 local markup = {}
 
+---@private
 markup.elements = {
 	Box = "box",
 	Inline = "inline",

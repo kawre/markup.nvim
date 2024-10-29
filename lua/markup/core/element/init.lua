@@ -42,12 +42,13 @@ function Element:append(content, highlight)
 	table.insert(self._.children, block)
 end
 
----@param window markup.Window
-function Element:draw(window)
+---@param renderer markup.Renderer
+---@param parent markup.Element
+function Element:draw(renderer, parent)
 	local content = self:content()
 
 	for _, obj in ipairs(content) do
-		obj:draw(window)
+		obj:draw(renderer, self)
 	end
 end
 
