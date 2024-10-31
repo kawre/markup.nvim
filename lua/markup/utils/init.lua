@@ -1,31 +1,40 @@
 local markup = require("markup")
+local log = require("markup.logger")
 
+---@class markup.Utils
 local utils = {}
 
-function utils.buf_set_opts(bufnr, options)
-	if not vim.api.nvim_buf_is_valid(bufnr) then
-		return
+function utils.set_option_value(name, value, opts)
+	local ok, err = pcall(vim.api.nvim_set_option_value, name, value, opts)
+	if not ok then
+		log.error(err)
 	end
+end
 
-	for opt, value in pairs(options) do
-		local ok, err = pcall(vim.api.nvim_set_option_value, opt, value, { buf = bufnr })
-		if not ok then
-			print(err)
+function utils.buf_set_opts(bufnr, options)
+	if vim.api.nvim_buf_is_valid(bufnr) then
+		for opt, value in pairs(options) do
+			utils.set_option_value(opt, value, { buf = bufnr })
 		end
 	end
 end
 
 function utils.win_set_opts(winid, options)
-	if not vim.api.nvim_win_is_valid(winid) then
-		return
-	end
-
-	for opt, value in pairs(options) do
-		local ok, err = pcall(vim.api.nvim_set_option_value, opt, value, { win = winid, scope = "local" })
-		if not ok then
-			print(err)
+	if vim.api.nvim_win_is_valid(winid) then
+		for opt, value in pairs(options) do
+			utils.set_option_value(opt, value, { win = winid, scope = "local" })
 		end
 	end
+end
+
+function utils.measure_time(fn)
+	local start_time = vim.loop.hrtime()
+	fn()
+	local end_time = vim.loop.hrtime()
+
+	local elapsed = end_time - start_time
+	local elapsed_ms, fps = elapsed / 1e6, math.floor(1e9 / elapsed)
+	return elapsed_ms, fps
 end
 
 function utils.is_instance(object, class)

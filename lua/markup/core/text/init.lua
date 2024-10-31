@@ -72,17 +72,21 @@ function Text:highlight(bufnr, ns_id, linenr, byte_start)
 		vim.api.nvim_buf_set_extmark(bufnr, _.ensure_namespace_id(ns_id), linenr - 1, byte_start, self.extmark)
 end
 
----@param window markup.Window
-function Text:draw(window)
-	local bufnr, ns_id, row_start, col_start = window._.bufnr, window._.ns_id, window._.row, window._.col
+---@param renderer markup.Renderer
+---@param parent? markup.Element
+function Text:render(renderer, parent)
+	self:draw(renderer)
+	renderer:inc_pos(self:length())
+end
+
+---@param renderer markup.Renderer
+function Text:draw(renderer)
+	local bufnr, ns_id = renderer._.bufnr, renderer._.ns_id
+	local row, col = renderer:get_pos()
 
 	local content = self:content()
-
-	vim.api.nvim_buf_set_text(bufnr, row_start, col_start, row_start, col_start, { content })
-
-	self:highlight(bufnr, ns_id, row_start, col_start)
-
-	window._.col = window._.col + self:length()
+	vim.api.nvim_buf_set_text(bufnr, row, col, row, col, { content })
+	self:highlight(bufnr, ns_id, row, col)
 end
 
 ---@alias markup.Text.constructor fun(content: string|markup.Text, extmark?: string|nui_text_extmark): markup.Text

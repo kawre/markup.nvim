@@ -1,10 +1,22 @@
 local markup = require("markup")
+local utils = require("markup.utils")
 local log = require("markup.logger")
+
+---@alias markup.Renderer.state.position { row: integer, col: integer }
+---@alias markup.Renderer.state.box { width: integer, height: integer }
+
+---@class markup.Renderer.state
+---@field start markup.Renderer.state.position
+---@field endd markup.Renderer.state.position
+---@field box markup.Renderer.state.box
+---@field lengths integer[]
+---@field parent? markup.Element
 
 ---@class markup.Renderer.props : markup.Window.props
 ---@field grid integer[]
 ---@field ns_id integer
 ---@field child markup.Element
+---@field state markup.Renderer.state[]
 
 ---@class markup.Renderer : markup.Window
 ---@field _ markup.Renderer.props
@@ -19,11 +31,11 @@ function Renderer:init(props)
 	props = vim.tbl_deep_extend("force", {
 		ns_id = -1,
 		grid = { 0 },
+		state = {},
 	}, props)
 	Renderer.super.init(self, props)
 
-	local u = require("markup.utils")
-	u.buf_set_opts(self._.bufnr, {
+	self:set_opts({
 		modifiable = true,
 		buflisted = false,
 		matchpairs = "",
@@ -31,11 +43,10 @@ function Renderer:init(props)
 		buftype = "nofile",
 		filetype = "preview",
 		synmaxcol = 0,
-	})
-	u.win_set_opts(self._.winid, {
+	}, {
 		wrap = false,
 		colorcolumn = "",
-		foldlevel = 999,
+		foldenable = false,
 		foldcolumn = "0",
 		cursorcolumn = false,
 		cursorline = false,
@@ -48,39 +59,51 @@ function Renderer:init(props)
 	})
 end
 
----Get current grid position (row, col)
----@param row_at? integer
----@return integer, integer
+---Get grid position at row
+---@param row_at? integer (0-indexed)
+---@return integer, integer (row, col) (0-indexed, 0-indexed)
 function Renderer:get_pos(row_at)
-	local row = row_at or #self._.grid
-	return row, self._.grid[row]
+	local row = row_at or (#self._.grid - 1)
+	return row, self._.grid[row + 1]
 end
 
----Get current grid position (row, col)
+---Get grid column position at row
+---@param row_at? integer (0-indexed)
+---@return integer (col) (0-indexed)
+function Renderer:get_col(row_at)
+	return select(2, self:get_pos(row_at))
+end
+
+---increment grid position at row
 ---@param value integer
----@param row_at? integer
----@return integer, integer
+---@param row_at? integer (0-indexed)
+---@return integer, integer (row, col) (0-indexed, 0-indexed)
 function Renderer:inc_pos(value, row_at)
-	local row = row_at or #self._.grid
-	local col = self._.grid[row] + value
-	self._.grid[row] = col
+	local row = self:get_pos(row_at)
+	local col = self._.grid[row + 1] + value
+	self._.grid[row + 1] = col
 	return row, col
 end
 
-function Renderer:draw()
-	self:clear()
+function Renderer:render()
+	local elapsed_ms, fps = utils.measure_time(function()
+		self:clear_grid()
+		self:set_default_state()
 
-	self._.grid = { 0 }
-
-	self:with_modifiable(function()
-		self._.child:draw(self, nil)
+		self:with_modifiable(function()
+			self._.child:render(self)
+		end)
 	end)
+
+	log.info(("elapsed time: %.2fms [FPS: %d]"):format(elapsed_ms, fps))
 end
 
-function Renderer:clear()
+function Renderer:clear_grid()
 	self:with_modifiable(function()
 		vim.api.nvim_buf_set_lines(self._.bufnr, 0, -1, false, {})
 	end)
+	self._.grid = { 0 }
+	self._.state = {}
 end
 
 ---@param n? integer
@@ -95,9 +118,11 @@ end
 ---Add padding after line
 ---@param n integer
 ---@param row_at? integer
-function Renderer:pad(n, row_at)
+---@param col_at? integer
+function Renderer:pad(n, row_at, col_at)
 	local row, col = self:get_pos()
 	row = row_at or row
+	col = col_at or col
 	vim.api.nvim_buf_set_text(self._.bufnr, row, col, row, col, { (" "):rep(n) })
 	self:inc_pos(n, row)
 end
@@ -106,10 +131,14 @@ end
 ---@param n integer
 ---@param row_at? integer
 function Renderer:pad_before(n, row_at)
-	local row = self:get_pos()
-	row = row_at or row
-	vim.api.nvim_buf_set_text(self._.bufnr, row, 0, row, 0, { (" "):rep(n) })
-	self:inc_pos(n, row)
+	self:pad(n, row_at, 0)
+end
+
+---Add padding before line
+---@param n integer
+---@param row_at? integer
+function Renderer:pad_after(n, row_at)
+	self:pad(n, row_at)
 end
 
 function Renderer:with_modifiable(fn)
@@ -126,6 +155,34 @@ function Renderer:with_modifiable(fn)
 	if not modi then
 		vim.api.nvim_buf_set_option(bufnr, "modifiable", false)
 	end
+end
+
+function Renderer:set_default_state()
+	local start = { row = 0, col = 0 }
+	local endd = { row = self:height() - 1, col = self:width() - 1 }
+	local box = { width = endd.col + 1, height = endd.row + 1 }
+	local lengths = {}
+	for row = start.row, endd.row do
+		lengths[row] = 0
+	end
+
+	self:set_state(self, { ---@diagnostic disable-line: param-type-mismatch
+		start = start,
+		endd = endd,
+		box = box,
+		lengths = lengths,
+	})
+end
+
+---@param element markup.Element
+---@param state markup.Renderer.state
+function Renderer:set_state(element, state)
+	self._.state[element] = state
+end
+
+---@param element markup.Element
+function Renderer:get_state(element)
+	return self._.state[element and element or self]
 end
 
 ---@class markup.Renderer.constructor.props

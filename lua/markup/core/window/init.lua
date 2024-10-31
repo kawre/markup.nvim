@@ -18,6 +18,27 @@ function Window:init(props)
 	}, props)
 end
 
+---@param buffer_opts? table<any, any>
+---@param window_opts? table<any, any>
+function Window:set_opts(buffer_opts, window_opts)
+	local u = require("markup.utils")
+
+	if buffer_opts then
+		u.buf_set_opts(self._.bufnr, buffer_opts)
+	end
+	if window_opts then
+		u.win_set_opts(self._.winid, window_opts)
+	end
+end
+
+function Window:width()
+	return vim.api.nvim_win_get_width(self._.winid)
+end
+
+function Window:height()
+	return vim.api.nvim_win_get_height(self._.winid)
+end
+
 ---@class markup.Window.constructor.props
 ---@field winid integer
 ---@field bufnr integer

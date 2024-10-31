@@ -26,72 +26,38 @@ function Box:init(props)
 	Box.super.init(self, props)
 end
 
--- function Box:content()
--- 	--    local children = self._.children
--- 	--    local content = {}
--- 	--
--- 	-- for _, elem in ipairs(children) do
--- 	--
--- 	-- end
+-- ---@param renderer markup.Renderer
+-- function Box:draw(renderer)
+-- 	local content = self:content()
 --
--- 	return self._.children
+-- 	for _, element in ipairs(content) do
+-- 		element:render(renderer, self)
+-- 	end
 -- end
 
----@param renderer markup.Renderer
----@param parent markup.Element
-function Box:draw(renderer, parent)
-	local content = self:content()
+function Box:after_draw(renderer)
+	local state = renderer:get_state(self)
+	local parent_state = renderer:get_state(state.parent)
+	local start, endd, box, lengths = state.start, state.endd, state.box, state.lengths
 
-	local row, col = renderer:get_pos()
-	if col ~= 0 then
-		renderer:endl()
+	for row = start.row, endd.row do
+		if self._.align == "center" then
+			local length = lengths[row]
+			local padding = math.floor((parent_state.box.width - length) / 2)
+			log.debug({
+				row = row,
+				width = parent_state.box.width,
+				length = length,
+				padding = padding,
+			})
+			renderer:pad(padding, row, start.col)
+		elseif self._.align == "end" then
+			-- local length = lengths[row]
+			-- local padding = math.floor((window_width - length) / 2)
+		end
 	end
 
-	local window_width = vim.api.nvim_win_get_width(renderer._.winid)
-	local xdd = renderer._.prev[row - 1] or 0
-
-	for i, obj in ipairs(content) do
-		-- log.debug({ prev_col = prev_col, prev_row = prev_row })
-		local prev_row, prev_col = renderer:get_pos()
-		obj:draw(renderer, self)
-		local curr_row = self._.direction == "column" and renderer._.row - 1 or prev_row
-
-		local lengths = {}
-		for j = prev_row, curr_row do
-			lengths[j] = renderer._.prev[j] - prev_col
-		end
-
-		-- log.debug(lengths)
-		if #lengths > 1 then
-			local largest_length = 0
-			for _, value in pairs(lengths) do
-				largest_length = math.max(value, largest_length)
-			end
-			for key, _ in pairs(lengths) do
-				lengths[key] = largest_length
-			end
-		end
-		-- log.debug(lengths)
-
-		for r, l in pairs(lengths) do
-			if self._.direction == "column" and self._.align ~= "start" then
-				-- log.debug({ width = window_width, l = l, col = xdd })
-				local pad = math.floor((window_width - l) / (self._.align == "center" and 2 or 1))
-				renderer:pad_before(pad, r)
-			end
-
-			if self._.spacing > 0 then
-				if self._.direction == "row" then
-					renderer:pad(self._.spacing)
-				else
-					renderer:endl(self._.spacing)
-				end
-			end
-		end
-		vim.wait(250)
-	end
-
-	renderer:endl()
+	Box.super.after_draw(self, renderer)
 end
 
 ---@class markup.Box.constructor.props

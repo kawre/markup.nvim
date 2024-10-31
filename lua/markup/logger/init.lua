@@ -25,7 +25,7 @@ function logger.log(msg, lvl)
 		return
 	end
 
-	local title = config.name
+	local title = "[markup.nvim]"
 	lvl = lvl or lvls.INFO
 	msg = normalize(msg)
 
