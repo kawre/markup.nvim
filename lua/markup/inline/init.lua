@@ -1,4 +1,5 @@
 local markup = require("markup")
+local log = require("markup.logger")
 
 ---@class markup.Inline.props : markup.Element.props
 ---@field children markup.Inline

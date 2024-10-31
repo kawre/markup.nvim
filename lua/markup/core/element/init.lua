@@ -1,4 +1,5 @@
 local markup = require("markup")
+local log = require("markup.logger")
 
 ---@class markup.Element.props
 ---@field children markup.Element[]
@@ -43,12 +44,24 @@ function Element:append(content, highlight)
 end
 
 ---@param renderer markup.Renderer
----@param parent markup.Element
+---@param parent? markup.Element
 function Element:draw(renderer, parent)
 	local content = self:content()
 
 	for _, obj in ipairs(content) do
 		obj:draw(renderer, self)
+	end
+end
+
+function Element.find_parent(parent, class)
+	if not parent then
+		return false
+	end
+
+	if markup.Object.is_instance(parent, class) then
+		return true
+	else
+		return Element.find_parent(parent.parent, class)
 	end
 end
 

@@ -1,4 +1,5 @@
 local markup = require("markup")
+local log = require("markup.logger")
 
 ---@class nui_text_extmark
 ---@field id? integer

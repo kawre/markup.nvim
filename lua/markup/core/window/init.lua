@@ -9,6 +9,15 @@ local markup = require("markup")
 ---@field _ markup.Window.props
 local Window = markup.Object("MarkupWindow")
 
+---@param props markup.Window.constructor.props
+function Window:init(props)
+	self._ = vim.tbl_deep_extend("force", {
+		bufnr = 0,
+		winid = 0,
+		child = nil,
+	}, props)
+end
+
 ---@class markup.Window.constructor.props
 ---@field winid integer
 ---@field bufnr integer

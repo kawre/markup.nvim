@@ -1,3 +1,5 @@
+local markup = require("markup")
+
 local utils = {}
 
 function utils.buf_set_opts(bufnr, options)
@@ -24,6 +26,14 @@ function utils.win_set_opts(winid, options)
 			print(err)
 		end
 	end
+end
+
+function utils.is_instance(object, class)
+	if not object then
+		return false
+	end
+
+	return markup.Object.is_instance(object, class)
 end
 
 return utils

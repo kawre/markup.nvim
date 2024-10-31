@@ -1,4 +1,5 @@
 local markup = require("markup")
+local log = require("markup.logger")
 
 ---@class markup.Block.props : markup.Element.props
 ---@field children markup.Block
@@ -10,13 +11,14 @@ local markup = require("markup")
 local Block = markup.Element:extend("MarkupBlock")
 
 ---@param renderer markup.Renderer
-function Block:draw(renderer)
-	local row, col = renderer._.row, renderer._.col
+---@param parent markup.Element
+function Block:draw(renderer, parent)
+	local row, col = renderer:get_pos()
 
-	if row ~= 0 or col ~= 0 then
+	if col ~= 0 then
 		renderer:endl()
 	end
-	Block.super.draw(self, renderer)
+	Block.super.draw(self, renderer, self)
 	renderer:endl()
 end
 
