@@ -195,7 +195,7 @@ end
 
 ---@param element markup.Element
 function Renderer:get_state(element)
-	return self._.state[element and element or self]
+	return self._.state[element]
 end
 
 ---@class markup.Renderer.constructor.props

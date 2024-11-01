@@ -10,15 +10,15 @@ local log = require("markup.logger")
 ---@field _ markup.Block.props
 local Block = markup.Element:extend("MarkupBlock")
 
-function Block:before_draw(renderer)
-	if renderer:get_col() ~= 0 then
-		renderer:endl()
-	end
-end
-
-function Block:after_draw(renderer)
-	renderer:endl()
-end
+-- function Block:before_draw(renderer)
+-- 	if renderer:get_col() ~= 0 then
+-- 		renderer:endl()
+-- 	end
+-- end
+--
+-- function Block:after_draw(renderer)
+-- 	renderer:endl()
+-- end
 
 ---@class markup.Block.constructor.props : markup.Element.constructor.props
 

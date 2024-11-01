@@ -82,10 +82,16 @@ function Element:draw(renderer)
 end
 
 ---@param renderer markup.Renderer
-function Element:before_draw(renderer) end
+function Element:before_draw(renderer)
+	if renderer:get_col() ~= 0 then
+		renderer:endl()
+	end
+end
 
 ---@param renderer markup.Renderer
-function Element:after_draw(renderer) end
+function Element:after_draw(renderer)
+	renderer:endl()
+end
 
 ---@class markup.Element.constructor.props
 ---@field children markup.Element[]
