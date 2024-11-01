@@ -10,14 +10,6 @@ local log = require("markup.logger")
 ---@field _ markup.Inline.props
 local Inline = markup.Element:extend("MarkupInline")
 
--- function Inline:init(props)
--- 	self._ = vim.tbl_deep_extend("force", {
--- 		children = {},
--- 		color = "Normal",
--- 		max_width_chars = nil,
--- 	}, props)
--- end
-
 ---@class markup.Inline.constructor.props
 
 ---@alias markup.Inline.constructor fun(props: string | markup.Inline.constructor.props): markup.Inline

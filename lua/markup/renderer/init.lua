@@ -24,15 +24,14 @@ local Renderer = markup.Window:extend("MarkupRenderer")
 
 ---@param props markup.Renderer.constructor.props
 function Renderer:init(props)
-	if type(props) == "number" then
-		props = { winid = props }
-	end
-
-	props = vim.tbl_deep_extend("force", {
+	props = self:normalize_props(props, {
+		bufnr = nil,
+		winid = nil,
 		ns_id = -1,
 		grid = { 0 },
 		state = {},
-	}, props)
+	})
+
 	Renderer.super.init(self, props)
 
 	self:set_opts({
@@ -58,6 +57,20 @@ function Renderer:init(props)
 		winfixbuf = true,
 	})
 	self:setup_autocmds()
+end
+
+function Renderer:normalize_props(props, defaults)
+	local result = {}
+
+	if type(props) == "number" then
+		result.children = { markup.Text(props) }
+	elseif getmetatable(props) then
+		result.children = { props }
+	else
+		result = props
+	end
+
+	return vim.tbl_deep_extend("force", defaults or {}, result)
 end
 
 function Renderer:setup_autocmds()

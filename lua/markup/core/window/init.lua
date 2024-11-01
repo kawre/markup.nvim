@@ -11,11 +11,15 @@ local Window = markup.Object("MarkupWindow")
 
 ---@param props markup.Window.constructor.props
 function Window:init(props)
-	self._ = vim.tbl_deep_extend("force", {
-		bufnr = 0,
-		winid = 0,
+	self._ = self:normalize_props(props, {
+		bufnr = vim.api.nvim_get_current_buf(),
+		winid = vim.api.nvim_get_current_win(),
 		child = nil,
-	}, props)
+	})
+end
+
+function Window:normalize_props(props, defaults)
+	return vim.tbl_deep_extend("force", defaults or {}, props)
 end
 
 ---@param buffer_opts? table<any, any>

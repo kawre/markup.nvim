@@ -1,4 +1,5 @@
 local markup = require("markup")
+local utils = require("markup.utils")
 local log = require("markup.logger")
 
 ---@class markup.Element.props
@@ -6,6 +7,7 @@ local log = require("markup.logger")
 ---@field color string
 ---@field max_width_chars integer
 ---@field extmark any
+---@field type "block"|"inline"
 
 ---@class markup.Element : markup.Object
 ---@field _ markup.Element.props
@@ -13,15 +15,29 @@ local Element = markup.Object("MarkupElement")
 
 ---@param props markup.Element.constructor.props
 function Element:init(props)
-	if type(props) == "string" then
-		props = { children = { markup.Text(props) } }
-	end
-
-	self._ = vim.tbl_deep_extend("force", {
+	self._ = self:normalize_props(props, {
 		children = {},
 		color = "Normal",
 		max_width_chars = nil,
-	}, props or {})
+		type = "inline",
+	})
+end
+
+---@param props table
+---@param defaults table
+---@return markup.Element.props
+function Element:normalize_props(props, defaults)
+	local result = {}
+
+	if type(props) == "string" then
+		result.children = { markup.Text(props) }
+	elseif getmetatable(props) then
+		result.children = { props }
+	else
+		result = props
+	end
+
+	return vim.tbl_deep_extend("force", defaults or {}, result)
 end
 
 ---@return markup.Element[]
@@ -83,20 +99,31 @@ end
 
 ---@param renderer markup.Renderer
 function Element:before_draw(renderer)
-	if renderer:get_col() ~= 0 then
+	log.debug({
+		class_name = self.class.name,
+		type = self._.type,
+	})
+	if self._.type == "block" and renderer:get_col() ~= 0 then
 		renderer:endl()
 	end
 end
 
 ---@param renderer markup.Renderer
 function Element:after_draw(renderer)
-	renderer:endl()
+	log.debug({
+		class_name = self.class.name,
+		type = self._.type,
+	})
+	if self._.type == "block" then
+		renderer:endl()
+	end
 end
 
 ---@class markup.Element.constructor.props
 ---@field children markup.Element[]
 ---@field color? string
 ---@field max_width_chars? integer
+---@field type? "block"|"inline"
 
 ---@alias markup.Element.constructor fun(props: string | markup.Element.constructor.props): markup.Element
 

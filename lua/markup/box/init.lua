@@ -14,14 +14,13 @@ local log = require("markup.logger")
 ---@field _ markup.Box.props
 local Box = markup.Block:extend("MarkupBox")
 
----@param props markup.Box.constructor.props
 function Box:init(props)
-	props = vim.tbl_deep_extend("force", {
+	props = self:normalize_props(props, {
 		align = "start",
 		direction = "column",
 		spacing = 0,
 		children = {},
-	}, props)
+	})
 
 	Box.super.init(self, props)
 end
@@ -30,6 +29,7 @@ end
 function Box:draw(renderer)
 	local content = self:content()
 	for i, element in ipairs(content) do
+		-- element._.type = self._.direction == "column" and "block" or "inline"
 		element:render(renderer, self)
 
 		if self._.spacing > 0 and i ~= #content then

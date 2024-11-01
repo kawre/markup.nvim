@@ -20,6 +20,14 @@ local Block = markup.Element:extend("MarkupBlock")
 -- 	renderer:endl()
 -- end
 
+function Block:init(props)
+	props = self:normalize_props(props, {
+		type = "block",
+	})
+
+	Block.super.init(self, props)
+end
+
 ---@class markup.Block.constructor.props : markup.Element.constructor.props
 
 ---@alias markup.Block.constructor fun(props?: markup.Block.constructor.props): markup.Block
