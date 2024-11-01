@@ -83,7 +83,12 @@ function Element:render(renderer, parent)
 
 	local lengths, max_len = {}, 0
 	for row = row_start, row_end do
-		lengths[row] = renderer:get_col(row) - col_start
+		local col = renderer:get_col(row)
+		if col < col_start then
+			renderer:pad(col_start, row)
+		end
+
+		lengths[row] = col - col_start
 		max_len = math.max(max_len, lengths[row])
 	end
 
@@ -115,12 +120,9 @@ end
 ---@param renderer markup.Renderer
 function Element:before_draw(renderer)
 	local state = renderer:get_state(self)
-	local parent_state = renderer:get_state(state.parent)
-	log.debug(parent_state)
-	local xd = parent_state and parent_state.start.col or 0
 
-	local row, col = renderer:get_pos()
-	if self._.type == "block" and col ~= xd then
+	local col = renderer:get_col()
+	if self._.type == "block" and col ~= state.initial.col then
 		renderer:endl()
 	end
 end

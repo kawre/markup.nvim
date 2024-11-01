@@ -48,20 +48,20 @@ end
 function Box:after_draw(renderer)
 	local state = renderer:get_state(self)
 
-	for row = state.start.row, state.endd.row do
+	for row = state.row_start, state.row_end do
 		local padding, length = 0, state.lengths[row]
 
-		if self._.align == "start" then
-			padding = state.box.width - length
-			renderer:pad(padding, row, state.start.col + length)
-		elseif self._.align == "center" then
-			padding = math.floor((state.box.width - length) / 2)
-			renderer:pad(padding, row)
-			renderer:pad(padding, row, padding + state.start.col + length)
-		elseif self._.align == "end" then
-			padding = state.box.width - length
-			renderer:pad_after(padding, row)
-		end
+		-- if self._.align == "start" then
+		-- 	padding = state.box.width - length
+		-- 	renderer:pad(padding, row, state.col_start + length)
+		-- elseif self._.align == "center" then
+		-- 	padding = math.floor((state.box.width - length) / 2)
+		-- 	renderer:pad(padding, row)
+		-- 	renderer:pad(padding, row, padding + state.col_start + length)
+		-- elseif self._.align == "end" then
+		-- 	padding = state.box.width - length
+		-- 	renderer:pad_after(padding, row)
+		-- end
 	end
 
 	Box.super.after_draw(self, renderer)
