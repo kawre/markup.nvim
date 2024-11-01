@@ -3,7 +3,6 @@ local log = require("markup.logger")
 
 ---@class markup.Inline.props : markup.Element.props
 ---@field children markup.Inline
----@field color string
 ---@field max_width_chars? integer
 
 ---@class markup.Inline : markup.Element

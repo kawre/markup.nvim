@@ -4,10 +4,10 @@ local log = require("markup.logger")
 
 ---@class markup.Element.props
 ---@field children markup.Element[]
----@field color string
 ---@field max_width_chars integer
 ---@field extmark any
 ---@field type "block"|"inline"
+---@field style vim.api.keyset.highlight
 
 ---@class markup.Element : markup.Object
 ---@field _ markup.Element.props
@@ -17,7 +17,7 @@ local Element = markup.Object("MarkupElement")
 function Element:init(props)
 	self._ = self:normalize_props(props, {
 		children = {},
-		color = "Normal",
+		style = {},
 		max_width_chars = nil,
 		type = "inline",
 	})
@@ -66,12 +66,21 @@ function Element:append(content, highlight)
 	table.insert(self._.children, block)
 end
 
+function Element:inherit_style(parent)
+	if parent then
+		return vim.tbl_deep_extend("force", parent._.style, self._.style)
+	else
+		return vim.deepcopy(self._.style)
+	end
+end
+
 ---@param renderer markup.Renderer
 ---@param parent? markup.Element
 function Element:render(renderer, parent)
 	local row_initial, col_initial = renderer:get_pos()
 	renderer:set_state(self, {
 		initial = { row = row_initial, col = col_initial },
+		style = self:inherit_style(parent),
 		parent = parent,
 	})
 
@@ -83,12 +92,8 @@ function Element:render(renderer, parent)
 
 	local lengths, max_len = {}, 0
 	for row = row_start, row_end do
-		local col = renderer:get_col(row)
-		if col < col_start then
-			renderer:pad(col_start, row)
-		end
-
-		lengths[row] = col - col_start
+		local col_curr = renderer:get_col(row)
+		lengths[row] = col_curr - col_start + 1
 		max_len = math.max(max_len, lengths[row])
 	end
 
@@ -96,9 +101,10 @@ function Element:render(renderer, parent)
 		row_start = row_start,
 		row_end = row_end,
 		col_start = col_start,
-		cole_end = max_len,
+		col_end = max_len,
 		lengths = lengths,
 		box = { width = max_len, height = row_end - row_start },
+		-- parent = parent,
 	})
 
 	self:after_draw(renderer)
@@ -106,6 +112,7 @@ function Element:render(renderer, parent)
 	local row_final, col_final = renderer:get_pos()
 	renderer:set_state(self, {
 		final = { row = row_final, col = col_final },
+		-- parent = parent,
 	})
 end
 

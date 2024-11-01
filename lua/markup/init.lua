@@ -6,7 +6,9 @@
 ---@field Window markup.Window.constructor
 ---@field Element markup.Element.constructor
 ---@field Text markup.Text.constructor
+---@field Line markup.Line.constructor
 ---@field Object markup.Object.constructor
+---@field Padding markup.Padding.constructor
 local markup = {}
 
 ---@private
@@ -18,7 +20,9 @@ markup.elements = {
 	Window = "markup.core.window",
 	Element = "markup.core.element",
 	Text = "markup.core.text",
+	Line = "markup.core.line",
 	Object = "markup.core.object",
+	Padding = "markup.core.text.padding",
 }
 
 return setmetatable(markup, {

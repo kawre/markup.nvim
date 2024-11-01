@@ -34,7 +34,7 @@ function Text:set(content, extmark)
 	if extmark then
 		-- preserve self.extmark.id
 		local id = self.extmark and self.extmark.id or nil
-		self.extmark = is_type("string", extmark) and { hl_group = extmark } or vim.deepcopy(extmark)
+		self.extmark = type(extmark) == "string" and { hl_group = extmark } or vim.deepcopy(extmark)
 		self.extmark.id = id
 	end
 
@@ -68,16 +68,13 @@ function Text:highlight(bufnr, ns_id, linenr, byte_start)
 
 	self.extmark.end_col = byte_start + self:length()
 
-	self.extmark.id =
-		vim.api.nvim_buf_set_extmark(bufnr, _.ensure_namespace_id(ns_id), linenr - 1, byte_start, self.extmark)
+	vim.api.nvim_buf_add_highlight(bufnr, ns_id, "ErrorMsg", linenr, byte_start, self.extmark.end_col)
 end
 
 ---@param renderer markup.Renderer
 ---@param parent? markup.Element
 function Text:render(renderer, parent)
-	self:draw(renderer)
-	renderer:inc_pos(self:length())
-	vim.wait(250)
+	renderer:add_text(self)
 end
 
 ---@param renderer markup.Renderer
