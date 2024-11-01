@@ -50,15 +50,17 @@ function Element:render(renderer, parent)
 
 	local row_start, col_start = renderer:get_pos()
 	self:draw(renderer)
-	local row_end, col_end = renderer:get_pos()
+	local row_end = renderer:get_pos()
+
+	local lengths, max_len = {}, 0
+	for row = row_start, row_end do
+		lengths[row] = renderer:get_col(row) - col_start
+		max_len = math.max(max_len, lengths[row])
+	end
 
 	local start = { row = row_start, col = col_start }
-	local endd = { row = row_end, col = col_end }
-	local box = { width = endd.col - start.col, height = endd.row - start.row }
-	local lengths = {}
-	for row = start.row, endd.row do
-		lengths[row] = renderer:get_col(row) - start.col
-	end
+	local endd = { row = row_end, col = max_len }
+	local box = { width = max_len, height = endd.row - start.row }
 
 	renderer:set_state(self, {
 		start = start,
@@ -69,14 +71,13 @@ function Element:render(renderer, parent)
 	})
 
 	self:after_draw(renderer)
-	-- vim.wait(100)
 end
 
 ---@param renderer markup.Renderer
 function Element:draw(renderer)
 	local content = self:content()
 	for _, element in ipairs(content) do
-		element:render(renderer)
+		element:render(renderer, self)
 	end
 end
 

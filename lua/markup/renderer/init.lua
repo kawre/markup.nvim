@@ -57,6 +57,17 @@ function Renderer:init(props)
 		signcolumn = "no",
 		winfixbuf = true,
 	})
+	self:setup_autocmds()
+end
+
+function Renderer:setup_autocmds()
+	log.debug(self._.bufnr)
+	vim.api.nvim_create_autocmd("WinResized", {
+		buffer = self._.bufnr,
+		callback = function()
+			self:render()
+		end,
+	})
 end
 
 ---Get grid position at row
@@ -88,14 +99,12 @@ end
 function Renderer:render()
 	local elapsed_ms, fps = utils.measure_time(function()
 		self:clear_grid()
-		self:set_default_state()
-
 		self:with_modifiable(function()
 			self._.child:render(self)
 		end)
 	end)
 
-	log.info(("elapsed time: %.2fms [FPS: %d]"):format(elapsed_ms, fps))
+	log.debug(("elapsed time: %.2fms [FPS: %d]"):format(elapsed_ms, fps))
 end
 
 function Renderer:clear_grid()
@@ -177,6 +186,10 @@ end
 ---@param element markup.Element
 ---@param state markup.Renderer.state
 function Renderer:set_state(element, state)
+	if not state.parent then
+		state.box = { width = self:width(), height = self:height() }
+	end
+
 	self._.state[element] = state
 end
 

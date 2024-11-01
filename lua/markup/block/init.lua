@@ -11,8 +11,7 @@ local log = require("markup.logger")
 local Block = markup.Element:extend("MarkupBlock")
 
 function Block:before_draw(renderer)
-	local _, col = renderer:get_pos()
-	if col ~= 0 then
+	if renderer:get_col() ~= 0 then
 		renderer:endl()
 	end
 end

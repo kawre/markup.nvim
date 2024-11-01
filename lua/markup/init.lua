@@ -11,20 +11,20 @@ local markup = {}
 
 ---@private
 markup.elements = {
-	Box = "box",
-	Inline = "inline",
-	Block = "block",
-	Renderer = "renderer",
-	Window = "core.window",
-	Element = "core.element",
-	Text = "core.text",
-	Object = "core.object",
+	Box = "markup.box",
+	Inline = "markup.inline",
+	Block = "markup.block",
+	Renderer = "markup.renderer",
+	Window = "markup.core.window",
+	Element = "markup.core.element",
+	Text = "markup.core.text",
+	Object = "markup.core.object",
 }
 
 return setmetatable(markup, {
 	__index = function(t, k)
 		if t.elements[k] then
-			return require("markup." .. t.elements[k])
+			return require(t.elements[k])
 		end
 	end,
 })

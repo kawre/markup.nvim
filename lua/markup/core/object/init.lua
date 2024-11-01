@@ -1,7 +1,7 @@
 -- source: https://github.com/kikito/middleclass
 
 local idx = {
-	subclasses = { "<nui.utils.object:subclasses>" },
+	subclasses = { "<markup.utils.object:subclasses>" },
 }
 
 local function __tostring(self)
