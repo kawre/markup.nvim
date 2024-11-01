@@ -6,10 +6,14 @@ local log = require("markup.logger")
 ---@alias markup.Renderer.state.box { width: integer, height: integer }
 
 ---@class markup.Renderer.state
----@field start markup.Renderer.state.position
----@field endd markup.Renderer.state.position
----@field box markup.Renderer.state.box
----@field lengths integer[]
+---@field row_start? integer
+---@field row_end? integer
+---@field col_start? integer
+---@field col_end? integer
+---@field initial? markup.Renderer.state.position
+---@field final? markup.Renderer.state.position
+---@field lengths? integer[]
+---@field box? markup.Renderer.state.box
 ---@field parent? markup.Element
 
 ---@class markup.Renderer.props : markup.Window.props
@@ -137,10 +141,10 @@ function Renderer:endl(n)
 	end
 end
 
----Add padding after line
----@param n integer
----@param row_at? integer
----@param col_at? integer
+---Add padding (row_at, col_at)
+---@param n integer repeat
+---@param row_at? integer (0-indexed)
+---@param col_at? integer (0-indexed)
 function Renderer:pad(n, row_at, col_at)
 	local row, col = self:get_pos()
 	row = row_at or row
@@ -169,31 +173,14 @@ function Renderer:with_modifiable(fn)
 		return
 	end
 
-	local modi = vim.api.nvim_buf_get_option(bufnr, "modifiable")
-	if not modi then
-		vim.api.nvim_buf_set_option(bufnr, "modifiable", true)
+	local modifiable = vim.api.nvim_get_option_value("modifiable", { buf = bufnr })
+	if not modifiable then
+		utils.set_option_value("modifiable", true, { buf = bufnr })
+		fn()
+		utils.set_option_value("modifiable", false, { buf = bufnr })
+	else
+		fn()
 	end
-	fn()
-	if not modi then
-		vim.api.nvim_buf_set_option(bufnr, "modifiable", false)
-	end
-end
-
-function Renderer:set_default_state()
-	local start = { row = 0, col = 0 }
-	local endd = { row = self:height() - 1, col = self:width() - 1 }
-	local box = { width = endd.col + 1, height = endd.row + 1 }
-	local lengths = {}
-	for row = start.row, endd.row do
-		lengths[row] = 0
-	end
-
-	self:set_state(self, { ---@diagnostic disable-line: param-type-mismatch
-		start = start,
-		endd = endd,
-		box = box,
-		lengths = lengths,
-	})
 end
 
 ---@param element markup.Element
@@ -203,7 +190,7 @@ function Renderer:set_state(element, state)
 		state.box = { width = self:width(), height = self:height() }
 	end
 
-	self._.state[element] = state
+	self._.state[element] = vim.tbl_deep_extend("force", self._.state[element] or {}, state)
 end
 
 ---@param element markup.Element

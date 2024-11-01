@@ -40,6 +40,13 @@ function Element:normalize_props(props, defaults)
 	return vim.tbl_deep_extend("force", defaults or {}, result)
 end
 
+function Element:with_type(type, fn)
+	local old_type = self._.type
+	self._.type = type
+	fn()
+	self._.type = old_type
+end
+
 ---@return markup.Element[]
 function Element:content()
 	return self._.children
@@ -62,6 +69,12 @@ end
 ---@param renderer markup.Renderer
 ---@param parent? markup.Element
 function Element:render(renderer, parent)
+	local row_initial, col_initial = renderer:get_pos()
+	renderer:set_state(self, {
+		initial = { row = row_initial, col = col_initial },
+		parent = parent,
+	})
+
 	self:before_draw(renderer)
 
 	local row_start, col_start = renderer:get_pos()
@@ -74,19 +87,21 @@ function Element:render(renderer, parent)
 		max_len = math.max(max_len, lengths[row])
 	end
 
-	local start = { row = row_start, col = col_start }
-	local endd = { row = row_end, col = max_len }
-	local box = { width = max_len, height = endd.row - start.row }
-
 	renderer:set_state(self, {
-		start = start,
-		endd = endd,
+		row_start = row_start,
+		row_end = row_end,
+		col_start = col_start,
+		cole_end = max_len,
 		lengths = lengths,
-		box = box,
-		parent = parent,
+		box = { width = max_len, height = row_end - row_start },
 	})
 
 	self:after_draw(renderer)
+
+	local row_final, col_final = renderer:get_pos()
+	renderer:set_state(self, {
+		final = { row = row_final, col = col_final },
+	})
 end
 
 ---@param renderer markup.Renderer
@@ -99,21 +114,19 @@ end
 
 ---@param renderer markup.Renderer
 function Element:before_draw(renderer)
-	log.debug({
-		class_name = self.class.name,
-		type = self._.type,
-	})
-	if self._.type == "block" and renderer:get_col() ~= 0 then
+	local state = renderer:get_state(self)
+	local parent_state = renderer:get_state(state.parent)
+	log.debug(parent_state)
+	local xd = parent_state and parent_state.start.col or 0
+
+	local row, col = renderer:get_pos()
+	if self._.type == "block" and col ~= xd then
 		renderer:endl()
 	end
 end
 
 ---@param renderer markup.Renderer
 function Element:after_draw(renderer)
-	log.debug({
-		class_name = self.class.name,
-		type = self._.type,
-	})
 	if self._.type == "block" then
 		renderer:endl()
 	end

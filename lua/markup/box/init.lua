@@ -29,8 +29,10 @@ end
 function Box:draw(renderer)
 	local content = self:content()
 	for i, element in ipairs(content) do
-		-- element._.type = self._.direction == "column" and "block" or "inline"
-		element:render(renderer, self)
+		local type = self._.direction == "column" and "block" or "inline"
+		element:with_type(type, function()
+			element:render(renderer, self)
+		end)
 
 		if self._.spacing > 0 and i ~= #content then
 			if self._.direction == "column" then

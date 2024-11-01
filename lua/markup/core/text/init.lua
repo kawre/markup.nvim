@@ -77,6 +77,7 @@ end
 function Text:render(renderer, parent)
 	self:draw(renderer)
 	renderer:inc_pos(self:length())
+	vim.wait(250)
 end
 
 ---@param renderer markup.Renderer
