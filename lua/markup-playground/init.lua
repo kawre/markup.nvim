@@ -17,6 +17,7 @@ function playground.open()
 	playground.preview = {
 		winid = api.nvim_get_current_win(),
 		bufnr = api.nvim_get_current_buf(),
+		ns_id = api.nvim_create_namespace("markup-playground"),
 	}
 
 	api.nvim_set_current_win(playground.editor.winid)

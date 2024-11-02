@@ -104,7 +104,6 @@ function Element:render(renderer, parent)
 		col_end = max_len,
 		lengths = lengths,
 		box = { width = max_len, height = row_end - row_start },
-		-- parent = parent,
 	})
 
 	self:after_draw(renderer)
@@ -112,7 +111,6 @@ function Element:render(renderer, parent)
 	local row_final, col_final = renderer:get_pos()
 	renderer:set_state(self, {
 		final = { row = row_final, col = col_final },
-		-- parent = parent,
 	})
 end
 
@@ -132,11 +130,22 @@ function Element:before_draw(renderer)
 	if self._.type == "block" and col ~= state.initial.col then
 		renderer:endl()
 	end
+
+	local parent_state = renderer:get_state(state.parent)
+	if parent_state then
+		col = renderer:get_col()
+		if parent_state.initial.col > col then
+			renderer:pad(parent_state.initial.col - col)
+		end
+	end
 end
 
 ---@param renderer markup.Renderer
 function Element:after_draw(renderer)
-	if self._.type == "block" then
+	local state = renderer:get_state(self)
+
+	local col = renderer:get_col()
+	if self._.type == "block" and col ~= state.initial.col then
 		renderer:endl()
 	end
 end

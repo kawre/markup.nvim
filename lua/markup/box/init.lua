@@ -28,17 +28,25 @@ end
 ---@param renderer markup.Renderer
 function Box:draw(renderer)
 	local content = self:content()
+	local state = renderer:get_state(self)
+
 	for i, element in ipairs(content) do
 		local type = self._.direction == "column" and "block" or "inline"
 		element:with_type(type, function()
 			element:render(renderer, self)
 		end)
 
-		if self._.spacing > 0 and i ~= #content then
-			if self._.direction == "column" then
-				renderer:endl(self._.spacing)
-			elseif self._.direction == "row" then
-				renderer:pad(self._.spacing)
+		if i ~= #content then
+			if self._.spacing > 0 then
+				if self._.direction == "column" then
+					renderer:endl(self._.spacing)
+				elseif self._.direction == "row" then
+					renderer:pad(self._.spacing)
+				end
+			end
+
+			if self._.direction == "row" then
+				renderer:set_pos(state.initial.row)
 			end
 		end
 	end
@@ -62,6 +70,10 @@ function Box:after_draw(renderer)
 			padding = state.box.width - length
 			renderer:pad(padding, row, state.col_start)
 		end
+	end
+
+	if self._.direction == "row" then
+		renderer:reset_pos()
 	end
 
 	Box.super.after_draw(self, renderer)

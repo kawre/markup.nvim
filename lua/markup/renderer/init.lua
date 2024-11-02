@@ -99,12 +99,13 @@ end
 
 ---Get grid position at row
 ---@param row_at integer (0-indexed)
----@param col_at? integer (0-indexed)
 ---@return integer, integer (row, col): (0-indexed, 0-indexed)
-function Renderer:set_pos(row_at, col_at)
-	col_at = col_at or self:get_col(row_at)
-	self._.pos = { row = row_at, col = col_at }
-	self:update_pos()
+function Renderer:set_pos(row_at)
+	self._.row = row_at
+end
+
+function Renderer:reset_pos()
+	self._.row = #self._.lines
 end
 
 ---Get grid position at row
