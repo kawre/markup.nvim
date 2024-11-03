@@ -15,15 +15,16 @@ local log = require("markup.logger")
 ---@field lengths? integer[]
 ---@field box? markup.Renderer.state.box
 ---@field parent? markup.Element
+---@field rendered_children? markup.Element[]
 
 ---@class markup.Renderer.props : markup.Window.props
 ---@field grid integer[]
 ---@field ns_id integer
 ---@field child markup.Element
 ---@field state markup.Renderer.state[]
----@field pos markup.Renderer.state.position
 ---@field row integer
 ---@field lines table<integer, markup.Line>
+---@field prev markup.Element
 
 ---@class markup.Renderer : markup.Window
 ---@field _ markup.Renderer.props
@@ -32,8 +33,8 @@ local Renderer = markup.Window:extend("MarkupRenderer")
 ---@param props markup.Renderer.constructor.props
 function Renderer:init(props)
 	props = self:normalize_props(props, {
-		bufnr = nil,
-		winid = nil,
+		bufnr = 0,
+		winid = 0,
 		ns_id = -1,
 		state = {},
 		lines = { [0] = markup.Line() },
@@ -89,12 +90,6 @@ function Renderer:setup_autocmds()
 	-- 		self:render()
 	-- 	end,
 	-- })
-end
-
-function Renderer:update_pos()
-	local pos, grid = self._.pos, self._.grid
-	self:endl(pos.row - (#grid - 1))
-	self:pad(pos.col - grid[pos.row])
 end
 
 ---Get grid position at row
@@ -229,6 +224,39 @@ end
 ---@param element markup.Element
 function Renderer:get_state(element)
 	return self._.state[element]
+end
+
+---@param element markup.Element
+---@param state? markup.Renderer.state
+function Renderer:get_parent_state(element, state)
+	if state then
+		return self:get_state(state.parent)
+	else
+		local element_state = self:get_state(element)
+		return element_state and self:get_state(element_state.parent)
+	end
+end
+
+function Renderer:append_rendered_child(element, child)
+	local state = self:get_state(element)
+
+	if state then
+		log.debug({
+			state = state,
+		})
+		table.insert(state.rendered_children, child)
+	end
+end
+
+---@param child markup.Element
+function Renderer:set_child(child)
+	self._.child = child
+end
+
+---@param element markup.Element
+function Renderer:get_prev(element)
+	local parent_state = self:get_parent_state(element)
+	return parent_state and parent_state.rendered_children[#parent_state.rendered_children]
 end
 
 ---@class markup.Renderer.constructor.props

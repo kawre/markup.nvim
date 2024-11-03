@@ -3,7 +3,7 @@ if n_ok then
 	vim.notify = notify
 end
 
-local config = { user = { logging = true }, debug = true }
+local config = require("markup.config")
 local lvls = vim.log.levels
 
 ---@class markup.Logger
@@ -25,7 +25,7 @@ function logger.log(msg, lvl)
 		return
 	end
 
-	local title = "[markup.nvim]"
+	local title = config.name
 	lvl = lvl or lvls.INFO
 	msg = normalize(msg)
 

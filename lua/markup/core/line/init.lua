@@ -29,7 +29,7 @@ end
 
 function Line:draw(renderer, row_at)
 	local str = self:content()
-	vim.api.nvim_buf_set_lines(renderer._.bufnr, row_at, row_at, false, { str })
+	vim.api.nvim_buf_set_lines(renderer._.bufnr, row_at, -1, true, { str })
 
 	-- local offset = 0
 	-- for _, text in ipairs(self._.highlights) do

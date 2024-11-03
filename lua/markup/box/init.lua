@@ -27,25 +27,27 @@ end
 
 ---@param renderer markup.Renderer
 function Box:draw(renderer)
-	local content = self:content()
 	local state = renderer:get_state(self)
+	local content = self:content()
+	local dir = self:get_direction()
+	local type = dir == "column" and "block" or "inline"
+	local spacing = self:get_spacing()
 
 	for i, element in ipairs(content) do
-		local type = self._.direction == "column" and "block" or "inline"
 		element:with_type(type, function()
 			element:render(renderer, self)
 		end)
 
 		if i ~= #content then
-			if self._.spacing > 0 then
-				if self._.direction == "column" then
-					renderer:endl(self._.spacing)
-				elseif self._.direction == "row" then
-					renderer:pad(self._.spacing)
+			if spacing > 0 then
+				if dir == "column" then
+					renderer:endl(spacing)
+				elseif dir == "row" then
+					renderer:pad(spacing)
 				end
 			end
 
-			if self._.direction == "row" then
+			if dir == "row" then
 				renderer:set_pos(state.initial.row)
 			end
 		end
@@ -55,28 +57,41 @@ end
 ---@param renderer markup.Renderer
 function Box:after_draw(renderer)
 	local state = renderer:get_state(self)
+	local align, dir = self:get_align(), self:get_direction()
 
 	for row = state.row_start, state.row_end do
 		local padding, length = 0, state.lengths[row]
 
-		if self._.align == "start" then
+		if align == "start" then
 			padding = state.box.width - length
 			renderer:pad(padding, row)
-		elseif self._.align == "center" then
+		elseif align == "center" then
 			padding = math.floor((state.box.width - length) / 2)
 			renderer:pad(padding, row, state.col_start)
 			renderer:pad(padding, row)
-		elseif self._.align == "end" then
+		elseif align == "end" then
 			padding = state.box.width - length
 			renderer:pad(padding, row, state.col_start)
 		end
 	end
 
-	if self._.direction == "row" then
+	Box.super.after_draw(self, renderer)
+
+	if dir == "row" then
 		renderer:reset_pos()
 	end
+end
 
-	Box.super.after_draw(self, renderer)
+function Box:get_spacing()
+	return self._.spacing
+end
+
+function Box:get_align()
+	return self._.align
+end
+
+function Box:get_direction()
+	return self._.direction
 end
 
 ---@class markup.Box.constructor.props

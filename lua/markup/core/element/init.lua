@@ -44,12 +44,14 @@ function Element:with_type(type, fn)
 	local old_type = self._.type
 	self._.type = type
 	fn()
-	self._.type = old_type
+	-- self._.type = old_type
 end
 
 ---@return markup.Element[]
 function Element:content()
-	return self._.children
+	return vim.tbl_filter(function(child)
+		return #child:content() ~= 0
+	end, self._.children)
 end
 
 ---@param content string | markup.Text | markup.Element
@@ -81,6 +83,7 @@ function Element:render(renderer, parent)
 	renderer:set_state(self, {
 		initial = { row = row_initial, col = col_initial },
 		style = self:inherit_style(parent),
+		rendered_children = {},
 		parent = parent,
 	})
 
@@ -112,6 +115,8 @@ function Element:render(renderer, parent)
 	renderer:set_state(self, {
 		final = { row = row_final, col = col_final },
 	})
+
+	renderer:append_rendered_child(parent, self)
 end
 
 ---@param renderer markup.Renderer
@@ -124,30 +129,18 @@ end
 
 ---@param renderer markup.Renderer
 function Element:before_draw(renderer)
-	local state = renderer:get_state(self)
+	local prev = renderer:get_prev(self)
 
-	local col = renderer:get_col()
-	if self._.type == "block" and col ~= state.initial.col then
+	if prev and (prev:get_type() == "block" or self:get_type() == "block") then
 		renderer:endl()
-	end
-
-	local parent_state = renderer:get_state(state.parent)
-	if parent_state then
-		col = renderer:get_col()
-		if parent_state.initial.col > col then
-			renderer:pad(parent_state.initial.col - col)
-		end
 	end
 end
 
 ---@param renderer markup.Renderer
-function Element:after_draw(renderer)
-	local state = renderer:get_state(self)
+function Element:after_draw(renderer) end
 
-	local col = renderer:get_col()
-	if self._.type == "block" and col ~= state.initial.col then
-		renderer:endl()
-	end
+function Element:get_type()
+	return self._.type
 end
 
 ---@class markup.Element.constructor.props
