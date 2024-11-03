@@ -135,4 +135,194 @@ describe("RowBox Renderer", function()
 			"  3      ",
 		})
 	end)
+
+	it("should add spacing between inline blocks", function()
+		vim.api.nvim_win_set_width(window.winid, 20)
+
+		RowBoxRenderer({
+			spacing = 2,
+			align = "center",
+			children = {
+				markup.Inline("1"),
+				markup.Block("2"),
+				markup.Box({
+					children = {
+						markup.Inline("inside"),
+						markup.Block("hi"),
+					},
+				}),
+				markup.Inline("3"),
+			},
+		}, {
+			"  1  2  inside  3  ",
+			"        hi         ",
+		})
+	end)
+
+	it("should add spacing between inline blocks", function()
+		vim.api.nvim_win_set_width(window.winid, 20)
+
+		RowBoxRenderer({
+			spacing = 2,
+			align = "start",
+			children = {
+				markup.Inline("1"),
+				markup.Block("2"),
+				markup.Box({
+					children = {
+						markup.Inline("inside"),
+						markup.Block("hi"),
+					},
+				}),
+				markup.Inline("3"),
+			},
+		}, {
+			"1  2  inside  3    ",
+			"      hi           ",
+		})
+	end)
+
+	it("should add spacing between inline blocks", function()
+		vim.api.nvim_win_set_width(window.winid, 20)
+
+		RowBoxRenderer({
+			spacing = 2,
+			align = "end",
+			children = {
+				markup.Inline("1"),
+				markup.Block("2"),
+				markup.Box({
+					children = {
+						markup.Inline("inside"),
+						markup.Block("hi"),
+					},
+				}),
+				markup.Inline("3"),
+			},
+		}, {
+			"    1  2  inside  3",
+			"          hi       ",
+		})
+	end)
+
+	it("should add spacing between inline blocks", function()
+		vim.api.nvim_win_set_width(window.winid, 20)
+
+		RowBoxRenderer({
+			align = "center",
+			spacing = 1,
+			children = {
+				markup.Inline("1"),
+				markup.Box({
+					spacing = 2,
+					children = {
+						markup.Inline("inside"),
+						markup.Block("hi"),
+					},
+				}),
+				markup.Box({
+					children = {
+						markup.Inline("3"),
+						markup.Inline("33"),
+						markup.Inline("3"),
+					},
+				}),
+			},
+		}, {
+			"    1 inside 3     ",
+			"             33    ",
+			"             3     ",
+			"      hi           ",
+		})
+	end)
+
+	it("should add spacing between inline blocks", function()
+		vim.api.nvim_win_set_width(window.winid, 20)
+
+		RowBoxRenderer({
+			align = "center",
+			spacing = 1,
+			children = {
+				markup.Box({
+					align = "end",
+					children = {
+						markup.Inline("3"),
+						markup.Inline("33"),
+						markup.Inline("3"),
+					},
+				}),
+				markup.Inline("1"),
+				markup.Box({
+					children = {
+						markup.Inline("inside"),
+						markup.Block("hi"),
+					},
+				}),
+			},
+		}, {
+			"     3 1 inside    ",
+			"    33   hi        ",
+			"     3             ",
+		})
+	end)
+
+	it("should add spacing between inline blocks", function()
+		vim.api.nvim_win_set_width(window.winid, 20)
+
+		RowBoxRenderer({
+			align = "end",
+			spacing = 1,
+			children = {
+				markup.Box({
+					align = "end",
+					children = {
+						markup.Inline("3"),
+						markup.Inline("33"),
+						markup.Inline("3"),
+					},
+				}),
+				markup.Inline("1"),
+				markup.Box({
+					children = {
+						markup.Inline("inside"),
+						markup.Block("hi"),
+					},
+				}),
+			},
+		}, {
+			"         3 1 inside",
+			"        33   hi    ",
+			"         3         ",
+		})
+	end)
+
+	it("should add spacing between inline blocks", function()
+		vim.api.nvim_win_set_width(window.winid, 20)
+
+		RowBoxRenderer({
+			align = "start",
+			spacing = 1,
+			children = {
+				markup.Box({
+					align = "end",
+					children = {
+						markup.Inline("3"),
+						markup.Inline("33"),
+						markup.Inline("3"),
+					},
+				}),
+				markup.Inline("1"),
+				markup.Box({
+					children = {
+						markup.Inline("inside"),
+						markup.Block("hi"),
+					},
+				}),
+			},
+		}, {
+			" 3 1 inside        ",
+			"33   hi            ",
+			" 3                 ",
+		})
+	end)
 end)

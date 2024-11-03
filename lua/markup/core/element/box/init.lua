@@ -38,15 +38,26 @@ function Box:draw(renderer)
 			element:render(renderer, self)
 		end)
 
+		local child_state = renderer:get_state(element)
+		-- if dir == "row" then
+		-- 	state = renderer:get_state(self)
+		--
+		-- 	if child_state.row_end < state.row_end then
+		-- 		state.row_start = child_state.row_start
+		-- 	end
+		-- end
+
 		if i ~= #content then
 			if spacing > 0 then
 				if dir == "column" then
 					renderer:endl(spacing)
 				elseif dir == "row" then
-					renderer:pad(spacing)
+					-- local child_state = renderer:get_state(element)
+					for j = child_state.row_start, child_state.row_end do
+						renderer:pad(spacing, j)
+					end
 				end
 			end
-
 			if dir == "row" then
 				renderer:set_pos(state.initial.row)
 			end

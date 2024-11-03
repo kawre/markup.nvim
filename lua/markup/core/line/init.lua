@@ -42,6 +42,13 @@ end
 function Line:append(text, col_at)
 	col_at = col_at or #self._.chars
 	local str = text:content()
+
+	if col_at > #self._.chars then
+		for _ = #self._.chars, col_at do
+			table.insert(self._.chars, " ")
+		end
+	end
+
 	for i = 1, #str do
 		table.insert(self._.chars, col_at + i, str:sub(i, i))
 	end

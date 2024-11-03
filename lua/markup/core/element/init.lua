@@ -138,12 +138,7 @@ function Element:before_draw(renderer)
 
 	local parent_state = renderer:get_parent_state(self)
 	if parent_state then
-		local row, col = renderer:get_pos()
-		log.debug({
-			initial = parent_state.initial,
-			col = col,
-			line = renderer:get_line(row):content(),
-		})
+		local col = renderer:get_col()
 		if parent_state.initial.col > col then
 			renderer:pad(parent_state.initial.col - col)
 		end

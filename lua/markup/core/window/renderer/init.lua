@@ -152,6 +152,8 @@ function Renderer:add_text(text, row_at)
 end
 
 function Renderer:render()
+	log.debug("[Renderer:render]")
+
 	local elapsed_ms, fps = utils.measure_time(function()
 		self:clear()
 		self._.child:render(self)
@@ -159,7 +161,7 @@ function Renderer:render()
 	end)
 
 	if __TEST__ then
-		print(("elapsed time: %.2fms [FPS: %d]"):format(elapsed_ms, fps))
+		-- print(("elapsed time: %.2fms [FPS: %d]"):format(elapsed_ms, fps))
 	end
 end
 
@@ -261,6 +263,21 @@ function Renderer:append_rendered_child(element, child)
 	if state then
 		table.insert(state.rendered_children, child)
 	end
+end
+
+---@param element markup.Element
+function Renderer:get_rendered_size(element)
+	local row_start, col_start, row_end, col_end
+
+	local state = self:get_state(element)
+	for _, child in ipairs(state.rendered_children) do
+		local child_state = self:get_state(child)
+		row_start = math.min(row_start, child_state.row_start)
+		row_end = math.max(row_end, child_state.row_end)
+		col_start = math.min(col_start, child_state.col_start)
+	end
+
+	return row_start, col_start, row_end, col_end
 end
 
 ---@param child markup.Element
