@@ -14,57 +14,53 @@ describe("RowBox Renderer", function()
 		h.close_window(window)
 	end)
 
-	it("should render inline elements in one row", function()
+	local function RowBoxRenderer(props, lines)
+		local default = {
+			direction = "row",
+			children = props,
+		}
+		if props.children then
+			default.children = props.children
+		end
+		for key, value in pairs(props) do
+			default[key] = value
+		end
 		renderer({
-			child = markup.Box({
-				direction = "row",
-				children = {
-					markup.Inline("1"),
-					markup.Inline("2"),
-					markup.Inline("3"),
-					markup.Inline("4"),
-				},
-			}),
+			child = markup.Box(default),
 		}):render()
+		h.assert_lines(window, lines)
+	end
 
-		h.assert_lines(window, {
+	it("should render inline elements in one row", function()
+		RowBoxRenderer({
+			markup.Inline("1"),
+			markup.Inline("2"),
+			markup.Inline("3"),
+			markup.Inline("4"),
+		}, {
 			"1234     ",
 		})
 	end)
 
 	it("should render block elements in one row", function()
-		renderer({
-			child = markup.Box({
-				direction = "row",
-				children = {
-					markup.Block("1"),
-					markup.Block("2"),
-					markup.Block("3"),
-					markup.Block("4"),
-				},
-			}),
-		}):render()
-
-		h.assert_lines(window, {
+		RowBoxRenderer({
+			markup.Block("1"),
+			markup.Block("2"),
+			markup.Block("3"),
+			markup.Block("4"),
+		}, {
 			"1234     ",
 		})
 	end)
 
 	it("should render elements in one row", function()
-		renderer({
-			child = markup.Box({
-				direction = "row",
-				children = {
-					markup.Inline("1"),
-					markup.Block("2"),
-					markup.Inline("3"),
-					markup.Block("4"),
-					markup.Block("5"),
-				},
-			}),
-		}):render()
-
-		h.assert_lines(window, {
+		RowBoxRenderer({
+			markup.Inline("1"),
+			markup.Block("2"),
+			markup.Inline("3"),
+			markup.Block("4"),
+			markup.Block("5"),
+		}, {
 			"12345    ",
 		})
 	end)
@@ -109,6 +105,33 @@ describe("RowBox Renderer", function()
 
 		h.assert_lines(window, {
 			"1234     ",
+			"  3      ",
+		})
+	end)
+
+	it("should render Box as inline block", function()
+		RowBoxRenderer({
+			markup.Box({
+				children = {
+					markup.Block("1"),
+				},
+			}),
+			markup.Box({
+				children = {
+					markup.Block("2"),
+					markup.Block("2"),
+				},
+			}),
+			markup.Box({
+				children = {
+					markup.Block("3"),
+					markup.Block("3"),
+					markup.Block("3"),
+				},
+			}),
+		}, {
+			"123      ",
+			" 23      ",
 			"  3      ",
 		})
 	end)

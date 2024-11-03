@@ -18,13 +18,12 @@ local log = require("markup.logger")
 ---@field rendered_children? markup.Element[]
 
 ---@class markup.Renderer.props : markup.Window.props
----@field grid integer[]
 ---@field ns_id integer
 ---@field child markup.Element
 ---@field state markup.Renderer.state[]
 ---@field row integer
+---@field row_history {}
 ---@field lines table<integer, markup.Line>
----@field prev markup.Element
 
 ---@class markup.Renderer : markup.Window
 ---@field _ markup.Renderer.props
@@ -159,7 +158,26 @@ function Renderer:render()
 		self:draw_lines()
 	end)
 
-	log.debug(("elapsed time: %.2fms [FPS: %d]"):format(elapsed_ms, fps))
+	if __TEST__ then
+		print(("elapsed time: %.2fms [FPS: %d]"):format(elapsed_ms, fps))
+	end
+end
+
+---@param element markup.Element
+function Renderer:draw_range(element)
+	local row_start, col_start = self:get_pos()
+	element:draw(self)
+	local row_end = self:get_pos()
+
+	local state = self:get_state(element)
+	for _, child in ipairs(state.rendered_children) do
+		local child_state = self:get_state(child)
+		row_start = math.min(row_start, child_state.row_start)
+		row_end = math.max(row_end, child_state.row_end)
+		col_start = math.min(col_start, child_state.col_start)
+	end
+
+	return row_start, col_start, row_end
 end
 
 function Renderer:draw_lines()
@@ -241,9 +259,6 @@ function Renderer:append_rendered_child(element, child)
 	local state = self:get_state(element)
 
 	if state then
-		log.debug({
-			state = state,
-		})
 		table.insert(state.rendered_children, child)
 	end
 end

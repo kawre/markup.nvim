@@ -1,8 +1,7 @@
 local markup = require("markup")
+local h = require("tests.helpers")
 
 describe("ColumnBox Renderer", function()
-	local h = require("tests.helpers")
-
 	---@type table, markup.Renderer
 	local window, renderer
 
@@ -20,15 +19,12 @@ describe("ColumnBox Renderer", function()
 			direction = "column",
 			children = props,
 		}
-
 		if props.children then
 			default.children = props.children
 		end
-
 		for key, value in pairs(props) do
 			default[key] = value
 		end
-
 		renderer({
 			child = markup.Box(default),
 		}):render()
@@ -140,6 +136,74 @@ describe("ColumnBox Renderer", function()
 			"2        ",
 			"3 3      ",
 			"4        ",
+		})
+	end)
+
+	it("should align elements to the start", function()
+		ColumnBoxRenderer({
+			align = "start",
+			children = {
+				markup.Inline("1"),
+				markup.Block("2"),
+				markup.Block("33"),
+			},
+		}, {
+			"1        ",
+			"2        ",
+			"33       ",
+		})
+	end)
+
+	it("should align elements in the center", function()
+		ColumnBoxRenderer({
+			align = "center",
+			children = {
+				markup.Inline("1"),
+				markup.Block("2"),
+				markup.Block("33"),
+			},
+		}, {
+			"    1    ",
+			"    2    ",
+			"   33    ",
+		})
+	end)
+
+	it("should align elements to the end", function()
+		ColumnBoxRenderer({
+			align = "end",
+			children = {
+				markup.Inline("1"),
+				markup.Block("2"),
+				markup.Block("33"),
+			},
+		}, {
+			"        1",
+			"        2",
+			"       33",
+		})
+	end)
+
+	it("should align elements to the center, but keep the boxes inner alignment", function()
+		ColumnBoxRenderer({
+			align = "center",
+			children = {
+				markup.Inline("1"),
+				markup.Block("2"),
+				markup.Box({
+					children = {
+						markup.Inline("inside"),
+						markup.Block("hi"),
+					},
+				}),
+				markup.Block("3"),
+			},
+		}, {
+			"    1    ",
+			"    2    ",
+			" inside  ",
+			" hi      ",
+			"    3    ",
 		})
 	end)
 end)

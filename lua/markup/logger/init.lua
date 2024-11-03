@@ -21,7 +21,7 @@ end
 -- end)
 
 function logger.log(msg, lvl)
-	if not config.user.logging then
+	if __TEST__ or not config.user.logging then
 		return
 	end
 

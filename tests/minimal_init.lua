@@ -13,6 +13,8 @@ end
 
 clean_startup()
 
+__TEST__ = true
+
 local root_dir = vim.fn.fnamemodify(vim.trim(vim.fn.system("git rev-parse --show-toplevel")), ":p"):gsub("/$", "")
 
 package.path = string.format("%s;%s/?.lua;%s/?/init.lua", package.path, root_dir, root_dir)
@@ -22,6 +24,3 @@ vim.opt.packpath:prepend(root_dir .. "/.tests/site")
 vim.cmd([[
   packadd plenary.nvim
 ]])
-
--- local config = require("lazy")
--- -- config.user.logging = false

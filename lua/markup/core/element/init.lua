@@ -79,9 +79,7 @@ end
 ---@param renderer markup.Renderer
 ---@param parent? markup.Element
 function Element:render(renderer, parent)
-	local row_initial, col_initial = renderer:get_pos()
 	renderer:set_state(self, {
-		initial = { row = row_initial, col = col_initial },
 		style = self:inherit_style(parent),
 		rendered_children = {},
 		parent = parent,
@@ -89,9 +87,12 @@ function Element:render(renderer, parent)
 
 	self:before_draw(renderer)
 
-	local row_start, col_start = renderer:get_pos()
-	self:draw(renderer)
-	local row_end = renderer:get_pos()
+	local row_initial, col_initial = renderer:get_pos()
+	renderer:set_state(self, {
+		initial = { row = row_initial, col = col_initial },
+	})
+
+	local row_start, col_start, row_end = renderer:draw_range(self)
 
 	local lengths, max_len = {}, 0
 	for row = row_start, row_end do
@@ -133,6 +134,19 @@ function Element:before_draw(renderer)
 
 	if prev and (prev:get_type() == "block" or self:get_type() == "block") then
 		renderer:endl()
+	end
+
+	local parent_state = renderer:get_parent_state(self)
+	if parent_state then
+		local row, col = renderer:get_pos()
+		log.debug({
+			initial = parent_state.initial,
+			col = col,
+			line = renderer:get_line(row):content(),
+		})
+		if parent_state.initial.col > col then
+			renderer:pad(parent_state.initial.col - col)
+		end
 	end
 end
 

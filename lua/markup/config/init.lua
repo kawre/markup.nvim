@@ -4,7 +4,7 @@ local config = {
 		logging = true,
 	},
 	name = "[markup.nvim]",
-	debug = false,
+	debug = true,
 }
 
 return config

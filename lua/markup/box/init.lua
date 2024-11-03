@@ -60,26 +60,25 @@ function Box:after_draw(renderer)
 	local align, dir = self:get_align(), self:get_direction()
 
 	for row = state.row_start, state.row_end do
-		local padding, length = 0, state.lengths[row]
+		local length = state.lengths[row]
+		local padding = state.box.width - length
 
 		if align == "start" then
-			padding = state.box.width - length
 			renderer:pad(padding, row)
 		elseif align == "center" then
-			padding = math.floor((state.box.width - length) / 2)
-			renderer:pad(padding, row, state.col_start)
-			renderer:pad(padding, row)
+			local half_padding = math.floor(padding / 2)
+			renderer:pad(half_padding, row, state.col_start)
+			renderer:pad(half_padding + padding % 2, row)
 		elseif align == "end" then
-			padding = state.box.width - length
 			renderer:pad(padding, row, state.col_start)
 		end
 	end
 
-	Box.super.after_draw(self, renderer)
-
 	if dir == "row" then
 		renderer:reset_pos()
 	end
+
+	Box.super.after_draw(self, renderer)
 end
 
 function Box:get_spacing()
@@ -100,7 +99,7 @@ end
 ---@field align? markup.Box.align
 ---@field direction? markup.Box.direction
 
----@alias markup.Box.constructor fun(props: markup.Element | markup.Box.constructor.props): markup.Box
+---@alias markup.Box.constructor fun(props: string|  markup.Element | markup.Box.constructor.props): markup.Box
 
 ---@type markup.Box.constructor
 local MarkupBox = Box
