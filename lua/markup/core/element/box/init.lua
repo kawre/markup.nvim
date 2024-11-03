@@ -28,14 +28,14 @@ end
 ---@param renderer markup.Renderer
 function Box:draw(renderer)
     local state = renderer:get_state(self)
-    local content = self:content()
+    local content = self:get_children()
     local dir = self:get_direction()
     local type = dir == "column" and "block" or "inline"
     local spacing = self:get_spacing()
 
     for i, element in ipairs(content) do
         element:with_type(type, function()
-            element:render(renderer, self)
+            element:build(renderer, self)
         end)
 
         local child_state = renderer:get_state(element)

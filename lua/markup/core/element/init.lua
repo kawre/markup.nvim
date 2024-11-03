@@ -3,11 +3,12 @@ local utils = require("markup.utils")
 local log = require("markup.logger")
 
 ---@alias markup.Element.style vim.api.keyset.highlight
+---@alias markup.Element.type "block"|"inline"
 
 ---@class markup.Element.props
 ---@field children markup.Element[]
 ---@field extmark any
----@field type "block"|"inline"
+---@field type markup.Element.type
 ---@field style markup.Element.style
 
 ---@class markup.Element : markup.Object
@@ -40,113 +41,56 @@ function Element:normalize_props(props, defaults)
     return vim.tbl_deep_extend("force", defaults or {}, result)
 end
 
-function Element:with_type(type, fn)
-    local old_type = self._.type
-    self._.type = type
-    fn()
-    -- self._.type = old_type
-end
-
 ---@return markup.Element[]
-function Element:content()
-    return vim.tbl_filter(function(child)
-        return #child:content() ~= 0
-    end, self._.children)
+function Element:get_children()
+    return self._.children
 end
 
----@param content string | markup.Text | markup.Element
----@param highlight? string
----
----@return markup.Element
-function Element:append(content, highlight)
-    local block = content
-
-    if type(block) == "string" then
-        block = markup.Text(block, highlight)
-    end
-
-    table.insert(self._.children, block)
-end
-
-function Element:inherit_style(parent)
-    if parent then
-        return vim.tbl_deep_extend("force", parent._.style, self._.style)
-    else
-        return vim.deepcopy(self._.style)
-    end
+---@param renderer markup.Renderer
+function Element:before_build(renderer)
+    --
 end
 
 ---@param renderer markup.Renderer
 ---@param parent? markup.Element
-function Element:render(renderer, parent)
-    renderer:set_state(self, {
-        style = self:inherit_style(parent),
-        rendered_children = {},
-        parent = parent,
-    })
+function Element:build(renderer, parent)
+    local content = self:get_children()
+    self:before_build(renderer)
 
-    self:before_draw(renderer)
+    renderer:set_state(self, parent)
 
-    local row_initial, col_initial = renderer:get_pos()
-    renderer:set_state(self, {
-        initial = { row = row_initial, col = col_initial },
-    })
-
-    local row_start, col_start, row_end = renderer:draw_range(self)
-
-    local lengths, max_len = {}, 0
-    for row = row_start, row_end do
-        local col_curr = renderer:get_col(row)
-        lengths[row] = col_curr - col_start + 1
-        max_len = math.max(max_len, lengths[row])
+    for _, child in ipairs(content) do
+        child:build(renderer, self)
     end
 
-    renderer:set_state(self, {
-        row_start = row_start,
-        row_end = row_end,
-        col_start = col_start,
-        col_end = max_len,
-        lengths = lengths,
-        box = { width = max_len, height = row_end - row_start },
-    })
-
-    self:after_draw(renderer)
-
-    local row_final, col_final = renderer:get_pos()
-    renderer:set_state(self, {
-        final = { row = row_final, col = col_final },
-    })
-
-    renderer:append_rendered_child(parent, self)
+    self:after_build(renderer)
 end
 
 ---@param renderer markup.Renderer
-function Element:draw(renderer)
-    local content = self:content()
-    for _, element in ipairs(content) do
-        element:render(renderer, self)
-    end
-end
+function Element:after_build(renderer)
+    local state = renderer:get_state(self)
 
----@param renderer markup.Renderer
-function Element:before_draw(renderer)
-    local prev_sibling = renderer:get_prev_rendered_sibling(self)
+    for _, child in ipairs(state:get_children()) do
+        local child_state = renderer:get_state(child)
 
-    if prev_sibling and (prev_sibling:get_type() == "block" or self:get_type() == "block") then
-        renderer:endl()
-    end
+        if child_state then
+            local child_type = child_state:get_type()
 
-    local parent_state = renderer:get_parent_state(self)
-    if parent_state then
-        local col = renderer:get_col()
-        if parent_state.initial.col > col then
-            renderer:pad(parent_state.initial.col - col)
+            for _, line in pairs(child_state:get_lines()) do
+                local sibling_state = renderer:get_prev_sibling_state(child)
+                local sibling_type = sibling_state and sibling_state:get_type()
+
+                if sibling_type and (sibling_type == "block" or child_type == "block") then
+                    state:inc_row()
+                end
+
+                for _, text in ipairs(line:get_texts()) do
+                    state:get_line():append(text)
+                end
+            end
         end
     end
 end
-
----@param renderer markup.Renderer
-function Element:after_draw(renderer) end
 
 function Element:get_type()
     return self._.type
