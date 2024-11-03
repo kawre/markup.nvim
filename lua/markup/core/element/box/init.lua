@@ -4,10 +4,11 @@ local log = require("markup.logger")
 
 ---@alias markup.Box.align "start"|"center"|"end"
 ---@alias markup.Box.direction "row"|"column"
+---@alias markup.Box.spacing string|integer
 
 ---@class markup.Box.props : markup.Element.props
 ---@field align markup.Box.align
----@field spacing integer
+---@field spacing markup.Box.spacing
 ---@field direction markup.Box.direction
 
 ---@class markup.Box : markup.Element
@@ -19,7 +20,6 @@ function Box:init(props)
         align = "start",
         direction = "column",
         spacing = 0,
-        children = {},
     })
 
     Box.super.init(self, props)
@@ -39,6 +39,7 @@ function Box:draw(renderer)
         end)
 
         local child_state = renderer:get_state(element)
+        renderer:get_current_element_range(element)
         -- if dir == "row" then
         -- 	state = renderer:get_state(self)
         --
@@ -93,7 +94,7 @@ function Box:after_draw(renderer)
 end
 
 function Box:get_spacing()
-    return self._.spacing
+    return tonumber(self._.spacing)
 end
 
 function Box:get_align()
@@ -106,11 +107,11 @@ end
 
 ---@class markup.Box.constructor.props
 ---@field children markup.Element[]
----@field spacing? integer
+---@field spacing? markup.Box.spacing
 ---@field align? markup.Box.align
 ---@field direction? markup.Box.direction
 
----@alias markup.Box.constructor fun(props: string|  markup.Element | markup.Box.constructor.props): markup.Box
+---@alias markup.Box.constructor fun(props?: markup.Element | markup.Box.constructor.props): markup.Box
 
 ---@type markup.Box.constructor
 local MarkupBox = Box

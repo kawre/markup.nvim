@@ -28,7 +28,7 @@ describe("ColumnBox Renderer", function()
             default[key] = value
         end
         renderer({
-            child = markup.Box(default),
+            body = markup.Box(default),
         }):render()
         h.assert_lines(window, lines)
     end

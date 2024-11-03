@@ -28,7 +28,7 @@ describe("RowBox Renderer", function()
             default[key] = value
         end
         renderer({
-            child = markup.Box(default),
+            body = markup.Box(default),
         }):render()
         h.assert_lines(window, lines)
     end
@@ -68,44 +68,32 @@ describe("RowBox Renderer", function()
     end)
 
     it("should render elements in one row with one space between them", function()
-        renderer({
-            child = markup.Box({
-                direction = "row",
-                spacing = 1,
-                children = {
-                    markup.Inline("1"),
-                    markup.Block("2"),
-                    markup.Inline("3"),
-                    markup.Block("4"),
-                    markup.Block("5"),
-                },
-            }),
-        }):render()
-
-        h.assert_lines(window, {
+        RowBoxRenderer({
+            spacing = 1,
+            children = {
+                markup.Inline("1"),
+                markup.Block("2"),
+                markup.Inline("3"),
+                markup.Block("4"),
+                markup.Block("5"),
+            },
+        }, {
             "1 2 3 4 5",
         })
     end)
 
     it("should render ColumnBox as inline block", function()
-        renderer({
-            child = markup.Box({
-                direction = "row",
+        RowBoxRenderer({
+            markup.Inline("1"),
+            markup.Block("2"),
+            markup.Box({
                 children = {
-                    markup.Inline("1"),
-                    markup.Block("2"),
-                    markup.Box({
-                        children = {
-                            markup.Inline("3"),
-                            markup.Block("3"),
-                        },
-                    }),
-                    markup.Block("4"),
+                    markup.Inline("3"),
+                    markup.Block("3"),
                 },
             }),
-        }):render()
-
-        h.assert_lines(window, {
+            markup.Block("4"),
+        }, {
             "1234     ",
             "  3      ",
         })

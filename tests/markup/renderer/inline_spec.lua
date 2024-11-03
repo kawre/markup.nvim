@@ -18,7 +18,7 @@ describe("Inline Renderer", function()
 
     local function InlineRenderer(children, lines)
         renderer({
-            child = markup.Inline({
+            body = markup.Inline({
                 children = children,
             }),
         }):render()

@@ -18,7 +18,7 @@ describe("Block Renderer", function()
 
     local function BlockRenderer(children, lines)
         renderer({
-            child = markup.Block({
+            body = markup.Block({
                 children = children,
             }),
         }):render()
