@@ -26,83 +26,55 @@ function Box:init(props)
 end
 
 ---@param renderer markup.Renderer
-function Box:draw(renderer)
+function Box:after_build(renderer)
     local state = renderer:get_state(self)
-    local content = self:get_children()
-    local dir = self:get_direction()
-    local type = dir == "column" and "block" or "inline"
-    local spacing = self:get_spacing()
+    local align = state:get_align()
+    local dir = state:get_direction()
 
-    for i, element in ipairs(content) do
-        element:with_type(type, function()
-            element:build(renderer, self)
-        end)
+    local max_width, max_height = 0, 0
+    local children = state:get_children()
+    for _, child in ipairs(children) do
+        local child_state = renderer:get_state(child)
+        max_height = math.max(max_height, child_state:get_height())
+        max_width = math.max(max_width, child_state:get_width())
+    end
 
-        local child_state = renderer:get_state(element)
-        renderer:get_current_element_range(element)
-        -- if dir == "row" then
-        -- 	state = renderer:get_state(self)
-        --
-        -- 	if child_state.row_end < state.row_end then
-        -- 		state.row_start = child_state.row_start
-        -- 	end
-        -- end
+    for _, child in ipairs(children) do
+        local child_state = renderer:get_state(child)
+        local width = child_state:get_width()
 
-        if i ~= #content then
-            if spacing > 0 then
-                if dir == "column" then
-                    renderer:endl(spacing)
-                elseif dir == "row" then
-                    -- local child_state = renderer:get_state(element)
-                    for j = child_state.row_start, child_state.row_end do
-                        renderer:pad(spacing, j)
-                    end
+        if dir == "column" then
+            for _, line in pairs(child_state:get_lines()) do
+                local padding = max_width - width
+
+                if align == "start" then
+                    line:rightpad(padding)
+                    line:append(markup.Padding(padding))
+                elseif align == "center" then
+                    local halfpad = math.floor(padding / 2)
+                    -- line:leftpad(halfpad)
+                    -- line:rightpad(halfpad + padding % 2)
+
+                    line:prepend(markup.Padding(halfpad))
+                    line:append(markup.Padding(halfpad + padding % 2))
+                elseif align == "end" then
+                    line:prepend(markup.Padding(padding))
+                    -- line:leftpad(padding)
                 end
             end
-            if dir == "row" then
-                renderer:set_pos(state.initial.row)
+        else
+            for i = 1, max_height do
+                local line = child_state:get_line(i - 1)
+                local len = line:length()
+                if len < width then
+                    line:append(markup.Padding(width - len))
+                    -- line:rightpad(width - len)
+                end
             end
         end
     end
-end
 
----@param renderer markup.Renderer
-function Box:after_draw(renderer)
-    local state = renderer:get_state(self)
-    local align, dir = self:get_align(), self:get_direction()
-
-    for row = state.row_start, state.row_end do
-        local length = state.lengths[row]
-        local padding = state.box.width - length
-
-        if align == "start" then
-            renderer:pad(padding, row)
-        elseif align == "center" then
-            local half_padding = math.floor(padding / 2)
-            renderer:pad(half_padding, row, state.col_start)
-            renderer:pad(half_padding + padding % 2, row)
-        elseif align == "end" then
-            renderer:pad(padding, row, state.col_start)
-        end
-    end
-
-    if dir == "row" then
-        renderer:reset_pos()
-    end
-
-    Box.super.after_draw(self, renderer)
-end
-
-function Box:get_spacing()
-    return tonumber(self._.spacing)
-end
-
-function Box:get_align()
-    return self._.align
-end
-
-function Box:get_direction()
-    return self._.direction
+    Box.super.after_build(self, renderer)
 end
 
 ---@class markup.Box.constructor.props

@@ -60,4 +60,27 @@ describe("Inline Renderer", function()
             "2",
         })
     end)
+
+    it("should render elements acording to their type", function()
+        InlineRenderer({
+            markup.Block("1"),
+            markup.Inline("2"),
+            markup.Inline({
+                children = {
+                    markup.Inline("3"),
+                    markup.Inline("4"),
+                    markup.Block("5"),
+                    markup.Block("5"),
+                    markup.Inline("4"),
+                    markup.Inline("4"),
+                },
+            }),
+        }, {
+            "1",
+            "234",
+            "5",
+            "5",
+            "44",
+        })
+    end)
 end)

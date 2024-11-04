@@ -12,17 +12,31 @@ function Line:init()
     self._ = {
         highlights = {},
         texts = {},
+        padding = {
+            left = 0,
+            right = 0,
+        },
     }
 end
 
 function Line:content()
+    local texts = self:get_texts()
+
+    local leftpad, rightpad = self._.padding.left, self._.padding.right
+    if leftpad > 0 then
+        table.insert(texts, 1, markup.Padding(leftpad))
+    end
+    if rightpad > 0 then
+        table.insert(texts, markup.Padding(rightpad))
+    end
+
     return table.concat(vim.tbl_map(function(text)
         return text:content()
-    end, self._.texts))
+    end, texts))
 end
 
 function Line:length()
-    return #self._.chars
+    return vim.fn.strlen(self:content())
 end
 
 function Line:width()
@@ -41,9 +55,26 @@ function Line:draw(renderer, row_at)
 end
 
 ---@param text markup.Text
-function Line:append(text)
-    table.insert(self._.texts, text)
+---@param pos? integer
+function Line:append(text, pos)
+    if pos then
+        table.insert(self._.texts, pos, text)
+    else
+        table.insert(self._.texts, text)
+    end
     return self
+end
+
+function Line:prepend(text)
+    return self:append(text, 1)
+end
+
+function Line:leftpad(n)
+    self._.padding.left = self._.padding.left + (n or 1)
+end
+
+function Line:rightpad(n)
+    self._.padding.right = self._.padding.right + (n or 1)
 end
 
 function Line:get_texts()

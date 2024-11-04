@@ -67,23 +67,26 @@ function Renderer:normalize_props(props, defaults)
 end
 
 function Renderer:render()
-    log.debug("[Renderer:render]")
-
     local elapsed_ms, fps = utils.measure_time(function()
         self:clear()
-        -- local DOM = markup.Element({ children = self._.body })
-        -- self:set_state(DOM)
-        self._.body:build(self)
-        self:draw_lines(self._.body)
+
+        local body = self._.body
+        local DOM = markup.Element({ children = body })
+
+        self._.state[DOM] = State(DOM)
+
+        body:build(self, DOM)
+        self:draw_lines(body)
     end)
 
-    if not __TEST__ then
-        log.debug(("elapsed time: %.2fms [FPS: %d]"):format(elapsed_ms, fps))
+    if __TEST__ then
+        print(("elapsed time: %.2fms [FPS: %d]"):format(elapsed_ms, fps))
     end
 end
 
 function Renderer:draw_lines(body)
     local state = self:get_state(body)
+
     self:with_modifiable(function()
         for row, line in pairs(state:get_lines()) do
             line:draw(self, row)
@@ -128,6 +131,10 @@ end
 
 function Renderer:get_prev_sibling_state(element)
     local state = self:get_state(element)
+    if not state then
+        return
+    end
+
     local prev_sibling = state:get_prev_sibling()
 
     if prev_sibling then
@@ -136,37 +143,9 @@ function Renderer:get_prev_sibling_state(element)
 end
 
 ---@param element markup.Element
----@param state? markup.Renderer.state
-function Renderer:get_parent_state(element, state)
-    if state then
-        return self:get_state(state.parent)
-    else
-        local element_state = self:get_state(element)
-        return element_state and self:get_state(element_state.parent)
-    end
-end
-
-function Renderer:append_rendered_child(element, child)
+function Renderer:get_parent_state(element)
     local state = self:get_state(element)
-
-    if state then
-        table.insert(state.rendered_children, child)
-    end
-end
-
----@param element markup.Element
-function Renderer:get_rendered_size(element)
-    local row_start, col_start, row_end, col_end
-
-    local state = self:get_state(element)
-    for _, child in ipairs(state.rendered_children) do
-        local child_state = self:get_state(child)
-        row_start = math.min(row_start, child_state.row_start)
-        row_end = math.max(row_end, child_state.row_end)
-        col_start = math.min(col_start, child_state.col_start)
-    end
-
-    return row_start, col_start, row_end, col_end
+    return state and self:get_state(state:get_parent())
 end
 
 ---@param body markup.Element
