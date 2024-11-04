@@ -2,15 +2,14 @@ local markup = require("markup")
 local log = require("markup.logger")
 
 ---@class markup.Line.props
----@field highlights { col_start: integer, col_end: integer, hl_group: string }[]
 ---@field texts markup.Text[]
+---@field padding table<"left"|"right", integer>
 
 ---@class markup.Line : markup.Object
 local Line = markup.Object("MarkupLine")
 
 function Line:init()
     self._ = {
-        highlights = {},
         texts = {},
         padding = {
             left = 0,
@@ -20,7 +19,7 @@ function Line:init()
 end
 
 function Line:content()
-    local texts = self:get_texts()
+    local texts = self:texts()
 
     local leftpad, rightpad = self._.padding.left, self._.padding.right
     if leftpad > 0 then
@@ -65,25 +64,28 @@ function Line:append(text, pos)
     return self
 end
 
+---@param text markup.Text
 function Line:prepend(text)
     return self:append(text, 1)
 end
 
+---@param n integer
 function Line:leftpad(n)
-    self._.padding.left = self._.padding.left + (n or 1)
+    self._.padding.left = self._.padding.left + n
 end
 
+---@param n integer
 function Line:rightpad(n)
-    self._.padding.right = self._.padding.right + (n or 1)
+    self._.padding.right = self._.padding.right + n
 end
 
-function Line:get_texts()
+function Line:texts()
     return self._.texts
 end
 
 ---@alias markup.Line.constructor fun(): markup.Line
 
 ---@type markup.Line.constructor
-local MarkupLine = Line
+local MarkupLine = Line ---@diagnostic disable-line
 
 return MarkupLine

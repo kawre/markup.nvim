@@ -81,7 +81,7 @@ end
 ---@param renderer markup.Renderer
 ---@param parent? markup.Element
 function Text:build(renderer, parent)
-    local state = renderer:get_state(parent)
+    local state = renderer:state(parent)
     state:append_text(self)
 end
 

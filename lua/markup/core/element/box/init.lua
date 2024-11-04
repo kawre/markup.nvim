@@ -13,7 +13,11 @@ local log = require("markup.logger")
 
 ---@class markup.Box : markup.Element
 ---@field _ markup.Box.props
-local Box = markup.Block:extend("MarkupBox")
+local Box = markup.Block:extend("MarkupBox") ---@diagnostic disable-line
+
+---------------------------------
+---- Constructor
+---------------------------------
 
 function Box:init(props)
     props = self:normalize_props(props, {
@@ -25,46 +29,32 @@ function Box:init(props)
     Box.super.init(self, props)
 end
 
+---------------------------------
+---- Methods
+---------------------------------
+
 ---@param renderer markup.Renderer
 function Box:after_build(renderer)
-    local state = renderer:get_state(self)
-    local align = state:get_align()
-    local dir = state:get_direction()
+    local state = renderer:state(self)
+    local align = state:align()
+    local dir = state:direction()
 
     local max_width, max_height = 0, 0
-    local children = state:get_children()
+    local children = state.children
     for _, child in ipairs(children) do
-        local child_state = renderer:get_state(child)
-        max_height = math.max(max_height, child_state:get_height())
-        max_width = math.max(max_width, child_state:get_width())
+        local child_state = renderer:state(child)
+        max_height = math.max(max_height, child_state:height())
+        max_width = math.max(max_width, child_state:width())
     end
 
     for _, child in ipairs(children) do
-        local child_state = renderer:get_state(child)
-        local width = child_state:get_width()
+        local child_state = renderer:state(child)
+        local width = child_state:width()
 
         if dir == "column" then
-            for _, line in pairs(child_state:get_lines()) do
-                local padding = max_width - width
-
-                if align == "start" then
-                    line:rightpad(padding)
-                    line:append(markup.Padding(padding))
-                elseif align == "center" then
-                    local halfpad = math.floor(padding / 2)
-                    -- line:leftpad(halfpad)
-                    -- line:rightpad(halfpad + padding % 2)
-
-                    line:prepend(markup.Padding(halfpad))
-                    line:append(markup.Padding(halfpad + padding % 2))
-                elseif align == "end" then
-                    line:prepend(markup.Padding(padding))
-                    -- line:leftpad(padding)
-                end
-            end
         else
             for i = 1, max_height do
-                local line = child_state:get_line(i - 1)
+                local line = child_state:line(i - 1)
                 local len = line:length()
                 if len < width then
                     line:append(markup.Padding(width - len))
@@ -75,10 +65,50 @@ function Box:after_build(renderer)
     end
 
     Box.super.after_build(self, renderer)
+
+    -- local width = state:box_size()
+    -- for _, line in pairs(state.lines) do
+    --     local padding = width - line:length()
+    --
+    --     if align == "start" then
+    --         -- line:rightpad(padding)
+    --         line:append(markup.Padding(padding))
+    --     elseif align == "center" then
+    --         local halfpad = math.floor(padding / 2)
+    --         -- line:leftpad(halfpad)
+    --         -- line:rightpad(halfpad + padding % 2)
+    --
+    --         line:prepend(markup.Padding(halfpad))
+    --         line:append(markup.Padding(halfpad + padding % 2))
+    --     elseif align == "end" then
+    --         line:prepend(markup.Padding(padding))
+    --         -- line:leftpad(padding)
+    --     end
+    -- end
 end
 
+---------------------------------
+---- Getters
+---------------------------------
+
+function Box:direction()
+    return self._.direction
+end
+
+function Box:align()
+    return self._.align
+end
+
+function Box:spacing()
+    return self._.spacing
+end
+
+---------------------------------
+---- Initializer
+---------------------------------
+
 ---@class markup.Box.constructor.props
----@field children markup.Element[]
+---@field children? markup.Element[]
 ---@field spacing? markup.Box.spacing
 ---@field align? markup.Box.align
 ---@field direction? markup.Box.direction
@@ -86,6 +116,6 @@ end
 ---@alias markup.Box.constructor fun(props?: markup.Element | markup.Box.constructor.props): markup.Box
 
 ---@type markup.Box.constructor
-local MarkupBox = Box
+local MarkupBox = Box ---@diagnostic disable-line
 
 return MarkupBox

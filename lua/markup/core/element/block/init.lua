@@ -5,8 +5,9 @@ local log = require("markup.logger")
 
 ---@class markup.Block : markup.Element
 ---@field _ markup.Block.props
-local Block = markup.Element:extend("MarkupBlock")
+local Block = markup.Element:extend("MarkupBlock") ---@diagnostic disable-line
 
+---@param props markup.Block.constructor.props
 function Block:init(props)
     props = self:normalize_props(props, {
         type = "block",
@@ -20,6 +21,6 @@ end
 ---@alias markup.Block.constructor fun(props?: string | markup.Element | markup.Block.constructor.props): markup.Block
 
 ---@type markup.Block.constructor
-local MarkupBlock = Block
+local MarkupBlock = Block ---@diagnostic disable-line
 
 return MarkupBlock

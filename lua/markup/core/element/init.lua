@@ -42,8 +42,16 @@ function Element:normalize_props(props, defaults)
 end
 
 ---@return markup.Element[]
-function Element:get_children()
+function Element:children()
     return self._.children
+end
+
+function Element:style()
+    return self._.style
+end
+
+function Element:type()
+    return self._.type
 end
 
 ---@param renderer markup.Renderer
@@ -54,41 +62,39 @@ end
 ---@param renderer markup.Renderer
 ---@param parent markup.Element
 function Element:build(renderer, parent)
-    self:before_build(renderer)
-
     renderer:set_state(self, parent)
 
-    local content = self:get_children()
+    self:before_build(renderer)
+    local content = self:children()
     for _, child in ipairs(content) do
         child:build(renderer, self)
     end
-
     self:after_build(renderer)
 end
 
 ---@param renderer markup.Renderer
 function Element:after_build(renderer)
-    local state = renderer:get_state(self)
+    local state = renderer:state(self)
 
-    for _, child in ipairs(state:get_children()) do
-        local child_state = renderer:get_state(child)
+    for _, child in ipairs(state.children) do
+        local child_state = renderer:state(child)
 
-        local sibling_state = renderer:get_prev_sibling_state(child)
-        local child_type = child_state:get_type(renderer)
+        local sibling_state = renderer:state(state.prev_sibling)
+        local child_type = child_state.type
 
         if sibling_state then
-            local sibling_type = sibling_state:get_type(renderer)
+            local sibling_type = sibling_state.type
             if sibling_type == "block" or child_type == "block" then
                 state:endl()
             end
         end
 
-        local lines = child_state:get_lines()
+        local lines = child_state.lines
         for row, line in pairs(lines) do
             state:append_line(line, state:get_row() + row)
         end
 
-        local dir = state:get_direction()
+        local dir = state:direction()
         if dir == "row" then
             state:set_row(0)
         else
@@ -106,6 +112,6 @@ end
 ---@alias markup.Element.constructor fun(props?: string | markup.Element | markup.Element.constructor.props): markup.Element
 
 ---@type markup.Element.constructor
-local MarkupElement = Element
+local MarkupElement = Element ---@diagnostic disable-line
 
 return MarkupElement

@@ -59,7 +59,7 @@ function utils.index_of(tbl, value)
             return i
         end
     end
-    return nil
+    return 0
 end
 
 return utils

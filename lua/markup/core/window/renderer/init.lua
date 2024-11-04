@@ -13,7 +13,11 @@ local State = require("markup.core.element.state")
 
 ---@class markup.Renderer : markup.Window
 ---@field _ markup.Renderer.props
-local Renderer = markup.Window:extend("MarkupRenderer")
+local Renderer = markup.Window:extend("MarkupRenderer") ---@diagnostic disable-line
+
+---------------------------------
+---- Constructor
+---------------------------------
 
 ---@param props markup.Renderer.constructor.props
 function Renderer:init(props)
@@ -22,8 +26,6 @@ function Renderer:init(props)
         winid = 0,
         ns_id = -1,
         state = {},
-        lines = { [0] = markup.Line() },
-        row = 0,
     })
 
     Renderer.super.init(self, props)
@@ -52,6 +54,10 @@ function Renderer:init(props)
     })
 end
 
+---------------------------------
+---- Methods
+---------------------------------
+
 function Renderer:normalize_props(props, defaults)
     local result = {}
 
@@ -70,13 +76,11 @@ function Renderer:render()
     local elapsed_ms, fps = utils.measure_time(function()
         self:clear()
 
-        local body = self._.body
-        local DOM = markup.Element({ children = body })
-
-        self._.state[DOM] = State(DOM)
-
+        local body = self:body()
+        local DOM = markup.Inline({ children = body })
+        self._.state[DOM] = {}
         body:build(self, DOM)
-        self:draw_lines(body)
+        self:paint(body)
     end)
 
     if __TEST__ then
@@ -84,11 +88,11 @@ function Renderer:render()
     end
 end
 
-function Renderer:draw_lines(body)
-    local state = self:get_state(body)
+function Renderer:paint(body)
+    local state = self:state(body)
 
     self:with_modifiable(function()
-        for row, line in pairs(state:get_lines()) do
+        for row, line in pairs(state.lines) do
             line:draw(self, row)
         end
     end)
@@ -117,6 +121,15 @@ function Renderer:with_modifiable(fn)
     end
 end
 
+---------------------------------
+---- Setters
+---------------------------------
+
+---@param body markup.Element
+function Renderer:set_body(body)
+    self._.body = body
+end
+
 ---@param element markup.Element
 ---@param parent markup.Element
 function Renderer:set_state(element, parent)
@@ -124,34 +137,37 @@ function Renderer:set_state(element, parent)
     return self._.state[element]
 end
 
+---------------------------------
+---- Getters
+---------------------------------
+
+---@return markup.Element
+function Renderer:body()
+    return self._.body
+end
+
 ---@param element markup.Element
-function Renderer:get_state(element)
+function Renderer:state(element)
     return self._.state[element]
 end
 
-function Renderer:get_prev_sibling_state(element)
-    local state = self:get_state(element)
-    if not state then
-        return
-    end
-
-    local prev_sibling = state:get_prev_sibling()
-
-    if prev_sibling then
-        return self:get_state(prev_sibling)
-    end
+---@param element markup.Element
+function Renderer:parent_state(element)
+    local state = self:state(element)
+    return state and self:state(state.parent)
 end
 
 ---@param element markup.Element
-function Renderer:get_parent_state(element)
-    local state = self:get_state(element)
-    return state and self:get_state(state:get_parent())
+function Renderer:prev_sibling_state(element)
+    local prev_sibling = self:state(element).prev_sibling
+    if prev_sibling then
+        return self:state(prev_sibling)
+    end
 end
 
----@param body markup.Element
-function Renderer:set_body(body)
-    self._.body = body
-end
+---------------------------------
+---- Initializer
+---------------------------------
 
 ---@class markup.Renderer.constructor.props
 ---@field winid integer
@@ -162,6 +178,6 @@ end
 ---@alias markup.Renderer.constructor fun(props: markup.Renderer.constructor.props): markup.Renderer
 
 ---@type markup.Renderer.constructor
-local MarkupRenderer = Renderer
+local MarkupRenderer = Renderer ---@diagnostic disable-line
 
 return MarkupRenderer

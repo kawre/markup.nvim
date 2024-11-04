@@ -155,11 +155,12 @@ local function create_object(_, name)
     return Class
 end
 
---luacheck: push no max line length
-
 ---@class markup.Object
 ---@field is_subclass fun(subclass: markup.Object, class: table): boolean
 ---@field is_instance fun(instance: markup.Object, class: table): boolean
+---@field static any
+---@field super any
+---@field class any
 local Object = setmetatable({
     is_subclass = is_subclass,
     is_instance = is_instance,
@@ -167,11 +168,9 @@ local Object = setmetatable({
     __call = create_object,
 })
 
---luacheck: pop
-
 ---@alias markup.Object.constructor fun(name: string): markup.Object
 
 ---@type markup.Object.constructor
-local MarkupObject = Object
+local MarkupObject = Object ---@diagnostic disable-line
 
 return MarkupObject

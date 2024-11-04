@@ -2,11 +2,17 @@ local markup = require("markup")
 local log = require("markup.logger")
 local utils = require("markup.utils")
 
+---@alias markup.Node markup.Element|markup.Text
+
 ---@class markup.Element.State : markup.Object
+---@field private row integer
 ---@field lines table<integer, markup.Line>
----@field row integer
----@field parent_element markup.Element
+---@field parent markup.Element
 ---@field children markup.Element[]
+---@field child_nodes markup.Node[]
+---@field prev_sibling markup.Element
+---@field first_child markup.Element
+---@field last_child markup.Element
 ---@field type markup.Element.type
 ---@field style markup.Element.style
 local State = markup.Object("MarkupElementState")
@@ -14,21 +20,36 @@ local State = markup.Object("MarkupElementState")
 ---@param element markup.Element
 ---@param parent markup.Element
 function State:init(element, parent)
-    self._ = {
-        row = 0,
-        lines = {},
-        parent = parent,
-        element = element,
-    }
+    self.row = 0
+    self.lines = {}
+    self.parent = parent
+    self.element = element
+
+    local children = element:children()
+    local parent_children = parent:children()
+
+    local index = utils.index_of(parent_children, element)
+
+    self.prev_sibling = parent_children[index - 1]
+
+    self.first_child = children[1]
+    self.last_child = children[#children]
+
+    self.children = vim.tbl_filter(function(child)
+        return not utils.is_instance(child, markup.Text)
+    end, children)
+    self.child_nodes = children
+
+    local parent_dir = parent.direction and parent:direction() ---@diagnostic disable-line
+    self.type = parent_dir and (parent_dir == "column" and "block" or "inline") or element:type()
 end
 
 ---@param row_at? integer (0-indexed)
----@return markup.Line
-function State:get_line(row_at)
-    row_at = row_at or self._.row
+function State:line(row_at)
+    row_at = row_at or self.row
 
-    local lines = self:get_lines()
-    for i = self._.row, row_at do
+    local lines = self.lines
+    for i = self.row, row_at do
         if not lines[i] then
             lines[i] = markup.Line()
         end
@@ -37,143 +58,83 @@ function State:get_line(row_at)
     return lines[row_at]
 end
 
+---@param line markup.Line
+---@param row_at? integer (0-indexed)
 function State:append_line(line, row_at)
-    for _, text in ipairs(line:get_texts()) do
-        self:get_line(row_at):append(text)
+    for _, text in ipairs(line:texts()) do
+        self:line(row_at):append(text)
     end
 
     return self
 end
 
+---@param n? integer
 function State:endl(n)
-    self._.row = self._.row + (n or 1)
+    self.row = self.row + (n or 1)
     return self
 end
 
+---@param row integer (0-indexed)
 function State:set_row(row)
-    self._.row = row
+    self.row = row
     return self
 end
 
+---@return integer
 function State:get_row()
-    return self._.row
+    return self.row
 end
 
+---@param text markup.Text
+---@return markup.Element.State
 function State:append_text(text)
-    self:get_line():append(text)
+    self:line():append(text)
     return self
-end
-
-function State:print_lines()
-    local lines = "\""
-    for i, line in pairs(self:get_lines()) do
-        lines = lines .. line:content() .. "\"\n\""
-
-        if i == #self:get_lines() then
-            lines = lines .. "---"
-        end
-    end
-
-    log.debug(lines)
-end
-
----@return table<integer, markup.Line> (0-indexed)
-function State:get_lines()
-    return self._.lines
 end
 
 ---@param row_at? integer (0-indexed)
 ---@return markup.Text[]
-function State:get_texts(row_at)
-    return self:get_line(row_at):get_texts()
+function State:texts(row_at)
+    return self:line(row_at):texts()
 end
 
----@return markup.Element[]
-function State:get_children()
-    return vim.tbl_filter(function(child)
-        return not utils.is_instance(child, markup.Text)
-    end, self._.element:get_children())
-end
-
----@return markup.Element
-function State:get_prev_sibling()
-    local parent = self._.parent
-
-    if parent then
-        local children = parent:get_children()
-        local index = utils.index_of(children, self._.element)
-        return children[index - 1]
-    end
-end
-
-function State:get_width()
+---@return integer
+function State:width()
     local max_len = 0
-    for _, line in pairs(self:get_lines()) do
+    for _, line in pairs(self.lines) do
         max_len = math.max(max_len, line:length())
     end
     return max_len
 end
 
-function State:get_height()
+function State:box_size()
+    if self.parent then
+        return self:get_size()
+    else
+        return 60, 80
+    end
+end
+
+function State:height()
     local h = 0
-    for _ in pairs(self:get_lines()) do
+    for _ in pairs(self.lines) do
         h = h + 1
     end
     return h
 end
 
 function State:get_size()
-    return self:get_width(), self:get_height()
+    return self:width(), self:height()
 end
 
-function State:get_direction()
-    local element = self._.element --[[@as markup.Box]]
-    return element._.direction
+function State:direction()
+    local element = self.element --[[@as markup.Box]]
+    return element:direction()
 end
 
-function State:get_align()
-    local element = self._.element --[[@as markup.Box]]
-    return element._.align
-end
-
-function State:is_box()
-    return self:get_direction() ~= nil
-end
-
--- ---@param node markup.Element
--- ---@param renderer markup.Renderer
--- function State:merge_node(node, renderer)
--- end
-
--- ---@param renderer markup.Renderer
--- function State:merge_centered(renderer)
---     local max_len = self:get_width()
---     for _, line in pairs(self:get_lines()) do
---         local padding = math.floor((max_len - line:length()) / 2)
---         self:get_line():append(markup.Padding(padding))
---         for _, text in ipairs(line:get_texts()) do
---             self:get_line():append(text)
---         end
---         self:get_line():append(markup.Padding(padding))
---     end
--- end
-
----@param renderer markup.Renderer
-function State:get_type(renderer)
-    local parent_state = renderer:get_state(self:get_parent())
-    local dir = parent_state:get_direction()
-
-    if dir == "column" then
-        return "block"
-    elseif dir == "row" then
-        return "inline"
-    else
-        return self._.element._.type
-    end
-end
-
-function State:get_parent()
-    return self._.parent
+function State:align()
+    local element = self.element --[[@as markup.Box]]
+    return element:align()
 end
 
 ---@class markup.Element.State.constructor.props
@@ -184,6 +145,6 @@ end
 ---@alias markup.Element.State.constructor fun(element: markup.Element, parent: markup.Element): markup.Element.State
 
 ---@type markup.Element.State.constructor
-local MarkupElementState = State
+local MarkupElementState = State ---@diagnostic disable-line
 
 return MarkupElementState
