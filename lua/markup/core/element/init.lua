@@ -76,11 +76,10 @@ function Element:after_build(renderer)
     for _, child in ipairs(state.children) do
         local child_state = renderer:state(child)
 
-        local sibling_state = renderer:state(child_state.prev_sibling)
-        local child_type = child_state.type
+        if child_state.prev_sibling then
+            local sibling_state = renderer:state(child_state.prev_sibling)
 
-        if sibling_state then
-            local sibling_type = sibling_state.type
+            local sibling_type, child_type = sibling_state.type, child_state.type
             if sibling_type == "block" or child_type == "block" then
                 state:endl()
             end

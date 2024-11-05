@@ -37,36 +37,32 @@ end
 function Box:after_build(renderer)
     local state = renderer:state(self)
     local dir, align, spacing = state.direction, state.align, state.spacing
-
-    local max_width, max_height = 0, 0
     local children = state.children
-    for _, child in ipairs(children) do
-        local child_state = renderer:state(child)
-        max_height = math.max(max_height, child_state:height())
-        max_width = math.max(max_width, child_state:width())
-    end
 
     for i, child in ipairs(children) do
         local child_state = renderer:state(child)
-        local width = child_state:width()
+        local child_width = child_state:width()
 
         if dir == "row" then
-            for row = 1, max_height do
-                local line = child_state:line(row - 1)
-                local len = line:length()
-                if len < width then
-                    line:append(markup.Padding(width - len))
-                    -- line:rightpad(width - len)
-                end
-            end
-        end
+            local max_height = select(2, state:max_size(renderer))
 
-        if i ~= #children and spacing > 0 then
-            if dir == "column" then
-            else
-                for _, line in pairs(child_state.lines) do
+            for row = 0, max_height - 1 do
+                local line = child_state:line(row)
+                local padding = child_width - line:width()
+                if padding > 0 then
+                    line:append(markup.Padding(padding))
+                end
+                if spacing > 0 and i ~= #children then
                     line:append(markup.Padding(spacing))
                 end
+            end
+        else
+            if spacing > 0 and i ~= #children then
+                log.debug(spacing)
+                child_state:print_lines()
+                child_state:newl(spacing)
+                child_state:print_lines()
+                log.debug("xxxx")
             end
         end
     end
@@ -78,18 +74,15 @@ function Box:after_build(renderer)
         local padding = width - line:length()
 
         if align == "start" then
-            -- line:rightpad(padding)
             line:append(markup.Padding(padding))
+            -- line:pad_right(padding)
         elseif align == "center" then
             local halfpad = math.floor(padding / 2)
             local leftpad, rightpad = halfpad, halfpad + padding % 2
-
-            -- line:leftpad(halfpad)
-            -- line:rightpad(halfpad + padding % 2)
             line:prepend(markup.Padding(rightpad)):append(markup.Padding(leftpad))
         elseif align == "end" then
+            -- line:pad_left(padding)
             line:prepend(markup.Padding(padding))
-            -- line:leftpad(padding)
         end
     end
 end

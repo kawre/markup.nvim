@@ -10,7 +10,7 @@ local Line = markup.Object("MarkupLine")
 
 function Line:init()
     self._ = {
-        texts = {},
+        texts = { markup.Text("") },
         padding = {
             left = 0,
             right = 0,
@@ -70,13 +70,15 @@ function Line:prepend(text)
 end
 
 ---@param n integer
-function Line:leftpad(n)
+function Line:pad_left(n)
     self._.padding.left = self._.padding.left + n
+    return self
 end
 
 ---@param n integer
-function Line:rightpad(n)
+function Line:pad_right(n)
     self._.padding.right = self._.padding.right + n
+    return self
 end
 
 function Line:texts()

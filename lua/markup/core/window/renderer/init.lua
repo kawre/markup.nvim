@@ -79,9 +79,9 @@ function Renderer:render()
         self:renderElement(self:body())
     end)
 
-    -- if __TEST__ then
-    --     print(("elapsed time: %.2fms [FPS: %d]"):format(elapsed_ms, fps))
-    -- end
+    if not __TEST__ then
+        log.debug((" - render time: %.2fms [FPS: %d]"):format(elapsed_ms, fps))
+    end
 end
 
 ---@param element markup.Element

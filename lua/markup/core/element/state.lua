@@ -68,6 +68,13 @@ function State:endl(n)
     return self
 end
 
+---@param n? integer
+function State:newl(n)
+    self:endl(n)
+    self:line()
+    return self
+end
+
 ---@param text markup.Text
 ---@return markup.Element.State
 function State:append_text(text)
@@ -83,6 +90,15 @@ function State:append_line(line, row_at)
     end
 
     return self
+end
+
+function State:print_lines()
+    local lines = "----\n"
+    for _, line in pairs(self.lines) do
+        lines = lines .. line:content() .. "\n"
+    end
+    lines = lines .. "----"
+    log.debug(lines)
 end
 
 ---------------------------------
@@ -110,7 +126,7 @@ function State:line(row_at)
     row_at = row_at or self.row
 
     local lines = self.lines
-    for i = self.row, row_at do
+    for i = #lines, row_at do
         if not lines[i] then
             lines[i] = markup.Line()
         end
@@ -134,6 +150,20 @@ function State:height()
         h = h + 1
     end
     return h
+end
+
+---@param renderer markup.Renderer
+function State:max_size(renderer)
+    local children = self.children
+
+    local max_width, max_height = 0, 0
+    for _, child in ipairs(children) do
+        local child_state = renderer:state(child)
+        max_height = math.max(max_height, child_state:height())
+        max_width = math.max(max_width, child_state:width())
+    end
+
+    return max_width, max_height
 end
 
 function State:size()

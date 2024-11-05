@@ -208,4 +208,36 @@ describe("ColumnBox Renderer", function()
             "     3    ",
         })
     end)
+
+    it("should add large spacing", function()
+        ColumnBoxRenderer({
+            align = "center",
+            spacing = 5,
+            children = {
+                markup.Inline("1"),
+                markup.Box({
+                    children = {
+                        markup.Inline("inside"),
+                        markup.Block("hi"),
+                    },
+                }),
+                markup.Block("2"),
+            },
+        }, {
+            "     1    ",
+            "          ",
+            "          ",
+            "          ",
+            "          ",
+            "          ",
+            "  inside  ",
+            "  hi      ",
+            "          ",
+            "          ",
+            "          ",
+            "          ",
+            "          ",
+            "     2    ",
+        })
+    end)
 end)
