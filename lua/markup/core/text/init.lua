@@ -11,7 +11,8 @@ local log = require("markup.logger")
 ---@field protected _content string
 ---@field protected _length number
 ---@field protected _width number
----@field protected _style table<string, any>
+---@field protected _style markup.Element.style
+---@field type "text"
 local Text = markup.Object("MarkupText")
 
 ---@param content string|markup.Text
@@ -24,6 +25,7 @@ function Text:init(content, extmark)
         self:set(content._content, extmark or content.extmark)
     end
     self._style = {}
+    self.type = "text"
 end
 
 ---@param content string text content
@@ -69,25 +71,34 @@ local CACHE = {}
 ---@param byte_start number start byte position (0-indexed)
 ---@return nil
 function Text:highlight(bufnr, ns_id, linenr, byte_start)
-    if not vim.tbl_isempty(self._style) then
+    if not self._style or vim.tbl_isempty(self._style) then
+        return
+    end
+
+    local name = self._style
+
+    if type(name) == "table" then
+        ---@cast name table
+
         local parts = {}
         for key, value in pairs(self._style) do
             table.insert(parts, tostring(key) .. tostring(value))
         end
         table.sort(parts)
-        local name = ("MARKUP_HL_" .. table.concat(parts, "_")):gsub("[^%w_]", "")
+        name = ("MARKUP_HL_" .. table.concat(parts, "_")):gsub("[^%w_]", "")
 
         if not CACHE[name] then
             vim.api.nvim_set_hl(0, name, self._style)
             CACHE[name] = self._style
         end
-
-        vim.api.nvim_buf_set_extmark(bufnr, ns_id, linenr, byte_start, {
-            end_col = byte_start + self:length(),
-            hl_group = name,
-            hl_mode = "combine",
-        })
     end
+    log.debug(name)
+
+    vim.api.nvim_buf_set_extmark(bufnr, ns_id, linenr, byte_start, {
+        end_col = byte_start + self:length(),
+        hl_group = name,
+        hl_mode = "combine",
+    })
 end
 
 ---@param renderer markup.Renderer

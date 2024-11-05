@@ -48,10 +48,19 @@ function utils.is_instance(object, class)
 end
 
 function utils.shallow_copy(original)
+    assert(type(original) == "table", "utils.shallow_copy: original must be a table")
     local copy = {}
-    for _, value in ipairs(original) do
-        table.insert(copy, value)
+
+    if vim.islist(original) then
+        for _, value in ipairs(original) do
+            table.insert(copy, value)
+        end
+    else
+        for key, value in pairs(original) do
+            copy[key] = value
+        end
     end
+
     return copy
 end
 

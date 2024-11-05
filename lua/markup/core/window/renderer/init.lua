@@ -73,13 +73,13 @@ end
 
 function Renderer:render()
     local elapsed_ms, fps = utils.measure_time(function()
-        -- local root = markup.Block(self:body())
-        self:renderElement(self:body())
+        local root = markup.Block(self:body())
+        self:renderElement(root)
     end)
 
-    if __TEST__ then
-        print((" - render time: %.2fms [FPS: %d]"):format(elapsed_ms, fps))
-    end
+    -- if __TEST__ then
+    --     print((" - render time: %.2fms [FPS: %d]"):format(elapsed_ms, fps))
+    -- end
 end
 
 ---@param element markup.Element
@@ -128,9 +128,9 @@ end
 
 ---@param element markup.Element
 ---@param parent markup.Element
+---@return markup.Element.State
 function Renderer:set_state(element, parent)
-    self._.state[element:id()] = State(element, parent)
-
+    self._.state[element:id()] = State(element, parent, self)
     return self._.state[element:id()]
 end
 
@@ -144,8 +144,11 @@ function Renderer:body()
 end
 
 ---@param element markup.Element
+---@return markup.Element.State
 function Renderer:state(element)
-    return self._.state[element:id()]
+    if element.id then
+        return self._.state[element:id()]
+    end
 end
 
 ---@param element markup.Element

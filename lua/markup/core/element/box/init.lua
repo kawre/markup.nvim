@@ -44,7 +44,7 @@ function Box:after_build(renderer)
         local child_width = child_state:width()
 
         if dir == "row" then
-            local max_height = select(2, state:max_size(renderer))
+            local max_height = select(2, state:max_size())
 
             for row = 0, max_height - 1 do
                 local line = child_state:line(row)
@@ -65,7 +65,7 @@ function Box:after_build(renderer)
 
     Box.super.after_build(self, renderer)
 
-    local width = state:box_size(renderer)
+    local width = state:box_size()
     for _, line in pairs(state.lines) do
         local padding = width - line:length()
 
