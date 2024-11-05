@@ -33,6 +33,12 @@ describe("RowBox Renderer", function()
         h.assert_lines(window, lines)
     end
 
+    it("should render nothing", function()
+        RowBoxRenderer({}, {
+            "",
+        })
+    end)
+
     it("should render inline elements in one row", function()
         RowBoxRenderer({
             markup.Inline("1"),
@@ -313,6 +319,46 @@ describe("RowBox Renderer", function()
             " 3 1 inside         ",
             "33   hi             ",
             " 3                  ",
+        })
+    end)
+
+    it("should handle complex nesting", function()
+        vim.api.nvim_win_set_width(window.winid, 32)
+
+        RowBoxRenderer({
+            spacing = 1,
+            children = {
+                markup.Inline("inline"),
+                markup.Box({
+                    children = {
+                        markup.Inline("box"),
+                    },
+                }),
+                markup.Box({
+                    children = {
+                        markup.Inline("xxxxxx"),
+                        markup.Block("xxxx"),
+                        markup.Box({
+                            direction = "row",
+                            children = {
+                                markup.Inline("xxxxxxx"),
+                                markup.Box({
+                                    children = {
+                                        markup.Inline("inside"),
+                                        markup.Block("hi"),
+                                    },
+                                }),
+                            },
+                        }),
+                    },
+                }),
+                markup.Block("block"),
+            },
+        }, {
+            "inline box xxxxxx        block  ",
+            "           xxxx                 ",
+            "           xxxxxxxinside        ",
+            "                  hi            ",
         })
     end)
 end)

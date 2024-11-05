@@ -26,6 +26,12 @@ describe("Block Renderer", function()
         h.assert_lines(window, lines)
     end
 
+    it("should render nothing", function()
+        BlockRenderer({}, {
+            "",
+        })
+    end)
+
     it("should render inline elements in one row", function()
         BlockRenderer({
             markup.Inline("1"),

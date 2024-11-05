@@ -2,8 +2,6 @@ local markup = require("markup")
 local log = require("markup.logger") ---@diagnostic disable-line
 local utils = require("markup.utils") ---@diagnostic disable-line
 
-MRKUP = {}
-
 ---@alias markup.Node markup.Element|markup.Text
 
 ---@class markup.Element.State : markup.Object

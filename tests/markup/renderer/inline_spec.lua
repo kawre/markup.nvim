@@ -26,6 +26,12 @@ describe("Inline Renderer", function()
         h.assert_lines(window, lines)
     end
 
+    it("should render nothing", function()
+        InlineRenderer({}, {
+            "",
+        })
+    end)
+
     it("should render inline elements in one row", function()
         InlineRenderer({
             markup.Inline("1"),
