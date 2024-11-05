@@ -73,12 +73,12 @@ end
 
 function Renderer:render()
     local elapsed_ms, fps = utils.measure_time(function()
-        local root = markup.Block(self:body())
-        self:renderElement(root)
+        -- local root = markup.Block(self:body())
+        self:renderElement(self:body())
     end)
 
     -- if __TEST__ then
-    --     print((" - render time: %.2fms [FPS: %d]"):format(elapsed_ms, fps))
+    print((" - render time: %.2fms [FPS: %d]"):format(elapsed_ms, fps))
     -- end
 end
 
@@ -90,28 +90,32 @@ function Renderer:renderElement(element)
     local state = self:state(element)
 
     self:with_modifiable(function()
-        vim.api.nvim_buf_set_lines(self._.bufnr, 0, -1, false, {})
+        self:buf_set_lines(0, -1, false, {})
         for row, line in pairs(state.lines) do
             line:draw(self, row)
         end
     end)
 end
 
+---@param line_start? integer
+---@param line_end? integer
+function Renderer:buf_clear_namespace(line_start, line_end)
+    line_start = line_start or 0
+    line_end = line_end or -1
+    vim.api.nvim_buf_clear_namespace(self._.bufnr, self._.ns_id, line_start, line_end)
+end
+
 function Renderer:clear()
+    self:buf_clear_namespace()
     self._.state = {}
 end
 
 function Renderer:with_modifiable(fn)
-    local bufnr = self._.bufnr
-    if not (bufnr and vim.api.nvim_buf_is_valid(bufnr)) then
-        return
-    end
-
-    local modifiable = vim.api.nvim_get_option_value("modifiable", { buf = bufnr })
+    local modifiable = self:buf_get_option_value("modifiable")
     if not modifiable then
-        utils.set_option_value("modifiable", true, { buf = bufnr })
+        self:buf_set_option_value("modifiable", true)
         fn()
-        utils.set_option_value("modifiable", false, { buf = bufnr })
+        self:buf_set_option_value("modifiable", false)
     else
         fn()
     end
@@ -146,9 +150,8 @@ end
 ---@param element markup.Element
 ---@return markup.Element.State
 function Renderer:state(element)
-    if element.id then
-        return self._.state[element:id()]
-    end
+    assert(element.id, "Element must have an id")
+    return self._.state[element:id()]
 end
 
 ---@param element markup.Element

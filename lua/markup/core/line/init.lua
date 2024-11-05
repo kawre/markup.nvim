@@ -44,9 +44,11 @@ function Line:width()
     return vim.api.nvim_strwidth(self:content())
 end
 
+---@param renderer markup.Renderer
+---@param row_at integer
 function Line:draw(renderer, row_at)
     local str = self:content()
-    vim.api.nvim_buf_set_lines(renderer._.bufnr, row_at, -1, true, { str })
+    renderer:buf_set_lines(row_at, -1, false, { str })
     self:hightlight(row_at, renderer)
 end
 

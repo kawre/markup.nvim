@@ -92,7 +92,6 @@ function Text:highlight(bufnr, ns_id, linenr, byte_start)
             CACHE[name] = self._style
         end
     end
-    log.debug(name)
 
     vim.api.nvim_buf_set_extmark(bufnr, ns_id, linenr, byte_start, {
         end_col = byte_start + self:length(),
