@@ -40,10 +40,10 @@ describe("ColumnBox Renderer", function()
             markup.Inline("3"),
             markup.Inline("4"),
         }, {
-            "1        ",
-            "2        ",
-            "3        ",
-            "4        ",
+            "1         ",
+            "2         ",
+            "3         ",
+            "4         ",
         })
     end)
 
@@ -54,10 +54,10 @@ describe("ColumnBox Renderer", function()
             markup.Block("3"),
             markup.Block("4"),
         }, {
-            "1        ",
-            "2        ",
-            "3        ",
-            "4        ",
+            "1         ",
+            "2         ",
+            "3         ",
+            "4         ",
         })
     end)
 
@@ -69,11 +69,11 @@ describe("ColumnBox Renderer", function()
             markup.Block("4"),
             markup.Block("5"),
         }, {
-            "1        ",
-            "2        ",
-            "3        ",
-            "4        ",
-            "5        ",
+            "1         ",
+            "2         ",
+            "3         ",
+            "4         ",
+            "5         ",
         })
     end)
 
@@ -88,15 +88,15 @@ describe("ColumnBox Renderer", function()
                 markup.Block("5"),
             },
         }, {
-            "1        ",
-            "         ",
-            "2        ",
-            "         ",
-            "3        ",
-            "         ",
-            "4        ",
-            "         ",
-            "5        ",
+            "1         ",
+            "          ",
+            "2         ",
+            "          ",
+            "3         ",
+            "          ",
+            "4         ",
+            "          ",
+            "5         ",
         })
     end)
 
@@ -113,10 +113,10 @@ describe("ColumnBox Renderer", function()
             }),
             markup.Block("4"),
         }, {
-            "1        ",
-            "2        ",
-            "33       ",
-            "4        ",
+            "1         ",
+            "2         ",
+            "33        ",
+            "4         ",
         })
     end)
 
@@ -134,10 +134,10 @@ describe("ColumnBox Renderer", function()
             }),
             markup.Block("4"),
         }, {
-            "1        ",
-            "2        ",
-            "3 3      ",
-            "4        ",
+            "1         ",
+            "2         ",
+            "3 3       ",
+            "4         ",
         })
     end)
 
@@ -150,9 +150,9 @@ describe("ColumnBox Renderer", function()
                 markup.Block("33"),
             },
         }, {
-            "1        ",
-            "2        ",
-            "33       ",
+            "1         ",
+            "2         ",
+            "33        ",
         })
     end)
 
@@ -165,9 +165,9 @@ describe("ColumnBox Renderer", function()
                 markup.Block("33"),
             },
         }, {
-            "    1    ",
-            "    2    ",
-            "   33    ",
+            "     1    ",
+            "     2    ",
+            "    33    ",
         })
     end)
 
@@ -180,9 +180,9 @@ describe("ColumnBox Renderer", function()
                 markup.Block("33"),
             },
         }, {
-            "        1",
-            "        2",
-            "       33",
+            "         1",
+            "         2",
+            "        33",
         })
     end)
 
@@ -201,11 +201,11 @@ describe("ColumnBox Renderer", function()
                 markup.Block("3"),
             },
         }, {
-            "    1    ",
-            "    2    ",
-            " inside  ",
-            " hi      ",
-            "    3    ",
+            "     1    ",
+            "     2    ",
+            "  inside  ",
+            "  hi      ",
+            "     3    ",
         })
     end)
 end)

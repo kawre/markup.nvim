@@ -40,7 +40,7 @@ describe("RowBox Renderer", function()
             markup.Inline("3"),
             markup.Inline("4"),
         }, {
-            "1234     ",
+            "1234      ",
         })
     end)
 
@@ -51,7 +51,7 @@ describe("RowBox Renderer", function()
             markup.Block("3"),
             markup.Block("4"),
         }, {
-            "1234     ",
+            "1234      ",
         })
     end)
 
@@ -63,7 +63,7 @@ describe("RowBox Renderer", function()
             markup.Block("4"),
             markup.Block("5"),
         }, {
-            "12345    ",
+            "12345     ",
         })
     end)
 
@@ -78,7 +78,7 @@ describe("RowBox Renderer", function()
                 markup.Block("5"),
             },
         }, {
-            "1 2 3 4 5",
+            "1 2 3 4 5 ",
         })
     end)
 
@@ -94,8 +94,8 @@ describe("RowBox Renderer", function()
             }),
             markup.Block("4"),
         }, {
-            "1234     ",
-            "  3      ",
+            "1234      ",
+            "  3       ",
         })
     end)
 
@@ -120,9 +120,9 @@ describe("RowBox Renderer", function()
                 },
             }),
         }, {
-            "123      ",
-            " 23      ",
-            "  3      ",
+            "123       ",
+            " 23       ",
+            "  3       ",
         })
     end)
 
@@ -144,8 +144,8 @@ describe("RowBox Renderer", function()
                 markup.Inline("3"),
             },
         }, {
-            "  1  2  inside  3  ",
-            "        hi         ",
+            "   1  2  inside  3  ",
+            "         hi         ",
         })
     end)
 
@@ -167,8 +167,8 @@ describe("RowBox Renderer", function()
                 markup.Inline("3"),
             },
         }, {
-            "1  2  inside  3    ",
-            "      hi           ",
+            "1  2  inside  3     ",
+            "      hi            ",
         })
     end)
 
@@ -190,8 +190,8 @@ describe("RowBox Renderer", function()
                 markup.Inline("3"),
             },
         }, {
-            "    1  2  inside  3",
-            "          hi       ",
+            "     1  2  inside  3",
+            "           hi       ",
         })
     end)
 
@@ -219,10 +219,10 @@ describe("RowBox Renderer", function()
                 }),
             },
         }, {
-            "    1 inside 3     ",
-            "             33    ",
-            "             3     ",
-            "      hi           ",
+            "     1 inside 3     ",
+            "              33    ",
+            "              3     ",
+            "       hi           ",
         })
     end)
 
@@ -250,9 +250,9 @@ describe("RowBox Renderer", function()
                 }),
             },
         }, {
-            "     3 1 inside    ",
-            "    33   hi        ",
-            "     3             ",
+            "      3 1 inside    ",
+            "     33   hi        ",
+            "      3             ",
         })
     end)
 
@@ -280,9 +280,9 @@ describe("RowBox Renderer", function()
                 }),
             },
         }, {
-            "         3 1 inside",
-            "        33   hi    ",
-            "         3         ",
+            "          3 1 inside",
+            "         33   hi    ",
+            "          3         ",
         })
     end)
 
@@ -310,9 +310,9 @@ describe("RowBox Renderer", function()
                 }),
             },
         }, {
-            " 3 1 inside        ",
-            "33   hi            ",
-            " 3                 ",
+            " 3 1 inside         ",
+            "33   hi             ",
+            " 3                  ",
         })
     end)
 end)

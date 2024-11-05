@@ -1,11 +1,13 @@
 local markup = require("markup")
-local log = require("markup.logger")
-local utils = require("markup.utils")
+local log = require("markup.logger") ---@diagnostic disable-line
+local utils = require("markup.utils") ---@diagnostic disable-line
+
+MRKUP = {}
 
 ---@alias markup.Node markup.Element|markup.Text
 
 ---@class markup.Element.State : markup.Object
----@field private row integer
+---@field row integer
 ---@field lines table<integer, markup.Line>
 ---@field parent markup.Element
 ---@field children markup.Element[]
@@ -15,7 +17,13 @@ local utils = require("markup.utils")
 ---@field last_child markup.Element
 ---@field type markup.Element.type
 ---@field style markup.Element.style
+---@field align markup.Box.align
+---@field direction markup.Box.direction
 local State = markup.Object("MarkupElementState")
+
+---------------------------------
+---- Initializer
+---------------------------------
 
 ---@param element markup.Element
 ---@param parent markup.Element
@@ -26,11 +34,6 @@ function State:init(element, parent)
     self.element = element
 
     local children = element:children()
-    local parent_children = parent:children()
-
-    local index = utils.index_of(parent_children, element)
-
-    self.prev_sibling = parent_children[index - 1]
 
     self.first_child = children[1]
     self.last_child = children[#children]
@@ -40,8 +43,66 @@ function State:init(element, parent)
     end, children)
     self.child_nodes = children
 
-    local parent_dir = parent.direction and parent:direction() ---@diagnostic disable-line
-    self.type = parent_dir and (parent_dir == "column" and "block" or "inline") or element:type()
+    self.align = element.align and element:align() ---@diagnostic disable-line
+    self.direction = element.direction and element:direction() ---@diagnostic disable-line
+    self.spacing = element.spacing and element:spacing() ---@diagnostic disable-line
+
+    if parent then
+        local parent_children = parent:children()
+        local index = utils.index_of(parent_children, element)
+        self.prev_sibling = parent_children[index - 1]
+
+        local parent_dir = parent.direction and parent:direction() ---@diagnostic disable-line
+        self.type = parent_dir and (parent_dir == "column" and "block" or "inline")
+            or element:type()
+    end
+end
+
+---------------------------------
+---- Methods
+---------------------------------
+
+---@param n? integer
+function State:endl(n)
+    self.row = self.row + (n or 1)
+    return self
+end
+
+---@param text markup.Text
+---@return markup.Element.State
+function State:append_text(text)
+    self:line():append(text)
+    return self
+end
+
+---@param line markup.Line
+---@param row_at? integer (0-indexed)
+function State:append_line(line, row_at)
+    for _, text in ipairs(line:texts()) do
+        self:line(row_at):append(text)
+    end
+
+    return self
+end
+
+---------------------------------
+---- Setters
+---------------------------------
+
+---@param row integer (0-indexed)
+function State:set_row(row)
+    self.row = row
+    return self
+end
+
+---------------------------------
+---- Getters
+---------------------------------
+
+---@param row_at? integer (0-indexed)
+---@return markup.Text[]
+function State:texts(row_at)
+    return self:line(row_at):texts()
 end
 
 ---@param row_at? integer (0-indexed)
@@ -58,46 +119,6 @@ function State:line(row_at)
     return lines[row_at]
 end
 
----@param line markup.Line
----@param row_at? integer (0-indexed)
-function State:append_line(line, row_at)
-    for _, text in ipairs(line:texts()) do
-        self:line(row_at):append(text)
-    end
-
-    return self
-end
-
----@param n? integer
-function State:endl(n)
-    self.row = self.row + (n or 1)
-    return self
-end
-
----@param row integer (0-indexed)
-function State:set_row(row)
-    self.row = row
-    return self
-end
-
----@return integer
-function State:get_row()
-    return self.row
-end
-
----@param text markup.Text
----@return markup.Element.State
-function State:append_text(text)
-    self:line():append(text)
-    return self
-end
-
----@param row_at? integer (0-indexed)
----@return markup.Text[]
-function State:texts(row_at)
-    return self:line(row_at):texts()
-end
-
 ---@return integer
 function State:width()
     local max_len = 0
@@ -105,14 +126,6 @@ function State:width()
         max_len = math.max(max_len, line:length())
     end
     return max_len
-end
-
-function State:box_size()
-    if self.parent then
-        return self:get_size()
-    else
-        return 60, 80
-    end
 end
 
 function State:height()
@@ -123,24 +136,22 @@ function State:height()
     return h
 end
 
-function State:get_size()
+function State:size()
     return self:width(), self:height()
 end
 
-function State:direction()
-    local element = self.element --[[@as markup.Box]]
-    return element:direction()
+---@param renderer markup.Renderer
+function State:box_size(renderer)
+    if self.parent then
+        return self:size()
+    else
+        return renderer:width(), renderer:height()
+    end
 end
 
-function State:align()
-    local element = self.element --[[@as markup.Box]]
-    return element:align()
-end
-
----@class markup.Element.State.constructor.props
----@field parent_element markup.Element
----@field children markup.Element[]
----@field style markup.Element.style
+---------------------------------
+---- Initializer
+---------------------------------
 
 ---@alias markup.Element.State.constructor fun(element: markup.Element, parent: markup.Element): markup.Element.State
 

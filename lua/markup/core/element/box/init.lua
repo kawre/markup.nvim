@@ -36,8 +36,7 @@ end
 ---@param renderer markup.Renderer
 function Box:after_build(renderer)
     local state = renderer:state(self)
-    local align = state:align()
-    local dir = state:direction()
+    local dir, align, spacing = state.direction, state.align, state.spacing
 
     local max_width, max_height = 0, 0
     local children = state.children
@@ -47,14 +46,13 @@ function Box:after_build(renderer)
         max_width = math.max(max_width, child_state:width())
     end
 
-    for _, child in ipairs(children) do
+    for i, child in ipairs(children) do
         local child_state = renderer:state(child)
         local width = child_state:width()
 
-        if dir == "column" then
-        else
-            for i = 1, max_height do
-                local line = child_state:line(i - 1)
+        if dir == "row" then
+            for row = 1, max_height do
+                local line = child_state:line(row - 1)
                 local len = line:length()
                 if len < width then
                     line:append(markup.Padding(width - len))
@@ -62,29 +60,38 @@ function Box:after_build(renderer)
                 end
             end
         end
+
+        if i ~= #children and spacing > 0 then
+            if dir == "column" then
+            else
+                for _, line in pairs(child_state.lines) do
+                    line:append(markup.Padding(spacing))
+                end
+            end
+        end
     end
 
     Box.super.after_build(self, renderer)
 
-    -- local width = state:box_size()
-    -- for _, line in pairs(state.lines) do
-    --     local padding = width - line:length()
-    --
-    --     if align == "start" then
-    --         -- line:rightpad(padding)
-    --         line:append(markup.Padding(padding))
-    --     elseif align == "center" then
-    --         local halfpad = math.floor(padding / 2)
-    --         -- line:leftpad(halfpad)
-    --         -- line:rightpad(halfpad + padding % 2)
-    --
-    --         line:prepend(markup.Padding(halfpad))
-    --         line:append(markup.Padding(halfpad + padding % 2))
-    --     elseif align == "end" then
-    --         line:prepend(markup.Padding(padding))
-    --         -- line:leftpad(padding)
-    --     end
-    -- end
+    local width = state:box_size(renderer)
+    for _, line in pairs(state.lines) do
+        local padding = width - line:length()
+
+        if align == "start" then
+            -- line:rightpad(padding)
+            line:append(markup.Padding(padding))
+        elseif align == "center" then
+            local halfpad = math.floor(padding / 2)
+            local leftpad, rightpad = halfpad, halfpad + padding % 2
+
+            -- line:leftpad(halfpad)
+            -- line:rightpad(halfpad + padding % 2)
+            line:prepend(markup.Padding(rightpad)):append(markup.Padding(leftpad))
+        elseif align == "end" then
+            line:prepend(markup.Padding(padding))
+            -- line:leftpad(padding)
+        end
+    end
 end
 
 ---------------------------------

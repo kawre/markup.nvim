@@ -1,7 +1,8 @@
 local markup = require("markup")
-local utils = require("markup.utils")
-local log = require("markup.logger")
 local State = require("markup.core.element.state")
+
+local utils = require("markup.utils") ---@diagnostic disable-line
+local log = require("markup.logger") ---@diagnostic disable-line
 
 ---@alias markup.Renderer.state.position { row: integer, col: integer }
 ---@alias markup.Renderer.state.box { width: integer, height: integer }
@@ -29,6 +30,7 @@ function Renderer:init(props)
     })
 
     Renderer.super.init(self, props)
+    self.root = markup.Element(self:body())
 
     self:set_opts({
         modifiable = true,
@@ -74,24 +76,23 @@ end
 
 function Renderer:render()
     local elapsed_ms, fps = utils.measure_time(function()
-        self:clear()
-
-        local body = self:body()
-        local DOM = markup.Inline({ children = body })
-        self._.state[DOM] = {}
-        body:build(self, DOM)
-        self:paint(body)
+        self:renderElement(self:body())
     end)
 
-    if __TEST__ then
-        print(("elapsed time: %.2fms [FPS: %d]"):format(elapsed_ms, fps))
-    end
+    -- if __TEST__ then
+    --     print(("elapsed time: %.2fms [FPS: %d]"):format(elapsed_ms, fps))
+    -- end
 end
 
-function Renderer:paint(body)
-    local state = self:state(body)
+---@param element markup.Element
+function Renderer:renderElement(element)
+    self:clear()
+
+    element:build(self) ---@diagnostic disable-line
+    local state = self:state(element)
 
     self:with_modifiable(function()
+        vim.api.nvim_buf_set_lines(self._.bufnr, 0, -1, false, {})
         for row, line in pairs(state.lines) do
             line:draw(self, row)
         end
@@ -99,9 +100,6 @@ function Renderer:paint(body)
 end
 
 function Renderer:clear()
-    self:with_modifiable(function()
-        vim.api.nvim_buf_set_lines(self._.bufnr, 0, -1, false, {})
-    end)
     self._.state = {}
 end
 
@@ -134,6 +132,7 @@ end
 ---@param parent markup.Element
 function Renderer:set_state(element, parent)
     self._.state[element] = State(element, parent)
+
     return self._.state[element]
 end
 

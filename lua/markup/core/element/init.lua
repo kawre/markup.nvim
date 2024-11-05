@@ -1,6 +1,6 @@
 local markup = require("markup")
-local utils = require("markup.utils")
-local log = require("markup.logger")
+local utils = require("markup.utils") ---@diagnostic disable-line
+local log = require("markup.logger") ---@diagnostic disable-line
 
 ---@alias markup.Element.style vim.api.keyset.highlight
 ---@alias markup.Element.type "block"|"inline"
@@ -15,6 +15,10 @@ local log = require("markup.logger")
 ---@field _ markup.Element.props
 local Element = markup.Object("MarkupElement")
 
+---------------------------------
+---- Constructor
+---------------------------------
+
 ---@param props markup.Element.constructor.props
 function Element:init(props)
     self._ = self:normalize_props(props, {
@@ -23,6 +27,10 @@ function Element:init(props)
         type = "inline",
     })
 end
+
+---------------------------------
+---- Methods
+---------------------------------
 
 ---@param props table
 ---@param defaults table
@@ -41,19 +49,6 @@ function Element:normalize_props(props, defaults)
     return vim.tbl_deep_extend("force", defaults or {}, result)
 end
 
----@return markup.Element[]
-function Element:children()
-    return self._.children
-end
-
-function Element:style()
-    return self._.style
-end
-
-function Element:type()
-    return self._.type
-end
-
 ---@param renderer markup.Renderer
 function Element:before_build(renderer)
     --
@@ -70,6 +65,8 @@ function Element:build(renderer, parent)
         child:build(renderer, self)
     end
     self:after_build(renderer)
+
+    return self
 end
 
 ---@param renderer markup.Renderer
@@ -79,7 +76,7 @@ function Element:after_build(renderer)
     for _, child in ipairs(state.children) do
         local child_state = renderer:state(child)
 
-        local sibling_state = renderer:state(state.prev_sibling)
+        local sibling_state = renderer:state(child_state.prev_sibling)
         local child_type = child_state.type
 
         if sibling_state then
@@ -91,17 +88,43 @@ function Element:after_build(renderer)
 
         local lines = child_state.lines
         for row, line in pairs(lines) do
-            state:append_line(line, state:get_row() + row)
+            state:append_line(line, state.row + row)
         end
 
-        local dir = state:direction()
+        local dir = state.direction
         if dir == "row" then
-            state:set_row(0)
+            state.row = 0
         else
             state:endl(#lines)
         end
     end
 end
+
+---------------------------------
+---- Getters
+---------------------------------
+
+---@return markup.Element[]
+function Element:children()
+    return self._.children
+end
+
+-- ---@return markup.Node[]
+-- function Element:child_nodes()
+--     return self._.children
+-- end
+
+function Element:style()
+    return self._.style
+end
+
+function Element:type()
+    return self._.type
+end
+
+---------------------------------
+---- Initializer
+---------------------------------
 
 ---@class markup.Element.constructor.props
 ---@field children markup.Element[]
