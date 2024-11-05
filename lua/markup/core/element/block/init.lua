@@ -1,5 +1,5 @@
 local markup = require("markup")
-local log = require("markup.logger")
+local log = require("markup.logger") ---@diagnostic disable-line
 
 ---@class markup.Block.props : markup.Element.props
 

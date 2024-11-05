@@ -4,9 +4,6 @@ local State = require("markup.core.element.state")
 local utils = require("markup.utils") ---@diagnostic disable-line
 local log = require("markup.logger") ---@diagnostic disable-line
 
----@alias markup.Renderer.state.position { row: integer, col: integer }
----@alias markup.Renderer.state.box { width: integer, height: integer }
-
 ---@class markup.Renderer.props : markup.Window.props
 ---@field ns_id integer
 ---@field body markup.Element
@@ -27,10 +24,10 @@ function Renderer:init(props)
         winid = 0,
         ns_id = -1,
         state = {},
+        body = nil,
     })
 
     Renderer.super.init(self, props)
-    self.root = markup.Element(self:body())
 
     self:set_opts({
         modifiable = true,
@@ -79,8 +76,8 @@ function Renderer:render()
         self:renderElement(self:body())
     end)
 
-    if not __TEST__ then
-        log.debug((" - render time: %.2fms [FPS: %d]"):format(elapsed_ms, fps))
+    if __TEST__ then
+        print((" - render time: %.2fms [FPS: %d]"):format(elapsed_ms, fps))
     end
 end
 

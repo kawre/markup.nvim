@@ -1,6 +1,6 @@
 local markup = require("markup")
-local utils = require("markup.utils")
-local log = require("markup.logger")
+local utils = require("markup.utils") ---@diagnostic disable-line
+local log = require("markup.logger") ---@diagnostic disable-line
 
 ---@alias markup.Box.align "start"|"center"|"end"
 ---@alias markup.Box.direction "row"|"column"
@@ -58,11 +58,7 @@ function Box:after_build(renderer)
             end
         else
             if spacing > 0 and i ~= #children then
-                log.debug(spacing)
-                child_state:print_lines()
                 child_state:newl(spacing)
-                child_state:print_lines()
-                log.debug("xxxx")
             end
         end
     end

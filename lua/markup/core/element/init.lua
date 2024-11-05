@@ -34,7 +34,6 @@ end
 
 ---@param props table
 ---@param defaults table
----@return markup.Element.props
 function Element:normalize_props(props, defaults)
     local result = {}
 

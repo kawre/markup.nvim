@@ -134,7 +134,7 @@ local function create_object(_, name)
     end
 
     ---@param name string
-    function Class.static:extend(name) -- luacheck: no redefined
+    function Class.static:extend(name) ---@diagnostic disable-line
         local subclass = create_class(name, self)
 
         for key, value in pairs(self.__meta) do

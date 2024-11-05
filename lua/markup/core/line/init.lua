@@ -1,5 +1,5 @@
 local markup = require("markup")
-local log = require("markup.logger")
+local log = require("markup.logger") ---@diagnostic disable-line
 
 ---@class markup.Line.props
 ---@field texts markup.Text[]
@@ -10,7 +10,7 @@ local Line = markup.Object("MarkupLine")
 
 function Line:init()
     self._ = {
-        texts = { markup.Text("") },
+        texts = {},
         padding = {
             left = 0,
             right = 0,
