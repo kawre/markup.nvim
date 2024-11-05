@@ -6,7 +6,7 @@ local markup = require("markup")
 ---@field _ markup.Inline.props
 local Inline = markup.Element:extend("MarkupInline") ---@diagnostic disable-line
 
----@class markup.Inline.constructor.props
+---@class markup.Inline.constructor.props : markup.Element.constructor.props
 
 ---@alias markup.Inline.constructor fun(props?: string | markup.Element | markup.Inline.constructor.props): markup.Inline
 

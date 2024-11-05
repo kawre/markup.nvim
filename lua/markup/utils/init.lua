@@ -28,21 +28,23 @@ function utils.win_set_opts(winid, options)
 end
 
 function utils.measure_time(fn)
-    local start_time = vim.loop.hrtime()
+    local start_time = vim.uv.hrtime()
     fn()
-    local end_time = vim.loop.hrtime()
+    local end_time = vim.uv.hrtime()
 
     local elapsed = end_time - start_time
     local elapsed_ms, fps = elapsed / 1e6, math.floor(1e9 / elapsed)
     return elapsed_ms, fps
 end
 
+---@param object any
+---@param class any
 function utils.is_instance(object, class)
-    if not object then
+    if not object or not object.class then
         return false
     end
 
-    return markup.Object.is_instance(object, class)
+    return markup.Object.is_instance(object, class) ---@diagnostic disable-line
 end
 
 function utils.shallow_copy(original)

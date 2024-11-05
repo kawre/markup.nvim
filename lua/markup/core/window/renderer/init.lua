@@ -22,7 +22,7 @@ function Renderer:init(props)
     props = self:normalize_props(props, {
         bufnr = 0,
         winid = 0,
-        ns_id = -1,
+        ns_id = vim.api.nvim_create_namespace("markup.nvim"),
         state = {},
         body = nil,
     })
@@ -73,6 +73,7 @@ end
 
 function Renderer:render()
     local elapsed_ms, fps = utils.measure_time(function()
+        -- local root = markup.Block(self:body())
         self:renderElement(self:body())
     end)
 
@@ -128,9 +129,9 @@ end
 ---@param element markup.Element
 ---@param parent markup.Element
 function Renderer:set_state(element, parent)
-    self._.state[element] = State(element, parent)
+    self._.state[element:id()] = State(element, parent)
 
-    return self._.state[element]
+    return self._.state[element:id()]
 end
 
 ---------------------------------
@@ -144,7 +145,7 @@ end
 
 ---@param element markup.Element
 function Renderer:state(element)
-    return self._.state[element]
+    return self._.state[element:id()]
 end
 
 ---@param element markup.Element

@@ -71,13 +71,11 @@ function Box:after_build(renderer)
 
         if align == "start" then
             line:append(markup.Padding(padding))
-            -- line:pad_right(padding)
         elseif align == "center" then
             local halfpad = math.floor(padding / 2)
             local leftpad, rightpad = halfpad, halfpad + padding % 2
             line:prepend(markup.Padding(rightpad)):append(markup.Padding(leftpad))
         elseif align == "end" then
-            -- line:pad_left(padding)
             line:prepend(markup.Padding(padding))
         end
     end
@@ -103,8 +101,7 @@ end
 ---- Initializer
 ---------------------------------
 
----@class markup.Box.constructor.props
----@field children? markup.Element[]
+---@class markup.Box.constructor.props : markup.Element.constructor.props
 ---@field spacing? markup.Box.spacing
 ---@field align? markup.Box.align
 ---@field direction? markup.Box.direction

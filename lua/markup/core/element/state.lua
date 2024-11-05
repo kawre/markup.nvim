@@ -36,14 +36,17 @@ function State:init(element, parent)
     self.first_child = children[1]
     self.last_child = children[#children]
 
-    self.children = vim.tbl_filter(function(child)
+    local filtered_children = vim.tbl_filter(function(child)
         return not utils.is_instance(child, markup.Text)
     end, children)
-    self.child_nodes = children
+    self.children = utils.shallow_copy(filtered_children)
+    self.child_nodes = utils.shallow_copy(children)
 
     self.align = element.align and element:align() ---@diagnostic disable-line
     self.direction = element.direction and element:direction() ---@diagnostic disable-line
     self.spacing = element.spacing and element:spacing() ---@diagnostic disable-line
+    self.type = element:type()
+    self.style = element:style()
 
     if parent then
         local parent_children = parent:children()
@@ -51,9 +54,14 @@ function State:init(element, parent)
         self.prev_sibling = parent_children[index - 1]
 
         local parent_dir = parent.direction and parent:direction() ---@diagnostic disable-line
-        self.type = parent_dir and (parent_dir == "column" and "block" or "inline")
-            or element:type()
+        self.type = parent_dir and (parent_dir == "column" and "block" or "inline") or self.type
+
+        self.style = vim.tbl_deep_extend("force", parent:style(), self.style)
     end
+
+    log.debug({
+        style = self.style,
+    })
 end
 
 ---------------------------------
@@ -61,42 +69,36 @@ end
 ---------------------------------
 
 ---@param n? integer
-function State:endl(n)
-    self.row = self.row + (n or 1)
-    return self
-end
-
----@param n? integer
 function State:newl(n)
-    self:endl(n)
-    self:line()
+    self:inc_row(n or 1)
+    self:fill_lines()
     return self
 end
 
----@param text markup.Text
----@return markup.Element.State
-function State:append_text(text)
-    self:line():append(text)
-    return self
-end
-
----@param line markup.Line
+---@param content string|markup.Text|markup.Line
 ---@param row_at? integer (0-indexed)
-function State:append_line(line, row_at)
-    for _, text in ipairs(line:texts()) do
-        self:line(row_at):append(text)
-    end
-
+---@return markup.Element.State
+function State:append(content, row_at)
+    self:line(row_at):append(content)
     return self
 end
 
-function State:print_lines()
-    local lines = "----\n"
-    for _, line in pairs(self.lines) do
-        lines = lines .. line:content() .. "\n"
+---@param content string|markup.Text|markup.Line
+---@param row_at? integer (0-indexed)
+---@return markup.Element.State
+function State:prepend(content, row_at)
+    self:line(row_at):prepend(content)
+    return self
+end
+
+---@param row_at? integer (0-indexed)
+function State:fill_lines(row_at)
+    local lines = self.lines
+    for i = #lines, row_at or self.row do
+        if not lines[i] then
+            lines[i] = markup.Line()
+        end
     end
-    lines = lines .. "----"
-    log.debug(lines)
 end
 
 ---------------------------------
@@ -106,7 +108,12 @@ end
 ---@param row integer (0-indexed)
 function State:set_row(row)
     self.row = row
-    return self
+    return self.row
+end
+
+---@param n integer
+function State:inc_row(n)
+    return self:set_row(self.row + n)
 end
 
 ---------------------------------
@@ -122,15 +129,8 @@ end
 ---@param row_at? integer (0-indexed)
 function State:line(row_at)
     row_at = row_at or self.row
-
-    local lines = self.lines
-    for i = #lines, row_at do
-        if not lines[i] then
-            lines[i] = markup.Line()
-        end
-    end
-
-    return lines[row_at]
+    self:fill_lines(row_at)
+    return self.lines[row_at]
 end
 
 ---@return integer
@@ -150,6 +150,19 @@ function State:height()
     return h
 end
 
+function State:size()
+    return self:width(), self:height()
+end
+
+---@param renderer markup.Renderer
+function State:box_size(renderer)
+    if self.parent then
+        return self:size()
+    else
+        return renderer:width(), renderer:height()
+    end
+end
+
 ---@param renderer markup.Renderer
 function State:max_size(renderer)
     local children = self.children
@@ -162,19 +175,6 @@ function State:max_size(renderer)
     end
 
     return max_width, max_height
-end
-
-function State:size()
-    return self:width(), self:height()
-end
-
----@param renderer markup.Renderer
-function State:box_size(renderer)
-    if self.parent then
-        return self:size()
-    else
-        return renderer:width(), renderer:height()
-    end
 end
 
 ---------------------------------
