@@ -18,7 +18,7 @@ describe("RowBox Renderer", function()
 
     local function RowBoxRenderer(props, lines)
         local default = {
-            direction = "row",
+            vertical = false,
             children = props,
         }
         if props.children then

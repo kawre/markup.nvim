@@ -82,7 +82,7 @@ end
 ---@param root markup.Element
 function Renderer:render_tree(root)
     local body = self:body()
-    
+
     body:render_node(self) ---@diagnostic disable-line: missing-parameter
 
     self:with_buf_option("modifiable", function()

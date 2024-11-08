@@ -4,12 +4,11 @@ local utils = require("markup.utils") ---@diagnostic disable-line: unused-local
 ---@class markup.Node.props
 ---@field type markup.Node.type
 
----This is an ABSTRACT class for all nodes in the markup tree
+---{ABSTRACT}
 ---@class markup.Node : markup.Object
 ---@field protected _ markup.Node.props
 ---@field owner markup.Renderer
 ---@field parent markup.Element
----@field computed boolean
 ---@field dirty boolean
 local Node = markup.Object("MarkupNode")
 

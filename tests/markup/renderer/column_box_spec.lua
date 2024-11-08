@@ -18,7 +18,7 @@ describe("ColumnBox Renderer", function()
 
     local function ColumnBoxRenderer(props, lines)
         local default = {
-            direction = "column",
+            vertical = true,
             children = props,
         }
         if props.children then

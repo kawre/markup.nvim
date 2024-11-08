@@ -33,14 +33,13 @@ end
 ---------------------------------
 
 function Box:after_render()
-    local vertical, align, spacing = self._.vertical, self._.align, self._.spacing
+    local spacing, vertical = self:spacing(), self:vertical()
     local children = self.children
 
     for i, child in ipairs(self.children) do
-        local child_width = child:width()
-
-        if vertical then
+        if not vertical then
             local max_height = select(2, self:max_size())
+            local child_width = child:width()
 
             for row = 0, max_height - 1 do
                 local line = child:_line(row)
@@ -52,16 +51,15 @@ function Box:after_render()
                     line:append(markup.Pad(spacing))
                 end
             end
-        else
-            if spacing > 0 and i ~= #children then
-                child:_newl(spacing)
-            end
+        elseif spacing > 0 and i ~= #children then
+            child:_newl(spacing)
         end
     end
 
     Box.super.after_render(self)
 
     local width = self:box_size()
+    local align = self:align()
     for _, line in pairs(self._.lines) do
         local padding = width - line:length()
 

@@ -4,7 +4,6 @@ local log = require("markup.logger") ---@diagnostic disable-line
 ---@class markup.Block.props : markup.Element.props
 
 ---@class markup.Block : markup.Element
----@field _ markup.Block.props
 local Block = markup.Element:extend("MarkupBlock") ---@diagnostic disable-line
 
 ---@param props markup.Block.constructor.props
