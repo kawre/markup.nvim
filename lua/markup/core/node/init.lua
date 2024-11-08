@@ -1,5 +1,5 @@
 local markup = require("markup")
-local utils = require("markup.utils") ---@diagnostic disable-line: unused-local
+local u = require("markup.utils") ---@diagnostic disable-line: unused-local
 
 ---@class markup.Node.props
 ---@field type markup.Node.type
@@ -58,6 +58,10 @@ end
 
 function Node:is_inline()
     return false
+end
+
+function Node:is_box_item()
+    return self.parent and u.is_instance(self.parent, markup.Box)
 end
 
 function Node:type()

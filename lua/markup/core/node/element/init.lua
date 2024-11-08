@@ -1,5 +1,5 @@
 local markup = require("markup")
-local utils = require("markup.utils") ---@diagnostic disable-line
+local u = require("markup.utils") ---@diagnostic disable-line
 local log = require("markup.logger") ---@diagnostic disable-line
 
 ---@class markup.Element.props : markup.Node.props
@@ -127,7 +127,7 @@ end
 ---@protected
 ---@param element markup.Element
 function Element:_inherit_display(element)
-    if element and utils.is_instance(element, markup.Box) then
+    if element and u.is_instance(element, markup.Box) then
         ---@cast element markup.Box
         return element.vertical and "block" or "inline"
     else
@@ -160,12 +160,12 @@ end
 
 ---@param child markup.Node
 function Element:_index_of(child)
-    return utils.index_of(self.child_nodes, child)
+    return u.index_of(self.child_nodes, child)
 end
 
 ---@param child markup.Element
 function Element:_index_of_element(child)
-    return utils.index_of(self.children, child)
+    return u.index_of(self.children, child)
 end
 
 ---@protected
@@ -215,12 +215,12 @@ end
 
 ---@param other_node markup.Node
 function Element:contains(other_node)
-    return utils.index_of(self.child_nodes, other_node) ~= nil
+    return u.index_of(self.child_nodes, other_node) ~= nil
 end
 
 ---@param node markup.Node
 function Element:insert_before(node)
-    local index = utils.index_of(self.child_nodes, node)
+    local index = u.index_of(self.child_nodes, node)
     assert(index, "node not found")
     table.insert(self.child_nodes, index, node)
     return node
@@ -228,13 +228,13 @@ end
 
 ---@param child markup.Node
 function Element:remove_child(child)
-    local index = utils.index_of(self.child_nodes, child)
+    local index = u.index_of(self.child_nodes, child)
     assert(index, "child not found")
     return table.remove(self.child_nodes, index)
 end
 
 function Element:replace_child(new_child, old_child)
-    local index = utils.index_of(self.child_nodes, old_child)
+    local index = u.index_of(self.child_nodes, old_child)
     assert(index, "child not found")
     self.child_nodes[index] = new_child
     return old_child
@@ -247,10 +247,8 @@ function Element:render()
 end
 
 function Element:after_render()
-    local vertical = self.vertical --[[@as markup.Box]]
-
     for _, child in ipairs(self.children) do
-        local prev_sibling = child.prev_element_sibling
+        local prev_sibling = child.prev_sibling
 
         if prev_sibling and (prev_sibling:is_block() or child:is_block()) then
             self:_newl()
@@ -261,7 +259,8 @@ function Element:after_render()
             self:_append(line, self:_row() + row)
         end
 
-        if vertical == false then
+        ---@cast self markup.Box
+        if self.vertical == false then
             self:_set_row(0)
         else
             self:_newl(#lines)
@@ -294,10 +293,10 @@ end
 
 ---@return integer, integer
 function Element:box_size()
-    if self.parent then
-        return self:size()
-    else
+    if not self:is_box_item() and self:is_block() then
         return self.owner:width(), self.owner:height()
+    else
+        return self:size()
     end
 end
 

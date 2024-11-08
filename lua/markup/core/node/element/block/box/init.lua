@@ -1,5 +1,5 @@
 local markup = require("markup")
-local utils = require("markup.utils") ---@diagnostic disable-line
+local u = require("markup.utils") ---@diagnostic disable-line
 local log = require("markup.logger") ---@diagnostic disable-line
 
 ---@class markup.Box.props : markup.Element.props

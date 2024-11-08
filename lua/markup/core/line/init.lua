@@ -1,6 +1,6 @@
 local markup = require("markup")
 local log = require("markup.logger") ---@diagnostic disable-line
-local utils = require("markup.utils") ---@diagnostic disable-line
+local u = require("markup.utils") ---@diagnostic disable-line
 
 ---@class markup.Line.props
 ---@field texts markup.Text[]

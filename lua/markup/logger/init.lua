@@ -10,17 +10,7 @@ local lvls = vim.log.levels
 local logger = {}
 
 local function normalize(msg)
-    return type(msg) == "string" and msg
-        or vim.inspect(msg, {
-            -- process = function(item, path)
-            --     if item and item.class then
-            --         return item:__tostring()
-            --     end
-            --
-            --     return item or path
-            -- end,
-            depth=2,
-        })
+    return type(msg) == "string" and msg or vim.inspect(msg, { depth = 3 })
 end
 
 -- ---@private

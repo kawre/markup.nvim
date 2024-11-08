@@ -1,5 +1,5 @@
 local markup = require("markup")
-local log = require("markup.logger")
+local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 
 ---@class markup.Utils
 local utils = {}
@@ -27,14 +27,17 @@ function utils.win_set_opts(winid, options)
     end
 end
 
-function utils.measure_time(fn)
+function utils.measure_time(name, fn)
     local start_time = vim.uv.hrtime()
-    fn()
+    local res = fn()
     local end_time = vim.uv.hrtime()
 
     local elapsed = end_time - start_time
     local elapsed_ms, fps = elapsed / 1e6, math.floor(1e9 / elapsed)
-    return elapsed_ms, fps
+
+    log.debug(("[%s]: %.2fms | %dfps"):format(name, elapsed_ms, fps))
+
+    return res
 end
 
 ---@param object any

@@ -1,6 +1,6 @@
 local markup = require("markup")
 
-local utils = require("markup.utils") ---@diagnostic disable-line
+local u = require("markup.utils") ---@diagnostic disable-line
 local log = require("markup.logger") ---@diagnostic disable-line
 
 ---@class markup.Renderer.props : markup.Window.props
@@ -69,25 +69,19 @@ function Renderer:_normalize_props(props, defaults)
 end
 
 function Renderer:render()
-    local elapsed_ms, fps = utils.measure_time(function()
+    u.measure_time("Renderer:render", function()
         local root = markup.Block(self:body())
         self:render_tree(root)
     end)
-
-    -- if __TEST__ then
-    print((" - render time: %.2fms [FPS: %d]"):format(elapsed_ms, fps))
-    -- end
 end
 
 ---@param root markup.Element
 function Renderer:render_tree(root)
-    local body = self:body()
-
-    body:render_node(self) ---@diagnostic disable-line: missing-parameter
+    root:render_node(self) ---@diagnostic disable-line: missing-parameter
 
     self:with_buf_option("modifiable", function()
         self:clear()
-        for row, line in pairs(body:computed_lines()) do
+        for row, line in pairs(root:computed_lines()) do
             line:draw(self, row)
         end
     end)
