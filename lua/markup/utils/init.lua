@@ -35,7 +35,7 @@ function utils.measure_time(name, fn)
     local elapsed = end_time - start_time
     local elapsed_ms, fps = elapsed / 1e6, math.floor(1e9 / elapsed)
 
-    log.debug(("[%s]: %.2fms | %dfps"):format(name, elapsed_ms, fps))
+    log.debug(("[%s]: %.2f ms | %d fps"):format(name, elapsed_ms, fps))
 
     return res
 end

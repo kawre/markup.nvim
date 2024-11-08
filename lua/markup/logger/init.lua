@@ -1,81 +1,52 @@
-local n_ok, notify = pcall(require, "notify")
-if n_ok then
-    vim.notify = notify
-end
-
 local config = require("markup.config")
 local lvls = vim.log.levels
 
 ---@class markup.Logger
+---@field trace fun(...)
+---@field debug fun(...)
+---@field info fun(...)
+---@field warn fun(...)
+---@field error fun(...)
+---@field off fun(...)
 local logger = {}
 
 local function normalize(msg)
-    return type(msg) == "string" and msg or vim.inspect(msg, { depth = 3 })
+    if type(msg) == "string" then
+        return msg
+    else
+        return vim.inspect(msg, { depth = 3 })
+    end
 end
 
--- ---@private
--- ---@param msg any
--- ---@param lvl? integer
--- ---@return any
--- logger.log = vim.schedule_wrap(function(msg, lvl)
--- end)
-
-function logger.log(msg, lvl)
-    if __TEST__ or not config.user.logging then
+---@private
+---@param lvl number
+---@param ... any
+function logger.log(lvl, ...)
+    if __TEST__ or (not config.debug and (lvl == lvls.DEBUG or lvl == lvls.TRACE)) then
         return
     end
 
-    local title = config.name
-    lvl = lvl or lvls.INFO
-    msg = normalize(msg)
-
-    if lvl == lvls.DEBUG then
-        msg = debug.traceback(msg .. "\n")
-    end
-
-    vim.notify(msg, lvl, { title = title })
+    local msg = table.concat(vim.tbl_map(normalize, { ... }), " ")
+    vim.notify(msg, lvl, {
+        title = config.name,
+        on_open = function(win)
+            local buf = vim.api.nvim_win_get_buf(win)
+            vim.api.nvim_set_option_value("filetype", "markdown", { buf = buf })
+            vim.api.nvim_set_option_value("spell", false, { win = win })
+        end,
+    })
 end
 
----@param msg any
-logger.info = function(msg)
-    logger.log(msg)
-end
+return setmetatable(logger, {
+    __index = function(_, key)
+        local lvl = lvls[key:upper()]
 
----@param msg any
-logger.warn = function(msg)
-    logger.log(msg, lvls.WARN)
-end
-
----@param msg any
-logger.error = function(msg)
-    logger.log(msg, lvls.ERROR)
-    logger.debug(msg)
-end
-
----@param err lc.err
-logger.err = function(err)
-    if not err then
-        return logger.error("error")
-    end
-
-    local msg = err.msg or ""
-    local lvl = err.lvl or lvls.ERROR
-
-    logger.log(msg, lvl)
-end
-
----@param msg any
----@param show? boolean
----@return any
-logger.debug = function(msg, show)
-    if not config.debug then
-        return msg
-    end
-
-    local lvl = (show == nil or not show) and lvls.DEBUG or lvls.ERROR
-    logger.log(msg, lvl)
-
-    return msg
-end
-
-return logger
+        return function(...)
+            if lvl then
+                return logger.log(lvl, ...)
+            else
+                return logger.error("Invalid log level:", key)
+            end
+        end
+    end,
+})
