@@ -35,7 +35,7 @@ function Element:init(props, style)
         row = 0,
         lines = {},
         children = {},
-        style = {},
+        style = style or {},
         display = "inline",
     })
 
@@ -253,7 +253,13 @@ function Element:after_render()
         end
 
         local lines = child:computed_lines()
+        -- local box_width = child:box_size()
         for row, line in pairs(lines) do
+            -- local padding = box_width - line:width()
+            --
+            -- if padding > 0 then
+            --     line:append(markup.Pad(padding))
+            -- end
             self:_append(line, self:_row() + row)
         end
 
@@ -291,7 +297,7 @@ end
 
 ---@return integer, integer
 function Element:box_size()
-    if not self:is_box_item() and self:is_block() then
+    if self:is_block() and not self:is_box_item() then
         return self.owner:width(), self.owner:height()
     else
         return self:size()

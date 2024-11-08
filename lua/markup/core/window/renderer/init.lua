@@ -4,7 +4,6 @@ local u = require("markup.utils") ---@diagnostic disable-line: unused-local
 local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 
 ---@class markup.Renderer.props : markup.Window.props
----@field ns_id integer
 ---@field body markup.Element
 
 ---@class markup.Renderer : markup.Window
@@ -19,7 +18,6 @@ local Renderer = markup.Window:extend("MarkupRenderer") ---@diagnostic disable-l
 ---@param props markup.Renderer.constructor.props
 function Renderer:init(props)
     local xd = self:_normalize_props(props, {
-        ns_id = vim.api.nvim_create_namespace("markup.nvim"),
         body = nil,
     })
 
@@ -120,11 +118,8 @@ end
 ---- Initializer
 ---------------------------------
 
----@class markup.Renderer.constructor.props
----@field winid integer
----@field bufnr integer
+---@class markup.Renderer.constructor.props : markup.Window.constructor.props
 ---@field body markup.Element
----@field ns_id? integer
 
 ---@alias markup.Renderer.constructor fun(props: markup.Renderer.constructor.props): markup.Renderer
 

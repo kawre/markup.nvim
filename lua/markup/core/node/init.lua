@@ -83,7 +83,17 @@ function Node:is_inline()
 end
 
 function Node:is_box_item()
-    return self.parent and u.is_instance(self.parent, markup.Box)
+    local node = self.parent
+
+    while node do
+        if u.is_instance(node, markup.Box) then
+            return true
+        end
+        node = node.parent
+    end
+
+    -- return self.parent and u.is_instance(self.parent, markup.Box)
+    return false
 end
 
 function Node:type()

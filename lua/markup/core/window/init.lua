@@ -3,6 +3,7 @@ local markup = require("markup")
 ---@class markup.Window.props
 ---@field winid integer
 ---@field bufnr integer
+---@field ns_id integer
 
 ---@class markup.Window : markup.Object
 ---@field protected _ markup.Window.props
@@ -13,6 +14,7 @@ function Window:init(props)
     self._ = self:_normalize_props(props, {
         bufnr = vim.api.nvim_get_current_buf(),
         winid = vim.api.nvim_get_current_win(),
+        ns_id = vim.api.nvim_create_namespace("markup.window"),
     })
 end
 
@@ -66,6 +68,7 @@ end
 ---@param line_start? integer
 ---@param line_end? integer
 function Window:buf_clear_namespace(ns_id, line_start, line_end)
+    ns_id = ns_id or self._.ns_id
     vim.api.nvim_buf_clear_namespace(self._.bufnr, ns_id, line_start or 0, line_end or -1)
 end
 
@@ -73,8 +76,9 @@ end
 ---@param col integer
 ---@param opts vim.api.keyset.set_extmark
 ---@return integer
-function Window:buf_set_extmark(line, col, opts)
-    return vim.api.nvim_buf_set_extmark(self._.bufnr, 0, line, col, opts)
+function Window:buf_set_extmark(ns_id, line, col, opts)
+    ns_id = ns_id or self._.ns_id
+    return vim.api.nvim_buf_set_extmark(self._.bufnr, ns_id, line, col, opts)
 end
 
 ---@param buffer_opts? table<any, any>
@@ -125,6 +129,7 @@ end
 ---@class markup.Window.constructor.props
 ---@field winid integer
 ---@field bufnr integer
+---@field ns_id? integer
 
 ---@alias markup.Window.constructor fun(props: markup.Window.constructor.props): markup.Window
 

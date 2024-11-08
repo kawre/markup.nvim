@@ -34,37 +34,61 @@ end
 
 local CACHE = {}
 
+---@param style markup.Element.style
+function Text:_normalize_style(style)
+    local map = {
+        ["background"] = "bg",
+        ["color"] = "fg",
+    }
+
+    for key, value in pairs(style) do
+        if map[key] then
+            style[map[key]] = value
+            style[key] = nil
+        end
+    end
+
+    return style
+end
+
 ---@param linenr number line number (1-indexed)
 ---@param byte_start number start byte position (0-indexed)
 ---@return nil
 function Text:highlight(linenr, byte_start)
-    -- if not self._style or vim.tbl_isempty(self._style) then
-    --     return
-    -- end
+    if not self.parent then
+        return
+    end
 
-    -- local name = self._style
-    --
-    -- if type(name) == "table" then
-    --     ---@cast name table
-    --
-    --     local parts = {}
-    --     for key, value in pairs(self._style) do
-    --         table.insert(parts, tostring(key) .. tostring(value))
-    --     end
-    --     table.sort(parts)
-    --     name = ("MARKUP_HL_" .. table.concat(parts, "_")):gsub("[^%w_]", "")
-    --
-    --     if not CACHE[name] then
-    --         vim.api.nvim_set_hl(0, name, self._style)
-    --         CACHE[name] = self._style
-    --     end
-    -- end
-    --
-    -- vim.api.nvim_buf_set_extmark(bufnr, ns_id, linenr, byte_start, {
-    --     end_col = byte_start + self:length(),
-    --     hl_group = name,
-    --     hl_mode = "combine",
-    -- })
+    local style = self.parent.style
+
+    if not style or vim.tbl_isempty(style) then
+        return
+    end
+
+    style = self:_normalize_style(style)
+
+    local name = style
+    if type(name) == "table" then
+        ---@cast name table
+
+        local parts = {}
+        for key, value in pairs(style) do
+            table.insert(parts, tostring(key) .. tostring(value))
+        end
+        table.sort(parts)
+        name = ("MARKUP_HL_" .. table.concat(parts, "_")):gsub("[^%w_]", "")
+
+        if not CACHE[name] then
+            vim.api.nvim_set_hl(0, name, style)
+            CACHE[name] = style
+        end
+    end
+
+    self.owner:buf_set_extmark(nil, linenr, byte_start, {
+        end_col = byte_start + self:length(),
+        hl_group = name,
+        hl_mode = "combine",
+    })
 end
 
 function Text:render()
