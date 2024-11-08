@@ -38,6 +38,14 @@ end
 function Node:_set_state(renderer, parent)
     self.owner = renderer
     self.parent = parent
+
+    if parent then
+        local node_index = parent:_index_of(self)
+        if node_index then
+            self.prev_sibling = parent.child_nodes[node_index - 1]
+            self.next_sibling = parent.child_nodes[node_index + 1]
+        end
+    end
 end
 
 ---------------------------------
@@ -46,26 +54,6 @@ end
 
 function Node:clone()
     return vim.deepcopy(self)
-end
-
-function Node:normalize()
-    --
-end
-
-function Node:is_block()
-    return false
-end
-
-function Node:is_inline()
-    return false
-end
-
-function Node:is_box_item()
-    return self.parent and u.is_instance(self.parent, markup.Box)
-end
-
-function Node:type()
-    return self._.type
 end
 
 ---@param renderer markup.Renderer
@@ -85,6 +73,22 @@ end
 function Node:before_render() end
 
 function Node:after_render() end
+
+function Node:is_block()
+    return self.display == "block" ---@diagnostic disable-line: undefined-field
+end
+
+function Node:is_inline()
+    return self.display == "inline" ---@diagnostic disable-line: undefined-field
+end
+
+function Node:is_box_item()
+    return self.parent and u.is_instance(self.parent, markup.Box)
+end
+
+function Node:type()
+    return self._.type
+end
 
 ---@class markup.Node.constructor.props
 ---@field type markup.Node.type

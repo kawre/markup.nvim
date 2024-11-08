@@ -19,9 +19,7 @@ local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 ---@field first_element_child markup.Element
 ---@field last_child markup.Node
 ---@field last_element_child markup.Element
----@field prev_sibling markup.Node
 ---@field prev_element_sibling markup.Element
----@field next_sibling markup.Node
 ---@field next_element_sibling markup.Element
 local Element = markup.Node:extend("MarkupElement") ---@diagnostic disable-line: undefined-field
 
@@ -155,6 +153,12 @@ function Element:_normalize_props(props, defaults)
         end
     end
 
+    for i, child in ipairs(result.children) do
+        if type(child) == "string" then
+            result.children[i] = markup.Text(child)
+        end
+    end
+
     return vim.tbl_deep_extend("force", defaults or {}, result)
 end
 
@@ -189,12 +193,6 @@ function Element:_set_state(renderer, parent)
     self.last_element_child = self.children[#self.children]
 
     if parent then
-        local node_index = parent:_index_of(self)
-        if node_index then
-            self.prev_sibling = parent.child_nodes[node_index - 1]
-            self.next_sibling = parent.child_nodes[node_index + 1]
-        end
-
         local element_index = parent:_index_of_element(self)
         if element_index then
             self.prev_element_sibling = parent.children[element_index - 1]
@@ -320,20 +318,12 @@ function Element:computed_lines()
     return self._.lines
 end
 
-function Element:is_block()
-    return self.display == "block"
-end
-
-function Element:is_inline()
-    return self.display == "inline"
-end
-
 ---------------------------------
 ---- Initializer
 ---------------------------------
 
 ---@class markup.Element.constructor.props : markup.Node.constructor.props
----@field children? string|markup.Node|markup.Node[]
+---@field children? string|markup.Node|(string|markup.Node)[]
 ---@field style? markup.Element.style
 ---@field display? markup.Element.display
 
