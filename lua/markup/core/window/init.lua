@@ -129,6 +129,6 @@ end
 ---@alias markup.Window.constructor fun(props: markup.Window.constructor.props): markup.Window
 
 ---@type markup.Window.constructor
-local MarkupWindow = Window ---@diagnostic disable-line
+local MarkupWindow = Window ---@diagnostic disable-line: assign-type-mismatch
 
 return MarkupWindow

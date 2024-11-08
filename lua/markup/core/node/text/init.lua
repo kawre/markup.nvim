@@ -74,6 +74,6 @@ end
 ---@alias markup.Text.constructor fun(content: string): markup.Text
 
 ---@type markup.Text.constructor
-local MarkupText = Text ---@diagnostic disable-line
+local MarkupText = Text ---@diagnostic disable-line: assign-type-mismatch
 
 return MarkupText

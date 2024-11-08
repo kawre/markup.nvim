@@ -1,7 +1,7 @@
 local markup = require("markup")
 
-local u = require("markup.utils") ---@diagnostic disable-line
-local log = require("markup.logger") ---@diagnostic disable-line
+local u = require("markup.utils") ---@diagnostic disable-line: unused-local
+local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 
 ---@class markup.Renderer.props : markup.Window.props
 ---@field ns_id integer
@@ -10,7 +10,7 @@ local log = require("markup.logger") ---@diagnostic disable-line
 ---@class markup.Renderer : markup.Window
 ---@field protected super markup.Window
 ---@field _ markup.Renderer.props
-local Renderer = markup.Window:extend("MarkupRenderer") ---@diagnostic disable-line
+local Renderer = markup.Window:extend("MarkupRenderer") ---@diagnostic disable-line: undefined-field
 
 ---------------------------------
 ---- Constructor
@@ -129,6 +129,6 @@ end
 ---@alias markup.Renderer.constructor fun(props: markup.Renderer.constructor.props): markup.Renderer
 
 ---@type markup.Renderer.constructor
-local MarkupRenderer = Renderer ---@diagnostic disable-line
+local MarkupRenderer = Renderer ---@diagnostic disable-line: assign-type-mismatch
 
 return MarkupRenderer

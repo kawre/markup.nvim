@@ -1,6 +1,6 @@
 local markup = require("markup")
-local u = require("markup.utils") ---@diagnostic disable-line
-local log = require("markup.logger") ---@diagnostic disable-line
+local u = require("markup.utils") ---@diagnostic disable-line: unused-local
+local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 
 ---@class markup.Box.props : markup.Element.props
 ---@field align markup.Box.align
@@ -15,7 +15,7 @@ local log = require("markup.logger") ---@diagnostic disable-line
 ---@field spacing markup.Box.spacing
 ---@field vertical boolean
 ---@field reverse boolean
-local Box = markup.Block:extend("MarkupBox") ---@diagnostic disable-line
+local Box = markup.Block:extend("MarkupBox") ---@diagnostic disable-line: undefined-field
 
 ---------------------------------
 ---- Constructor
@@ -101,6 +101,6 @@ end
 ---@alias markup.Box.constructor fun(props?: markup.Element | markup.Box.constructor.props): markup.Box
 
 ---@type markup.Box.constructor
-local MarkupBox = Box ---@diagnostic disable-line
+local MarkupBox = Box ---@diagnostic disable-line: assign-type-mismatch
 
 return MarkupBox

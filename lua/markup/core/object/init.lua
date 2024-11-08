@@ -67,6 +67,9 @@ local function is_subclass(subclass, class)
 end
 
 local function is_instance(instance, class)
+    if not instance or not instance.class then
+        return false
+    end
     if instance.class == class then
         return true
     end
@@ -134,7 +137,7 @@ local function create_object(_, name)
     end
 
     ---@param name string
-    function Class.static:extend(name) ---@diagnostic disable-line
+    function Class.static:extend(name) ---@diagnostic disable-line: redefined-local
         local subclass = create_class(name, self)
 
         for key, value in pairs(self.__meta) do
@@ -171,6 +174,6 @@ local Object = setmetatable({
 ---@alias markup.Object.constructor fun(name: string): markup.Object
 
 ---@type markup.Object.constructor
-local MarkupObject = Object ---@diagnostic disable-line
+local MarkupObject = Object ---@diagnostic disable-line: assign-type-mismatch
 
 return MarkupObject

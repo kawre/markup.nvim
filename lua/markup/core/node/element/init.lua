@@ -1,6 +1,6 @@
 local markup = require("markup")
-local u = require("markup.utils") ---@diagnostic disable-line
-local log = require("markup.logger") ---@diagnostic disable-line
+local u = require("markup.utils") ---@diagnostic disable-line: unused-local
+local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 
 ---@class markup.Element.props : markup.Node.props
 ---@field row integer
@@ -342,6 +342,6 @@ end
 ---@alias markup.Element.constructor fun(props?: string | markup.Node | markup.Element.constructor.props, style?: markup.Element.style.props): markup.Element
 
 ---@type markup.Element.constructor
-local MarkupElement = Element ---@diagnostic disable-line
+local MarkupElement = Element ---@diagnostic disable-line: assign-type-mismatch
 
 return MarkupElement

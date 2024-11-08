@@ -43,11 +43,7 @@ end
 ---@param object any
 ---@param class any
 function utils.is_instance(object, class)
-    if not object or not object.class then
-        return false
-    end
-
-    return markup.Object.is_instance(object, class) ---@diagnostic disable-line
+    return markup.Object.is_instance(object, class) ---@diagnostic disable-line: undefined-field
 end
 
 function utils.shallow_copy(original)

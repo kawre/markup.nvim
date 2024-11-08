@@ -1,10 +1,10 @@
 local markup = require("markup")
-local log = require("markup.logger") ---@diagnostic disable-line
+local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 
 ---@class markup.Block.props : markup.Element.props
 
 ---@class markup.Block : markup.Element
-local Block = markup.Element:extend("MarkupBlock") ---@diagnostic disable-line
+local Block = markup.Element:extend("MarkupBlock") ---@diagnostic disable-line: undefined-field
 
 ---@param props markup.Block.constructor.props
 function Block:init(props)
@@ -20,6 +20,6 @@ end
 ---@alias markup.Block.constructor fun(props?: string | markup.Element | markup.Block.constructor.props): markup.Block
 
 ---@type markup.Block.constructor
-local MarkupBlock = Block ---@diagnostic disable-line
+local MarkupBlock = Block ---@diagnostic disable-line: assign-type-mismatch
 
 return MarkupBlock
