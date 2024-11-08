@@ -111,7 +111,7 @@ describe("ColumnBox Renderer", function()
             markup.Inline("1"),
             markup.Block("2"),
             markup.Box({
-                direction = "row",
+                vertical = false,
                 children = {
                     markup.Inline("3"),
                     markup.Block("3"),
@@ -131,7 +131,7 @@ describe("ColumnBox Renderer", function()
             markup.Inline("1"),
             markup.Block("2"),
             markup.Box({
-                direction = "row",
+                vertical = false,
                 spacing = 1,
                 children = {
                     markup.Inline("3"),
@@ -296,7 +296,7 @@ describe("ColumnBox Renderer", function()
                         markup.Inline("xxxxxx"),
                         markup.Block("xxxx"),
                         markup.Box({
-                            direction = "row",
+                            vertical = false,
                             children = {
                                 markup.Inline("xxxxxxx"),
                                 markup.Box({
@@ -342,7 +342,7 @@ describe("ColumnBox Renderer", function()
                         markup.Inline("xxxxxx"),
                         markup.Block("xxxx"),
                         markup.Box({
-                            direction = "row",
+                            vertical = false,
                             spacing = 3,
                             children = {
                                 markup.Inline("xxxxxxx"),
@@ -382,12 +382,12 @@ describe("ColumnBox Renderer", function()
                 markup.Inline("Top"),
                 markup.Box({
                     align = "start",
-                    direction = "column",
+                    vertical = true,
                     children = {
                         markup.Inline("Start Box"),
                         markup.Box({
                             align = "end",
-                            direction = "row",
+                            vertical = false,
                             children = {
                                 markup.Inline("End Row 1"),
                                 markup.Block("End Row 2"),
@@ -395,13 +395,13 @@ describe("ColumnBox Renderer", function()
                         }),
                         markup.Box({
                             align = "center",
-                            direction = "column",
+                            vertical = true,
                             spacing = 1,
                             children = {
                                 markup.Inline("Center Column 1"),
                                 markup.Box({
                                     align = "start",
-                                    direction = "row",
+                                    vertical = false,
                                     children = {
                                         markup.Inline("Start Row 1"),
                                         markup.Block("Start Row 2"),

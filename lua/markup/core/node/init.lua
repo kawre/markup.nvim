@@ -60,14 +60,6 @@ function Node:is_inline()
     return false
 end
 
-function Node:is_reverse()
-    return false
-end
-
-function Node:vertical()
-    return false
-end
-
 function Node:type()
     return self._.type
 end

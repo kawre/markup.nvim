@@ -339,7 +339,7 @@ describe("RowBox Renderer", function()
                         markup.Inline("xxxxxx"),
                         markup.Block("xxxx"),
                         markup.Box({
-                            direction = "row",
+                            vertical = false,
                             children = {
                                 markup.Inline("xxxxxxx"),
                                 markup.Box({

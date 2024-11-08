@@ -119,20 +119,17 @@ end
 function Element:_inherit_style(element)
     if not element then
         return self._.style
+    else
+        return vim.tbl_deep_extend("force", element.style, self._.style)
     end
-    return vim.tbl_deep_extend("force", element.style or element._.style, self._.style)
 end
 
 ---@protected
 ---@param element markup.Element
 function Element:_inherit_display(element)
-    if not element then
-        return self._.display
-    end
-
-    if utils.is_instance(element, markup.Box) then
+    if element and utils.is_instance(element, markup.Box) then
         ---@cast element markup.Box
-        return element:vertical() and "block" or "inline"
+        return element.vertical and "block" or "inline"
     else
         return self._.display
     end
@@ -250,8 +247,10 @@ function Element:render()
 end
 
 function Element:after_render()
+    local vertical = self.vertical --[[@as markup.Box]]
+
     for _, child in ipairs(self.children) do
-        local prev_sibling = child.prev_sibling
+        local prev_sibling = child.prev_element_sibling
 
         if prev_sibling and (prev_sibling:is_block() or child:is_block()) then
             self:_newl()
@@ -262,7 +261,7 @@ function Element:after_render()
             self:_append(line, self:_row() + row)
         end
 
-        if child:vertical() then
+        if vertical == false then
             self:_set_row(0)
         else
             self:_newl(#lines)

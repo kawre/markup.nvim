@@ -11,6 +11,10 @@ local log = require("markup.logger") ---@diagnostic disable-line
 ---@class markup.Box : markup.Element
 ---@field protected _ markup.Box.props
 ---@field protected super markup.Element
+---@field align markup.Box.align
+---@field spacing markup.Box.spacing
+---@field vertical boolean
+---@field reverse boolean
 local Box = markup.Block:extend("MarkupBox") ---@diagnostic disable-line
 
 ---------------------------------
@@ -21,7 +25,7 @@ function Box:init(props)
     props = self:_normalize_props(props, {
         align = "start",
         spacing = 0,
-        vertical = false,
+        vertical = true,
         reverse = false,
     })
 
@@ -32,8 +36,17 @@ end
 ---- Methods
 ---------------------------------
 
+function Box:_set_state(renderer, parent)
+    Box.super._set_state(self, renderer, parent)
+
+    self.align = self._.align
+    self.spacing = self._.spacing
+    self.vertical = self._.vertical
+    self.reverse = self._.reverse
+end
+
 function Box:after_render()
-    local spacing, vertical = self:spacing(), self:vertical()
+    local spacing, vertical = self.spacing, self.vertical
     local children = self.children
 
     for i, child in ipairs(self.children) do
@@ -59,7 +72,7 @@ function Box:after_render()
     Box.super.after_render(self)
 
     local width = self:box_size()
-    local align = self:align()
+    local align = self.align
     for _, line in pairs(self._.lines) do
         local padding = width - line:length()
 
@@ -73,22 +86,6 @@ function Box:after_render()
             line:prepend(markup.Pad(padding))
         end
     end
-end
-
----------------------------------
----- Getters
----------------------------------
-
-function Box:vertical()
-    return self._.vertical
-end
-
-function Box:align()
-    return self._.align
-end
-
-function Box:spacing()
-    return self._.spacing
 end
 
 ---------------------------------
