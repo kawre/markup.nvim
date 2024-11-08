@@ -1,5 +1,4 @@
 local markup = require("markup")
-local State = require("markup.core.element.state")
 
 local utils = require("markup.utils") ---@diagnostic disable-line
 local log = require("markup.logger") ---@diagnostic disable-line
@@ -7,9 +6,9 @@ local log = require("markup.logger") ---@diagnostic disable-line
 ---@class markup.Renderer.props : markup.Window.props
 ---@field ns_id integer
 ---@field body markup.Element
----@field state table<markup.Element, markup.Element.State>
 
 ---@class markup.Renderer : markup.Window
+---@field protected super markup.Window
 ---@field _ markup.Renderer.props
 local Renderer = markup.Window:extend("MarkupRenderer") ---@diagnostic disable-line
 
@@ -19,15 +18,12 @@ local Renderer = markup.Window:extend("MarkupRenderer") ---@diagnostic disable-l
 
 ---@param props markup.Renderer.constructor.props
 function Renderer:init(props)
-    props = self:normalize_props(props, {
-        bufnr = 0,
-        winid = 0,
+    local xd = self:_normalize_props(props, {
         ns_id = vim.api.nvim_create_namespace("markup.nvim"),
-        state = {},
         body = nil,
     })
 
-    Renderer.super.init(self, props)
+    Renderer.super.init(self, xd) ---@diagnostic disable-line: param-type-mismatch
 
     self:set_opts({
         modifiable = true,
@@ -57,7 +53,8 @@ end
 ---- Methods
 ---------------------------------
 
-function Renderer:normalize_props(props, defaults)
+---@return markup.Renderer.props
+function Renderer:_normalize_props(props, defaults)
     local result = {}
 
     if type(props) == "number" then
@@ -73,8 +70,8 @@ end
 
 function Renderer:render()
     local elapsed_ms, fps = utils.measure_time(function()
-        -- local root = markup.Block(self:body())
-        self:renderElement(self:body())
+        local root = markup.Block(self:body())
+        self:render_tree(root)
     end)
 
     -- if __TEST__ then
@@ -82,16 +79,15 @@ function Renderer:render()
     -- end
 end
 
----@param element markup.Element
-function Renderer:renderElement(element)
-    self:clear()
+---@param root markup.Element
+function Renderer:render_tree(root)
+    local body = self:body()
+    
+    body:render_node(self) ---@diagnostic disable-line: missing-parameter
 
-    element:build(self) ---@diagnostic disable-line
-    local state = self:state(element)
-
-    self:with_modifiable(function()
-        self:buf_set_lines(0, -1, false, {})
-        for row, line in pairs(state.lines) do
+    self:with_buf_option("modifiable", function()
+        self:clear()
+        for row, line in pairs(body:computed_lines()) do
             line:draw(self, row)
         end
     end)
@@ -100,25 +96,12 @@ end
 ---@param line_start? integer
 ---@param line_end? integer
 function Renderer:buf_clear_namespace(line_start, line_end)
-    line_start = line_start or 0
-    line_end = line_end or -1
-    vim.api.nvim_buf_clear_namespace(self._.bufnr, self._.ns_id, line_start, line_end)
+    Renderer.super.buf_clear_namespace(self, self._.ns_id, line_start, line_end)
 end
 
 function Renderer:clear()
     self:buf_clear_namespace()
-    self._.state = {}
-end
-
-function Renderer:with_modifiable(fn)
-    local modifiable = self:buf_get_option_value("modifiable")
-    if not modifiable then
-        self:buf_set_option_value("modifiable", true)
-        fn()
-        self:buf_set_option_value("modifiable", false)
-    else
-        fn()
-    end
+    self:buf_set_lines(0, -1, false, {})
 end
 
 ---------------------------------
@@ -130,14 +113,6 @@ function Renderer:set_body(body)
     self._.body = body
 end
 
----@param element markup.Element
----@param parent markup.Element
----@return markup.Element.State
-function Renderer:set_state(element, parent)
-    self._.state[element:id()] = State(element, parent, self)
-    return self._.state[element:id()]
-end
-
 ---------------------------------
 ---- Getters
 ---------------------------------
@@ -145,27 +120,6 @@ end
 ---@return markup.Element
 function Renderer:body()
     return self._.body
-end
-
----@param element markup.Element
----@return markup.Element.State
-function Renderer:state(element)
-    assert(element.id, "Element must have an id")
-    return self._.state[element:id()]
-end
-
----@param element markup.Element
-function Renderer:parent_state(element)
-    local state = self:state(element)
-    return state and self:state(state.parent)
-end
-
----@param element markup.Element
-function Renderer:prev_sibling_state(element)
-    local prev_sibling = self:state(element).prev_sibling
-    if prev_sibling then
-        return self:state(prev_sibling)
-    end
 end
 
 ---------------------------------

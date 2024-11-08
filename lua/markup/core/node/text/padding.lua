@@ -1,15 +1,15 @@
 local markup = require("markup")
 
 ---@class markup.Padding : markup.Text
+---@field protected super markup.Text
 local Padding = markup.Text:extend("MarkupPadding") ---@diagnostic disable-line
 
 ---@param n markup.Padding.constructor.props
 function Padding:init(n)
-    assert(n and type(n) == "number", "`n` must be a number")
-    Padding.super.init(self, (" "):rep(n or 1), "ErrorMsg")
+    Padding.super.init(self, (" "):rep(tonumber(n))) ---@diagnostic disable-line: param-type-mismatch
 end
 
----@alias markup.Padding.constructor.props integer?
+---@alias markup.Padding.constructor.props string|integer
 
 ---@alias markup.Padding.constructor fun(n: markup.Padding.constructor.props): markup.Padding
 

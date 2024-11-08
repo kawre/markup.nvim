@@ -2,17 +2,15 @@ local markup = require("markup")
 local utils = require("markup.utils") ---@diagnostic disable-line
 local log = require("markup.logger") ---@diagnostic disable-line
 
----@alias markup.Box.align "start"|"center"|"end"
----@alias markup.Box.direction "row"|"column"
----@alias markup.Box.spacing string|integer
-
 ---@class markup.Box.props : markup.Element.props
 ---@field align markup.Box.align
 ---@field spacing markup.Box.spacing
----@field direction markup.Box.direction
+---@field vertical boolean
+---@field reverse boolean
 
 ---@class markup.Box : markup.Element
----@field _ markup.Box.props
+---@field protected _ markup.Box.props
+---@field protected super markup.Element
 local Box = markup.Block:extend("MarkupBox") ---@diagnostic disable-line
 
 ---------------------------------
@@ -20,10 +18,11 @@ local Box = markup.Block:extend("MarkupBox") ---@diagnostic disable-line
 ---------------------------------
 
 function Box:init(props)
-    props = self:normalize_props(props, {
+    props = self:_normalize_props(props, {
         align = "start",
-        direction = "column",
         spacing = 0,
+        vertical = false,
+        reverse = false,
     })
 
     Box.super.init(self, props)
@@ -33,50 +32,47 @@ end
 ---- Methods
 ---------------------------------
 
----@param renderer markup.Renderer
-function Box:after_build(renderer)
-    local state = renderer:state(self)
-    local dir, align, spacing = state.direction, state.align, state.spacing
-    local children = state.children
+function Box:after_render()
+    local vertical, align, spacing = self._.vertical, self._.align, self._.spacing
+    local children = self.children
 
-    for i, child in ipairs(children) do
-        local child_state = renderer:state(child)
-        local child_width = child_state:width()
+    for i, child in ipairs(self.children) do
+        local child_width = child:width()
 
-        if dir == "row" then
-            local max_height = select(2, state:max_size())
+        if vertical then
+            local max_height = select(2, self:max_size())
 
             for row = 0, max_height - 1 do
-                local line = child_state:line(row)
+                local line = child:_line(row)
                 local padding = child_width - line:width()
                 if padding > 0 then
-                    line:append(markup.Padding(padding))
+                    line:append(markup.Pad(padding))
                 end
                 if spacing > 0 and i ~= #children then
-                    line:append(markup.Padding(spacing))
+                    line:append(markup.Pad(spacing))
                 end
             end
         else
             if spacing > 0 and i ~= #children then
-                child_state:newl(spacing)
+                child:_newl(spacing)
             end
         end
     end
 
-    Box.super.after_build(self, renderer)
+    Box.super.after_render(self)
 
-    local width = state:box_size()
-    for _, line in pairs(state.lines) do
+    local width = self:box_size()
+    for _, line in pairs(self._.lines) do
         local padding = width - line:length()
 
         if align == "start" then
-            line:append(markup.Padding(padding))
+            line:append(markup.Pad(padding))
         elseif align == "center" then
             local halfpad = math.floor(padding / 2)
             local leftpad, rightpad = halfpad, halfpad + padding % 2
-            line:prepend(markup.Padding(rightpad)):append(markup.Padding(leftpad))
+            line:prepend(markup.Pad(rightpad)):append(markup.Pad(leftpad))
         elseif align == "end" then
-            line:prepend(markup.Padding(padding))
+            line:prepend(markup.Pad(padding))
         end
     end
 end
@@ -85,8 +81,8 @@ end
 ---- Getters
 ---------------------------------
 
-function Box:direction()
-    return self._.direction
+function Box:vertical()
+    return self._.vertical
 end
 
 function Box:align()
@@ -102,9 +98,10 @@ end
 ---------------------------------
 
 ---@class markup.Box.constructor.props : markup.Element.constructor.props
----@field spacing? markup.Box.spacing
 ---@field align? markup.Box.align
----@field direction? markup.Box.direction
+---@field spacing? markup.Box.spacing
+---@field vertical? boolean
+---@field reverse? boolean
 
 ---@alias markup.Box.constructor fun(props?: markup.Element | markup.Box.constructor.props): markup.Box
 

@@ -2,25 +2,28 @@
 local core = {}
 
 core.lookups = {
-	-- Object
-	Object = "markup.core.object",
+    -- Object
+    Object = "markup.core.object",
 
-	-- Text
-	Text = "markup.core.text",
-	Padding = "markup.core.text.padding",
+    -- Node
+    Node = "markup.core.node",
 
-	-- Line
-	Line = "markup.core.line",
+    -- Text
+    Text = "markup.core.node.text",
+    Pad = "markup.core.node.text.padding",
 
-	-- Element
-	Element = "markup.core.element",
-	Inline = "markup.core.element.inline",
-	Block = "markup.core.element.block",
-	Box = "markup.core.element.box",
+    -- Line
+    Line = "markup.core.line",
 
-	-- Window
-	Window = "markup.core.window",
-	Renderer = "markup.core.window.renderer",
+    -- Element
+    Element = "markup.core.node.element",
+    Inline = "markup.core.node.element.inline",
+    Block = "markup.core.node.element.block",
+    Box = "markup.core.node.element.block.box",
+
+    -- Window
+    Window = "markup.core.window",
+    Renderer = "markup.core.window.renderer",
 }
 
 return core

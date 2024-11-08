@@ -9,8 +9,8 @@ local Block = markup.Element:extend("MarkupBlock") ---@diagnostic disable-line
 
 ---@param props markup.Block.constructor.props
 function Block:init(props)
-    props = self:normalize_props(props, {
-        type = "block",
+    props = self:_normalize_props(props, {
+        display = "block",
     })
 
     Block.super.init(self, props)
