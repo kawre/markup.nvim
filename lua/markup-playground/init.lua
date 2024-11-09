@@ -2,39 +2,48 @@
 local playground = {}
 
 function playground.open()
-	local path = vim.fn.stdpath("data") .. "/markup" .. "/playground.lua"
+    local path = vim.fn.stdpath("data") .. "/markup/playground.lua"
 
-	local api = vim.api
-	vim.cmd("$tabe" .. path)
+    local api = vim.api
+    vim.cmd("$tabe" .. path)
 
-	playground.editor = {
-		winid = api.nvim_get_current_win(),
-		bufnr = api.nvim_get_current_buf(),
-	}
-	playground.editor.filename = api.nvim_buf_get_name(playground.editor.bufnr)
+    playground.editor = {
+        winid = api.nvim_get_current_win(),
+        bufnr = api.nvim_get_current_buf(),
+    }
 
-	vim.cmd("vsp preview")
-	playground.preview = {
-		winid = api.nvim_get_current_win(),
-		bufnr = api.nvim_get_current_buf(),
-		ns_id = api.nvim_create_namespace("markup-playground"),
-	}
+    local markup = require("markup")
 
-	api.nvim_set_current_win(playground.editor.winid)
+    local preview = markup.Renderer({
+        ns_id = api.nvim_create_namespace("markup-playground"),
+        position = "right",
+        enter = false,
+        show = true,
+        config = {
+            relative = "editor",
+            vertical = true,
+            width = 0.5,
+        },
+        body = markup.Block(""),
+    })
 
-	vim.api.nvim_create_autocmd("BufWritePost", {
-		callback = function()
-			local ok, err = pcall(vim.cmd.luafile, playground.editor.filename)
-			if not ok then
-				local log = require("markup.logger")
-				log.error(err)
-			end
-		end,
-	})
+    playground.preview = preview
+    playground.editor.filename = api.nvim_buf_get_name(playground.editor.bufnr)
+
+    vim.api.nvim_create_autocmd("BufWritePost", {
+        callback = function()
+            local ok, err = pcall(vim.cmd.luafile, playground.editor.filename)
+            if not ok then
+                local log = require("markup.logger")
+                log.error(err)
+            end
+            preview:render()
+        end,
+    })
 end
 
 function playground.setup()
-	vim.api.nvim_create_user_command("Markup", playground.open, {})
+    vim.api.nvim_create_user_command("Markup", playground.open, {})
 end
 
 return playground

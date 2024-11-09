@@ -8,6 +8,7 @@
 
 - [ ] Grid Box
 - [ ] Justify Content
+- [ ] Reverse
 - [ ] Background color
 - [ ] Margin and Padding
 - [ ] Height and Width

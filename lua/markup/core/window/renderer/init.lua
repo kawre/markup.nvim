@@ -15,56 +15,29 @@ local Renderer = markup.Window:extend("MarkupRenderer") ---@diagnostic disable-l
 ---- Constructor
 ---------------------------------
 
----@param props markup.Renderer.constructor.props
-function Renderer:init(props)
-    local xd = self:_normalize_props(props, {
-        body = nil,
-    })
+-- ---@return markup.Renderer.props
+-- function Renderer.static:_normalize_props(props, defaults)
+--     local result = {}
+--
+--     if type(props) == "number" then
+--         result.children = { markup.Text(props) }
+--     elseif getmetatable(props) then
+--         result.children = { props }
+--     else
+--         result = props
+--     end
+--
+--     return vim.tbl_deep_extend("force", defaults or {}, result)
+-- end
 
-    Renderer.super.init(self, xd) ---@diagnostic disable-line: param-type-mismatch
-
-    self:set_opts({
-        modifiable = true,
-        buflisted = false,
-        matchpairs = "",
-        swapfile = false,
-        buftype = "nofile",
-        filetype = "preview",
-        synmaxcol = 0,
-    }, {
-        wrap = false,
-        colorcolumn = "",
-        foldenable = false,
-        foldcolumn = "0",
-        cursorcolumn = false,
-        cursorline = false,
-        number = false,
-        relativenumber = false,
-        list = false,
-        spell = false,
-        signcolumn = "no",
-        winfixbuf = true,
-    })
-end
+-- ---@param props markup.Renderer.constructor.props
+-- function Renderer:init(props)
+--     Renderer.super.init(self, props) ---@diagnostic disable-line: param-type-mismatch
+-- end
 
 ---------------------------------
 ---- Methods
 ---------------------------------
-
----@return markup.Renderer.props
-function Renderer:_normalize_props(props, defaults)
-    local result = {}
-
-    if type(props) == "number" then
-        result.children = { markup.Text(props) }
-    elseif getmetatable(props) then
-        result.children = { props }
-    else
-        result = props
-    end
-
-    return vim.tbl_deep_extend("force", defaults or {}, result)
-end
 
 function Renderer:render()
     u.measure_time("Renderer:render", function()
@@ -119,7 +92,7 @@ end
 ---------------------------------
 
 ---@class markup.Renderer.constructor.props : markup.Window.constructor.props
----@field body markup.Element
+---@field body? markup.Element
 
 ---@alias markup.Renderer.constructor fun(props: markup.Renderer.constructor.props): markup.Renderer
 

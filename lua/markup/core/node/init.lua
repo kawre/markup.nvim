@@ -92,7 +92,6 @@ function Node:is_box_item()
         node = node.parent
     end
 
-    -- return self.parent and u.is_instance(self.parent, markup.Box)
     return false
 end
 
