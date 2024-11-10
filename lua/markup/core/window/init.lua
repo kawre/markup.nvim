@@ -43,6 +43,10 @@ function Window.static:_normalize_props(props)
             statuscolumn = "",
             wrap = false,
             sidescrolloff = 0,
+            foldenable = false,
+            foldcolumn = "0",
+            colorcolumn = "",
+            winfixbuf = true,
         },
         keys = {
             q = "close",
@@ -211,15 +215,11 @@ function Window:apply_opts()
 end
 
 function Window:apply_buf_opts()
-    if self:buf_is_valid() then
-        u.buf_set_opts(self._.bufnr, self._.buf_opts)
-    end
+    u.buf_set_opts(self._.bufnr, self._.buf_opts)
 end
 
 function Window:apply_win_opts()
-    if self:win_is_valid() then
-        u.win_set_opts(self._.winid, self._.win_opts)
-    end
+    u.win_set_opts(self._.winid, self._.win_opts)
 end
 
 function Window:buf_is_valid()
@@ -326,6 +326,16 @@ function Window:with_win_option(option, fn, inverse)
         self:win_set_option_value(option, inverse)
     else
         fn()
+    end
+end
+
+function Window:update()
+    if self:is_valid() then
+        self:apply_opts()
+        if self:_is_float() then
+            -- opts.noautocmd = nil
+            vim.api.nvim_win_set_config(self._.winid, self:_win_config())
+        end
     end
 end
 

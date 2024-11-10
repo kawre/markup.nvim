@@ -30,7 +30,7 @@ local Element = markup.Node:extend("MarkupElement") ---@diagnostic disable-line:
 ---@param props markup.Element.constructor.props
 ---@param style? markup.Element.style
 function Element:init(props, style)
-    props = self:_normalize_props(props, {
+    props = Element.static._normalize_props(props, {
         type = "element",
         row = 0,
         lines = {},
@@ -136,7 +136,7 @@ end
 ---@protected
 ---@param props any
 ---@param defaults any
-function Element:_normalize_props(props, defaults)
+function Element.static._normalize_props(props, defaults)
     local result = {}
 
     if type(props) == "string" then
@@ -148,13 +148,13 @@ function Element:_normalize_props(props, defaults)
         if not result.children then
             result = { children = result }
         end
-        result.children = self:_normalize_content(result.children)
+        result.children = Element.static._normalize_content(result.children)
     end
 
     return vim.tbl_deep_extend("keep", result, defaults or {})
 end
 
-function Element:_normalize_content(content)
+function Element.static._normalize_content(content)
     if type(content) == "string" then
         return { markup.Text(content) }
     elseif getmetatable(content) then

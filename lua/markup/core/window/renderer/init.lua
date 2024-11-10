@@ -58,7 +58,6 @@ end
 ---- Getters
 ---------------------------------
 
----@return markup.Element
 function Renderer:body()
     return self._.body or ""
 end
@@ -68,7 +67,7 @@ end
 ---------------------------------
 
 ---@class markup.Renderer.constructor.props : markup.Window.constructor.props
----@field body? markup.Element
+---@field body? markup.Element.content
 
 ---@alias markup.Renderer.constructor fun(props: markup.Renderer.constructor.props): markup.Renderer
 

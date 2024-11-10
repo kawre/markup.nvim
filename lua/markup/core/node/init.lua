@@ -18,19 +18,19 @@ local Node = markup.Object("MarkupNode")
 
 ---@param props markup.Node.constructor.props
 function Node:init(props)
-    self._ = self:_normalize_props(props)
+    self._ = props ---@diagnostic disable-line: assign-type-mismatch
 end
 
 ---------------------------------
 ---- Methods (Private)
 ---------------------------------
 
----@protected
----@param props any
----@param defaults? markup.Node.props
-function Node:_normalize_props(props, defaults)
-    return vim.tbl_deep_extend("force", defaults or {}, props)
-end
+-- ---@protected
+-- ---@param props any
+-- ---@param defaults? markup.Node.props
+-- function Node:_normalize_props(props, defaults)
+--     return vim.tbl_deep_extend("force", defaults or {}, props)
+-- end
 
 ---@protected
 ---@param renderer markup.Renderer

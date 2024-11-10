@@ -21,15 +21,17 @@ local Box = markup.Block:extend("MarkupBox") ---@diagnostic disable-line: undefi
 ---- Constructor
 ---------------------------------
 
-function Box:init(props)
-    props = self:_normalize_props(props, {
+---@param props markup.Box.constructor.props
+---@param style? markup.Element.style
+function Box:init(props, style)
+    props = Box.static._normalize_props(props, {
         align = "start",
         spacing = 0,
         vertical = true,
         reverse = false,
     })
 
-    Box.super.init(self, props)
+    Box.super.init(self, props, style)
 end
 
 ---------------------------------
@@ -98,7 +100,7 @@ end
 ---@field vertical? boolean
 ---@field reverse? boolean
 
----@alias markup.Box.constructor fun(props?: markup.Element | markup.Box.constructor.props): markup.Box
+---@alias markup.Box.constructor fun(props?: markup.Element|markup.Box.constructor.props, style?: markup.Element.style): markup.Box
 
 ---@type markup.Box.constructor
 local MarkupBox = Box ---@diagnostic disable-line: assign-type-mismatch

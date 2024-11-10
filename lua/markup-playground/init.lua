@@ -2,23 +2,24 @@
 local playground = {}
 
 function playground.open()
+    local markup = require("markup")
     local path = vim.fn.stdpath("data") .. "/markup/playground.lua"
-
     local api = vim.api
-    vim.cmd("$tabe" .. path)
+
+    vim.cmd.tabe(path)
+    local bufnr, winid = api.nvim_get_current_buf(), api.nvim_get_current_win()
 
     playground.editor = {
-        winid = api.nvim_get_current_win(),
-        bufnr = api.nvim_get_current_buf(),
+        winid = winid,
+        bufnr = bufnr,
+        filename = api.nvim_buf_get_name(bufnr),
     }
 
-    local markup = require("markup")
-
-    local preview = markup.Renderer({
+    playground.preview = markup.Renderer({
         ns_id = api.nvim_create_namespace("markup-playground"),
-        position = "right",
         enter = false,
         show = true,
+        position = "right",
         config = {
             relative = "editor",
             vertical = true,
@@ -26,16 +27,13 @@ function playground.open()
         },
     })
 
-    playground.preview = preview
-    playground.editor.filename = api.nvim_buf_get_name(playground.editor.bufnr)
-
     vim.api.nvim_create_autocmd("BufWritePost", {
         callback = function()
             local ok, err = pcall(vim.cmd.luafile, playground.editor.filename)
             if not ok then
                 require("markup.logger").error(err)
             else
-                preview:render()
+                playground.preview:render()
             end
         end,
     })
