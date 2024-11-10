@@ -18,6 +18,8 @@ local ui = require("markup.ui")
 -- Window
 ---@field Window markup.Window.constructor
 ---@field Renderer markup.Renderer.constructor
+-- TabPage
+---@field TabPage markup.TabPage.constructor
 local markup = {}
 
 ---@private

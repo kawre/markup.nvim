@@ -16,7 +16,7 @@ core.lookups = {
     Line = "markup.core.line",
 
     -- Tab
-    Tab = "markup.core.tab",
+    TabPage = "markup.core.tabpage",
 
     -- Layout
     Layout = "markup.core.layout",

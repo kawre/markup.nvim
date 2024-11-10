@@ -14,7 +14,7 @@
 - [ ] Height and Width
 - [ ] Max Width and Max Height
 - [ ] Window Layout Box
-- [ ] Tab class
+- [x] Tab class
 
 ### 📦 Elements
 
@@ -25,5 +25,4 @@
 - [ ] List (ul, ol)
 - [ ] Table
 - [ ] Anchor (hyperlinks)
-- [ ] Text
 - [ ] strong, italic, underline, strike, code, mark, small, sub, sup
