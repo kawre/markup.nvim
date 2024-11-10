@@ -186,14 +186,12 @@ function Window:win_open()
 
     local props = self:props()
     local config = self:_win_config()
-    log.debug(config)
 
     if self:_is_float() then
         self._.winid = vim.api.nvim_open_win(props.bufnr, props.enter, config)
     else
         local parent = config.win or 0
         local size = config.vertical and config.width or config.height
-        log.debug(size)
 
         vim.api.nvim_win_call(parent, function()
             vim.cmd(self:_split_cmd(config.relative, props.position, size))

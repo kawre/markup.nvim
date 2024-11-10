@@ -145,21 +145,29 @@ function Element:_normalize_props(props, defaults)
         result.children = { props }
     else
         result = props
-
-        if type(props.children) == "string" then
-            result.children = { markup.Text(props.children) }
-        elseif getmetatable(props.children) then
-            result.children = { props.children }
+        if not result.children then
+            result = { children = result }
         end
+        result.children = self:_normalize_content(result.children)
     end
 
-    for i, child in ipairs(result.children) do
+    return vim.tbl_deep_extend("keep", result, defaults or {})
+end
+
+function Element:_normalize_content(content)
+    if type(content) == "string" then
+        return { markup.Text(content) }
+    elseif getmetatable(content) then
+        return { content }
+    end
+
+    for i, child in ipairs(content) do
         if type(child) == "string" then
-            result.children[i] = markup.Text(child)
+            content[i] = markup.Text(child)
         end
     end
 
-    return vim.tbl_deep_extend("force", defaults or {}, result)
+    return content
 end
 
 ---@param child markup.Node
@@ -329,13 +337,13 @@ end
 ---------------------------------
 
 ---@class markup.Element.constructor.props : markup.Node.constructor.props
----@field children? string|markup.Node|(string|markup.Node)[]
+---@field children? markup.Element.content
 ---@field style? markup.Element.style
 ---@field display? markup.Element.display
 
 ---@alias markup.Element.style.props string|markup.Element.style
 
----@alias markup.Element.constructor fun(props?: string | markup.Node | markup.Element.constructor.props, style?: markup.Element.style.props): markup.Element
+---@alias markup.Element.constructor fun(props?: markup.Element.content|markup.Window.constructor.props, style?: markup.Element.style.props): markup.Element
 
 ---@type markup.Element.constructor
 local MarkupElement = Element ---@diagnostic disable-line: assign-type-mismatch

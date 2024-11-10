@@ -24,7 +24,6 @@ function playground.open()
             vertical = true,
             width = 0.5,
         },
-        body = markup.Block(""),
     })
 
     playground.preview = preview
@@ -34,10 +33,10 @@ function playground.open()
         callback = function()
             local ok, err = pcall(vim.cmd.luafile, playground.editor.filename)
             if not ok then
-                local log = require("markup.logger")
-                log.error(err)
+                require("markup.logger").error(err)
+            else
+                preview:render()
             end
-            preview:render()
         end,
     })
 end

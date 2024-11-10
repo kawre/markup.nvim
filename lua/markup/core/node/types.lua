@@ -8,6 +8,8 @@
 ---- Element
 ---------------------------------
 
+---@alias markup.Element.content string|markup.Node|(string|markup.Node)[]
+
 ---@alias markup.Element.display "inline"|"block"
 
 ---@class markup.Element.style

@@ -4,36 +4,12 @@ local u = require("markup.utils") ---@diagnostic disable-line: unused-local
 local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 
 ---@class markup.Renderer.props : markup.Window.props
----@field body markup.Element
+---@field body markup.Element.content
 
 ---@class markup.Renderer : markup.Window
 ---@field protected super markup.Window
 ---@field _ markup.Renderer.props
 local Renderer = markup.Window:extend("MarkupRenderer") ---@diagnostic disable-line: undefined-field
-
----------------------------------
----- Constructor
----------------------------------
-
--- ---@return markup.Renderer.props
--- function Renderer.static:_normalize_props(props, defaults)
---     local result = {}
---
---     if type(props) == "number" then
---         result.children = { markup.Text(props) }
---     elseif getmetatable(props) then
---         result.children = { props }
---     else
---         result = props
---     end
---
---     return vim.tbl_deep_extend("force", defaults or {}, result)
--- end
-
--- ---@param props markup.Renderer.constructor.props
--- function Renderer:init(props)
---     Renderer.super.init(self, props) ---@diagnostic disable-line: param-type-mismatch
--- end
 
 ---------------------------------
 ---- Methods
@@ -73,7 +49,7 @@ end
 ---- Setters
 ---------------------------------
 
----@param body markup.Element
+---@param body markup.Element.content
 function Renderer:set_body(body)
     self._.body = body
 end
@@ -84,7 +60,7 @@ end
 
 ---@return markup.Element
 function Renderer:body()
-    return self._.body
+    return self._.body or ""
 end
 
 ---------------------------------
