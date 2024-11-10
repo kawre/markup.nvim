@@ -7,6 +7,7 @@ local log, u = require("markup.logger"), require("markup.utils") ---@diagnostic 
 ---@field tabpage integer
 ---@field file? string
 ---@field count markup.TabPage.count
+---@field mount boolean
 ---@field enter boolean
 
 ---@class markup.TabPage : markup.Object
@@ -18,9 +19,14 @@ function TabPage:init(props)
     self._ = vim.tbl_deep_extend("force", {
         count = "",
         enter = true,
+        mount = false,
     }, props)
 
     self.tabpage = self._.tabpage
+
+    if self._.mount then
+        self:mount()
+    end
 end
 
 function TabPage:_tab_cmd()
@@ -73,10 +79,15 @@ function TabPage:focus()
     end
 end
 
+function TabPage:set_file(file)
+    self._.file = file
+end
+
 ---@class markup.TabPage.constructor.props
----@field tabpage? integer bind to an existing tabpage
+---@field tabpage? integer bind to an existing tabpage handle
 ---@field file? string open new tabpage with this file
 ---@field count? markup.TabPage.count new tabpage appears after [count]
+---@field mount? boolean open tabpage on init
 ---@field enter? boolean focus on new tabpage
 
 ---@alias markup.TabPage.constructor fun(props: markup.TabPage.constructor.props): markup.TabPage

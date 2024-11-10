@@ -7,7 +7,6 @@ core.lookups = {
 
     -- Node
     Node = "markup.core.node",
-
     -- Text
     Text = "markup.core.node.text",
     Pad = "markup.core.node.text.padding",
@@ -15,7 +14,7 @@ core.lookups = {
     -- Line
     Line = "markup.core.line",
 
-    -- Tab
+    -- TabPage
     TabPage = "markup.core.tabpage",
 
     -- Layout
@@ -23,7 +22,18 @@ core.lookups = {
 
     -- Element
     Element = "markup.core.node.element",
+    -- Inline
     Inline = "markup.core.node.element.inline",
+    Anchor = "markup.core.node.element.inline.anchor",
+    Code = "markup.core.node.element.inline.code",
+    Italic = "markup.core.node.element.inline.italic",
+    Mark = "markup.core.node.element.inline.mark",
+    Strike = "markup.core.node.element.inline.strike",
+    Strong = "markup.core.node.element.inline.strong",
+    Sub = "markup.core.node.element.inline.sub",
+    Sup = "markup.core.node.element.inline.sup",
+    Underline = "markup.core.node.element.inline.underline",
+    -- Block
     Block = "markup.core.node.element.block",
     Box = "markup.core.node.element.block.box",
 

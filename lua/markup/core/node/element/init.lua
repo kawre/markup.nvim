@@ -21,7 +21,7 @@ local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 ---@field last_element_child markup.Element
 ---@field prev_element_sibling markup.Element
 ---@field next_element_sibling markup.Element
-local Element = markup.Node:extend("MarkupElement") ---@diagnostic disable-line: undefined-field
+local Element = markup.Node:extend("markup.element") ---@diagnostic disable-line: undefined-field
 
 ---------------------------------
 ---- Constructor
@@ -190,7 +190,7 @@ function Element:_set_state(renderer, parent)
     self._.lines = {}
     self.display = self:_inherit_display(parent)
     self.style = self:_inherit_style(parent)
-    self.child_nodes = self._.children
+    self.child_nodes = u.shallow_copy(self._.children)
     self.children = vim.tbl_filter(function(child)
         return child:type() == "element"
     end, self.child_nodes)
@@ -337,9 +337,9 @@ end
 ---------------------------------
 
 ---@class markup.Element.constructor.props : markup.Node.constructor.props
----@field children? markup.Element.content
----@field style? markup.Element.style
----@field display? markup.Element.display
+---@field children? markup.Element.content element children
+---@field style? markup.Element.style element style
+---@field display? markup.Element.display element display
 
 ---@alias markup.Element.style.props string|markup.Element.style
 

@@ -12,7 +12,18 @@ local ui = require("markup.ui")
 ---@field Line markup.Line.constructor
 -- Element
 ---@field Element markup.Element.constructor
+-- Inline
 ---@field Inline markup.Inline.constructor
+---@field Anchor markup.Inline.constructor
+---@field Code markup.Inline.constructor
+---@field Italic markup.Inline.constructor
+---@field Mark markup.Inline.constructor
+---@field Strike markup.Inline.constructor
+---@field Strong markup.Inline.constructor
+---@field Sub markup.Inline.constructor
+---@field Sup markup.Inline.constructor
+---@field Underline markup.Inline.constructor
+-- Block
 ---@field Block markup.Block.constructor
 ---@field Box markup.Box.constructor
 -- Window

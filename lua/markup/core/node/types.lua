@@ -12,9 +12,11 @@
 
 ---@alias markup.Element.display "inline"|"block"
 
----@class markup.Element.style
+---@class markup.Element.style.alias
 ---@field color? string
----@field background? string
+---@field strike? string
+
+---@alias markup.Element.style vim.api.keyset.highlight|markup.Element.style.alias
 
 ---@alias markup.Element.type
 ---|"block"

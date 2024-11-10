@@ -4,7 +4,7 @@ local u = require("markup.utils") ---@diagnostic disable-line: unused-local
 ---@class markup.Node.props
 ---@field type markup.Node.type
 
----{ABSTRACT}
+-- {ABSTRACT}
 ---@class markup.Node : markup.Object
 ---@field protected _ markup.Node.props
 ---@field owner markup.Renderer
@@ -19,18 +19,14 @@ local Node = markup.Object("MarkupNode")
 ---@param props markup.Node.constructor.props
 function Node:init(props)
     self._ = props ---@diagnostic disable-line: assign-type-mismatch
+    self:after_init()
 end
+
+function Node:after_init() end
 
 ---------------------------------
 ---- Methods (Private)
 ---------------------------------
-
--- ---@protected
--- ---@param props any
--- ---@param defaults? markup.Node.props
--- function Node:_normalize_props(props, defaults)
---     return vim.tbl_deep_extend("force", defaults or {}, props)
--- end
 
 ---@protected
 ---@param renderer markup.Renderer
@@ -100,7 +96,7 @@ function Node:type()
 end
 
 ---@class markup.Node.constructor.props
----@field type markup.Node.type
+---@field type markup.Node.type node type
 
 ---@alias markup.Node.constructor fun(props: markup.Node.constructor.props): markup.Node
 

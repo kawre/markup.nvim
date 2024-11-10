@@ -64,7 +64,7 @@ function Window:init(props)
     self.bufnr = self._.bufnr
     self.winid = self._.winid
 
-    if self:props().show == true then
+    if self._.show == true then
         self:show()
     end
 end
@@ -368,16 +368,16 @@ function Window:props()
 end
 
 ---@class markup.Window.constructor.props
----@field winid? integer
----@field bufnr? integer
----@field ns_id? integer
----@field buf_opts? table<any, any>
----@field win_opts? table<any, any>
----@field keys? table<string, string>
----@field enter? boolean
----@field show? boolean
----@field config? vim.api.keyset.win_config
----@field position? markup.Window.position
+---@field winid? integer bind to an existing window
+---@field bufnr? integer bind to an existing buffer
+---@field ns_id? integer namespace id
+---@field buf_opts? table<any, any> buffer options
+---@field win_opts? table<any, any> window options
+---@field keys? table<string, string> key mappings
+---@field enter? boolean focus on window creation
+---@field show? boolean show window on creation
+---@field config? vim.api.keyset.win_config window configuration
+---@field position? markup.Window.position window position
 
 ---@alias markup.Window.constructor fun(props: markup.Window.constructor.props): markup.Window
 
