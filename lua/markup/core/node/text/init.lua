@@ -1,4 +1,5 @@
 local markup = require("markup")
+local theme = require("markup.theme")
 local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 
 ---@class markup.Text.props : markup.Node.props
@@ -32,12 +33,13 @@ function Text:width()
     return vim.api.nvim_strwidth(self:content())
 end
 
-local CACHE = {}
-
 ---@param style markup.Element.style
 function Text:_normalize_style(style)
+    if not style then
+        return
+    end
+
     local map = {
-        ["background"] = "bg",
         ["color"] = "fg",
     }
 
@@ -59,36 +61,16 @@ function Text:highlight(linenr, byte_start)
         return
     end
 
-    local style = self.parent.style
+    local style = self:_normalize_style(self.parent.style)
+    local hl = theme.create_dynamic_hl(style)
 
-    if not style or vim.tbl_isempty(style) then
-        return
+    if hl then
+        self.owner:buf_set_extmark(nil, linenr, byte_start, {
+            end_col = byte_start + self:length(),
+            hl_group = hl --[[@as string]],
+            hl_mode = "combine",
+        })
     end
-
-    style = self:_normalize_style(style)
-
-    local name = style
-    if type(name) == "table" then
-        ---@cast name table
-
-        local parts = {}
-        for key, value in pairs(style) do
-            table.insert(parts, tostring(key) .. tostring(value))
-        end
-        table.sort(parts)
-        name = ("MARKUP_HL_" .. table.concat(parts, "_")):gsub("[^%w_]", "")
-
-        if not CACHE[name] then
-            vim.api.nvim_set_hl(0, name, style)
-            CACHE[name] = style
-        end
-    end
-
-    self.owner:buf_set_extmark(nil, linenr, byte_start, {
-        end_col = byte_start + self:length(),
-        hl_group = name,
-        hl_mode = "combine",
-    })
 end
 
 function Text:render()
