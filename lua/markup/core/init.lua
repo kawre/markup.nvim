@@ -15,6 +15,12 @@ core.lookups = {
     -- Line
     Line = "markup.core.line",
 
+    -- Tab
+    Tab = "markup.core.tab",
+
+    -- Layout
+    Layout = "markup.core.layout",
+
     -- Element
     Element = "markup.core.node.element",
     Inline = "markup.core.node.element.inline",
