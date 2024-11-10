@@ -26,6 +26,9 @@ local ui = require("markup.ui")
 -- Block
 ---@field Block markup.Block.constructor
 ---@field Box markup.Box.constructor
+---@field List markup.List.constructor
+---@field OrderedList markup.List.constructor
+---@field ListItem markup.Block.constructor
 -- Window
 ---@field Window markup.Window.constructor
 ---@field Renderer markup.Renderer.constructor

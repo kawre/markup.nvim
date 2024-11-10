@@ -22,7 +22,7 @@
 - [ ] Event Box
 - [ ] Input (text, radio, checkbox)
 - [ ] Image
-- [ ] List (ul, ol)
 - [ ] Table
-- [ ] Anchor (hyperlinks)
-- [ ] strong, italic, underline, strike, code, mark, small, sub, sup
+- [x] List (ul, ol)
+- [x] Anchor (hyperlinks)
+- [x] strong, italic, underline, strike, code, mark, small, sub, sup

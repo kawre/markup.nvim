@@ -191,8 +191,12 @@ function Element:_set_state(renderer, parent)
     self.display = self:_inherit_display(parent)
     self.style = self:_inherit_style(parent)
     self.child_nodes = u.shallow_copy(self._.children)
+    self:_sync_children()
+end
+
+function Element:_sync_children()
     self.children = vim.tbl_filter(function(child)
-        return child:type() == "element"
+        return child:is_element()
     end, self.child_nodes)
 
     self.last_child = self.child_nodes[#self.child_nodes]
@@ -200,11 +204,11 @@ function Element:_set_state(renderer, parent)
     self.first_element_child = self.children[1]
     self.last_element_child = self.children[#self.children]
 
-    if parent then
-        local element_index = parent:_index_of_element(self)
+    if self.parent then
+        local element_index = self.parent:_index_of_element(self)
         if element_index then
-            self.prev_element_sibling = parent.children[element_index - 1]
-            self.next_element_sibling = parent.children[element_index + 1]
+            self.prev_element_sibling = self.parent.children[element_index - 1]
+            self.next_element_sibling = self.parent.children[element_index + 1]
         end
     end
 end
@@ -224,8 +228,9 @@ function Element:contains(other_node)
     return u.index_of(self.child_nodes, other_node) ~= nil
 end
 
----@param node markup.Node
-function Element:insert_before(node)
+---@param child markup.Node
+---@param reference markup.Node
+function Element:insert_before(child, reference)
     local index = u.index_of(self.child_nodes, node)
     assert(index, "node not found")
     table.insert(self.child_nodes, index, node)

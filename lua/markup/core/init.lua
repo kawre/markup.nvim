@@ -36,6 +36,9 @@ core.lookups = {
     -- Block
     Block = "markup.core.node.element.block",
     Box = "markup.core.node.element.block.box",
+    List = "markup.core.node.element.block.list",
+    OrderedList = "markup.core.node.element.block.list.ordered",
+    ListItem = "markup.core.node.element.block.list.item",
 
     -- Window
     Window = "markup.core.window",

@@ -1,0 +1,47 @@
+local markup = require("markup")
+local log = require("markup.logger") ---@diagnostic disable-line: unused-local
+
+---@class markup.List.props : markup.Element.props
+---@field ordered boolean
+---@field marker string
+---@field ordered_counter integer
+
+---@class markup.List : markup.Block
+---@field protected super markup.Block
+---@field protected _ markup.List.props
+local List = markup.Box:extend("markup.list") ---@diagnostic disable-line: undefined-field
+
+function List:after_init()
+    List.super.after_init(self)
+    self._.type = "element-list"
+end
+
+function List:before_render()
+    self._.ordered_counter = 1
+end
+
+function List:item_marker(inc)
+    local marker
+
+    if self._.ordered then
+        marker = " " .. self._.ordered_counter .. "."
+        if inc then
+            self._.ordered_counter = self._.ordered_counter + 1
+        end
+    else
+        marker = " • "
+    end
+
+    return marker
+end
+
+---@class markup.List.constructor.props : markup.Block.constructor.props
+---@field ordered? boolean ordered or unordered list
+---@field marker? string ordered lsit marker
+
+---@alias markup.List.constructor fun(props?: string|markup.Node|markup.List.constructor.props, style?: markup.Element.style.props): markup.Element
+
+---@type markup.List.constructor
+local MarkupList = List ---@diagnostic disable-line: assign-type-mismatch
+
+return MarkupList

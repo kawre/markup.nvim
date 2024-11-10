@@ -5,6 +5,8 @@ local markup = require("markup")
 local Code = markup.Element:extend("markup.inline.Code") ---@diagnostic disable-line: undefined-field
 
 function Code:after_init()
+    Code.super.after_init(self)
+
     self._.style.color = "#f2cdce"
 end
 

@@ -20,6 +20,8 @@ local Node = markup.Object("MarkupNode")
 function Node:init(props)
     self._ = props ---@diagnostic disable-line: assign-type-mismatch
     self:after_init()
+
+    self.type = self._.type
 end
 
 function Node:after_init() end
@@ -55,11 +57,26 @@ end
 ---@param renderer markup.Renderer
 ---@param parent markup.Element
 function Node:render_node(renderer, parent)
-    self:_set_state(renderer, parent)
+    self:before_render(renderer, parent)
 
-    self:before_render()
+    self:_set_state(renderer, parent)
     self:render()
     self:after_render()
+end
+
+---@param predicate fun(node: markup.Node): boolean
+---@return markup.Node|nil
+function Node:find_parent(predicate)
+    local node = self.parent
+
+    while node do
+        if predicate(node) then
+            return node
+        end
+        node = node.parent
+    end
+
+    return nil
 end
 
 function Node:render()
@@ -69,6 +86,12 @@ end
 function Node:before_render() end
 
 function Node:after_render() end
+
+---@param kind? string
+function Node:is_element(kind)
+    local start = "element" .. (kind and "-" .. kind or "")
+    return self.type == start or self.type:sub(1, #start) == start
+end
 
 function Node:is_block()
     return self.display == "block" ---@diagnostic disable-line: undefined-field
@@ -89,10 +112,6 @@ function Node:is_box_item()
     end
 
     return false
-end
-
-function Node:type()
-    return self._.type
 end
 
 ---@class markup.Node.constructor.props

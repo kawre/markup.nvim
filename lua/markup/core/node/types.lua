@@ -2,7 +2,7 @@
 ---- Node
 ---------------------------------
 
----@alias markup.Node.type "element"|"text"
+---@alias markup.Node.type "text"|"element"|"element-list"
 
 ---------------------------------
 ---- Element
