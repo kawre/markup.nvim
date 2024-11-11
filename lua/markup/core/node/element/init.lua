@@ -10,6 +10,10 @@ local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 ---@field display markup.Element.display
 ---@field padding markup.Element.padding
 ---@field margin markup.Element.margin
+---@field align markup.Box.align
+---@field spacing markup.Box.spacing
+---@field vertical boolean
+---@field reverse boolean
 
 ---@class markup.Element : markup.Node
 ---@field protected _ markup.Element.props
@@ -29,21 +33,33 @@ local Element = markup.Node:extend("markup.element") ---@diagnostic disable-line
 ---- Constructor
 ---------------------------------
 
+Element.static._default_props = {
+    type = "element",
+    row = 0,
+    lines = {},
+    children = {},
+    style = {},
+    display = "inline",
+    padding = 0,
+    margin = 0,
+    align = "start",
+    spacing = 0,
+    vertical = true,
+    reverse = false,
+}
+
+---@param props any
+function Element:_extend_default_props(props)
+    local defaults = self._default_props or Element.static._default_props
+    self._default_props = vim.tbl_deep_extend("keep", props, defaults)
+end
+
 ---@param props markup.Element.constructor.props
 ---@param style? markup.Element.style
 function Element:init(props, style)
-    props = Element.static._normalize_props(props, {
-        type = "element",
-        row = 0,
-        lines = {},
-        children = {},
-        style = style or {},
-        display = "inline",
-        padding = 0,
-        margin = 0,
-    })
-
+    props = self:_normalize_props(props, style)
     Element.super.init(self, props)
+    self._default_props = nil
 end
 
 ---------------------------------
@@ -177,9 +193,9 @@ function Element:_apply_spacing()
         return
     end
 
-    local mar, pad = self.margin, self.padding
     local lines = self:computed_lines()
     local width = self:width()
+    local mar, pad = self.margin, self.padding
 
     -- Apply vertical spacing
     if self:is_block_kind() then
@@ -248,8 +264,7 @@ function Element:_sync_children()
 end
 
 ---@param props any
----@param defaults any
-function Element.static._normalize_props(props, defaults)
+function Element:_normalize_props(props, style)
     local result = {}
 
     if type(props) == "string" then
@@ -264,6 +279,10 @@ function Element.static._normalize_props(props, defaults)
         result.children = Element.static._normalize_content(result.children)
     end
 
+    local defaults = self._default_props or Element.static._default_props
+    if style then
+        defaults.style = style
+    end
     return vim.tbl_deep_extend("keep", result, defaults or {})
 end
 
@@ -348,26 +367,15 @@ function Element:render()
 end
 
 function Element:after_render()
-    for _, child in ipairs(self.children) do
-        local prev_sibling = child.prev_sibling
-        if prev_sibling and (prev_sibling:is_block() or child:is_block()) then
-            self:_newl()
-        end
-
-        local lines = child:computed_lines()
-        for row, line in pairs(lines) do
-            self:_append(line, self:_row() + row)
-        end
-
-        ---@cast self markup.Box
-        if self.vertical == false then
-            self:_set_row(0)
-        else
-            self:_newl(#lines)
-        end
+    if self:is_block() then
+        markup.Block.after_render(self)
+    elseif self:is_inline() then
+        markup.Inline.after_render(self)
+    elseif self:is_flex() then
+        markup.Flex.after_render(self)
+    elseif self:is_grid() then
+        markup.Grid.after_render(self)
     end
-
-    self:_apply_spacing()
 end
 
 ---@return integer
@@ -432,6 +440,10 @@ end
 ---@field display? markup.Element.display element display
 ---@field margin? markup.Element.margin element margin
 ---@field padding? markup.Element.padding element padding
+---@field align? markup.Box.align box align
+---@field spacing? markup.Box.spacing box spacing
+---@field vertical? boolean box vertical
+---@field reverse? boolean box reverse
 
 ---@alias markup.Element.style.props string|markup.Element.style
 

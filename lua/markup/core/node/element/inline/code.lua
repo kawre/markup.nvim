@@ -4,10 +4,11 @@ local markup = require("markup")
 ---@field protected super markup.Inline
 local Code = markup.Element:extend("markup.inline.Code") ---@diagnostic disable-line: undefined-field
 
-function Code:after_init()
-    Code.super.after_init(self)
-
-    self._.style.color = "#f2cdce"
+function Code:init(...)
+    self:_extend_default_props({
+        style = { color = "#f2cdce" },
+    })
+    Code.super.init(self, ...)
 end
 
 ---@type markup.Inline.constructor

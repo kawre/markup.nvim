@@ -108,6 +108,21 @@ function Node:is_inline()
     return self.display == "inline" or u.starts_with(self.type, "inline")
 end
 
+function Node:is_flex()
+    ---@cast self markup.Element
+    return self.display == "flex"
+end
+
+function Node:is_grid()
+    ---@cast self markup.Element
+    return self.display == "grid"
+end
+
+function Node:is_box()
+    ---@cast self markup.Element
+    return self:is_flex() or self:is_grid()
+end
+
 function Node:is_box_item()
     local node = self.parent
 

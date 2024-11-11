@@ -5,9 +5,11 @@ local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 ---@field protected super markup.List
 local OrderedList = markup.List:extend("markup.list.ordered") ---@diagnostic disable-line: undefined-field
 
-function OrderedList:after_init()
-    OrderedList.super.after_init(self)
-    self._.ordered = true
+function OrderedList:init(...)
+    self:_extend_default_props({
+        ordered = true,
+    })
+    OrderedList.super.init(self, ...)
 end
 
 ---@type markup.List

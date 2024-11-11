@@ -27,20 +27,6 @@ function utils.win_set_opts(winid, options)
     end
 end
 
-local AVG_MEASURE = {}
-
-function utils.avg(tbl)
-    local sum = 0
-    local count = 0
-
-    for _, value in pairs(tbl) do
-        sum = sum + value
-        count = count + 1
-    end
-
-    return count == 0 and 0 or (sum / count)
-end
-
 function utils.starts_with(str, start)
     return str:sub(1, #start) == start
 end
@@ -52,9 +38,7 @@ function utils.measure_time(name, fn)
 
     local elapsed = end_time - start_time
     local elapsed_ms, fps = elapsed / 1e6, math.floor(1e9 / elapsed)
-
     log.debug(("[%s]: %.2f ms | %d fps"):format(name, elapsed_ms, fps))
-
     return res
 end
 

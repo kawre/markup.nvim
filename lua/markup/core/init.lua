@@ -19,9 +19,6 @@ core.lookups = {
 
     -- Element
     Element = "markup.core.node.element",
-
-    -- Inline
-    Inline = "markup.core.node.element.inline",
     Anchor = "markup.core.node.element.inline.anchor",
     Code = "markup.core.node.element.inline.code",
     Italic = "markup.core.node.element.inline.italic",
@@ -31,15 +28,19 @@ core.lookups = {
     Sub = "markup.core.node.element.inline.sub",
     Sup = "markup.core.node.element.inline.sup",
     Underline = "markup.core.node.element.inline.underline",
-
-    -- Block
-    Block = "markup.core.node.element.block",
     List = "markup.core.node.element.block.list",
     OrderedList = "markup.core.node.element.block.list.ordered",
     ListItem = "markup.core.node.element.block.list.item",
 
-    -- Box
-    Box = "markup.core.node.element.box",
+    -- Inline
+    Inline = "markup.core.node.element.inline",
+    -- Block
+    Block = "markup.core.node.element.block",
+    -- Flex
+    Box = "markup.core.node.element.flex",
+    Flex = "markup.core.node.element.flex",
+    -- Grid
+    Grid = "markup.core.node.element.grid",
 
     -- Window
     Window = "markup.core.window",

@@ -4,9 +4,11 @@ local markup = require("markup")
 ---@field protected super markup.Inline
 local Mark = markup.Element:extend("markup.inline.mark") ---@diagnostic disable-line: undefined-field
 
-function Mark:after_init()
-    self._.style.background = "yellow"
-    self._.style.color = "black"
+function Mark:init(...)
+    self:_extend_default_props({
+        style = { background = "yellow", color = "black" },
+    })
+    Mark.super.init(self, ...)
 end
 
 ---@type markup.Inline.constructor

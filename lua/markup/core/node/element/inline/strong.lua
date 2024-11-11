@@ -4,8 +4,11 @@ local markup = require("markup")
 ---@field protected super markup.Inline
 local Strong = markup.Element:extend("markup.inline.strong") ---@diagnostic disable-line: undefined-field
 
-function Strong:after_init()
-    self._.style.bold = true
+function Strong:init(...)
+    self:_extend_default_props({
+        style = { bold = true },
+    })
+    Strong.super.init(self, ...)
 end
 
 ---@type markup.Inline.constructor

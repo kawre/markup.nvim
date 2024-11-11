@@ -4,13 +4,12 @@ local markup = require("markup")
 ---@field protected super markup.Inline
 local Anchor = markup.Element:extend("markup.inline.anchor") ---@diagnostic disable-line: undefined-field
 
-function Anchor:after_init()
-    Anchor.super.after_init(self)
+function Anchor:init(...)
+    self:_extend_default_props({
+        style = { underline = true, fg = "#89b4fb" },
+    })
 
-    self._.style = {
-        underline = true,
-        fg = "#89b4fb",
-    }
+    Anchor.super.init(self, ...)
 end
 
 ---@type markup.Inline.constructor

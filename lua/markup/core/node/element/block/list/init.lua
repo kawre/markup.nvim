@@ -11,9 +11,14 @@ local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 ---@field protected _ markup.List.props
 local List = markup.Block:extend("markup.list") ---@diagnostic disable-line: undefined-field
 
-function List:after_init()
-    List.super.after_init(self)
-    self._.type = "element-list"
+function List:init(...)
+    self:_extend_default_props({
+        ordered = false,
+        marker = " • ",
+        ordered_counter = 1,
+        type = "element-list",
+    })
+    List.super.init(self, ...)
 end
 
 function List:before_render()
@@ -21,15 +26,13 @@ function List:before_render()
 end
 
 function List:item_marker(inc)
-    local marker
+    local marker = self._.marker
 
     if self._.ordered then
         marker = self._.ordered_counter .. ". "
         if inc then
             self._.ordered_counter = self._.ordered_counter + 1
         end
-    else
-        marker = " • "
     end
 
     return marker
