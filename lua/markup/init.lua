@@ -8,8 +8,6 @@ local ui = require("markup.ui")
 ---@field Node markup.Node.constructor
 ---@field Text markup.Text.constructor
 ---@field Pad markup.Padding.constructor
--- Line
----@field Line markup.Line.constructor
 -- Element
 ---@field Element markup.Element.constructor
 -- Inline
@@ -32,6 +30,7 @@ local ui = require("markup.ui")
 -- Window
 ---@field Window markup.Window.constructor
 ---@field Renderer markup.Renderer.constructor
+---@field RendererLine markup.Line.constructor
 -- TabPage
 ---@field TabPage markup.TabPage.constructor
 local markup = {}

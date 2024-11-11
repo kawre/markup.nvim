@@ -11,9 +11,6 @@ core.lookups = {
     Text = "markup.core.node.text",
     Pad = "markup.core.node.text.padding",
 
-    -- Line
-    Line = "markup.core.line",
-
     -- TabPage
     TabPage = "markup.core.tabpage",
 
@@ -47,6 +44,7 @@ core.lookups = {
     -- Window
     Window = "markup.core.window",
     Renderer = "markup.core.window.renderer",
+    RendererLine = "markup.core.window.renderer.line",
 }
 
 return core

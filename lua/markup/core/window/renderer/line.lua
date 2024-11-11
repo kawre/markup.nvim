@@ -59,15 +59,13 @@ function Line:append(content, pos)
 
     if type(content) == "string" then
         content = markup.Text(content)
+    elseif content.type == "text" then
+        ---@cast content markup.Text
+        table.insert(self._.texts, pos, content)
     else
-        if content._ and content._.texts then -- If content is `markup.Line`
-            ---@cast content markup.Line
-            for i, text in ipairs(content:texts()) do
-                table.insert(self._.texts, pos + (i - 1), text)
-            end
-        else
-            ---@cast content markup.Text
-            table.insert(self._.texts, pos, content)
+        ---@cast content markup.Line
+        for i, text in ipairs(content:texts()) do
+            table.insert(self._.texts, pos + (i - 1), text)
         end
     end
 

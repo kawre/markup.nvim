@@ -87,7 +87,7 @@ function Element:_fill_lines(row_at)
     local lines = self._.lines
     for i = #lines, row_at or self:_row() do
         if not lines[i] then
-            lines[i] = markup.Line()
+            lines[i] = markup.RendererLine()
         end
     end
 end
@@ -137,7 +137,103 @@ function Element:_inherit_display(element)
     end
 end
 
+---@param child markup.Node
+function Element:_index_of(child)
+    return u.index_of(self.child_nodes, child)
+end
+
+---@param child markup.Element
+function Element:_index_of_element(child)
+    return u.index_of(self.children, child)
+end
+
+function Element:_insert_line(row, content)
+    local line = markup.RendererLine()
+
+    if content then
+        line:append(content)
+    end
+
+    if not row then
+        table.insert(self._.lines, line)
+    else
+        table.insert(self._.lines, row, line)
+    end
+end
+
+function Element:_apply_horizontal_spacing()
+    -- if not self._.margin or not self._.padding then
+    --     return
+    -- end
+
+    local mar, pad = self.margin, self.padding
+    local lines = self:computed_lines()
+
+    for row, line in pairs(lines) do
+        if row < mar.bottom or row > #lines - mar.top then
+            line:prepend(markup.Pad(mar.left + pad.left))
+            line:append(markup.Pad(mar.right + pad.right))
+        else
+            line:prepend(markup.Pad(pad.left, self))
+            line:prepend(markup.Pad(mar.left))
+            line:append(markup.Pad(pad.right, self))
+            line:append(markup.Pad(mar.right))
+        end
+    end
+end
+
+function Element:_apply_vertical_spacing()
+    local width = self:width()
+    for _ = 1, self.padding.bottom do
+        self:_insert_line(0, markup.Pad(width, self))
+    end
+    for _ = 1, self.margin.bottom do
+        self:_insert_line(0, markup.Pad(width))
+    end
+    for _ = 1, self.padding.top do
+        self:_insert_line(nil, markup.Pad(width, self))
+    end
+    for _ = 1, self.margin.top do
+        self:_insert_line(nil, markup.Pad(width))
+    end
+end
+
 ---@protected
+---@param renderer markup.Renderer
+---@param parent markup.Element
+function Element:_set_state(renderer, parent)
+    Element.super._set_state(self, renderer, parent)
+
+    self._.row = 0
+    self._.lines = {}
+    self.display = self:_inherit_display(parent)
+    self.style = self:_inherit_style(parent)
+    self.child_nodes = u.shallow_copy(self._.children)
+    self:_sync_children()
+
+    self.margin = Element.static._normalize_spacing(self._.margin)
+    self.padding = Element.static._normalize_spacing(self._.padding)
+end
+
+function Element:_sync_children()
+    self.children = vim.tbl_filter(function(child)
+        return child:is_element()
+    end, self.child_nodes)
+
+    self.last_child = self.child_nodes[#self.child_nodes]
+    self.first_child = self.child_nodes[1]
+    self.first_element_child = self.children[1]
+    self.last_element_child = self.children[#self.children]
+
+    if self.parent then
+        local element_index = self.parent:_index_of_element(self)
+        if element_index then
+            self.prev_element_sibling = self.parent.children[element_index - 1]
+            self.next_element_sibling = self.parent.children[element_index + 1]
+        end
+    end
+end
+
 ---@param props any
 ---@param defaults any
 function Element.static._normalize_props(props, defaults)
@@ -174,33 +270,6 @@ function Element.static._normalize_content(content)
     return content
 end
 
----@param child markup.Node
-function Element:_index_of(child)
-    return u.index_of(self.child_nodes, child)
-end
-
----@param child markup.Element
-function Element:_index_of_element(child)
-    return u.index_of(self.children, child)
-end
-
----@protected
----@param renderer markup.Renderer
----@param parent markup.Element
-function Element:_set_state(renderer, parent)
-    Element.super._set_state(self, renderer, parent)
-
-    self._.row = 0
-    self._.lines = {}
-    self.display = self:_inherit_display(parent)
-    self.style = self:_inherit_style(parent)
-    self.child_nodes = u.shallow_copy(self._.children)
-    self:_sync_children()
-
-    self.margin = Element.static._normalize_spacing(self._.margin)
-    self.padding = Element.static._normalize_spacing(self._.padding)
-end
-
 function Element.static._normalize_spacing(spacing)
     local t = spacing
 
@@ -218,25 +287,6 @@ function Element.static._normalize_spacing(spacing)
         end
     else
         return { top = t.top or 0, right = t.right or 0, bottom = t.bottom or 0, left = t.left or 0 }
-    end
-end
-
-function Element:_sync_children()
-    self.children = vim.tbl_filter(function(child)
-        return child:is_element()
-    end, self.child_nodes)
-
-    self.last_child = self.child_nodes[#self.child_nodes]
-    self.first_child = self.child_nodes[1]
-    self.first_element_child = self.children[1]
-    self.last_element_child = self.children[#self.children]
-
-    if self.parent then
-        local element_index = self.parent:_index_of_element(self)
-        if element_index then
-            self.prev_element_sibling = self.parent.children[element_index - 1]
-            self.next_element_sibling = self.parent.children[element_index + 1]
-        end
     end
 end
 
@@ -284,55 +334,6 @@ function Element:render()
     end
 end
 
-function Element:_insert_line(row, content)
-    local line = markup.Line()
-
-    if content then
-        line:append(content)
-    end
-
-    if not row then
-        table.insert(self._.lines, line)
-    else
-        table.insert(self._.lines, row, line)
-    end
-end
-
-function Element:_apply_horizontal_spacing()
-    local lines = self:computed_lines()
-    for row, line in pairs(lines) do
-        local mar, pad = self.margin, self.padding
-        if row < mar.bottom then
-            line:prepend(markup.Pad(mar.left + pad.left))
-            line:append(markup.Pad(mar.right + pad.right))
-        elseif row > #lines - mar.top then
-            line:prepend(markup.Pad(mar.left + pad.left))
-            line:append(markup.Pad(mar.right + pad.right))
-        else
-            line:prepend(markup.Pad(pad.left, self))
-            line:prepend(markup.Pad(mar.left))
-            line:append(markup.Pad(pad.right, self))
-            line:append(markup.Pad(mar.right))
-        end
-    end
-end
-
-function Element:_apply_vertical_spacing()
-    local width = self:width()
-    for _ = 1, self.padding.bottom do
-        self:_insert_line(0, markup.Pad(width, self))
-    end
-    for _ = 1, self.margin.bottom do
-        self:_insert_line(0, markup.Pad(width))
-    end
-    for _ = 1, self.padding.top do
-        self:_insert_line(nil, markup.Pad(width, self))
-    end
-    for _ = 1, self.margin.top do
-        self:_insert_line(nil, markup.Pad(width))
-    end
-end
-
 function Element:after_render()
     for _, child in ipairs(self.children) do
         local prev_sibling = child.prev_sibling
@@ -354,10 +355,10 @@ function Element:after_render()
         end
     end
 
-    if self:is_block() then
-        self:_apply_vertical_spacing()
-    end
-    self:_apply_horizontal_spacing()
+    -- if self:is_block() then
+    --     self:_apply_vertical_spacing()
+    -- end
+    -- self:_apply_horizontal_spacing()
 end
 
 ---@return integer
