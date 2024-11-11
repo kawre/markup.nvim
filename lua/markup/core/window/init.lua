@@ -275,6 +275,14 @@ function Window:buf_set_lines(start, end_, strict_indexing, replacement)
     vim.api.nvim_buf_set_lines(self.bufnr, start, end_, strict_indexing, replacement)
 end
 
+---@param start number
+---@param end_ number
+---@param strict_indexing boolean
+function Window:buf_get_lines(start, end_, strict_indexing)
+    assert(self:buf_is_valid(), "Buffer is not valid")
+    return vim.api.nvim_buf_get_lines(self.bufnr, start, end_, strict_indexing)
+end
+
 ---@param ns_id? integer
 ---@param line_start? integer
 ---@param line_end? integer
@@ -347,8 +355,16 @@ function Window:width()
     return vim.api.nvim_win_get_width(self.winid)
 end
 
+function Window:set_width(width)
+    vim.api.nvim_win_set_width(self.winid, width)
+end
+
 function Window:height()
     return vim.api.nvim_win_get_height(self.winid)
+end
+
+function Window:set_height(height)
+    vim.api.nvim_win_set_height(self.winid, height)
 end
 
 function Window:parent_size()

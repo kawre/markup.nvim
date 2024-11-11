@@ -53,9 +53,7 @@ function utils.measure_time(name, fn)
     local elapsed = end_time - start_time
     local elapsed_ms, fps = elapsed / 1e6, math.floor(1e9 / elapsed)
 
-    AVG_MEASURE[name] = AVG_MEASURE[name] or {}
-    table.insert(AVG_MEASURE[name], elapsed_ms)
-    log.debug(("[%s]: %.2f ms | %d fps"):format(name, utils.avg(AVG_MEASURE[name]), fps))
+    log.debug(("[%s]: %.2f ms | %d fps"):format(name, elapsed_ms, fps))
 
     return res
 end

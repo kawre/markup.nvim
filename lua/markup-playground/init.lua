@@ -1,3 +1,5 @@
+local log = require("markup.logger") ---@diagnostic disable-line: unused-local
+
 ---@class markup-playground
 local playground = {}
 
@@ -31,7 +33,7 @@ function playground.open()
         callback = function()
             local ok, err = pcall(vim.cmd.luafile, playground.editor.filename)
             if not ok then
-                require("markup.logger").error(err)
+                log.error(err)
             else
                 playground.preview:render()
             end
@@ -39,8 +41,20 @@ function playground.open()
     })
 end
 
+function playground.generate_test()
+    local buf_lines = {}
+
+    local lines = playground.preview:buf_get_lines(0, -1, false)
+    for _, line in ipairs(lines) do
+        table.insert(buf_lines, ("\"%s\","):format(line))
+    end
+
+    log.debug(table.concat(buf_lines, "\n"))
+end
+
 function playground.setup()
     vim.api.nvim_create_user_command("Markup", playground.open, {})
+    vim.api.nvim_create_user_command("MarkupGenTest", playground.generate_test, {})
 end
 
 return playground
