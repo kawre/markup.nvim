@@ -12,7 +12,7 @@ local log, u = require("markup.logger"), require("markup.utils") ---@diagnostic 
 
 ---@class markup.TabPage : markup.Object
 ---@field protected _ markup.TabPage.props
-local TabPage = markup.Object("MarkupTabPage")
+local TabPage = markup.Object("markup.tabpage")
 
 ---@param props markup.TabPage.constructor.props
 function TabPage:init(props)

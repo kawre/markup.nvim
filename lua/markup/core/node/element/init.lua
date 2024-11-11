@@ -8,6 +8,8 @@ local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 ---@field style markup.Element.style
 ---@field children markup.Node[]
 ---@field display markup.Element.display
+---@field padding markup.Element.padding
+---@field margin markup.Element.margin
 
 ---@class markup.Element : markup.Node
 ---@field protected _ markup.Element.props
@@ -37,6 +39,8 @@ function Element:init(props, style)
         children = {},
         style = style or {},
         display = "inline",
+        padding = 0,
+        margin = 0,
     })
 
     Element.super.init(self, props)
@@ -192,6 +196,29 @@ function Element:_set_state(renderer, parent)
     self.style = self:_inherit_style(parent)
     self.child_nodes = u.shallow_copy(self._.children)
     self:_sync_children()
+
+    self.margin = Element.static._normalize_spacing(self._.margin)
+    self.padding = Element.static._normalize_spacing(self._.padding)
+end
+
+function Element.static._normalize_spacing(spacing)
+    local t = spacing
+
+    if type(t) == "number" then
+        return { top = t, right = t, bottom = t, left = t }
+    elseif vim.islist(t) then
+        if #t == 1 then
+            return { top = t[1], right = t[1], bottom = t[1], left = t[1] }
+        elseif #t == 2 then
+            return { top = t[1], right = t[2], bottom = t[1], left = t[2] }
+        elseif #t == 3 then
+            return { top = t[1], right = t[2], bottom = t[3], left = t[2] }
+        elseif #t == 4 then
+            return { top = t[1], right = t[2], bottom = t[3], left = t[4] }
+        end
+    else
+        return { top = t.top or 0, right = t.right or 0, bottom = t.bottom or 0, left = t.left or 0 }
+    end
 end
 
 function Element:_sync_children()
@@ -257,6 +284,55 @@ function Element:render()
     end
 end
 
+function Element:_insert_line(row, content)
+    local line = markup.Line()
+
+    if content then
+        line:append(content)
+    end
+
+    if not row then
+        table.insert(self._.lines, line)
+    else
+        table.insert(self._.lines, row, line)
+    end
+end
+
+function Element:_apply_horizontal_spacing()
+    local lines = self:computed_lines()
+    for row, line in pairs(lines) do
+        local mar, pad = self.margin, self.padding
+        if row < mar.bottom then
+            line:prepend(markup.Pad(mar.left + pad.left))
+            line:append(markup.Pad(mar.right + pad.right))
+        elseif row > #lines - mar.top then
+            line:prepend(markup.Pad(mar.left + pad.left))
+            line:append(markup.Pad(mar.right + pad.right))
+        else
+            line:prepend(markup.Pad(pad.left, self))
+            line:prepend(markup.Pad(mar.left))
+            line:append(markup.Pad(pad.right, self))
+            line:append(markup.Pad(mar.right))
+        end
+    end
+end
+
+function Element:_apply_vertical_spacing()
+    local width = self:width()
+    for _ = 1, self.padding.bottom do
+        self:_insert_line(0, markup.Pad(width, self))
+    end
+    for _ = 1, self.margin.bottom do
+        self:_insert_line(0, markup.Pad(width))
+    end
+    for _ = 1, self.padding.top do
+        self:_insert_line(nil, markup.Pad(width, self))
+    end
+    for _ = 1, self.margin.top do
+        self:_insert_line(nil, markup.Pad(width))
+    end
+end
+
 function Element:after_render()
     for _, child in ipairs(self.children) do
         local prev_sibling = child.prev_sibling
@@ -266,13 +342,7 @@ function Element:after_render()
         end
 
         local lines = child:computed_lines()
-        -- local box_width = child:box_size()
         for row, line in pairs(lines) do
-            -- local padding = box_width - line:width()
-            --
-            -- if padding > 0 then
-            --     line:append(markup.Pad(padding))
-            -- end
             self:_append(line, self:_row() + row)
         end
 
@@ -283,6 +353,11 @@ function Element:after_render()
             self:_newl(#lines)
         end
     end
+
+    if self:is_block() then
+        self:_apply_vertical_spacing()
+    end
+    self:_apply_horizontal_spacing()
 end
 
 ---@return integer
@@ -345,6 +420,8 @@ end
 ---@field children? markup.Element.content element children
 ---@field style? markup.Element.style element style
 ---@field display? markup.Element.display element display
+---@field margin? markup.Element.margin element margin
+---@field padding? markup.Element.padding element padding
 
 ---@alias markup.Element.style.props string|markup.Element.style
 

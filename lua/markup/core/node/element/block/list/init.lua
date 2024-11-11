@@ -24,7 +24,7 @@ function List:item_marker(inc)
     local marker
 
     if self._.ordered then
-        marker = " " .. self._.ordered_counter .. "."
+        marker = self._.ordered_counter .. ". "
         if inc then
             self._.ordered_counter = self._.ordered_counter + 1
         end
@@ -37,7 +37,7 @@ end
 
 ---@class markup.List.constructor.props : markup.Block.constructor.props
 ---@field ordered? boolean ordered or unordered list
----@field marker? string ordered lsit marker
+---@field marker? string ordered list marker
 
 ---@alias markup.List.constructor fun(props?: string|markup.Node|markup.List.constructor.props, style?: markup.Element.style.props): markup.Element
 

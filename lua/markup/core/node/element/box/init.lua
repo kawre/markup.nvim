@@ -15,7 +15,7 @@ local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 ---@field spacing markup.Box.spacing
 ---@field vertical boolean
 ---@field reverse boolean
-local Box = markup.Block:extend("MarkupBox") ---@diagnostic disable-line: undefined-field
+local Box = markup.Block:extend("markup.box") ---@diagnostic disable-line: undefined-field
 
 ---------------------------------
 ---- Constructor

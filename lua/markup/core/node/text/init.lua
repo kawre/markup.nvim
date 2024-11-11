@@ -11,11 +11,15 @@ local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 local Text = markup.Node:extend("MarkupText") ---@diagnostic disable-line: undefined-field
 
 ---@param content string
-function Text:init(content)
+function Text:init(content, parent)
     Text.super.init(self, {
         type = "text",
         content = content,
     })
+
+    if parent then
+        self:_set_state(parent.owner, parent)
+    end
 end
 
 ---@return string
@@ -77,7 +81,7 @@ function Text:render()
     self.parent:_append(self) ---@diagnostic disable-line: invisible
 end
 
----@alias markup.Text.constructor fun(content: string): markup.Text
+---@alias markup.Text.constructor fun(content: string, parent?: markup.Node): markup.Text
 
 ---@type markup.Text.constructor
 local MarkupText = Text ---@diagnostic disable-line: assign-type-mismatch
