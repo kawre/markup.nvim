@@ -22,6 +22,7 @@ core.lookups = {
 
     -- Element
     Element = "markup.core.node.element",
+
     -- Inline
     Inline = "markup.core.node.element.inline",
     Anchor = "markup.core.node.element.inline.anchor",
@@ -33,12 +34,15 @@ core.lookups = {
     Sub = "markup.core.node.element.inline.sub",
     Sup = "markup.core.node.element.inline.sup",
     Underline = "markup.core.node.element.inline.underline",
+
     -- Block
     Block = "markup.core.node.element.block",
-    Box = "markup.core.node.element.block.box",
     List = "markup.core.node.element.block.list",
     OrderedList = "markup.core.node.element.block.list.ordered",
     ListItem = "markup.core.node.element.block.list.item",
+
+    -- Box
+    Box = "markup.core.node.element.box",
 
     -- Window
     Window = "markup.core.window",

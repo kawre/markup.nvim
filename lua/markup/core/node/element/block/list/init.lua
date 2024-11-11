@@ -9,7 +9,7 @@ local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 ---@class markup.List : markup.Block
 ---@field protected super markup.Block
 ---@field protected _ markup.List.props
-local List = markup.Box:extend("markup.list") ---@diagnostic disable-line: undefined-field
+local List = markup.Block:extend("markup.list") ---@diagnostic disable-line: undefined-field
 
 function List:after_init()
     List.super.after_init(self)
