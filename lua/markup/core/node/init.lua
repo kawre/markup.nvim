@@ -90,15 +90,22 @@ function Node:after_render() end
 ---@param kind? string
 function Node:is_element(kind)
     local start = "element" .. (kind and "-" .. kind or "")
-    return self.type == start or self.type:sub(1, #start) == start
+    return self.type == "element" or u.starts_with(self.type, start)
 end
 
 function Node:is_block()
-    return self.display == "block" ---@diagnostic disable-line: undefined-field
+    ---@cast self markup.Element
+    return self.display == "block"
+end
+
+function Node:is_block_kind()
+    ---@cast self markup.Element
+    return self.display == "block" or self.display == "inline-block"
 end
 
 function Node:is_inline()
-    return self.display == "inline" ---@diagnostic disable-line: undefined-field
+    ---@cast self markup.Element
+    return self.display == "inline" or u.starts_with(self.type, "inline")
 end
 
 function Node:is_box_item()

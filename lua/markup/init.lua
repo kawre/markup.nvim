@@ -30,7 +30,7 @@ local ui = require("markup.ui")
 -- Window
 ---@field Window markup.Window.constructor
 ---@field Renderer markup.Renderer.constructor
----@field RendererLine markup.Line.constructor
+---@field RendererLine markup.Renderer.Line.constructor
 -- TabPage
 ---@field TabPage markup.TabPage.constructor
 local markup = {}

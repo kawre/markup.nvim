@@ -2,12 +2,12 @@ local markup = require("markup")
 local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 local u = require("markup.utils") ---@diagnostic disable-line: unused-local
 
----@class markup.Line.props
+---@class markup.Renderer.Line.props
 ---@field texts markup.Text[]
 ---@field padding table<"left"|"right", integer>
 
----@class markup.Line : markup.Object
----@field _ markup.Line.props
+---@class markup.Renderer.Line : markup.Object
+---@field _ markup.Renderer.Line.props
 local Line = markup.Object("MarkupLine")
 
 function Line:init()
@@ -52,18 +52,18 @@ function Line:hightlight(row_at)
     end
 end
 
----@param content string|markup.Text|markup.Line
+---@param content string|markup.Text|markup.Renderer.Line
 ---@param pos? integer
 function Line:append(content, pos)
     pos = pos or #self._.texts + 1
 
     if type(content) == "string" then
-        content = markup.Text(content)
+        table.insert(self._.texts, pos, markup.Text(content))
     elseif content.type == "text" then
         ---@cast content markup.Text
         table.insert(self._.texts, pos, content)
     else
-        ---@cast content markup.Line
+        ---@cast content markup.Renderer.Line
         for i, text in ipairs(content:texts()) do
             table.insert(self._.texts, pos + (i - 1), text)
         end
@@ -72,7 +72,7 @@ function Line:append(content, pos)
     return self
 end
 
----@param content string|markup.Text|markup.Line
+---@param content string|markup.Text|markup.Renderer.Line
 function Line:prepend(content)
     return self:append(content, 1)
 end
@@ -82,9 +82,9 @@ function Line:texts()
     return self._.texts
 end
 
----@alias markup.Line.constructor fun(): markup.Line
+---@alias markup.Renderer.Line.constructor fun(): markup.Renderer.Line
 
----@type markup.Line.constructor
+---@type markup.Renderer.Line.constructor
 local MarkupLine = Line ---@diagnostic disable-line: assign-type-mismatch
 
 return MarkupLine

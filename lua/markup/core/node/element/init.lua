@@ -4,7 +4,7 @@ local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 
 ---@class markup.Element.props : markup.Node.props
 ---@field row integer
----@field lines markup.Line[]
+---@field lines markup.Renderer.Line[]
 ---@field style markup.Element.style
 ---@field children markup.Node[]
 ---@field display markup.Element.display
@@ -61,7 +61,7 @@ end
 
 ---@protected
 ---@param row_at? integer (0-indexed)
----@return markup.Line
+---@return markup.Renderer.Line
 function Element:_line(row_at)
     row_at = row_at or self:_row()
     self:_fill_lines(row_at)
@@ -99,7 +99,7 @@ function Element:_inc_row(n)
 end
 
 ---@protected
----@param content string|markup.Text|markup.Line
+---@param content string|markup.Text|markup.Renderer.Line
 ---@param row_at? integer (0-indexed)
 ---@return markup.Element
 function Element:_append(content, row_at)
@@ -108,7 +108,7 @@ function Element:_append(content, row_at)
 end
 
 ---@protected
----@param content string|markup.Text|markup.Line
+---@param content string|markup.Text|markup.Renderer.Line
 ---@param row_at? integer (0-indexed)
 ---@return markup.Element
 function Element:_prepend(content, row_at)
@@ -131,7 +131,7 @@ end
 function Element:_inherit_display(element)
     if element and u.is_instance(element, markup.Box) then
         ---@cast element markup.Box
-        return element.vertical and "block" or "inline"
+        return element.vertical and "block" or "inline-block"
     else
         return self._.display
     end
@@ -161,14 +161,43 @@ function Element:_insert_line(row, content)
     end
 end
 
-function Element:_apply_horizontal_spacing()
-    -- if not self._.margin or not self._.padding then
-    --     return
-    -- end
+function Element:_non_zero_spacing()
+    return self.margin.top > 0
+        or self.margin.right > 0
+        or self.margin.bottom > 0
+        or self.margin.left > 0
+        or self.padding.top > 0
+        or self.padding.right > 0
+        or self.padding.bottom > 0
+        or self.padding.left > 0
+end
+
+function Element:_apply_spacing()
+    if not self:_non_zero_spacing() then
+        return
+    end
 
     local mar, pad = self.margin, self.padding
     local lines = self:computed_lines()
+    local width = self:width()
 
+    -- Apply vertical spacing
+    if self:is_block_kind() then
+        for _ = 1, self.padding.bottom do
+            self:_insert_line(0, markup.Pad(width, self))
+        end
+        for _ = 1, self.margin.bottom do
+            self:_insert_line(0, markup.Pad(width))
+        end
+        for _ = 1, self.padding.top do
+            self:_insert_line(nil, markup.Pad(width, self))
+        end
+        for _ = 1, self.margin.top do
+            self:_insert_line(nil, markup.Pad(width))
+        end
+    end
+
+    -- Apply horizontal spacing
     for row, line in pairs(lines) do
         if row < mar.bottom or row > #lines - mar.top then
             line:prepend(markup.Pad(mar.left + pad.left))
@@ -179,22 +208,6 @@ function Element:_apply_horizontal_spacing()
             line:append(markup.Pad(pad.right, self))
             line:append(markup.Pad(mar.right))
         end
-    end
-end
-
-function Element:_apply_vertical_spacing()
-    local width = self:width()
-    for _ = 1, self.padding.bottom do
-        self:_insert_line(0, markup.Pad(width, self))
-    end
-    for _ = 1, self.margin.bottom do
-        self:_insert_line(0, markup.Pad(width))
-    end
-    for _ = 1, self.padding.top do
-        self:_insert_line(nil, markup.Pad(width, self))
-    end
-    for _ = 1, self.margin.top do
-        self:_insert_line(nil, markup.Pad(width))
     end
 end
 
@@ -337,7 +350,6 @@ end
 function Element:after_render()
     for _, child in ipairs(self.children) do
         local prev_sibling = child.prev_sibling
-
         if prev_sibling and (prev_sibling:is_block() or child:is_block()) then
             self:_newl()
         end
@@ -355,10 +367,7 @@ function Element:after_render()
         end
     end
 
-    -- if self:is_block() then
-    --     self:_apply_vertical_spacing()
-    -- end
-    -- self:_apply_horizontal_spacing()
+    self:_apply_spacing()
 end
 
 ---@return integer

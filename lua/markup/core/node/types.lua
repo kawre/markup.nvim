@@ -10,7 +10,7 @@
 
 ---@alias markup.Element.content string|markup.Node|(string|markup.Node)[]
 
----@alias markup.Element.display "inline"|"block"|"box"|"grid"
+---@alias markup.Element.display "inline"|"block"|"inline-block"|"box"|"grid"
 
 ---@class markup.Element.style.alias
 ---@field color? string fg
