@@ -65,7 +65,7 @@ end
 function Element:init(props, style)
     props = self:_normalize_props(props, style)
     Element.super.init(self, props)
-    -- self._default_props = nil
+    self._default_props = nil
 end
 
 ---------------------------------
@@ -290,18 +290,14 @@ function Element:_normalize_props(props, style)
         result.children = Element.static._normalize_content(result.children)
     end
 
-    local defaults = self._default_props
-    if defaults then
-        defaults = vim.tbl_deep_extend("keep", defaults, Element.static._default_props)
-    else
-        defaults = Element.static._default_props
-    end
+    local defaults =
+        vim.tbl_deep_extend("keep", self._default_props or {}, Element.static._default_props)
 
     if style then
-        defaults.style = style
+        defaults.style = vim.tbl_deep_extend("keep", style, defaults.style)
     end
 
-    return vim.tbl_deep_extend("keep", result, defaults or {})
+    return vim.tbl_deep_extend("keep", result, defaults)
 end
 
 function Element.static._normalize_content(content)
