@@ -16,7 +16,7 @@ describe("ColumnBox Renderer", function()
         h.close_window(window)
     end)
 
-    local function ColumnBoxRenderer(props, lines)
+    local function ColumnBoxRenderer(props, lines, extmarks)
         local default = {
             vertical = true,
             children = props,
@@ -31,6 +31,9 @@ describe("ColumnBox Renderer", function()
             body = markup.Flex(default),
         }):render()
         h.assert_lines(window, lines)
+        if extmarks then
+            h.assert_extmarks(window, extmarks)
+        end
     end
 
     it("should render nothing", function()
@@ -463,6 +466,54 @@ describe("ColumnBox Renderer", function()
             "                              ",
             "                              ",
             "            Footer            ",
+        })
+    end)
+
+    it("should put highlight at the correct position", function()
+        vim.api.nvim_win_set_width(window.winid, 20)
+
+        ColumnBoxRenderer({
+            children = {
+                markup.Inline("1", { bold = true }),
+                markup.Inline("12", { background = "orange" }),
+                markup.Inline("123", { background = "aqua", color = "black", italic = true }),
+                markup.Inline("1234", { background = "red" }),
+            },
+        }, {
+            "1                   ",
+            "12                  ",
+            "123                 ",
+            "1234                ",
+        }, {
+            { 1, 0, 0 },
+            { 2, 1, 0 },
+            { 3, 2, 0 },
+            { 4, 3, 0 },
+        })
+    end)
+
+    it("should put highlight at the correct position", function()
+        vim.api.nvim_win_set_width(window.winid, 20)
+
+        ColumnBoxRenderer({
+            align = "center",
+            vertical = true,
+            children = {
+                markup.Inline("1", { bold = true }),
+                markup.Inline("12", { background = "orange" }),
+                markup.Inline("123", { background = "aqua", color = "black", italic = true }),
+                markup.Inline("1234", { background = "red" }),
+            },
+        }, {
+            "          1         ",
+            "         12         ",
+            "         123        ",
+            "        1234        ",
+        }, {
+            { 1, 0, 10 },
+            { 2, 1, 9 },
+            { 3, 2, 9 },
+            { 4, 3, 8 },
         })
     end)
 end)

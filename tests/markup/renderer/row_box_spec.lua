@@ -1057,7 +1057,7 @@ describe("RowBox Renderer", function()
         })
     end)
 
-    it("should handle extmarks", function()
+    it("should put highlight at the correct position", function()
         vim.api.nvim_win_set_width(window.winid, 20)
 
         RowBoxRenderer({
