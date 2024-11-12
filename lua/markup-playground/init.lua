@@ -49,13 +49,10 @@ function playground.generate_test()
         table.insert(buf_lines, ("\"%s\","):format(line))
     end
 
-    local extmarks = playground.preview:buf_get_extmarks(0, -1, {
-        details = true,
-    })
-
-    log.debug(extmarks)
+    local extmarks = playground.preview:buf_get_extmarks(0, -1, {})
 
     log.debug(table.concat(buf_lines, "\n"))
+    log.debug(extmarks)
 end
 
 function playground.setup()

@@ -15,10 +15,9 @@ function helpers.open_window()
         style = "minimal",
     }
 
-    local ns_id = vim.api.nvim_create_namespace("markup-test")
     local win = vim.api.nvim_open_win(buf, true, opts)
 
-    return { bufnr = buf, winid = win, ns_id = ns_id }
+    return { bufnr = buf, winid = win }
 end
 
 function helpers.close_window(window)
@@ -47,8 +46,7 @@ function helpers.assert_lines(window, lines)
 end
 
 function helpers.assert_extmarks(window, extmarks)
-    local buf_extmarks =
-        vim.api.nvim_buf_get_extmarks(window.bufnr, window.ns_id, 0, -1, { details = true })
+    local buf_extmarks = vim.api.nvim_buf_get_extmarks(window.bufnr, -1, 0, -1, {})
     assert.are.same(extmarks, buf_extmarks)
 end
 
