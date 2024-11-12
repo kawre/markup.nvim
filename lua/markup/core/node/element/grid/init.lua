@@ -1,8 +1,12 @@
 local markup = require("markup")
 
 ---@class markup.Grid : markup.Block
----@field protected super markup.Inline
-local Grid = markup.Element:extend("markup.grid") ---@diagnostic disable-line: undefined-field
+---@field protected super markup.Block
+local Grid = markup.Block:extend("markup.grid") ---@diagnostic disable-line: undefined-field
+
+---------------------------------
+---- Constructor
+---------------------------------
 
 function Grid:init(...)
     self:_extend_default_props({
@@ -11,11 +15,20 @@ function Grid:init(...)
     Grid.super.init(self, ...)
 end
 
+---------------------------------
+---- Methods
+---------------------------------
+
 function Grid:after_render()
-    error("Not implemented")
+    error("Grid not yet implemented")
 end
 
----@alias markup.Grid.constructor markup.Element.constructor
+---------------------------------
+---- Initializer
+---------------------------------
+
+---@class markup.Grid.constructor.props : markup.Block.constructor.props
+---@alias markup.Grid.constructor markup.Block.constructor
 
 ---@type markup.Grid.constructor
 return Grid

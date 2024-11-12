@@ -11,6 +11,10 @@ local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 ---@field protected _ markup.List.props
 local List = markup.Block:extend("markup.list") ---@diagnostic disable-line: undefined-field
 
+---------------------------------
+---- Constructor
+---------------------------------
+
 function List:init(...)
     self:_extend_default_props({
         ordered = false,
@@ -20,6 +24,10 @@ function List:init(...)
     })
     List.super.init(self, ...)
 end
+
+---------------------------------
+---- Methods
+---------------------------------
 
 function List:before_render()
     self._.ordered_counter = 1
@@ -37,6 +45,10 @@ function List:item_marker(inc)
 
     return marker
 end
+
+---------------------------------
+---- Initializer
+---------------------------------
 
 ---@class markup.List.constructor.props : markup.Block.constructor.props
 ---@field ordered? boolean ordered or unordered list

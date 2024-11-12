@@ -1,4 +1,5 @@
 local markup = require("markup")
+local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 
 ---@class markup.Inline.props : markup.Element.props
 
@@ -6,10 +7,10 @@ local markup = require("markup")
 ---@field _ markup.Inline.props
 local Inline = markup.Element:extend("markup.inline") ---@diagnostic disable-line: undefined-field
 
-function Inline:after_render()
+function Inline:display_handler()
     for _, child in ipairs(self.children) do
         local prev_sibling = child.prev_sibling
-        if prev_sibling and (prev_sibling:is_block() or child:is_block()) then
+        if prev_sibling and (prev_sibling:is_br() or child:is_br()) then
             self:_newl()
         end
 
@@ -18,7 +19,7 @@ function Inline:after_render()
             self:_append(line, self:_row() + row)
         end
 
-        if self.vertical == false then
+        if self:is_box() and self.vertical == false then
             self:_set_row(0)
         else
             self:_newl(#lines)

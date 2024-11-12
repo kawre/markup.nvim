@@ -2,12 +2,12 @@ local markup = require("markup")
 local u = require("markup.utils") ---@diagnostic disable-line: unused-local
 local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 
----@class markup.Flex.props : markup.Element.props
+---@class markup.Flex.props : markup.Block.props
 
----@class markup.Flex : markup.Element
+---@class markup.Flex : markup.Block
 ---@field protected _ markup.Flex.props
 ---@field protected super markup.Element
-local Flex = markup.Block:extend("markup.Flex") ---@diagnostic disable-line: undefined-field
+local Flex = markup.Block:extend("markup.flex") ---@diagnostic disable-line: undefined-field
 
 ---------------------------------
 ---- Constructor
@@ -24,16 +24,7 @@ end
 ---- Methods
 ---------------------------------
 
-function Flex:_set_state(renderer, parent)
-    Flex.super._set_state(self, renderer, parent)
-
-    self.align = self._.align
-    self.spacing = self._.spacing
-    self.vertical = self._.vertical
-    self.reverse = self._.reverse
-end
-
-function Flex:after_render()
+function Flex:display_handler()
     local spacing, vertical = self.spacing, self.vertical
     local children = self.children
 
@@ -59,7 +50,7 @@ function Flex:after_render()
         end
     end
 
-    Flex.super.after_render(self)
+    Flex.super.display_handler(self)
 
     local width = self:box_size()
     local align = self.align
@@ -82,7 +73,8 @@ end
 ---- Initializer
 ---------------------------------
 
----@alias markup.Flex.constructor markup.Element.constructor
+---@class markup.Flex.constructor.props : markup.Block.constructor.props
+---@alias markup.Flex.constructor markup.Block.constructor
 
 ---@type markup.Flex.constructor
 local MarkupFlex = Flex ---@diagnostic disable-line: assign-type-mismatch

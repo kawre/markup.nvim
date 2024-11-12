@@ -10,11 +10,11 @@
 
 ---@alias markup.Element.content string|markup.Node|(string|markup.Node)[]
 
----@alias markup.Element.display "inline"|"block"|"inline-block"|"box"|"grid"
+---@alias markup.Element.display "inline"|"block"|"inline-block"|"flex"|"grid"
 
 ---@class markup.Element.style.alias
----@field color? string fg
----@field strike? string strikethrough
+---@field color? string `fg` alias
+---@field strike? string `strikethrough` alias
 
 ---@alias markup.Element.style vim.api.keyset.highlight|markup.Element.style.alias
 

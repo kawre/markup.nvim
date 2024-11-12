@@ -8,7 +8,6 @@ function Anchor:init(...)
     self:_extend_default_props({
         style = { underline = true, fg = "#89b4fb" },
     })
-
     Anchor.super.init(self, ...)
 end
 

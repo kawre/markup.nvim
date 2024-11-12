@@ -22,7 +22,7 @@ end
 ---@param lvl number
 ---@param ... any
 function logger.log(lvl, ...)
-    if not config.debug and (lvl == lvls.DEBUG or lvl == lvls.TRACE) then
+    if __TEST__ or (not config.debug and (lvl == lvls.DEBUG or lvl == lvls.TRACE)) then
         return
     end
 

@@ -300,6 +300,13 @@ function Window:buf_set_extmark(ns_id, line, col, opts)
     return vim.api.nvim_buf_set_extmark(self.bufnr, ns_id, line, col, opts)
 end
 
+---@param start integer
+---@param end_ integer
+---@param opts vim.api.keyset.get_extmarks
+function Window:buf_get_extmarks(start, end_, opts)
+    return vim.api.nvim_buf_get_extmarks(self.bufnr, self._.ns_id, start, end_, opts)
+end
+
 ---@param buffer_opts? table<any, any>
 ---@param window_opts? table<any, any>
 function Window:set_opts(buffer_opts, window_opts)

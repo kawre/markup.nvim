@@ -19,6 +19,12 @@ local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 ---@field protected _ markup.Element.props
 ---@field protected super markup.Node
 ---@field display markup.Element.display
+---@field padding markup.Element.padding
+---@field margin markup.Element.margin
+---@field align markup.Box.align
+---@field spacing markup.Box.spacing
+---@field vertical boolean
+---@field reverse boolean
 ---@field child_nodes markup.Node[]
 ---@field children markup.Element[]
 ---@field first_child markup.Node
@@ -50,8 +56,8 @@ Element.static._default_props = {
 
 ---@param props any
 function Element:_extend_default_props(props)
-    local defaults = self._default_props or Element.static._default_props
-    self._default_props = vim.tbl_deep_extend("keep", props, defaults)
+    local defaults = self._default_props or {}
+    self._default_props = vim.tbl_deep_extend("force", props, defaults)
 end
 
 ---@param props markup.Element.constructor.props
@@ -59,7 +65,7 @@ end
 function Element:init(props, style)
     props = self:_normalize_props(props, style)
     Element.super.init(self, props)
-    self._default_props = nil
+    -- self._default_props = nil
 end
 
 ---------------------------------
@@ -143,11 +149,10 @@ function Element:_inherit_style(element)
 end
 
 ---@protected
----@param element markup.Element
-function Element:_inherit_display(element)
-    if element and u.is_instance(element, markup.Box) then
-        ---@cast element markup.Box
-        return element.vertical and "block" or "inline-block"
+---@param parent markup.Element
+function Element:_inherit_display(parent)
+    if parent and parent:is_box() then
+        return parent.vertical and "block" or "inline-block"
     else
         return self._.display
     end
@@ -235,13 +240,19 @@ function Element:_set_state(renderer, parent)
 
     self._.row = 0
     self._.lines = {}
-    self.display = self:_inherit_display(parent)
+    self.display = self._.display
+    self.computed_display = self:_inherit_display(parent)
     self.style = self:_inherit_style(parent)
     self.child_nodes = u.shallow_copy(self._.children)
     self:_sync_children()
 
     self.margin = Element.static._normalize_spacing(self._.margin)
     self.padding = Element.static._normalize_spacing(self._.padding)
+
+    self.align = self._.align
+    self.spacing = self._.spacing
+    self.vertical = self._.vertical
+    self.reverse = self._.reverse
 end
 
 function Element:_sync_children()
@@ -279,10 +290,17 @@ function Element:_normalize_props(props, style)
         result.children = Element.static._normalize_content(result.children)
     end
 
-    local defaults = self._default_props or Element.static._default_props
+    local defaults = self._default_props
+    if defaults then
+        defaults = vim.tbl_deep_extend("keep", defaults, Element.static._default_props)
+    else
+        defaults = Element.static._default_props
+    end
+
     if style then
         defaults.style = style
     end
+
     return vim.tbl_deep_extend("keep", result, defaults or {})
 end
 
@@ -337,14 +355,14 @@ function Element:contains(other_node)
     return u.index_of(self.child_nodes, other_node) ~= nil
 end
 
----@param child markup.Node
----@param reference markup.Node
-function Element:insert_before(child, reference)
-    local index = u.index_of(self.child_nodes, node)
-    assert(index, "node not found")
-    table.insert(self.child_nodes, index, node)
-    return node
-end
+-- ---@param child markup.Node
+-- ---@param reference markup.Node
+-- function Element:insert_before(child, reference)
+--     local index = u.index_of(self.child_nodes, node)
+--     assert(index, "node not found")
+--     table.insert(self.child_nodes, index, node)
+--     return node
+-- end
 
 ---@param child markup.Node
 function Element:remove_child(child)
@@ -366,16 +384,20 @@ function Element:render()
     end
 end
 
+local display_map = {
+    block = "Block",
+    inline = "Inline",
+    ["inline-block"] = "Inline",
+    flex = "Flex",
+    grid = "Grid",
+}
+
 function Element:after_render()
-    if self:is_block() then
-        markup.Block.after_render(self)
-    elseif self:is_inline() then
-        markup.Inline.after_render(self)
-    elseif self:is_flex() then
-        markup.Flex.after_render(self)
-    elseif self:is_grid() then
-        markup.Grid.after_render(self)
-    end
+    markup[display_map[self.display]].display_handler(self)
+end
+
+function Element:display_handler()
+    error("[Element:display_handler] Method not implemented")
 end
 
 ---@return integer
@@ -403,7 +425,7 @@ end
 
 ---@return integer, integer
 function Element:box_size()
-    if self:is_block() and not self:is_box_item() then
+    if self:is_br() and not self:is_box_item() then
         return self.owner:width(), self.owner:height()
     else
         return self:size()

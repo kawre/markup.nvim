@@ -16,7 +16,7 @@ describe("RowBox Renderer", function()
         h.close_window(window)
     end)
 
-    local function RowBoxRenderer(props, lines)
+    local function RowBoxRenderer(props, lines, extmarks)
         local default = {
             vertical = false,
             children = props,
@@ -31,6 +31,9 @@ describe("RowBox Renderer", function()
             body = markup.Flex(default),
         }):render()
         h.assert_lines(window, lines)
+        if extmarks then
+            h.assert_extmarks(window, extmarks)
+        end
     end
 
     it("should render nothing", function()

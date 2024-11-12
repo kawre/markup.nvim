@@ -57,9 +57,8 @@ end
 ---@param renderer markup.Renderer
 ---@param parent markup.Element
 function Node:render_node(renderer, parent)
-    self:before_render(renderer, parent)
-
     self:_set_state(renderer, parent)
+    self:before_render()
     self:render()
     self:after_render()
 end
@@ -93,19 +92,34 @@ function Node:is_element(kind)
     return self.type == "element" or u.starts_with(self.type, start)
 end
 
-function Node:is_block()
+-- Whether new line should be inserted before this node
+function Node:is_br()
     ---@cast self markup.Element
-    return self.display == "block"
+    return self.computed_display == "block"
+        or self.computed_display == "flex"
+        or self.computed_display == "grid"
 end
 
+function Node:is_block()
+    ---@cast self markup.Element
+    return self.computed_display == "block"
+end
+
+-- Whether this node should be treated as a block
 function Node:is_block_kind()
     ---@cast self markup.Element
-    return self.display == "block" or self.display == "inline-block"
+    return self.computed_display == "inline-block" or self:is_br()
 end
 
 function Node:is_inline()
     ---@cast self markup.Element
-    return self.display == "inline" or u.starts_with(self.type, "inline")
+    return self.computed_display == "inline"
+end
+
+-- Whether this node should be treated as an inline
+function Node:is_inline_kind()
+    ---@cast self markup.Element
+    return self:is_inline() or u.starts_with(self.computed_display, "inline")
 end
 
 function Node:is_flex()
@@ -127,7 +141,7 @@ function Node:is_box_item()
     local node = self.parent
 
     while node do
-        if u.is_instance(node, markup.Box) then
+        if node:is_box() then
             return true
         end
         node = node.parent

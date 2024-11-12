@@ -16,7 +16,7 @@ describe("Block Renderer", function()
         h.close_window(window)
     end)
 
-    local function BlockRenderer(children, lines)
+    local function BlockRenderer(children, lines, extmarks)
         renderer({
             body = markup.Block({
                 children = children,
@@ -24,6 +24,9 @@ describe("Block Renderer", function()
         }):render()
 
         h.assert_lines(window, lines)
+        if extmarks then
+            h.assert_extmarks(window, extmarks)
+        end
     end
 
     it("should render nothing", function()
