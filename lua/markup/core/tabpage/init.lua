@@ -16,71 +16,71 @@ local TabPage = markup.Object("markup.tabpage")
 
 ---@param props markup.TabPage.constructor.props
 function TabPage:init(props)
-    self._ = vim.tbl_deep_extend("force", {
-        count = "",
-        enter = true,
-        mount = false,
-    }, props)
+	self._ = vim.tbl_deep_extend("force", {
+		count = "",
+		enter = true,
+		mount = false,
+	}, props)
 
-    self.tabpage = self._.tabpage
+	self.tabpage = self._.tabpage
 
-    if self._.mount then
-        self:mount()
-    end
+	if self._.mount then
+		self:mount()
+	end
 end
 
 function TabPage:_tab_cmd()
-    local cmd = self._.count .. "tab"
-    if self._.file then
-        return cmd .. "edit " .. self._.file
-    else
-        return cmd .. "new"
-    end
+	local cmd = self._.count .. "tab"
+	if self._.file then
+		return cmd .. "edit " .. self._.file
+	else
+		return cmd .. "new"
+	end
 end
 
 function TabPage:mount()
-    if not self:is_valid() then
-        vim.cmd(self:_tab_cmd())
-        self.tabpage = vim.api.nvim_get_current_tabpage()
-        if not self._.enter then
-            vim.cmd.tabprevious()
-        end
-    end
+	if not self:is_valid() then
+		vim.cmd(self:_tab_cmd())
+		self.tabpage = vim.api.nvim_get_current_tabpage()
+		if not self._.enter then
+			vim.cmd.tabprevious()
+		end
+	end
 end
 
 function TabPage:unmount()
-    if self:is_valid() then
-        local number = self:get_number()
-        if number then
-            vim.cmd.tabclose(number)
-            self.tabpage = nil
-        end
-    end
+	if self:is_valid() then
+		local number = self:get_number()
+		if number then
+			vim.cmd.tabclose(number)
+			self.tabpage = nil
+		end
+	end
 end
 
 function TabPage:is_valid()
-    return self.tabpage and vim.api.nvim_tabpage_is_valid(self.tabpage)
+	return self.tabpage and vim.api.nvim_tabpage_is_valid(self.tabpage)
 end
 
 function TabPage:get_number()
-    return self.tabpage and vim.api.nvim_tabpage_get_number(self.tabpage)
+	return self.tabpage and vim.api.nvim_tabpage_get_number(self.tabpage)
 end
 
 function TabPage:get_var(name)
-    local ok, var = pcall(vim.api.nvim_tabpage_get_var, self.tabpage, name)
-    if ok then
-        return var
-    end
+	local ok, var = pcall(vim.api.nvim_tabpage_get_var, self.tabpage, name)
+	if ok then
+		return var
+	end
 end
 
 function TabPage:focus()
-    if self:is_valid() then
-        vim.api.nvim_set_current_tabpage(self.tabpage)
-    end
+	if self:is_valid() then
+		vim.api.nvim_set_current_tabpage(self.tabpage)
+	end
 end
 
 function TabPage:set_file(file)
-    self._.file = file
+	self._.file = file
 end
 
 ---@class markup.TabPage.constructor.props

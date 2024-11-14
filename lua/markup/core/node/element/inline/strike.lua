@@ -5,10 +5,10 @@ local markup = require("markup")
 local Strike = markup.Element:extend("markup.inline.strike") ---@diagnostic disable-line: undefined-field
 
 function Strike:init(...)
-    self:_extend_default_props({
-        style = { strikethrough = true },
-    })
-    Strike.super.init(self, ...)
+	self:_extend_default_props({
+		style = { strikethrough = true },
+	})
+	Strike.super.init(self, ...)
 end
 
 ---@type markup.Inline.constructor

@@ -8,25 +8,25 @@ local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 local Inline = markup.Element:extend("markup.inline") ---@diagnostic disable-line: undefined-field
 
 function Inline:display_handler()
-    for _, child in ipairs(self.children) do
-        local prev_sibling = child.prev_sibling
-        if prev_sibling and (prev_sibling:is_br() or child:is_br()) then
-            self:_newl()
-        end
+	for _, child in ipairs(self.children) do
+		local prev_sibling = child.prev_sibling
+		if prev_sibling and (prev_sibling:is_br() or child:is_br()) then
+			self:_newl()
+		end
 
-        local lines = child:computed_lines()
-        for row, line in pairs(lines) do
-            self:_append(line, self:_row() + row)
-        end
+		local lines = child:computed_lines()
+		for row, line in pairs(lines) do
+			self:_append(line, self:_row() + row)
+		end
 
-        if self:is_box() and self.vertical == false then
-            self:_set_row(0)
-        else
-            self:_newl(#lines)
-        end
-    end
+		if self:is_box() and self.vertical == false then
+			self:_set_row(0)
+		else
+			self:_newl(#lines)
+		end
+	end
 
-    self:_apply_spacing()
+	self:_apply_spacing()
 end
 
 ---@class markup.Inline.constructor.props : markup.Element.constructor.props

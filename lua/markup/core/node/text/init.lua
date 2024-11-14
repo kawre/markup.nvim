@@ -12,73 +12,73 @@ local Text = markup.Node:extend("MarkupText") ---@diagnostic disable-line: undef
 
 ---@param content string
 function Text:init(content, parent)
-    Text.super.init(self, {
-        type = "text",
-        content = content,
-    })
+	Text.super.init(self, {
+		type = "text",
+		content = content,
+	})
 
-    if parent then
-        self:_set_state(parent.owner, parent)
-    end
+	if parent then
+		self:_set_state(parent.owner, parent)
+	end
 end
 
 ---@return string
 function Text:content()
-    return self._.content
+	return self._.content
 end
 
 ---@return integer
 function Text:length()
-    return vim.fn.strlen(self:content())
+	return vim.fn.strlen(self:content())
 end
 
 ---@return integer
 function Text:width()
-    return vim.api.nvim_strwidth(self:content())
+	return vim.api.nvim_strwidth(self:content())
 end
 
 ---@param style markup.Element.style
 function Text:_normalize_style(style)
-    if not style then
-        return
-    end
+	if not style then
+		return
+	end
 
-    local map = {
-        ["color"] = "fg",
-    }
+	local map = {
+		["color"] = "fg",
+	}
 
-    for key, value in pairs(style) do
-        if map[key] then
-            style[map[key]] = value
-            style[key] = nil
-        end
-    end
+	for key, value in pairs(style) do
+		if map[key] then
+			style[map[key]] = value
+			style[key] = nil
+		end
+	end
 
-    return style
+	return style
 end
 
 ---@param linenr number line number (1-indexed)
 ---@param byte_start number start byte position (0-indexed)
 ---@return nil
 function Text:highlight(linenr, byte_start)
-    if not self.parent then
-        return
-    end
+	if not self.parent then
+		return
+	end
 
-    local style = self:_normalize_style(self.parent.style)
-    local hl = theme.create_dynamic_hl(style)
+	local style = self:_normalize_style(self.parent.style)
+	local hl = theme.create_dynamic_hl(style)
 
-    if hl then
-        self.owner:buf_set_extmark(nil, linenr, byte_start, {
-            end_col = byte_start + self:length(),
-            hl_group = hl --[[@as string]],
-            hl_mode = "combine",
-        })
-    end
+	if hl then
+		self.owner:buf_set_extmark(nil, linenr, byte_start, {
+			end_col = byte_start + self:length(),
+			hl_group = hl --[[@as string]],
+			hl_mode = "combine",
+		})
+	end
 end
 
 function Text:render()
-    self.parent:_append(self) ---@diagnostic disable-line: invisible
+	self.parent:_append(self) ---@diagnostic disable-line: invisible
 end
 
 ---@alias markup.Text.constructor fun(content: string, parent?: markup.Node): markup.Text

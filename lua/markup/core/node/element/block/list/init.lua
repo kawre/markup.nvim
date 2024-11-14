@@ -16,13 +16,13 @@ local List = markup.Block:extend("markup.list") ---@diagnostic disable-line: und
 ---------------------------------
 
 function List:init(...)
-    self:_extend_default_props({
-        ordered = false,
-        marker = " • ",
-        ordered_counter = 1,
-        type = "element-list",
-    })
-    List.super.init(self, ...)
+	self:_extend_default_props({
+		ordered = false,
+		marker = " • ",
+		ordered_counter = 1,
+		type = "element-list",
+	})
+	List.super.init(self, ...)
 end
 
 ---------------------------------
@@ -30,20 +30,20 @@ end
 ---------------------------------
 
 function List:before_render()
-    self._.ordered_counter = 1
+	self._.ordered_counter = 1
 end
 
 function List:item_marker(inc)
-    local marker = self._.marker
+	local marker = self._.marker
 
-    if self._.ordered then
-        marker = self._.ordered_counter .. ". "
-        if inc then
-            self._.ordered_counter = self._.ordered_counter + 1
-        end
-    end
+	if self._.ordered then
+		marker = self._.ordered_counter .. ". "
+		if inc then
+			self._.ordered_counter = self._.ordered_counter + 1
+		end
+	end
 
-    return marker
+	return marker
 end
 
 ---------------------------------

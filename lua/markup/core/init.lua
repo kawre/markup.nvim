@@ -2,50 +2,50 @@
 local core = {}
 
 core.lookups = {
-    -- Object
-    Object = "markup.core.object",
+	-- Object
+	Object = "markup.core.object",
 
-    -- Node
-    Node = "markup.core.node",
-    -- Text
-    Text = "markup.core.node.text",
-    Pad = "markup.core.node.text.padding",
+	-- Node
+	Node = "markup.core.node",
+	-- Text
+	Text = "markup.core.node.text",
+	Pad = "markup.core.node.text.padding",
 
-    -- TabPage
-    TabPage = "markup.core.tabpage",
+	-- TabPage
+	TabPage = "markup.core.tabpage",
 
-    -- Layout
-    Layout = "markup.core.layout",
+	-- Layout
+	Layout = "markup.core.layout",
 
-    -- Element
-    Element = "markup.core.node.element",
-    Anchor = "markup.core.node.element.inline.anchor",
-    Code = "markup.core.node.element.inline.code",
-    Italic = "markup.core.node.element.inline.italic",
-    Mark = "markup.core.node.element.inline.mark",
-    Strike = "markup.core.node.element.inline.strike",
-    Strong = "markup.core.node.element.inline.strong",
-    Sub = "markup.core.node.element.inline.sub",
-    Sup = "markup.core.node.element.inline.sup",
-    Underline = "markup.core.node.element.inline.underline",
-    List = "markup.core.node.element.block.list",
-    OrderedList = "markup.core.node.element.block.list.ordered",
-    ListItem = "markup.core.node.element.block.list.item",
+	-- Element
+	Element = "markup.core.node.element",
+	Anchor = "markup.core.node.element.inline.anchor",
+	Code = "markup.core.node.element.inline.code",
+	Italic = "markup.core.node.element.inline.italic",
+	Mark = "markup.core.node.element.inline.mark",
+	Strike = "markup.core.node.element.inline.strike",
+	Strong = "markup.core.node.element.inline.strong",
+	Sub = "markup.core.node.element.inline.sub",
+	Sup = "markup.core.node.element.inline.sup",
+	Underline = "markup.core.node.element.inline.underline",
+	List = "markup.core.node.element.block.list",
+	OrderedList = "markup.core.node.element.block.list.ordered",
+	ListItem = "markup.core.node.element.block.list.item",
 
-    -- Inline
-    Inline = "markup.core.node.element.inline",
-    -- Block
-    Block = "markup.core.node.element.block",
-    -- Flex
-    Box = "markup.core.node.element.flex",
-    Flex = "markup.core.node.element.flex",
-    -- Grid
-    Grid = "markup.core.node.element.grid",
+	-- Inline
+	Inline = "markup.core.node.element.inline",
+	-- Block
+	Block = "markup.core.node.element.block",
+	-- Flex
+	Box = "markup.core.node.element.flex",
+	Flex = "markup.core.node.element.flex",
+	-- Grid
+	Grid = "markup.core.node.element.grid",
 
-    -- Window
-    Window = "markup.core.window",
-    Renderer = "markup.core.window.renderer",
-    RendererLine = "markup.core.window.renderer.line",
+	-- Window
+	Window = "markup.core.window",
+	Renderer = "markup.core.window.renderer",
+	RendererLine = "markup.core.window.renderer.line",
 }
 
 return core

@@ -5,14 +5,14 @@ local markup = require("markup")
 local Sub = markup.Element:extend("markup.inline.sub") ---@diagnostic disable-line: undefined-field
 
 function Sub:init(...)
-    self:_extend_default_props({
-        style = { color = "#9399b3" },
-    })
-    Sub.super.init(self, ...)
+	self:_extend_default_props({
+		style = { color = "#9399b3" },
+	})
+	Sub.super.init(self, ...)
 end
 
 function Sub:after_init()
-    table.insert(self._.children, 1, markup.Text("_"))
+	table.insert(self._.children, 1, markup.Text("_"))
 end
 
 ---@type markup.Inline.constructor

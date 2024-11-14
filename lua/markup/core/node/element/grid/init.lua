@@ -9,10 +9,10 @@ local Grid = markup.Block:extend("markup.grid") ---@diagnostic disable-line: und
 ---------------------------------
 
 function Grid:init(...)
-    self:_extend_default_props({
-        display = "grid",
-    })
-    Grid.super.init(self, ...)
+	self:_extend_default_props({
+		display = "grid",
+	})
+	Grid.super.init(self, ...)
 end
 
 ---------------------------------
@@ -20,7 +20,7 @@ end
 ---------------------------------
 
 function Grid:after_render()
-    error("Grid not yet implemented")
+	error("Grid not yet implemented")
 end
 
 ---------------------------------

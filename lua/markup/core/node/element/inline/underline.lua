@@ -5,10 +5,10 @@ local markup = require("markup")
 local Underline = markup.Element:extend("markup.inline.underline") ---@diagnostic disable-line: undefined-field
 
 function Underline:init(...)
-    self:_extend_default_props({
-        style = { underline = true },
-    })
-    Underline.super.init(self, ...)
+	self:_extend_default_props({
+		style = { underline = true },
+	})
+	Underline.super.init(self, ...)
 end
 
 ---@type markup.Inline.constructor

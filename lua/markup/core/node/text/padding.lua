@@ -8,11 +8,11 @@ local cache = {}
 
 ---@param n markup.Padding.constructor.props
 function Padding:init(n, ...)
-    if not cache[n] then
-        cache[n] = (" "):rep(n)
-    end
+	if not cache[n] then
+		cache[n] = (" "):rep(n)
+	end
 
-    Padding.super.init(self, cache[n], ...)
+	Padding.super.init(self, cache[n], ...)
 end
 
 ---@alias markup.Padding.constructor.props integer

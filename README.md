@@ -9,12 +9,13 @@
 - [ ] Grid Box
 - [ ] Justify Content
 - [ ] Reverse
-- [ ] Background color
-- [ ] Margin and Padding
+- [x] Background color
+- [x] Margin and Padding
 - [ ] Height and Width
 - [ ] Max Width and Max Height
 - [ ] Window Layout Box
 - [x] Tab class
+- [ ] Notification spinner
 
 ### 📦 Elements
 

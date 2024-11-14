@@ -11,75 +11,75 @@ local u = require("markup.utils") ---@diagnostic disable-line: unused-local
 local Line = markup.Object("MarkupLine")
 
 function Line:init()
-    self._ = {
-        texts = {},
-        padding = {
-            left = 0,
-            right = 0,
-        },
-    }
+	self._ = {
+		texts = {},
+		padding = {
+			left = 0,
+			right = 0,
+		},
+	}
 end
 
 function Line:content()
-    local texts = self:texts()
+	local texts = self:texts()
 
-    return table.concat(vim.tbl_map(function(text)
-        return text:content()
-    end, texts))
+	return table.concat(vim.tbl_map(function(text)
+		return text:content()
+	end, texts))
 end
 
 function Line:length()
-    return vim.fn.strlen(self:content())
+	return vim.fn.strlen(self:content())
 end
 
 function Line:width()
-    return vim.api.nvim_strwidth(self:content())
+	return vim.api.nvim_strwidth(self:content())
 end
 
 ---@param renderer markup.Renderer
 ---@param row_at integer
 function Line:draw(renderer, row_at)
-    local str = self:content()
-    renderer:buf_set_lines(row_at, -1, false, { str })
-    self:hightlight(row_at)
+	local str = self:content()
+	renderer:buf_set_lines(row_at, -1, false, { str })
+	self:hightlight(row_at)
 end
 
 function Line:hightlight(row_at)
-    local offset = 0
-    for _, text in ipairs(self:texts()) do
-        text:highlight(row_at, offset)
-        offset = offset + text:width()
-    end
+	local offset = 0
+	for _, text in ipairs(self:texts()) do
+		text:highlight(row_at, offset)
+		offset = offset + text:width()
+	end
 end
 
 ---@param content string|markup.Text|markup.Renderer.Line
 ---@param pos? integer
 function Line:append(content, pos)
-    pos = pos or #self._.texts + 1
+	pos = pos or #self._.texts + 1
 
-    if type(content) == "string" then
-        table.insert(self._.texts, pos, markup.Text(content))
-    elseif content.type == "text" then
-        ---@cast content markup.Text
-        table.insert(self._.texts, pos, content)
-    else
-        ---@cast content markup.Renderer.Line
-        for i, text in ipairs(content:texts()) do
-            table.insert(self._.texts, pos + (i - 1), text)
-        end
-    end
+	if type(content) == "string" then
+		table.insert(self._.texts, pos, markup.Text(content))
+	elseif content.type == "text" then
+		---@cast content markup.Text
+		table.insert(self._.texts, pos, content)
+	else
+		---@cast content markup.Renderer.Line
+		for i, text in ipairs(content:texts()) do
+			table.insert(self._.texts, pos + (i - 1), text)
+		end
+	end
 
-    return self
+	return self
 end
 
 ---@param content string|markup.Text|markup.Renderer.Line
 function Line:prepend(content)
-    return self:append(content, 1)
+	return self:append(content, 1)
 end
 
 ---@return markup.Text[]
 function Line:texts()
-    return self._.texts
+	return self._.texts
 end
 
 ---@alias markup.Renderer.Line.constructor fun(): markup.Renderer.Line
