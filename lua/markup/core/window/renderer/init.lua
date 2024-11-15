@@ -16,8 +16,14 @@ local Renderer = markup.Window:extend("MarkupRenderer") ---@diagnostic disable-l
 ---------------------------------
 
 function Renderer:render()
-	local root = markup.Block(self:body())
-	self:render_tree(root)
+	if not self:is_valid() then
+		return
+	end
+
+	self:preserve_cursor(function()
+		local root = markup.Block(self:body())
+		self:render_tree(root)
+	end)
 end
 
 ---@param root markup.Element
@@ -46,6 +52,12 @@ end
 function Renderer:clear()
 	self:buf_clear_namespace()
 	self:buf_set_lines(0, -1, false, {})
+end
+
+function Renderer:preserve_cursor(fn)
+	local c = vim.api.nvim_win_get_cursor(self.winid)
+	fn()
+	vim.api.nvim_win_set_cursor(self.winid, c)
 end
 
 ---------------------------------

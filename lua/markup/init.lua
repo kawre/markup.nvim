@@ -24,10 +24,11 @@ local ui = require("markup.ui")
 -- Block
 ---@field Block markup.Block.constructor
 ---@field Flex markup.Flex.constructor
+---@field HFlex markup.Flex.constructor
 ---@field Box markup.Flex.constructor
 ---@field Grid markup.Grid.constructor
 ---@field List markup.List.constructor
----@field OrderedList markup.List.constructor
+---@field OList markup.List.constructor
 ---@field ListItem markup.Block.constructor
 -- Window
 ---@field Window markup.Window.constructor

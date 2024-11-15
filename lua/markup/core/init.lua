@@ -29,7 +29,7 @@ core.lookups = {
 	Sup = "markup.core.node.element.inline.sup",
 	Underline = "markup.core.node.element.inline.underline",
 	List = "markup.core.node.element.block.list",
-	OrderedList = "markup.core.node.element.block.list.ordered",
+	OList = "markup.core.node.element.block.list.ordered",
 	ListItem = "markup.core.node.element.block.list.item",
 
 	-- Inline
@@ -39,6 +39,7 @@ core.lookups = {
 	-- Flex
 	Box = "markup.core.node.element.flex",
 	Flex = "markup.core.node.element.flex",
+	HFlex = "markup.core.node.element.flex.horizontal",
 	-- Grid
 	Grid = "markup.core.node.element.grid",
 

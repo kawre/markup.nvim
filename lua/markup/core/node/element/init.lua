@@ -52,6 +52,10 @@ Element.static._default_props = {
 	spacing = 0,
 	vertical = true,
 	reverse = false,
+	size = {
+		width = nil,
+		height = nil,
+	},
 }
 
 ---@param props any
