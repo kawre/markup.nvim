@@ -2,7 +2,7 @@ local markup = require("markup")
 
 ---@class markup.Padding : markup.Text
 ---@field protected super markup.Text
-local Padding = markup.Text:extend("MarkupPadding") ---@diagnostic disable-line: undefined-field
+local Padding = markup.Text:extend("markup.padding") ---@diagnostic disable-line: undefined-field
 
 local cache = {}
 

@@ -55,9 +55,7 @@ function Flex:display_handler()
 	local width = self:box_size()
 	local align = self.align
 	for _, line in pairs(self._.lines) do
-		local line_len = line:length()
-
-		local padding = width - line_len
+		local padding = width - line:width()
 		if align == "start" then
 			line:append(markup.Pad(padding, self))
 		elseif align == "center" then

@@ -20,7 +20,7 @@ local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 ---@field protected _ markup.Window.props
 ---@field winid integer
 ---@field bufnr integer
-local Window = markup.Object("MarkupWindow")
+local Window = markup.Object("markup.window")
 
 function Window.static:_normalize_props(props)
 	local defaults = {
@@ -61,8 +61,8 @@ end
 ---@param props markup.Window.constructor.props
 function Window:init(props)
 	self._ = Window.static:_normalize_props(props)
-	self.bufnr = self._.bufnr
-	self.winid = self._.winid
+	self.bufnr = self._.bufnr == 0 and vim.api.nvim_get_current_buf() or self._.bufnr
+	self.winid = self._.winid == 0 and vim.api.nvim_get_current_win() or self._.winid
 
 	if self._.show == true then
 		self:show()
@@ -89,8 +89,7 @@ end
 
 ---@return vim.api.keyset.win_config
 function Window:_win_config()
-	local props = self:props()
-	local config = props.config
+	local config = self._.config
 
 	if self:_is_float() then
 		config = vim.tbl_deep_extend("force", defaults.float, config)
@@ -192,7 +191,7 @@ function Window:win_open()
 		return
 	end
 
-	local props = self:props()
+	local props = self._
 	local config = self:_win_config()
 
 	if self:_is_float() then
@@ -348,7 +347,7 @@ function Window:with_win_option(option, fn, inverse)
 	end
 end
 
-function Window:update()
+function Window:_update()
 	if self:is_valid() then
 		self:apply_opts()
 		if self:_is_float() then
@@ -358,24 +357,24 @@ function Window:update()
 	end
 end
 
-function Window:width()
+function Window:win_get_width()
 	return vim.api.nvim_win_get_width(self.winid)
 end
 
-function Window:set_width(width)
+function Window:win_set_width(width)
 	vim.api.nvim_win_set_width(self.winid, width)
 end
 
-function Window:height()
+function Window:win_get_height()
 	return vim.api.nvim_win_get_height(self.winid)
 end
 
-function Window:set_height(height)
+function Window:win_set_height(height)
 	vim.api.nvim_win_set_height(self.winid, height)
 end
 
 function Window:parent_size()
-	local relative = self:props().config.relative
+	local relative = self._.config.relative
 
 	local height = relative == "win" and vim.api.nvim_win_get_height(self._.config.win)
 		or vim.o.lines
@@ -383,11 +382,6 @@ function Window:parent_size()
 		or vim.o.columns
 
 	return { width = width, height = height }
-end
-
----@return markup.Window.props
-function Window:props()
-	return self._
 end
 
 ---@class markup.Window.constructor.props

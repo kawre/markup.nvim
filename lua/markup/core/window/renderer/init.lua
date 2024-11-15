@@ -16,21 +16,24 @@ local Renderer = markup.Window:extend("MarkupRenderer") ---@diagnostic disable-l
 ---------------------------------
 
 function Renderer:render()
-	u.measure_time("Renderer:render", function()
-		local root = markup.Block(self:body())
-		self:render_tree(root)
-	end)
+	local root = markup.Block(self:body())
+	self:render_tree(root)
 end
 
 ---@param root markup.Element
 function Renderer:render_tree(root)
-	root:render_node(self) ---@diagnostic disable-line: missing-parameter
+	log.debug("RENDER")
+	u.measure_time("Renderer:build tree", function()
+		root:render_node(self) ---@diagnostic disable-line: missing-parameter
+	end)
 
-	self:with_buf_option("modifiable", function()
-		self:clear()
-		for row, line in pairs(root:computed_lines()) do
-			line:draw(self, row)
-		end
+	u.measure_time("Renderer:draw lines", function()
+		self:with_buf_option("modifiable", function()
+			self:clear()
+			for row, line in pairs(root:computed_lines()) do
+				line:draw(self, row)
+			end
+		end)
 	end)
 end
 
@@ -51,6 +54,9 @@ end
 
 ---@param body markup.Element.content
 function Renderer:set_body(body)
+	if type(body) == "function" then
+		body = body()
+	end
 	self._.body = body
 end
 

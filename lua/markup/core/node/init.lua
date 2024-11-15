@@ -10,7 +10,7 @@ local u = require("markup.utils") ---@diagnostic disable-line: unused-local
 ---@field owner markup.Renderer
 ---@field parent markup.Element
 ---@field dirty boolean
-local Node = markup.Object("MarkupNode")
+local Node = markup.Object("markup.node")
 
 ---------------------------------
 ---- Initializer

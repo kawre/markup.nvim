@@ -3,8 +3,8 @@ local config = {
 	user = {
 		logging = true,
 	},
-	name = "[markup.nvim]",
-	debug = true,
+	name = "markup.nvim",
+	debug = false,
 }
 
 return config

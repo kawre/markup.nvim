@@ -93,7 +93,7 @@ function Line:hightlight(row_at)
 	local offset = 0
 	for _, text in ipairs(self:texts()) do
 		text:highlight(row_at, offset)
-		offset = offset + text:width()
+		offset = offset + text:length()
 	end
 end
 

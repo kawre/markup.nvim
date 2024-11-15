@@ -274,6 +274,14 @@ function Element:_sync_children()
 	end
 end
 
+function Element.static._normalize_style(style)
+	if type(style) == "string" then
+		return { link = style }
+	else
+		return style
+	end
+end
+
 ---@param props any
 function Element:_normalize_props(props, style)
 	local result = {}
@@ -294,6 +302,7 @@ function Element:_normalize_props(props, style)
 		vim.tbl_deep_extend("keep", self._default_props or {}, Element.static._default_props)
 
 	if style then
+		style = Element.static._normalize_style(style)
 		defaults.style = vim.tbl_deep_extend("keep", style, defaults.style)
 	end
 
@@ -400,7 +409,7 @@ end
 function Element:width()
 	local max_len = 0
 	for _, line in pairs(self._.lines) do
-		max_len = math.max(max_len, line:length())
+		max_len = math.max(max_len, line:width())
 	end
 	return max_len
 end
@@ -422,7 +431,7 @@ end
 ---@return integer, integer
 function Element:box_size()
 	if self:is_br() and not self:is_box_item() then
-		return self.owner:width(), self.owner:height()
+		return self.owner:win_get_width(), self.owner:win_get_height()
 	else
 		return self:size()
 	end
