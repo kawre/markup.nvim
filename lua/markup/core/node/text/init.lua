@@ -14,7 +14,10 @@ local Text = markup.Node:extend("MarkupText") ---@diagnostic disable-line: undef
 
 ---@param content string
 function Text:init(content, parent)
-	Text.super.init(self, { type = "text" })
+	Text.super.init(self, {
+		final = {},
+		type = "text",
+	})
 	self:set(content)
 	if parent then
 		self:_set_state(parent.owner, parent)

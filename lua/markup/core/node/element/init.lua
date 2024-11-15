@@ -14,6 +14,7 @@ local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 ---@field spacing markup.Box.spacing
 ---@field vertical boolean
 ---@field reverse boolean
+---@field final {row_start: integer, row_end: integer, col_start: integer, col_end: integer}
 
 ---@class markup.Element : markup.Node
 ---@field protected _ markup.Element.props
@@ -53,9 +54,10 @@ Element.static._default_props = {
 	vertical = true,
 	reverse = false,
 	size = {
-		width = nil,
-		height = nil,
+		width = false,
+		height = false,
 	},
+	final = {},
 }
 
 ---@param props any
@@ -208,16 +210,16 @@ function Element:_apply_spacing()
 
 	-- Apply vertical spacing
 	if self:is_block_kind() then
-		for _ = 1, self.padding.bottom do
+		for _ = 1, self.padding.top do
 			self:_insert_line(0, markup.Pad(width, self))
 		end
-		for _ = 1, self.margin.bottom do
+		for _ = 1, self.margin.top do
 			self:_insert_line(0, markup.Pad(width, self.parent))
 		end
-		for _ = 1, self.padding.top do
+		for _ = 1, self.padding.bottom do
 			self:_insert_line(nil, markup.Pad(width, self))
 		end
-		for _ = 1, self.margin.top do
+		for _ = 1, self.margin.bottom do
 			self:_insert_line(nil, markup.Pad(width, self.parent))
 		end
 	end
@@ -276,6 +278,15 @@ function Element:_sync_children()
 			self.next_element_sibling = self.parent.children[element_index + 1]
 		end
 	end
+end
+
+function Element:_update_final_position(row, col_start, col_end)
+	self._.final = {
+		row_start = math.min(self._.final.row_start or row, row),
+		row_end = math.max(self._.final.row_end or row, row),
+		col_start = math.min(self._.final.col_start or col_start, col_start),
+		col_end = math.max(self._.final.col_end or col_end, col_end),
+	}
 end
 
 function Element.static._normalize_style(style)
@@ -411,6 +422,10 @@ end
 
 ---@return integer
 function Element:width()
+	if self._.size.width then
+		return self._.size.width
+	end
+
 	local max_len = 0
 	for _, line in pairs(self._.lines) do
 		max_len = math.max(max_len, line:width())
@@ -420,6 +435,10 @@ end
 
 ---@return integer
 function Element:height()
+	if self._.size.height then
+		return self._.size.height
+	end
+
 	local h = 0
 	for _ in pairs(self._.lines) do
 		h = h + 1

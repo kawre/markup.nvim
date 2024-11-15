@@ -47,6 +47,9 @@ core.lookups = {
 	Window = "markup.core.window",
 	Renderer = "markup.core.window.renderer",
 	RendererLine = "markup.core.window.renderer.line",
+
+	-- Component
+	Component = "markup.core.component",
 }
 
 return core

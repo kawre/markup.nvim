@@ -36,6 +36,8 @@ local ui = require("markup.ui")
 ---@field RendererLine markup.Renderer.Line.constructor
 -- TabPage
 ---@field TabPage markup.TabPage.constructor
+-- Component
+---@field Component markup.Component.constructor
 local markup = {}
 
 ---@private

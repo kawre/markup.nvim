@@ -5,6 +5,8 @@ local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 
 ---@class markup.Renderer.props : markup.Window.props
 ---@field body markup.Element.content
+---@field root markup.Element
+---@field buttons any
 
 ---@class markup.Renderer : markup.Window
 ---@field protected super markup.Window
@@ -23,6 +25,7 @@ function Renderer:render()
 	self:preserve_cursor(function()
 		local root = markup.Block(self:body())
 		self:render_tree(root)
+		self._.root = root
 	end)
 end
 
@@ -60,15 +63,48 @@ function Renderer:preserve_cursor(fn)
 	vim.api.nvim_win_set_cursor(self.winid, c)
 end
 
+function Renderer:handle_on_submit()
+	local c = vim.api.nvim_win_get_cursor(self.winid)
+	local row, col = c[1] - 1, c[2]
+
+	local function in_range(element)
+		local final = element._.final
+		if vim.tbl_isempty(final) then
+			return false
+		end
+
+		log.debug(final, c)
+		return row >= final.row_start
+			and row <= final.row_end
+			and col >= final.col_start
+			and col <= final.col_end
+	end
+
+	local function dfs(node)
+		if not node or not node.children then
+			return
+		end
+
+		for _, child in ipairs(node.children) do
+			if in_range(child) then
+				if child._.on_submit then
+					child._.on_submit()
+					return
+				end
+			end
+			dfs(child)
+		end
+	end
+
+	dfs(self._.root)
+end
+
 ---------------------------------
 ---- Setters
 ---------------------------------
 
 ---@param body markup.Element.content
 function Renderer:set_body(body)
-	if type(body) == "function" then
-		body = body()
-	end
 	self._.body = body
 end
 

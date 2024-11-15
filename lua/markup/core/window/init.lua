@@ -67,7 +67,11 @@ function Window:init(props)
 	if self._.show == true then
 		self:show()
 	end
+
+	self:after_init()
 end
+
+function Window:after_init() end
 
 local defaults = {
 	split = {
@@ -186,6 +190,10 @@ end
 
 function Window:win_open()
 	self:buf_open()
+
+	vim.keymap.set("n", "<CR>", function()
+		self:handle_on_submit()
+	end)
 
 	if self:win_is_valid() then
 		return
