@@ -4,6 +4,8 @@ local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 
 ---@class markup.Text.props : markup.Node.props
 ---@field content string
+---@field width integer
+---@field length integer
 
 ---@class markup.Text : markup.Node
 ---@field protected _ markup.Text.props
@@ -12,14 +14,18 @@ local Text = markup.Node:extend("MarkupText") ---@diagnostic disable-line: undef
 
 ---@param content string
 function Text:init(content, parent)
-	Text.super.init(self, {
-		type = "text",
-		content = content,
-	})
-
+	Text.super.init(self, { type = "text" })
+	self:set(content)
 	if parent then
 		self:_set_state(parent.owner, parent)
 	end
+end
+
+---@param content string
+function Text:set(content)
+	self._.content = content
+	self._.length = #content
+	self._.width = vim.api.nvim_strwidth(content)
 end
 
 ---@return string
@@ -29,12 +35,12 @@ end
 
 ---@return integer
 function Text:length()
-	return vim.fn.strlen(self:content())
+	return self._.length
 end
 
 ---@return integer
 function Text:width()
-	return vim.api.nvim_strwidth(self:content())
+	return self._.width
 end
 
 ---@param style markup.Element.style

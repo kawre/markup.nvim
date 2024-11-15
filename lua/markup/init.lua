@@ -53,6 +53,15 @@ for _, module in ipairs(markup.modules) do
 	markup.register(module.lookups)
 end
 
+function markup.setup(opts)
+	local config = require("markup.config")
+
+	config.user = vim.tbl_deep_extend("force", config, opts or {})
+	config.debug = opts.debug or config.debug
+
+	require("markup-playground").setup()
+end
+
 return setmetatable(markup, {
 	__index = function(t, k)
 		if t.lookups[k] then

@@ -28,27 +28,27 @@ function Flex:display_handler()
 	local spacing, vertical = self.spacing, self.vertical
 	local children = self.children
 
-	-- if not vertical or spacing > 0 then
-	for i, child in ipairs(self.children) do
-		if not vertical then
-			local max_height = select(2, self:max_size())
-			local child_width = child:width()
+	if not vertical or spacing > 0 then
+		for i, child in ipairs(self.children) do
+			if not vertical then
+				local max_height = select(2, self:max_size())
+				local child_width = child:width()
 
-			for row = 0, max_height - 1 do
-				local line = child:_line(row)
-				local padding = child_width - line:width()
-				if padding > 0 then
-					line:append(markup.Pad(padding, self))
+				for row = 0, max_height - 1 do
+					local line = child:_line(row)
+					local padding = child_width - line:width()
+					if padding > 0 then
+						line:append(markup.Pad(padding, self))
+					end
+					if spacing > 0 and i ~= #children then
+						line:append(markup.Pad(spacing, self))
+					end
 				end
-				if spacing > 0 and i ~= #children then
-					line:append(markup.Pad(spacing, self))
-				end
+			elseif spacing > 0 and i ~= #children then
+				child:_newl(spacing)
 			end
-		elseif spacing > 0 and i ~= #children then
-			child:_newl(spacing)
 		end
 	end
-	-- end
 
 	Flex.super.display_handler(self)
 

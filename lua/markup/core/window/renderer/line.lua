@@ -4,52 +4,55 @@ local u = require("markup.utils") ---@diagnostic disable-line: unused-local
 
 ---@class markup.Renderer.Line.props
 ---@field texts markup.Text[]
----@field padding table<"left"|"right", integer>
+---@field content string
+---@field width integer
+---@field length integer
+---@field dirty boolean
 
 ---@class markup.Renderer.Line : markup.Object
 ---@field _ markup.Renderer.Line.props
-local Line = markup.Object("MarkupLine")
+local Line = markup.Object("markup.renderer.line")
 
 function Line:init()
 	self._ = {
 		texts = {},
-		padding = {
-			left = 0,
-			right = 0,
-		},
+		content = "",
+		width = 0,
+		length = 0,
+		dirty = false,
 	}
 end
 
-function Line:content()
-	local texts = self:texts()
+function Line:_sync()
+	if self._.dirty then
+		self._.content = table.concat(vim.tbl_map(function(text)
+			return text:content()
+		end, self._.texts)) or ""
+		self._.length = #self._.content
+		self._.width = vim.api.nvim_strwidth(self._.content)
 
-	return table.concat(vim.tbl_map(function(text)
-		return text:content()
-	end, texts))
+		self._.dirty = false
+	end
+end
+
+---@return markup.Text[]
+function Line:texts()
+	return self._.texts
+end
+
+function Line:content()
+	self:_sync()
+	return self._.content
 end
 
 function Line:length()
-	return vim.fn.strlen(self:content())
+	self:_sync()
+	return self._.length
 end
 
 function Line:width()
-	return vim.api.nvim_strwidth(self:content())
-end
-
----@param renderer markup.Renderer
----@param row_at integer
-function Line:draw(renderer, row_at)
-	local str = self:content()
-	renderer:buf_set_lines(row_at, -1, false, { str })
-	self:hightlight(row_at)
-end
-
-function Line:hightlight(row_at)
-	local offset = 0
-	for _, text in ipairs(self:texts()) do
-		text:highlight(row_at, offset)
-		offset = offset + text:width()
-	end
+	self:_sync()
+	return self._.width
 end
 
 ---@param content string|markup.Text|markup.Renderer.Line
@@ -69,6 +72,7 @@ function Line:append(content, pos)
 		end
 	end
 
+	self._.dirty = true
 	return self
 end
 
@@ -77,9 +81,20 @@ function Line:prepend(content)
 	return self:append(content, 1)
 end
 
----@return markup.Text[]
-function Line:texts()
-	return self._.texts
+---@param renderer markup.Renderer
+---@param row_at integer
+function Line:draw(renderer, row_at)
+	local str = self:content()
+	renderer:buf_set_lines(row_at, -1, false, { str })
+	self:hightlight(row_at)
+end
+
+function Line:hightlight(row_at)
+	local offset = 0
+	for _, text in ipairs(self:texts()) do
+		text:highlight(row_at, offset)
+		offset = offset + text:width()
+	end
 end
 
 ---@alias markup.Renderer.Line.constructor fun(): markup.Renderer.Line

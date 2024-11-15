@@ -1074,4 +1074,296 @@ describe("RowBox Renderer", function()
 			{ 4, 0, 6 },
 		})
 	end)
+
+	it("...", function()
+		vim.api.nvim_win_set_width(window.winid, 80)
+
+		RowBoxRenderer({
+			style = { background = "blue" },
+			align = "start",
+			spacing = 5,
+			children = {
+				markup.Flex({
+					align = "start",
+					children = {
+						markup.Block("Title2"),
+						markup.Block("1231233333"),
+					},
+				}),
+				markup.Flex({
+					style = { background = "aqua", color = "black" },
+					padding = { 1, 2 },
+					-- margin = 2,
+					-- align = "end",
+					children = {
+						markup.Inline("Title"),
+						markup.Inline("1231233333333333333"),
+					},
+				}),
+				markup.Flex({
+					align = "start",
+					children = {
+						markup.Block("Title2"),
+						markup.Block("1231233333"),
+					},
+				}),
+				markup.Flex({
+					style = { background = "aqua", color = "black" },
+					padding = { 1, 2 },
+					-- margin = 2,
+					-- align = "end",
+					children = {
+						markup.Inline("Title"),
+						markup.Inline("1231233333333333333"),
+					},
+				}),
+				markup.Flex({
+					align = "start",
+					children = {
+						markup.Block("Title2"),
+						markup.Block("1231233333"),
+					},
+				}),
+				markup.Flex({
+					style = { background = "aqua", color = "black" },
+					padding = { 1, 2 },
+					-- margin = 2,
+					-- align = "end",
+					children = {
+						markup.Inline("Title"),
+						markup.Inline("1231233333333333333"),
+					},
+				}),
+				markup.Flex({
+					align = "start",
+					children = {
+						markup.Block("Title2"),
+						markup.Block("1231233333"),
+					},
+				}),
+				markup.Flex({
+					style = { background = "aqua", color = "black" },
+					padding = { 1, 2 },
+					-- margin = 2,
+					-- align = "end",
+					children = {
+						markup.Inline("Title"),
+						markup.Inline("1231233333333333333"),
+					},
+				}),
+				markup.Flex({
+					align = "start",
+					children = {
+						markup.Block("Title2"),
+						markup.Block("1231233333"),
+					},
+				}),
+				markup.Flex({
+					style = { background = "aqua", color = "black" },
+					padding = { 1, 2 },
+					-- margin = 2,
+					-- align = "end",
+					children = {
+						markup.Inline("Title"),
+						markup.Inline("1231233333333333333"),
+					},
+				}),
+				markup.Flex({
+					align = "start",
+					children = {
+						markup.Block("Title2"),
+						markup.Block("1231233333"),
+					},
+				}),
+				markup.Flex({
+					style = { background = "aqua", color = "black" },
+					padding = { 1, 2 },
+					-- margin = 2,
+					-- align = "end",
+					children = {
+						markup.Inline("Title"),
+						markup.Inline("1231233333333333333"),
+					},
+				}),
+				markup.Flex({
+					align = "start",
+					children = {
+						markup.Block("Title2"),
+						markup.Block("1231233333"),
+					},
+				}),
+				markup.Flex({
+					style = { background = "aqua", color = "black" },
+					padding = { 1, 2 },
+					-- margin = 2,
+					-- align = "end",
+					children = {
+						markup.Inline("Title"),
+						markup.Inline("1231233333333333333"),
+					},
+				}),
+				markup.Flex({
+					align = "start",
+					children = {
+						markup.Block("Title2"),
+						markup.Block("1231233333"),
+					},
+				}),
+				markup.Flex({
+					style = { background = "aqua", color = "black" },
+					padding = { 1, 2 },
+					-- margin = 2,
+					-- align = "end",
+					children = {
+						markup.Inline("Title"),
+						markup.Inline("1231233333333333333"),
+					},
+				}),
+				markup.Flex({
+					style = { background = "aqua", color = "black" },
+					padding = { 1, 2 },
+					-- margin = 2,
+					-- align = "end",
+					children = {
+						markup.Inline("Title"),
+						markup.Inline("1231233333333333333"),
+					},
+				}),
+				markup.Flex({
+					align = "start",
+					children = {
+						markup.Block("Title2"),
+						markup.Block("1231233333"),
+					},
+				}),
+				markup.Flex({
+					style = { background = "aqua", color = "black" },
+					padding = { 1, 2 },
+					-- margin = 2,
+					-- align = "end",
+					children = {
+						markup.Inline("Title"),
+						markup.Inline("1231233333333333333"),
+					},
+				}),
+				markup.Flex({
+					align = "start",
+					children = {
+						markup.Block("Title2"),
+						markup.Block("1231233333"),
+					},
+				}),
+				markup.Flex({
+					style = { background = "aqua", color = "black" },
+					padding = { 1, 2 },
+					-- margin = 2,
+					-- align = "end",
+					children = {
+						markup.Inline("Title"),
+						markup.Inline("1231233333333333333"),
+					},
+				}),
+				markup.Flex({
+					align = "start",
+					children = {
+						markup.Block("Title2"),
+						markup.Block("1231233333"),
+					},
+				}),
+				markup.Flex({
+					style = { background = "aqua", color = "black" },
+					padding = { 1, 2 },
+					-- margin = 2,
+					-- align = "end",
+					children = {
+						markup.Inline("Title"),
+						markup.Inline("1231233333333333333"),
+					},
+				}),
+				markup.Flex({
+					align = "start",
+					children = {
+						markup.Block("Title2"),
+						markup.Block("1231233333"),
+					},
+				}),
+				markup.Flex({
+					style = { background = "aqua", color = "black" },
+					padding = { 1, 2 },
+					-- margin = 2,
+					-- align = "end",
+					children = {
+						markup.Inline("Title"),
+						markup.Inline("1231233333333333333"),
+					},
+				}),
+				markup.Flex({
+					style = { background = "aqua", color = "black" },
+					padding = { 1, 2 },
+					-- margin = 2,
+					-- align = "end",
+					children = {
+						markup.Inline("Title"),
+						markup.Inline("1231233333333333333"),
+					},
+				}),
+				markup.Flex({
+					align = "start",
+					children = {
+						markup.Block("Title2"),
+						markup.Block("1231233333"),
+					},
+				}),
+				markup.Flex({
+					style = { background = "aqua", color = "black" },
+					padding = { 1, 2 },
+					-- margin = 2,
+					-- align = "end",
+					children = {
+						markup.Inline("Title"),
+						markup.Inline("1231233333333333333"),
+					},
+				}),
+				markup.Flex({
+					align = "start",
+					children = {
+						markup.Block("Title2"),
+						markup.Block("1231233333"),
+					},
+				}),
+				markup.Flex({
+					style = { background = "aqua", color = "black" },
+					padding = { 1, 2 },
+					-- margin = 2,
+					-- align = "end",
+					children = {
+						markup.Inline("Title"),
+						markup.Inline("1231233333333333333"),
+					},
+				}),
+				markup.Flex({
+					align = "start",
+					children = {
+						markup.Block("Title2"),
+						markup.Block("1231233333"),
+					},
+				}),
+				markup.Flex({
+					style = { background = "aqua", color = "black" },
+					padding = { 1, 2 },
+					-- margin = 2,
+					-- align = "end",
+					children = {
+						markup.Inline("Title"),
+						markup.Inline("1231233333333333333"),
+					},
+				}),
+			},
+		}, {
+			"Title2                                     Title2                                     Title2                                     Title2                                     Title2                                     Title2                                     Title2                                     Title2                                                                 Title2                                     Title2                                     Title2                                     Title2                                                                 Title2                                     Title2                                     Title2                                ",
+			"1231233333       Title                     1231233333       Title                     1231233333       Title                     1231233333       Title                     1231233333       Title                     1231233333       Title                     1231233333       Title                     1231233333       Title                       Title                     1231233333       Title                     1231233333       Title                     1231233333       Title                     1231233333       Title                       Title                     1231233333       Title                     1231233333       Title                     1231233333       Title                ",
+			"                 1231233333333333333                        1231233333333333333                        1231233333333333333                        1231233333333333333                        1231233333333333333                        1231233333333333333                        1231233333333333333                        1231233333333333333         1231233333333333333                        1231233333333333333                        1231233333333333333                        1231233333333333333                        1231233333333333333         1231233333333333333                        1231233333333333333                        1231233333333333333                        1231233333333333333  ",
+			"                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        ",
+		})
+	end)
 end)
