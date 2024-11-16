@@ -53,6 +53,7 @@ core.lookups = {
 
 	-- Utils
 	If = "markup.core.node.if",
+	Fragment = "markup.core.node.fragment",
 }
 
 return core

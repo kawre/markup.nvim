@@ -252,7 +252,7 @@ function Element:_set_state(renderer, parent)
 	self.display = self._.display
 	self.computed_display = self:_inherit_display(parent)
 	self.style = self:_inherit_style(parent)
-	self.child_nodes = u.shallow_copy(self._.children)
+	self.child_nodes = self:_normalize_child_nodes()
 	self:_sync_children()
 
 	self.margin = Element.static._normalize_spacing(self._.margin)
@@ -262,6 +262,21 @@ function Element:_set_state(renderer, parent)
 	self.spacing = self._.spacing
 	self.vertical = self._.vertical
 	self.reverse = self._.reverse
+end
+
+function Element:_normalize_child_nodes()
+	local result = {}
+
+	for _, child in ipairs(self._.children) do
+		if child:is_type("fragment") then
+			---@cast child markup.Fragment
+			child:unpack(result)
+		else
+			table.insert(result, child)
+		end
+	end
+
+	return result
 end
 
 function Element:_sync_children()
@@ -353,8 +368,6 @@ function Element:_normalize_props(props, style)
 	return vim.tbl_deep_extend("keep", props, defaults)
 end
 
-function Element.static._normalize_node(node) end
-
 function Element.static._normalize_children(children)
 	if type(children) == "string" or type(children) == "number" then
 		return { markup.Text(children) }
@@ -369,10 +382,8 @@ function Element.static._normalize_children(children)
 				table.insert(result, markup.Text(child))
 			elseif getmetatable(child) then
 				table.insert(result, child)
-			else -- table
-				for _, node in ipairs(child) do
-					table.insert(result, node)
-				end
+			else -- markup.Fragment
+				table.insert(result, markup.Fragment(child))
 			end
 		end
 

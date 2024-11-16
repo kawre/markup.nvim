@@ -101,6 +101,11 @@ function Node:is_br()
 		or self.computed_display == "grid"
 end
 
+---@param type markup.Node.type
+function Node:is_type(type)
+	return self.type == type
+end
+
 function Node:is_block()
 	---@cast self markup.Element
 	return self.computed_display == "block"

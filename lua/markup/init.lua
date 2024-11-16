@@ -38,6 +38,9 @@ local ui = require("markup.ui")
 ---@field TabPage markup.TabPage.constructor
 -- Component
 ---@field Component markup.Component.constructor
+-- Utils
+---@field If markup.If.constructor
+---@field Fragment markup.Fragment.constructor
 local markup = {}
 
 ---@private

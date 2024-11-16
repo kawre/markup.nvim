@@ -2,7 +2,7 @@
 ---- Node
 ---------------------------------
 
----@alias markup.Node.type "text"|"element"|"element-list"
+---@alias markup.Node.type "text"|"element"|"element-list"|"nil"|"fragment"
 
 ---@alias markup.Text.content string|integer
 
