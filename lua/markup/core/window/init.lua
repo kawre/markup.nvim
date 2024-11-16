@@ -168,6 +168,10 @@ function Window:buf_open()
 	return self.bufnr
 end
 
+function Window:map(mode, key, spec, opts)
+	vim.keymap.set(mode, key, spec, opts)
+end
+
 local split_commands = {
 	editor = {
 		top = "topleft",

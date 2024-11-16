@@ -16,7 +16,7 @@ local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 ---@field reverse boolean
 ---@field final {row_start: integer, row_end: integer, col_start: integer, col_end: integer}
 ---@field on_submit? fun()
----@field on_key? fun()
+---@field on_key? table<string, fun()>
 
 ---@class markup.Element : markup.Node
 ---@field protected _ markup.Element.props
@@ -442,6 +442,12 @@ function Element:after_render()
 
 	if self._.on_submit then
 		self.owner:add_button(self)
+	end
+
+	if self._.on_key then
+		for key, spec in pairs(self._.on_key) do
+			self.owner:map("n", key, spec, {})
+		end
 	end
 end
 
