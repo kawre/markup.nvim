@@ -26,7 +26,9 @@ return setmetatable({}, {
 		return function(...)
 			local instance = setmetatable(content, Component)
 			instance:init(...)
-			return instance:render()
+			local element = instance:render()
+			-- element.component = instance
+			return element
 		end
 	end,
 })

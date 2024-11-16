@@ -96,11 +96,9 @@ function Line:hightlight(row_at)
 		local old_offset = offset
 		offset = offset + text:length()
 
-		-- vim.schedule(function()
 		if text.parent then
-			text.parent:_update_final_position(row_at, old_offset, offset)
+			text:_set_position(row_at, old_offset, offset)
 		end
-		-- end)
 	end
 end
 

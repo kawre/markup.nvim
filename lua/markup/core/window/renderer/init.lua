@@ -6,7 +6,7 @@ local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 ---@class markup.Renderer.props : markup.Window.props
 ---@field body markup.Element.content
 ---@field root markup.Element
----@field buttons any
+---@field buttons markup.Element[]
 
 ---@class markup.Renderer : markup.Window
 ---@field protected super markup.Window
@@ -23,26 +23,22 @@ function Renderer:render()
 	end
 
 	self:preserve_cursor(function()
-		local root = markup.Block(self:body())
-		self:render_tree(root)
-		self._.root = root
+		u.measure_time("markup.Renderer:render", function()
+			local root = markup.Block(self:body())
+			self:render_tree(root)
+			self._.root = root
+		end)
 	end)
 end
 
 ---@param root markup.Element
 function Renderer:render_tree(root)
-	log.debug("RENDER")
-	u.measure_time("Renderer:build tree", function()
+	self:with_buf_option("modifiable", function()
+		self:clear()
 		root:render_node(self) ---@diagnostic disable-line: missing-parameter
-	end)
-
-	u.measure_time("Renderer:draw lines", function()
-		self:with_buf_option("modifiable", function()
-			self:clear()
-			for row, line in pairs(root:computed_lines()) do
-				line:draw(self, row)
-			end
-		end)
+		for row, line in pairs(root:computed_lines()) do
+			line:draw(self, row)
+		end
 	end)
 end
 
@@ -55,6 +51,7 @@ end
 function Renderer:clear()
 	self:buf_clear_namespace()
 	self:buf_set_lines(0, -1, false, {})
+	self._.buttons = {}
 end
 
 function Renderer:preserve_cursor(fn)
@@ -63,40 +60,19 @@ function Renderer:preserve_cursor(fn)
 	vim.api.nvim_win_set_cursor(self.winid, c)
 end
 
+function Renderer:add_button(button)
+	table.insert(self._.buttons, button)
+end
+
 function Renderer:handle_on_submit()
 	local c = vim.api.nvim_win_get_cursor(self.winid)
-	local row, col = c[1] - 1, c[2]
 
-	local function in_range(element)
-		local final = element._.final
-		if vim.tbl_isempty(final) then
-			return false
-		end
-
-		log.debug(final, c)
-		return row >= final.row_start
-			and row <= final.row_end
-			and col >= final.col_start
-			and col <= final.col_end
-	end
-
-	local function dfs(node)
-		if not node or not node.children then
+	for _, btn in ipairs(self._.buttons or {}) do
+		if btn:_in_range(c) then
+			btn._.on_submit()
 			return
 		end
-
-		for _, child in ipairs(node.children) do
-			if in_range(child) then
-				if child._.on_submit then
-					child._.on_submit()
-					return
-				end
-			end
-			dfs(child)
-		end
 	end
-
-	dfs(self._.root)
 end
 
 ---------------------------------

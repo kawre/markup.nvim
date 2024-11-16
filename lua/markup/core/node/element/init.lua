@@ -15,6 +15,8 @@ local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 ---@field vertical boolean
 ---@field reverse boolean
 ---@field final {row_start: integer, row_end: integer, col_start: integer, col_end: integer}
+---@field on_submit? fun()
+---@field on_key? fun()
 
 ---@class markup.Element : markup.Node
 ---@field protected _ markup.Element.props
@@ -34,6 +36,7 @@ local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 ---@field last_element_child markup.Element
 ---@field prev_element_sibling markup.Element
 ---@field next_element_sibling markup.Element
+---@field component? markup.Component
 local Element = markup.Node:extend("markup.element") ---@diagnostic disable-line: undefined-field
 
 ---------------------------------
@@ -280,13 +283,35 @@ function Element:_sync_children()
 	end
 end
 
-function Element:_update_final_position(row, col_start, col_end)
-	self._.final = {
-		row_start = math.min(self._.final.row_start or row, row),
-		row_end = math.max(self._.final.row_end or row, row),
-		col_start = math.min(self._.final.col_start or col_start, col_start),
-		col_end = math.max(self._.final.col_end or col_end, col_end),
+function Element:_in_range(c)
+	local len = u.tbl_len(self._.lines)
+	if len == 0 then
+		return false
+	end
+
+	local row, col = c[1] - 1, c[2]
+
+	local ftexts = self._.lines[0]:texts()
+	local ltexts = self._.lines[len - 1]:texts()
+	local fpos = ftexts[1]:_get_position()
+	local lpos = ltexts[#ltexts]:_get_position()
+
+	local pos = {
+		row_start = fpos.row,
+		col_start = fpos.col_start,
+		row_end = lpos.row,
+		col_end = lpos.col_end,
 	}
+
+	return row >= pos.row_start
+		and row <= pos.row_end
+		and col >= pos.col_start
+		and col <= pos.col_end
+end
+
+function Element:_should_br()
+	local prev_sibling = self.prev_sibling
+	return prev_sibling and (prev_sibling:is_br() or self:is_br())
 end
 
 function Element.static._normalize_style(style)
@@ -414,6 +439,10 @@ local display_map = {
 
 function Element:after_render()
 	markup[display_map[self.display]].display_handler(self)
+
+	if self._.on_submit then
+		self.owner:add_button(self)
+	end
 end
 
 function Element:display_handler()
@@ -439,11 +468,7 @@ function Element:height()
 		return self._.size.height
 	end
 
-	local h = 0
-	for _ in pairs(self._.lines) do
-		h = h + 1
-	end
-	return h
+	return u.tbl_len(self._.lines)
 end
 
 ---@return integer, integer
@@ -469,7 +494,7 @@ function Element:max_size()
 		max_width = math.max(max_width, child:width())
 	end
 
-	return max_width, max_height
+	return { width = max_width, height = max_height }
 end
 
 function Element:computed_style()
@@ -477,6 +502,10 @@ function Element:computed_style()
 end
 
 function Element:computed_lines()
+	-- return vim.tbl_filter(function(line)
+	-- 	return line:width() > 0
+	-- end, self._.lines)
+
 	return self._.lines
 end
 

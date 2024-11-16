@@ -6,6 +6,7 @@ local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 ---@field content string
 ---@field width integer
 ---@field length integer
+---@field pos? table
 
 ---@class markup.Text : markup.Node
 ---@field protected _ markup.Text.props
@@ -64,6 +65,18 @@ function Text:_normalize_style(style)
 	end
 
 	return style
+end
+
+function Text:_set_position(row, col_start, col_end)
+	self._.pos = {
+		row = row,
+		col_start = col_start,
+		col_end = col_end,
+	}
+end
+
+function Text:_get_position()
+	return self._.pos
 end
 
 ---@param linenr number line number (1-indexed)

@@ -6,7 +6,7 @@ local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 
 ---@class markup.Flex : markup.Block
 ---@field protected _ markup.Flex.props
----@field protected super markup.Element
+---@field protected super markup.Block
 local Flex = markup.Block:extend("markup.flex") ---@diagnostic disable-line: undefined-field
 
 ---------------------------------
@@ -25,27 +25,19 @@ end
 ---------------------------------
 
 function Flex:display_handler()
-	local spacing, vertical = self.spacing, self.vertical
-	local children = self.children
+	local vertical = self.vertical
 
-	if not vertical or spacing > 0 then
-		for i, child in ipairs(self.children) do
-			if not vertical then
-				local max_height = select(2, self:max_size())
-				local child_width = child:width()
+	if not vertical then
+		for _, child in ipairs(self.children) do
+			local maxs = self:max_size()
+			local child_width = child:width()
 
-				for row = 0, max_height - 1 do
-					local line = child:_line(row)
-					local padding = child_width - line:width()
-					if padding > 0 then
-						line:append(markup.Pad(padding, self))
-					end
-					if spacing > 0 and i ~= #children then
-						line:append(markup.Pad(spacing, self))
-					end
+			for row = 0, maxs.height - 1 do
+				local line = child:_line(row)
+				local padding = child_width - line:width()
+				if padding > 0 then
+					line:prepend(markup.Pad(padding, self))
 				end
-			elseif spacing > 0 and i ~= #children then
-				child:_newl(spacing)
 			end
 		end
 	end
