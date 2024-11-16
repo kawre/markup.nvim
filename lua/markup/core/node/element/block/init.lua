@@ -23,6 +23,7 @@ end
 ---------------------------------
 
 ---@class markup.Block.constructor.props : markup.Inline.constructor.props
+
 ---@alias markup.Block.constructor markup.Inline.constructor
 
 ---@type markup.Block.constructor

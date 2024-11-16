@@ -322,20 +322,24 @@ function Element.static._normalize_style(style)
 	end
 end
 
+-- Props can be:
+-- - string
+-- - number
+-- - Node
+-- - Node[]
+-- - props
 ---@param props any
 function Element:_normalize_props(props, style)
-	local result = {}
-
-	if type(props) == "string" then
-		result.children = { markup.Text(props) }
+	if type(props) == "string" or type(props) == "number" then
+		props = { children = { markup.Text(props) } }
 	elseif getmetatable(props) then
-		result.children = { props }
+		props = { children = { props } }
 	else
-		result = props
-		if not result.children then
-			result = { children = result }
+		props = props or {}
+		if not props.children then
+			props = { children = props }
 		end
-		result.children = Element.static._normalize_content(result.children)
+		props.children = Element.static._normalize_children(props.children)
 	end
 
 	local defaults =
@@ -346,23 +350,34 @@ function Element:_normalize_props(props, style)
 		defaults.style = vim.tbl_deep_extend("keep", style, defaults.style)
 	end
 
-	return vim.tbl_deep_extend("keep", result, defaults)
+	return vim.tbl_deep_extend("keep", props, defaults)
 end
 
-function Element.static._normalize_content(content)
-	if type(content) == "string" then
-		return { markup.Text(content) }
-	elseif getmetatable(content) then
-		return { content }
-	end
+function Element.static._normalize_node(node) end
 
-	for i, child in ipairs(content) do
-		if type(child) == "string" then
-			content[i] = markup.Text(child)
+function Element.static._normalize_children(children)
+	if type(children) == "string" or type(children) == "number" then
+		return { markup.Text(children) }
+	elseif getmetatable(children) then
+		return { children }
+	else -- table
+		local result = {}
+
+		for _, child in ipairs(children or {}) do
+			---@cast child any
+			if type(child) == "string" or type(child) == "number" then
+				table.insert(result, markup.Text(child))
+			elseif getmetatable(child) then
+				table.insert(result, child)
+			else -- table
+				for _, node in ipairs(child) do
+					table.insert(result, node)
+				end
+			end
 		end
-	end
 
-	return content
+		return result
+	end
 end
 
 function Element.static._normalize_spacing(spacing)
@@ -508,10 +523,6 @@ function Element:computed_style()
 end
 
 function Element:computed_lines()
-	-- return vim.tbl_filter(function(line)
-	-- 	return line:width() > 0
-	-- end, self._.lines)
-
 	return self._.lines
 end
 
@@ -519,8 +530,8 @@ end
 ---- Initializer
 ---------------------------------
 
----@class markup.Element.constructor.props : markup.Node.constructor.props
----@field children? markup.Element.content element children
+---@class markup.Element.constructor.props
+---@field children? markup.Element.children element children
 ---@field style? markup.Element.style element style
 ---@field display? markup.Element.display element display
 ---@field margin? markup.Element.margin element margin
@@ -532,7 +543,7 @@ end
 
 ---@alias markup.Element.style.props string|markup.Element.style
 
----@alias markup.Element.constructor fun(props?: markup.Element.content|markup.Window.constructor.props, style?: markup.Element.style.props): markup.Element
+---@alias markup.Element.constructor fun(props?: markup.Element.children.content|markup.Element.constructor.props, style?: markup.Element.style.props): markup.Element
 
 ---@type markup.Element.constructor
 local MarkupElement = Element ---@diagnostic disable-line: assign-type-mismatch

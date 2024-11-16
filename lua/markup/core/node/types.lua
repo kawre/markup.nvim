@@ -4,11 +4,14 @@
 
 ---@alias markup.Node.type "text"|"element"|"element-list"
 
+---@alias markup.Text.content string|integer
+
 ---------------------------------
 ---- Element
 ---------------------------------
 
----@alias markup.Element.content string|markup.Node|(string|markup.Node)[]
+---@alias markup.Element.children.content integer|string|table
+---@alias markup.Element.children markup.Element.children.content|markup.Element.children.content[]
 
 ---@alias markup.Element.display "inline"|"block"|"inline-block"|"flex"|"grid"
 
@@ -18,7 +21,7 @@
 ---@field color? string `fg` alias
 ---@field strike? string `strikethrough` alias
 
----@alias markup.Element.style vim.api.keyset.highlight|markup.Element.style.alias
+---@alias markup.Element.style string|(vim.api.keyset.highlight|markup.Element.style.alias)
 
 ---@alias markup.Element.type
 ---|"block"

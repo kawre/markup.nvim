@@ -15,6 +15,7 @@ local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 ---@field show boolean
 ---@field config vim.api.keyset.win_config
 ---@field position markup.Window.position
+---@field keymaps table<string, string>
 
 ---@class markup.Window : markup.Object
 ---@field protected _ markup.Window.props
@@ -22,13 +23,8 @@ local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 ---@field bufnr integer
 local Window = markup.Object("markup.window")
 
-function Window.static:_normalize_props(props)
-	local defaults = {
-		ns_id = vim.api.nvim_create_namespace("markup.window"),
-		enter = false,
-		show = true,
-		position = "float",
-		config = {},
+local style = {
+	minimal = {
 		buf_opts = {},
 		win_opts = {
 			cursorcolumn = false,
@@ -50,12 +46,32 @@ function Window.static:_normalize_props(props)
 			colorcolumn = "",
 			winfixbuf = true,
 		},
+	},
+}
+
+function Window.static:_normalize_props(props)
+	local defaults = {
+		ns_id = vim.api.nvim_create_namespace("markup.window"),
+		enter = false,
+		show = true,
+		minimal = true,
+		position = "float",
+		config = {},
+		buf_opts = {},
+		win_opts = {},
 		keys = {
 			q = "close",
 		},
+		keymaps = {},
 	}
 
-	return vim.tbl_deep_extend("force", defaults, props)
+	props = vim.tbl_deep_extend("force", defaults, props or {})
+
+	if props.minimal then
+		props = vim.tbl_deep_extend("force", style.minimal, props)
+	end
+
+	return props
 end
 
 ---@param props markup.Window.constructor.props
@@ -169,7 +185,26 @@ function Window:buf_open()
 end
 
 function Window:map(mode, key, spec, opts)
-	vim.keymap.set(mode, key, spec, opts)
+	self._.keymaps[key] = mode
+
+	vim.keymap.set(mode, key, spec, {
+		buffer = self.bufnr,
+		silent = true,
+		remap = true,
+		nowait = true,
+	})
+end
+
+function Window:unmap(mode, key)
+	pcall(vim.api.nvim_buf_del_keymap, self.bufnr, mode, key)
+end
+
+function Window:clear_keymaps()
+	for key, mode in pairs(self._.keymaps) do
+		self:unmap(mode, key)
+	end
+
+	self._.keymaps = {}
 end
 
 local split_commands = {
@@ -408,7 +443,7 @@ end
 ---@field config? vim.api.keyset.win_config window configuration
 ---@field position? markup.Window.position window position
 
----@alias markup.Window.constructor fun(props: markup.Window.constructor.props): markup.Window
+---@alias markup.Window.constructor fun(props?: markup.Window.constructor.props): markup.Window
 
 ---@type markup.Window.constructor
 local MarkupWindow = Window ---@diagnostic disable-line: assign-type-mismatch

@@ -4,7 +4,7 @@ local u = require("markup.utils") ---@diagnostic disable-line: unused-local
 local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 
 ---@class markup.Renderer.props : markup.Window.props
----@field body markup.Element.content
+---@field body markup.Element.children
 ---@field root markup.Element
 ---@field buttons markup.Element[]
 
@@ -18,7 +18,7 @@ local Renderer = markup.Window:extend("MarkupRenderer") ---@diagnostic disable-l
 ---------------------------------
 
 function Renderer:render()
-	if not self:is_valid() then
+	if not self:is_valid() or not self._.body then
 		return
 	end
 
@@ -30,6 +30,11 @@ function Renderer:render()
 		end)
 	end)
 end
+
+-- function Renderer:show()
+-- 	Renderer.super.show(self)
+-- 	self:render()
+-- end
 
 ---@param root markup.Element
 function Renderer:render_tree(root)
@@ -51,6 +56,7 @@ end
 function Renderer:clear()
 	self:buf_clear_namespace()
 	self:buf_set_lines(0, -1, false, {})
+	self:clear_keymaps()
 	self._.buttons = {}
 end
 
@@ -79,7 +85,7 @@ end
 ---- Setters
 ---------------------------------
 
----@param body markup.Element.content
+---@param body markup.Element.children
 function Renderer:set_body(body)
 	self._.body = body
 end
@@ -97,9 +103,9 @@ end
 ---------------------------------
 
 ---@class markup.Renderer.constructor.props : markup.Window.constructor.props
----@field body? markup.Element.content
+---@field body? markup.Element.children
 
----@alias markup.Renderer.constructor fun(props: markup.Renderer.constructor.props): markup.Renderer
+---@alias markup.Renderer.constructor fun(props?: markup.Renderer.constructor.props): markup.Renderer
 
 ---@type markup.Renderer.constructor
 local MarkupRenderer = Renderer ---@diagnostic disable-line: assign-type-mismatch

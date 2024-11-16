@@ -50,6 +50,9 @@ core.lookups = {
 
 	-- Component
 	Component = "markup.core.component",
+
+	-- Utils
+	If = "markup.core.node.if",
 }
 
 return core

@@ -4,7 +4,7 @@ local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 ---@class markup.Inline.props : markup.Element.props
 
 ---@class markup.Inline : markup.Element
----@field _ markup.Inline.props
+---@field protected _ markup.Inline.props
 local Inline = markup.Element:extend("markup.inline") ---@diagnostic disable-line: undefined-field
 
 function Inline:display_handler()
@@ -40,9 +40,9 @@ end
 
 ---@class markup.Inline.constructor.props : markup.Element.constructor.props
 
----@alias markup.Inline.constructor fun(props?: string | markup.Node | markup.Element.constructor.props, style?: markup.Element.style.props): markup.Element
+---@alias markup.Inline.constructor markup.Element.constructor
 
----@type markup.Element.constructor
+---@type markup.Inline.constructor
 local MarkupInline = Inline ---@diagnostic disable-line: assign-type-mismatch
 
 return MarkupInline

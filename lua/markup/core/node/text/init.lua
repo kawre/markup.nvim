@@ -13,20 +13,21 @@ local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 ---@field protected super markup.Node
 local Text = markup.Node:extend("MarkupText") ---@diagnostic disable-line: undefined-field
 
----@param content string
+---@param content markup.Text.content
 function Text:init(content, parent)
 	Text.super.init(self, {
-		final = {},
 		type = "text",
 	})
+
 	self:set(content)
 	if parent then
 		self:_set_state(parent.owner, parent)
 	end
 end
 
----@param content string
+---@param content markup.Text.content
 function Text:set(content)
+	content = tostring(content)
 	self._.content = content
 	self._.length = #content
 	self._.width = vim.api.nvim_strwidth(content)
@@ -103,7 +104,7 @@ function Text:render()
 	self.parent:_append(self) ---@diagnostic disable-line: invisible
 end
 
----@alias markup.Text.constructor fun(content: string, parent?: markup.Node): markup.Text
+---@alias markup.Text.constructor fun(content: markup.Text.content, parent?: markup.Node): markup.Text
 
 ---@type markup.Text.constructor
 local MarkupText = Text ---@diagnostic disable-line: assign-type-mismatch
