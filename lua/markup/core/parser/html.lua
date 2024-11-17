@@ -129,28 +129,33 @@ end
 function Html:tag_mapper(node)
 	if node:type() == "element" then
 		local tag = self:tag_name(node)
-		return (self.tag_map[tag] or markup.Inline)()
+		return self.tag_map[tag] or markup.Inline
 	else
-		return markup.Inline()
+		return markup.Inline
 	end
 end
 
 function Html:parse_node(node)
-	local elem = self:tag_mapper(node)
-
+	local children = {}
 	for child in node:iter_children() do
 		local ntype = child:type()
+		local x
+
 		if ntype == "text" then
-			elem:append_child(markup.Inline(self:get_node_text(child)))
+			x = markup.Inline(self:get_node_text(child))
 		elseif ntype == "entity" then
-			elem:append_child(self:entity_mapper(child))
+			x = self:entity_mapper(child)
 		else
-			elem:append_child(self:parse_node(child))
+			x = self:parse_node(child)
 		end
-		log.debug(self:get_node_text(child):gsub("\n", "XXXX\n"))
+
+		table.insert(children, x)
 	end
 
-	return elem
+	if not vim.tbl_isempty(children) then
+		local elem = self:tag_mapper(node)(children)
+		return elem
+	end
 end
 
 return Html

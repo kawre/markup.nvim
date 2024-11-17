@@ -32,6 +32,7 @@ core.lookups = {
 	OList = "markup.core.node.element.block.list.ordered",
 	ListItem = "markup.core.node.element.block.list.item",
 	Pre = "markup.core.node.element.block.pre",
+	Tree = "markup.core.node.element.block.tree",
 
 	-- Inline
 	Inline = "markup.core.node.element.inline",
@@ -58,6 +59,7 @@ core.lookups = {
 	-- Utils
 	If = "markup.core.node.if",
 	Fragment = "markup.core.node.fragment",
+	Brake = "markup.core.node.brake",
 }
 
 return core

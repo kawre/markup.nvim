@@ -252,7 +252,7 @@ function Element:_set_state(renderer, parent)
 	self.display = self._.display
 	self.computed_display = self:_inherit_display(parent)
 	self.style = self:_inherit_style(parent)
-	self.child_nodes = self:_normalize_child_nodes()
+	self.child_nodes = self:_normalize_child_nodes(self._.children)
 	self:_sync_children()
 
 	self.margin = Element.static._normalize_spacing(self._.margin)
@@ -269,10 +269,10 @@ function Element:_reset_lines()
 	self._.lines = {}
 end
 
-function Element:_normalize_child_nodes()
+function Element:_normalize_child_nodes(children)
 	local result = {}
 
-	for _, child in ipairs(self._.children) do
+	for _, child in ipairs(children) do
 		if child:is_type("fragment") then
 			---@cast child markup.Fragment
 			child:unpack(result)
