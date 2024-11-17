@@ -17,6 +17,30 @@ local Renderer = markup.Window:extend("MarkupRenderer") ---@diagnostic disable-l
 ---- Methods
 ---------------------------------
 
+function Renderer:reflow()
+	if not self:is_valid() or not self._.body then
+		return
+	end
+
+	-- self:preserve_cursor(function()
+	-- 	u.measure_time("markup.Renderer:render", function()
+	-- 		local root = markup.Block(self:body())
+	-- 		self:render_tree(root)
+	-- 		self._.root = root
+	-- 	end)
+	-- end)
+end
+
+function Renderer:reflow_tree(root)
+	self:with_buf_option("modifiable", function()
+		self:clear()
+		root:reflow(self) ---@diagnostic disable-line: missing-parameter
+		for row, line in pairs(root:computed_lines()) do
+			line:draw(self, row)
+		end
+	end)
+end
+
 function Renderer:render()
 	if not self:is_valid() or not self._.body then
 		return
@@ -63,7 +87,7 @@ end
 function Renderer:preserve_cursor(fn)
 	local c = vim.api.nvim_win_get_cursor(self.winid)
 	fn()
-	vim.api.nvim_win_set_cursor(self.winid, c)
+	pcall(vim.api.nvim_win_set_cursor, self.winid, c)
 end
 
 function Renderer:add_button(button)

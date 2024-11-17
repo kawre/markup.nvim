@@ -5,6 +5,7 @@ local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 ---@class markup.Element.props : markup.Node.props
 ---@field row integer
 ---@field lines markup.Renderer.Line[]
+---@field dirty boolean
 ---@field style markup.Element.style
 ---@field children markup.Node[]
 ---@field display markup.Element.display
@@ -44,6 +45,7 @@ local Element = markup.Node:extend("markup.element") ---@diagnostic disable-line
 ---------------------------------
 
 Element.static._default_props = {
+	dirty = false,
 	type = "element",
 	row = 0,
 	lines = {},
@@ -431,6 +433,15 @@ function Element:append_child(child)
 	return child
 end
 
+---@param child markup.Node
+function Element:prepend_child(child)
+	if not child then
+		return
+	end
+	table.insert(self._.children, 1, child)
+	return child
+end
+
 ---@param other_node markup.Node
 function Element:contains(other_node)
 	return u.index_of(self.child_nodes, other_node) ~= nil
@@ -457,6 +468,11 @@ function Element:replace_child(new_child, old_child)
 	assert(index, "child not found")
 	self.child_nodes[index] = new_child
 	return old_child
+end
+
+function Element:reflow()
+	self._.dirty = true
+	self.owner:reflow()
 end
 
 function Element:render()

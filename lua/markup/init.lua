@@ -9,6 +9,7 @@ local ui = require("markup.ui")
 ---@field Brake markup.Node.constructor
 ---@field Text markup.Text.constructor
 ---@field Pad markup.Padding.constructor
+---@field Extmark markup.Extmark.constructor
 -- Element
 ---@field Element markup.Element.constructor
 -- Inline
@@ -32,6 +33,7 @@ local ui = require("markup.ui")
 ---@field OList markup.List.constructor
 ---@field ListItem markup.Block.constructor
 ---@field Pre markup.Pre.constructor
+---@field Tree markup.Tree.constructor
 -- Window
 ---@field Window markup.Window.constructor
 ---@field Renderer markup.Renderer.constructor
