@@ -30,6 +30,7 @@ local ui = require("markup.ui")
 ---@field List markup.List.constructor
 ---@field OList markup.List.constructor
 ---@field ListItem markup.Block.constructor
+---@field Pre markup.Pre.constructor
 -- Window
 ---@field Window markup.Window.constructor
 ---@field Renderer markup.Renderer.constructor
@@ -38,6 +39,8 @@ local ui = require("markup.ui")
 ---@field TabPage markup.TabPage.constructor
 -- Component
 ---@field Component markup.Component.constructor
+-- Parser
+---@field Parser markup.Parser.constructor
 -- Utils
 ---@field If markup.If.constructor
 ---@field Fragment markup.Fragment.constructor

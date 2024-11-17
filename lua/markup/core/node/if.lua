@@ -12,7 +12,7 @@ return setmetatable({}, {
 
 			return node
 		else
-			return markup._
+			return {}
 		end
 	end,
 })

@@ -264,6 +264,11 @@ function Element:_set_state(renderer, parent)
 	self.reverse = self._.reverse
 end
 
+function Element:_reset_lines()
+	self._.row = 0
+	self._.lines = {}
+end
+
 function Element:_normalize_child_nodes()
 	local result = {}
 
@@ -383,7 +388,9 @@ function Element.static._normalize_children(children)
 			elseif getmetatable(child) then
 				table.insert(result, child)
 			else -- markup.Fragment
-				table.insert(result, markup.Fragment(child))
+				if not vim.tbl_isempty(child) then
+					table.insert(result, markup.Fragment(child))
+				end
 			end
 		end
 
@@ -417,7 +424,10 @@ end
 
 ---@param child markup.Node
 function Element:append_child(child)
-	table.insert(self.child_nodes, child)
+	if not child then
+		return
+	end
+	table.insert(self._.children, child)
 	return child
 end
 

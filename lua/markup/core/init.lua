@@ -31,6 +31,7 @@ core.lookups = {
 	List = "markup.core.node.element.block.list",
 	OList = "markup.core.node.element.block.list.ordered",
 	ListItem = "markup.core.node.element.block.list.item",
+	Pre = "markup.core.node.element.block.pre",
 
 	-- Inline
 	Inline = "markup.core.node.element.inline",
@@ -50,6 +51,9 @@ core.lookups = {
 
 	-- Component
 	Component = "markup.core.component",
+
+	-- Parser
+	Parser = "markup.core.parser",
 
 	-- Utils
 	If = "markup.core.node.if",

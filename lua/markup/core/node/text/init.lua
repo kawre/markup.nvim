@@ -33,6 +33,18 @@ function Text:set(content)
 	self._.width = vim.api.nvim_strwidth(content)
 end
 
+function Text:split_at_newl()
+	local parts = {}
+
+	for part in vim.gsplit(self:content(), "\n") do
+		table.insert(parts, part)
+	end
+
+	return vim.tbl_map(function(part)
+		return Text(part, self.parent)
+	end, parts)
+end
+
 ---@return string
 function Text:content()
 	return self._.content
