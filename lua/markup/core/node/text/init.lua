@@ -113,7 +113,7 @@ function Text:highlight(linenr, byte_start)
 end
 
 function Text:render()
-	self.parent:_append(self) ---@diagnostic disable-line: invisible
+	-- self.parent:_append(self) ---@diagnostic disable-line: invisible
 end
 
 ---@alias markup.Text.constructor fun(content: markup.Text.content, parent?: markup.Node): markup.Text

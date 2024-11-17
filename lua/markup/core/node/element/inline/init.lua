@@ -8,9 +8,8 @@ local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 local Inline = markup.Element:extend("markup.inline") ---@diagnostic disable-line: undefined-field
 
 function Inline:display_handler()
-	local spacing, children, vertical = self.spacing, self.children, self.vertical
-	local is_box = self:is_box()
-	local is_hor = is_box and not vertical
+	local spacing, children, vertical = self.spacing, self.child_nodes, self.vertical
+	local is_hor = self:is_box() and not vertical
 
 	for i, child in ipairs(children) do
 		local is_not_last = i ~= #children
@@ -20,21 +19,28 @@ function Inline:display_handler()
 			self:_newl()
 		end
 
-		local lines = child:computed_lines()
-		for row, line in pairs(lines) do
-			if spacing > 0 and is_hor and is_not_last then
-				line:append(markup.Pad(spacing, self))
-			end
-			self:_append(line, self:_row() + row)
-		end
-
-		if is_hor then
-			self:_set_row(0)
+		if child:is_type("text") then
+			---@cast child markup.Text
+			self:_append(child)
 		else
-			self:_newl(#lines + (is_not_last and spacing or 0))
+			---@cast child markup.Element
+			local lines = child:computed_lines()
+			for row, line in pairs(lines) do
+				if spacing > 0 and is_hor and is_not_last then
+					line:append(markup.Pad(spacing, self))
+				end
+				self:_append(line, self:_row() + row)
+			end
+
+			if is_hor then
+				self:_set_row(0)
+			else
+				self:_newl(#lines + (is_not_last and spacing or 0))
+			end
 		end
 	end
 
+	self:_apply_periferals()
 	self:_apply_spacing()
 end
 

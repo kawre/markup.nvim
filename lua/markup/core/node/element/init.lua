@@ -141,6 +141,25 @@ function Element:_append(content, row_at)
 end
 
 ---@protected
+---@param line markup.Renderer.Line
+---@param row_at? integer
+function Element:_append_line(line, row_at)
+	if row_at then
+		table.insert(self._.lines, row_at, line)
+	else
+		table.insert(self._.lines, line)
+	end
+	self:_inc_row(1)
+	return self
+end
+
+---@protected
+---@param line markup.Renderer.Line
+function Element:_prepend_line(line)
+	return self:_append_line(line, 0)
+end
+
+---@protected
 ---@param content string|markup.Text|markup.Renderer.Line
 ---@param row_at? integer (0-indexed)
 ---@return markup.Element
@@ -203,6 +222,14 @@ function Element:_non_zero_spacing()
 		or self.padding.bottom > 0
 		or self.padding.left > 0
 end
+
+function Element:_periferals_corner() end
+
+function Element:_periferals_ver_iter() end
+
+function Element:_periferals_hor_iter() end
+
+function Element:_apply_periferals() end
 
 function Element:_apply_spacing()
 	if not self:_non_zero_spacing() then

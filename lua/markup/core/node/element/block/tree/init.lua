@@ -13,7 +13,12 @@ local Tree = markup.Block:extend("markup.block.tree") ---@diagnostic disable-lin
 
 function Tree:init(...)
 	self:_extend_default_props({
-		title = markup.Inline("markup.tree title"),
+		title = markup.Inline({
+			on_submit = function()
+				self:toggle()
+			end,
+			children = "Title",
+		}),
 		expand_icons = { " ", " " },
 		expanded = false,
 		icons = {
@@ -27,14 +32,7 @@ function Tree:init(...)
 end
 
 function Tree:after_init()
-	for i, child in ipairs(self._.children) do
-		if child:is_element() then
-			local icon = i == #self._.children and self._.icons.indent_last or self._.icons.indent
-			child:prepend_child(markup.Extmark({
-				virt_text = { { icon } },
-			}))
-		end
-	end
+	table.insert(self._.children, 1, self._.title)
 end
 
 function Tree:toggle()
@@ -43,37 +41,50 @@ function Tree:toggle()
 	self.owner:render()
 end
 
-function Tree:get_title()
-	local icon = self._.expanded and self._.expand_icons[2] or self._.expand_icons[1]
-	local extmark = markup.Extmark({
-		virt_text = { { icon } },
-	})
-	return markup.Block({
-		on_submit = function()
-			self:toggle()
-		end,
-		children = {
-			extmark,
-			self._.title,
-		},
-	})
-end
-
 function Tree:_normalize_child_nodes(children)
-	local result = {}
+	local result = { children[1] }
 
-	local title = self:get_title()
-	if not self._.expanded then
-		result = { title }
-	else
-		result = { title, markup.Flex(children) }
+	if self._.expanded then
+		for i = 2, #children do
+			table.insert(result, children[i])
+		end
 	end
 
 	return Tree.super._normalize_child_nodes(self, result)
 end
 
-function Tree:after_render()
-	Tree.super.after_render(self)
+function Tree:_periferals_hor_iter()
+	local h = self:height()
+	local i = 0
+
+	return function()
+		if i < h then
+			local icon = self._.icons.indent
+
+			if i == 0 then
+				icon = self._.expanded and self._.expand_icons[2] or self._.expand_icons[1]
+			elseif i == h - 1 then
+				icon = self._.icons.indent_last
+			end
+			i = i + 1
+			return i - 1, icon, nil
+		end
+	end
+end
+
+function Tree:_apply_periferals()
+	if not self:is_block_kind() then
+		return
+	end
+
+	for row, left, right in self:_periferals_hor_iter() do
+		if left then
+			self:_line(row):prepend(left)
+		end
+		if right then
+			self:_line(row):append(right)
+		end
+	end
 end
 
 ---@class markup.Tree.constructor.props : markup.Block.constructor.props
