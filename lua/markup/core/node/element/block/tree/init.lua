@@ -14,17 +14,17 @@ local Tree = markup.Block:extend("markup.block.tree") ---@diagnostic disable-lin
 
 function Tree:init(...)
 	self:_extend_default_props({
-		title = markup.Inline("markup.tree title"),
 		expanded = false,
+		title = "Tree", -- stackoverflow when title is a markup.Node
 		icons = {
 			expand = "",
 			collapse = "",
-			-- indent = "│",
-			-- indent_last = "└",
-			-- indent_hor = "─",
-			indent = " ",
-			indent_last = " ",
-			indent_hor = " ",
+			indent = "│",
+			indent_last = "└",
+			indent_hor = "─",
+			-- indent = " ",
+			-- indent_last = " ",
+			-- indent_hor = " ",
 		},
 		indent_size = 2,
 	})
@@ -68,7 +68,7 @@ function Tree:_normalize_child_nodes(children)
 	return Tree.super._normalize_child_nodes(self, result)
 end
 
-function Tree:_periferals_hor_iter()
+function Tree:_peripherals_hor_iter()
 	local h = self:height()
 	local sz = self._.indent_size
 	local i = 0
@@ -78,6 +78,8 @@ function Tree:_periferals_hor_iter()
 
 	local indentl = self._.icons.indent_last
 	indentl = indentl .. (self._.icons.indent_hor):rep(sz - vim.fn.strcharlen(indentl) - 1) .. " "
+
+	local mock = self:mock_element("markup_tree_indent")
 
 	return function()
 		if i >= h then
@@ -92,7 +94,7 @@ function Tree:_periferals_hor_iter()
 		end
 
 		i = i + 1
-		return i - 1, icon, nil
+		return i - 1, icon and markup.Text(icon, mock), nil
 	end
 end
 

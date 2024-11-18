@@ -223,13 +223,11 @@ function Element:_non_zero_spacing()
 		or self.padding.left > 0
 end
 
-function Element:_periferals_corner() end
-
-function Element:_periferals_ver_iter()
+function Element:_peripherals_ver_iter()
 	return function() end
 end
 
-function Element:_periferals_hor_iter()
+function Element:_peripherals_hor_iter()
 	return function() end
 end
 
@@ -238,7 +236,7 @@ function Element:_apply_peripherals()
 		return
 	end
 
-	for row, left, right in self:_periferals_hor_iter() do
+	for row, left, right in self:_peripherals_hor_iter() do
 		if left then
 			self:_line(row):prepend(left)
 		end
@@ -308,6 +306,12 @@ function Element:_set_state(renderer, parent)
 	self.spacing = self._.spacing
 	self.vertical = self._.vertical
 	self.reverse = self._.reverse
+end
+
+function Element:mock_element(style)
+	local _ = markup.Element(nil, style)
+	_:_set_state(self.owner, self)
+	return _
 end
 
 function Element:_reset_lines()

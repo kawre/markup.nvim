@@ -27,9 +27,9 @@ end
 ---@return markup.highlights
 M.get = function()
 	return {
-		tree_title = { fg = hl("Comment").fg },
-		tree_indent = { fg = hl("Comment").fg },
-		tree_icon_expand = { fg = hl("Label").fg },
+		tree_title = { fg = hl("Normal").fg },
+		tree_indent = { fg = hl("NonText").fg },
+		tree_icon_expand = { fg = hl("Number").fg },
 		tree_icon_collapse = { fg = hl("Number").fg },
 	}
 end
