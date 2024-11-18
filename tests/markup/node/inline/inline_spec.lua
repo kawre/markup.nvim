@@ -3,37 +3,25 @@
 local markup = require("markup")
 local h = require("tests.helpers")
 
-describe("Inline Renderer", function()
-	---@type table, markup.Renderer
-	local window, renderer
+describe("markup.Inline", function()
+	local renderer
 
 	before_each(function()
-		window = h.open_window()
-		renderer = h.bind_renderer(window)
+		renderer = h.mock(markup.Inline)
 	end)
 
 	after_each(function()
-		h.close_window(window)
+		renderer.cleanup()
 	end)
 
-	local function InlineRenderer(children, lines)
-		renderer({
-			body = markup.Inline({
-				children = children,
-			}),
-		}):render()
-
-		h.assert_lines(window, lines)
-	end
-
 	it("should render nothing", function()
-		InlineRenderer({}, {
+		renderer({}, {
 			"",
 		})
 	end)
 
 	it("should render inline elements in one row", function()
-		InlineRenderer({
+		renderer({
 			markup.Inline("1"),
 			markup.Inline("2"),
 			markup.Inline("3"),
@@ -44,7 +32,7 @@ describe("Inline Renderer", function()
 	end)
 
 	it("should render block elements one per row", function()
-		InlineRenderer({
+		renderer({
 			markup.Block("1"),
 			markup.Block("2"),
 			markup.Block("3"),
@@ -58,7 +46,7 @@ describe("Inline Renderer", function()
 	end)
 
 	it("should render block elements on new line", function()
-		InlineRenderer({
+		renderer({
 			markup.Inline("1"),
 			markup.Block("2"),
 		}, {
@@ -68,7 +56,7 @@ describe("Inline Renderer", function()
 	end)
 
 	it("should render elements acording to their type", function()
-		InlineRenderer({
+		renderer({
 			markup.Block("1"),
 			markup.Inline("2"),
 			markup.Inline({
@@ -87,6 +75,31 @@ describe("Inline Renderer", function()
 			"5",
 			"5",
 			"44",
+		})
+	end)
+
+	it("should become flex box", function()
+		renderer.set_width(20)
+
+		renderer({
+			markup.Inline("INLINE"),
+			markup.Inline({
+				display = "flex",
+				children = {
+					markup.Inline("1"),
+					markup.Inline("22"),
+					markup.Inline("333"),
+					markup.Inline("4444"),
+					markup.Inline("55555"),
+				},
+			}),
+		}, {
+			"INLINE",
+			"1                   ",
+			"22                  ",
+			"333                 ",
+			"4444                ",
+			"55555               ",
 		})
 	end)
 end)

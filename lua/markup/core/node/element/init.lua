@@ -18,6 +18,7 @@ local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 ---@field final {row_start: integer, row_end: integer, col_start: integer, col_end: integer}
 ---@field on_submit? fun()
 ---@field on_key? table<string, fun()>
+---@field parent markup.Element
 
 ---@class markup.Element : markup.Node
 ---@field protected _ markup.Element.props
@@ -77,6 +78,10 @@ function Element:init(props, style)
 	props = self:_normalize_props(props, style)
 	Element.super.init(self, props)
 	self._default_props = nil
+
+	-- if self._.parent then
+	-- 	self:_set_state(self._.parent.owner, self._.parent)
+	-- end
 end
 
 ---------------------------------

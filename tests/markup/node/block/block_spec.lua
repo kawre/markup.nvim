@@ -3,40 +3,25 @@
 local markup = require("markup")
 local h = require("tests.helpers")
 
-describe("Block Renderer", function()
-	---@type table, markup.Renderer
-	local window, renderer
+describe("markup.Block", function()
+	local renderer
 
 	before_each(function()
-		window = h.open_window()
-		renderer = h.bind_renderer(window)
+		renderer = h.mock(markup.Block)
 	end)
 
 	after_each(function()
-		h.close_window(window)
+		renderer.cleanup()
 	end)
 
-	local function BlockRenderer(children, lines, extmarks)
-		renderer({
-			body = markup.Block({
-				children = children,
-			}),
-		}):render()
-
-		h.assert_lines(window, lines)
-		if extmarks then
-			h.assert_extmarks(window, extmarks)
-		end
-	end
-
 	it("should render nothing", function()
-		BlockRenderer({}, {
+		renderer(nil, {
 			"",
 		})
 	end)
 
 	it("should render inline elements in one row", function()
-		BlockRenderer({
+		renderer({
 			markup.Inline("1"),
 			markup.Inline("2"),
 			markup.Inline("3"),
@@ -47,7 +32,7 @@ describe("Block Renderer", function()
 	end)
 
 	it("should render block elements one per row", function()
-		BlockRenderer({
+		renderer({
 			markup.Block("1"),
 			markup.Block("2"),
 			markup.Block("3"),
@@ -61,7 +46,7 @@ describe("Block Renderer", function()
 	end)
 
 	it("should render block elements on new line", function()
-		BlockRenderer({
+		renderer({
 			markup.Inline("1"),
 			markup.Block("2"),
 		}, {
@@ -71,7 +56,7 @@ describe("Block Renderer", function()
 	end)
 
 	it("should render elements acording to their type", function()
-		BlockRenderer({
+		renderer({
 			markup.Block("1"),
 			markup.Inline("2"),
 			markup.Inline({
@@ -94,7 +79,7 @@ describe("Block Renderer", function()
 	end)
 
 	it("should handle fragments", function()
-		BlockRenderer({
+		renderer({
 			markup.Block("1"),
 			markup.Inline("2"),
 			markup.Inline({
@@ -121,6 +106,27 @@ describe("Block Renderer", function()
 			"5",
 			"5",
 			"444",
+		})
+	end)
+
+	it("should become flex box", function()
+		renderer.set_width(20)
+
+		renderer({
+			display = "flex",
+			children = {
+				markup.Inline("1"),
+				markup.Inline("22"),
+				markup.Inline("333"),
+				markup.Inline("4444"),
+				markup.Inline("55555"),
+			},
+		}, {
+			"1                   ",
+			"22                  ",
+			"333                 ",
+			"4444                ",
+			"55555               ",
 		})
 	end)
 end)

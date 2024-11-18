@@ -53,16 +53,14 @@ function Tree:get_title()
 			markup.Inline(icon, hl),
 			markup.Inline(self._.title, "markup_tree_title"),
 		},
-	})
+	}, { bg = "red" })
 end
 
 function Tree:_normalize_child_nodes(children)
 	local result = { self:get_title() }
 
 	if self._.expanded then
-		for i = 1, #children do
-			table.insert(result, children[i])
-		end
+		vim.list_extend(result, children)
 	end
 
 	return Tree.super._normalize_child_nodes(self, result)

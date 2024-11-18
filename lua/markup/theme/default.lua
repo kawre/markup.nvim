@@ -27,7 +27,7 @@ end
 ---@return markup.highlights
 M.get = function()
 	return {
-		normal = { fg = hl("Normal").fg },
+		normal = hl("Normal"),
 
 		tree_title = { fg = hl("Normal").fg },
 		tree_indent = { fg = hl("NonText").fg },

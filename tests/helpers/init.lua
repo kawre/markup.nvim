@@ -3,6 +3,35 @@ local markup = require("markup")
 ---@class markup-test.Helpers
 local helpers = {}
 
+function helpers.mock(node)
+	local window = helpers.open_window()
+	local renderer = helpers.bind_renderer(window)
+
+	local function create_mock(props, lines, extmarks)
+		renderer({ body = node(props) }):render()
+		helpers.assert_lines(window, lines)
+		if extmarks then
+			helpers.assert_extmarks(window, extmarks)
+		end
+	end
+
+	return setmetatable({
+		cleanup = function()
+			helpers.close_window(window)
+		end,
+		set_width = function(width)
+			vim.api.nvim_win_set_width(window.winid, width)
+		end,
+		set_height = function(height)
+			vim.api.nvim_win_set_height(window.winid, height)
+		end,
+	}, {
+		__call = function(_, ...)
+			create_mock(...)
+		end,
+	})
+end
+
 function helpers.open_window()
 	local buf = vim.api.nvim_create_buf(false, true)
 

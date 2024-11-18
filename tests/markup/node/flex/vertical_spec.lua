@@ -3,47 +3,25 @@
 local markup = require("markup")
 local h = require("tests.helpers")
 
-describe("Vertical Flex", function()
-	---@type table, markup.Renderer
-	local window, renderer
+describe("markup.Flex", function()
+	local renderer
 
 	before_each(function()
-		window = h.open_window()
-		renderer = h.bind_renderer(window)
+		renderer = h.mock(markup.Flex)
 	end)
 
 	after_each(function()
-		h.close_window(window)
+		renderer.cleanup()
 	end)
 
-	local function ColumnBoxRenderer(props, lines, extmarks)
-		local default = {
-			vertical = true,
-			children = props,
-		}
-		if props.children then
-			default.children = props.children
-		end
-		for key, value in pairs(props) do
-			default[key] = value
-		end
-		renderer({
-			body = markup.Flex(default),
-		}):render()
-		h.assert_lines(window, lines)
-		if extmarks then
-			h.assert_extmarks(window, extmarks)
-		end
-	end
-
 	it("should render nothing", function()
-		ColumnBoxRenderer({}, {
+		renderer({}, {
 			"",
 		})
 	end)
 
 	it("should render inline elements one per row", function()
-		ColumnBoxRenderer({
+		renderer({
 			markup.Inline("1"),
 			markup.Inline("2"),
 			markup.Inline("3"),
@@ -57,7 +35,7 @@ describe("Vertical Flex", function()
 	end)
 
 	it("should render block elements one per row", function()
-		ColumnBoxRenderer({
+		renderer({
 			markup.Block("1"),
 			markup.Block("2"),
 			markup.Block("3"),
@@ -71,7 +49,7 @@ describe("Vertical Flex", function()
 	end)
 
 	it("should render elements one per row", function()
-		ColumnBoxRenderer({
+		renderer({
 			markup.Inline("1"),
 			markup.Block("2"),
 			markup.Inline("3"),
@@ -87,7 +65,7 @@ describe("Vertical Flex", function()
 	end)
 
 	it("should render elements one per row with one empty line between them", function()
-		ColumnBoxRenderer({
+		renderer({
 			spacing = 1,
 			children = {
 				markup.Inline("1"),
@@ -110,7 +88,7 @@ describe("Vertical Flex", function()
 	end)
 
 	it("should render RowBox as inline block", function()
-		ColumnBoxRenderer({
+		renderer({
 			markup.Inline("1"),
 			markup.Block("2"),
 			markup.Box({
@@ -130,7 +108,7 @@ describe("Vertical Flex", function()
 	end)
 
 	it("should render RowBox as inline block with one space between elements", function()
-		ColumnBoxRenderer({
+		renderer({
 			markup.Inline("1"),
 			markup.Block("2"),
 			markup.Box({
@@ -151,7 +129,7 @@ describe("Vertical Flex", function()
 	end)
 
 	it("should align elements to the start", function()
-		ColumnBoxRenderer({
+		renderer({
 			align = "start",
 			children = {
 				markup.Inline("1"),
@@ -166,7 +144,7 @@ describe("Vertical Flex", function()
 	end)
 
 	it("should align elements in the center", function()
-		ColumnBoxRenderer({
+		renderer({
 			align = "center",
 			children = {
 				markup.Inline("1"),
@@ -181,7 +159,7 @@ describe("Vertical Flex", function()
 	end)
 
 	it("should align elements to the end", function()
-		ColumnBoxRenderer({
+		renderer({
 			align = "end",
 			children = {
 				markup.Inline("1"),
@@ -196,7 +174,7 @@ describe("Vertical Flex", function()
 	end)
 
 	it("should align elements to the center, but keep the boxes inner alignment", function()
-		ColumnBoxRenderer({
+		renderer({
 			align = "center",
 			children = {
 				markup.Inline("1"),
@@ -219,7 +197,7 @@ describe("Vertical Flex", function()
 	end)
 
 	it("should work with large spacing", function()
-		ColumnBoxRenderer({
+		renderer({
 			align = "center",
 			spacing = 5,
 			children = {
@@ -251,7 +229,7 @@ describe("Vertical Flex", function()
 	end)
 
 	it("should work with large spacing", function()
-		ColumnBoxRenderer({
+		renderer({
 			align = "end",
 			spacing = 5,
 			children = {
@@ -283,9 +261,9 @@ describe("Vertical Flex", function()
 	end)
 
 	it("should handle complex nesting", function()
-		vim.api.nvim_win_set_width(window.winid, 26)
+		renderer.set_width(26)
 
-		ColumnBoxRenderer({
+		renderer({
 			spacing = 1,
 			children = {
 				markup.Inline("inline"),
@@ -329,9 +307,9 @@ describe("Vertical Flex", function()
 	end)
 
 	it("should handle complex nesting", function()
-		vim.api.nvim_win_set_width(window.winid, 26)
+		renderer.set_width(26)
 
-		ColumnBoxRenderer({
+		renderer({
 			spacing = 1,
 			children = {
 				markup.Inline("inline"),
@@ -376,9 +354,9 @@ describe("Vertical Flex", function()
 	end)
 
 	it("should handle deeply nested structures with mixed alignments", function()
-		vim.api.nvim_win_set_width(window.winid, 30)
+		renderer.set_width(30)
 
-		ColumnBoxRenderer({
+		renderer({
 			align = "center",
 			spacing = 2,
 			children = {
@@ -432,9 +410,9 @@ describe("Vertical Flex", function()
 	end)
 
 	it("should center elements", function()
-		vim.api.nvim_win_set_width(window.winid, 30)
+		renderer.set_width(30)
 
-		ColumnBoxRenderer({
+		renderer({
 			spacing = 3,
 			align = "center",
 			children = {
@@ -470,9 +448,9 @@ describe("Vertical Flex", function()
 	end)
 
 	it("should put highlight at the correct position", function()
-		vim.api.nvim_win_set_width(window.winid, 20)
+		renderer.set_width(20)
 
-		ColumnBoxRenderer({
+		renderer({
 			children = {
 				markup.Inline("1", { bold = true }),
 				markup.Inline("12", { background = "orange" }),
@@ -493,9 +471,9 @@ describe("Vertical Flex", function()
 	end)
 
 	it("should put highlight at the correct position", function()
-		vim.api.nvim_win_set_width(window.winid, 20)
+		renderer.set_width(20)
 
-		ColumnBoxRenderer({
+		renderer({
 			align = "center",
 			vertical = true,
 			children = {
@@ -518,9 +496,9 @@ describe("Vertical Flex", function()
 	end)
 
 	it("should break after text node", function()
-		vim.api.nvim_win_set_width(window.winid, 30)
+		renderer.set_width(30)
 
-		ColumnBoxRenderer({
+		renderer({
 			"text",
 			markup.Tree({
 				expanded = true,
@@ -548,9 +526,9 @@ describe("Vertical Flex", function()
 	end)
 
 	it("should handle fragments", function()
-		vim.api.nvim_win_set_width(window.winid, 30)
+		renderer.set_width(30)
 
-		ColumnBoxRenderer({
+		renderer({
 			markup.Block("1"),
 			markup.Inline("2"),
 			markup.Inline({
