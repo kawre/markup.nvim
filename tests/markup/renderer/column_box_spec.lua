@@ -3,7 +3,7 @@
 local markup = require("markup")
 local h = require("tests.helpers")
 
-describe("ColumnBox Renderer", function()
+describe("Vertical Flex", function()
 	---@type table, markup.Renderer
 	local window, renderer
 
@@ -540,6 +540,42 @@ describe("ColumnBox Renderer", function()
 			"  block                       ",
 			"  block                       ",
 			"texttext                      ",
+		})
+	end)
+
+	it("should handle fragments", function()
+		vim.api.nvim_win_set_width(window.winid, 30)
+
+		ColumnBoxRenderer({
+			markup.Block("1"),
+			markup.Inline("2"),
+			markup.Inline({
+				children = {
+					markup.Inline("4"),
+					{
+						markup.Flex("3"),
+						markup.Inline("4"),
+						markup.Block("5"),
+						{
+							markup.Block("5"),
+						},
+					},
+					{
+						markup.Inline("4"),
+						markup.Inline("4"),
+					},
+					markup.Inline("4"),
+				},
+			}),
+		}, {
+			"1                             ",
+			"2                             ",
+			"4                             ",
+			"3                             ",
+			"4                             ",
+			"5                             ",
+			"5                             ",
+			"444                           ",
 		})
 	end)
 end)

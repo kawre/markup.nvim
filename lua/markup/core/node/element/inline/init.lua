@@ -7,13 +7,10 @@ local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 ---@field protected _ markup.Inline.props
 local Inline = markup.Element:extend("markup.inline") ---@diagnostic disable-line: undefined-field
 
-function Inline:display_handler()
-	local spacing, children, vertical = self.spacing, self.child_nodes, self.vertical
-	local is_hor = self:is_box() and not vertical
+function Inline:_merge_handler()
+	local nodes = self.child_nodes
 
-	for i, child in ipairs(children) do
-		local is_not_last = i ~= #children
-
+	for _, child in ipairs(nodes) do
 		local prev_sibling = child.prev_sibling
 		if prev_sibling and (prev_sibling:is_br() or child:is_br()) then
 			self:_newl()
@@ -26,21 +23,16 @@ function Inline:display_handler()
 			---@cast child markup.Element
 			local lines = child:computed_lines()
 			for row, line in pairs(lines) do
-				if spacing > 0 and is_hor and is_not_last then
-					line:append(markup.Pad(spacing, self))
-				end
 				self:_append(line, self:_row() + row)
 			end
-
-			if is_hor then
-				self:_set_row(0)
-			else
-				self:_newl(#lines + (is_not_last and spacing or 0))
-			end
+			self:_newl(#lines)
 		end
 	end
+end
 
-	self:_apply_periferals()
+function Inline:display_handler()
+	self:_merge_handler()
+	self:_apply_peripherals()
 	self:_apply_spacing()
 end
 

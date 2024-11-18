@@ -3,7 +3,7 @@
 local markup = require("markup")
 local h = require("tests.helpers")
 
-describe("RowBox Renderer", function()
+describe("Horizontal Flex", function()
 	---@type table, markup.Renderer
 	local window, renderer
 
@@ -1417,6 +1417,38 @@ describe("RowBox Renderer", function()
 			"text markup.tree title       ",
 			"      block                   ",
 			"      block                   ",
+		})
+	end)
+
+	it("should handle fragments", function()
+		vim.api.nvim_win_set_width(window.winid, 30)
+
+		RowBoxRenderer({
+			markup.Block("1"),
+			markup.Inline("2"),
+			markup.Inline({
+				children = {
+					markup.Inline("4"),
+					{
+						markup.Inline("3"),
+						markup.Inline("4"),
+						markup.Block("5"),
+						{
+							markup.Block("5"),
+						},
+					},
+					{
+						markup.Inline("4"),
+						markup.Inline("4"),
+					},
+					markup.Inline("4"),
+				},
+			}),
+		}, {
+			"12434                         ",
+			"  5                           ",
+			"  5                           ",
+			"  444                         ",
 		})
 	end)
 end)

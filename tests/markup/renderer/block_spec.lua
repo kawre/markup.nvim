@@ -92,4 +92,35 @@ describe("Block Renderer", function()
 			"44",
 		})
 	end)
+
+	it("should handle fragments", function()
+		BlockRenderer({
+			markup.Block("1"),
+			markup.Inline("2"),
+			markup.Inline({
+				children = {
+					markup.Inline("4"),
+					{
+						markup.Inline("3"),
+						markup.Inline("4"),
+						markup.Block("5"),
+						{
+							markup.Block("5"),
+						},
+					},
+					{
+						markup.Inline("4"),
+						markup.Inline("4"),
+					},
+					markup.Inline("4"),
+				},
+			}),
+		}, {
+			"1",
+			"2434",
+			"5",
+			"5",
+			"444",
+		})
+	end)
 end)

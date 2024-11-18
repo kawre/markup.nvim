@@ -233,7 +233,7 @@ function Element:_periferals_hor_iter()
 	return function() end
 end
 
-function Element:_apply_periferals()
+function Element:_apply_peripherals()
 	if not self:is_block_kind() then
 		return
 	end
