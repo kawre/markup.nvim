@@ -320,18 +320,39 @@ function Element:_reset_lines()
 end
 
 function Element:_normalize_child_nodes(children)
-	local result = {}
-
+	---@type markup.Node[]
+	local tmp = {}
 	for _, child in ipairs(children) do
 		if child:is_type("fragment") then
 			---@cast child markup.Fragment
-			child:unpack(result)
+			child:unpack(tmp)
 		else
-			table.insert(result, child)
+			table.insert(tmp, child)
 		end
 	end
 
-	return result
+	local norm, i = {}, 1
+	while tmp[i] do
+		local node = tmp[i]
+		if node:is_type("text") then
+			---@cast node markup.Text
+			local j = i + 1
+
+			local texts = { node:content() }
+			while tmp[j] and tmp[j]:is_type("text") do
+				table.insert(texts, tmp[j]:content())
+				j = j + 1
+			end
+			table.insert(norm, markup.Text(table.concat(texts)))
+			i = j - 1
+		else
+			table.insert(norm, node)
+		end
+
+		i = i + 1
+	end
+
+	return norm
 end
 
 function Element:_sync_children()

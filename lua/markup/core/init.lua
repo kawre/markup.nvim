@@ -59,7 +59,6 @@ core.lookups = {
 	-- Utils
 	If = "markup.core.node.if",
 	Fragment = "markup.core.node.fragment",
-	Brake = "markup.core.node.brake",
 }
 
 return core

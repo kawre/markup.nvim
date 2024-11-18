@@ -6,7 +6,6 @@ local ui = require("markup.ui")
 ---@field Object markup.Object.constructor
 -- Node
 ---@field Node markup.Node.constructor
----@field Brake markup.Node.constructor
 ---@field Text markup.Text.constructor
 ---@field Pad markup.Padding.constructor
 -- Element
