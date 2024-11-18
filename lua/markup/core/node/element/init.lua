@@ -225,11 +225,28 @@ end
 
 function Element:_periferals_corner() end
 
-function Element:_periferals_ver_iter() end
+function Element:_periferals_ver_iter()
+	return function() end
+end
 
-function Element:_periferals_hor_iter() end
+function Element:_periferals_hor_iter()
+	return function() end
+end
 
-function Element:_apply_periferals() end
+function Element:_apply_periferals()
+	if not self:is_block_kind() then
+		return
+	end
+
+	for row, left, right in self:_periferals_hor_iter() do
+		if left then
+			self:_line(row):prepend(left)
+		end
+		if right then
+			self:_line(row):append(right)
+		end
+	end
+end
 
 function Element:_apply_spacing()
 	if not self:_non_zero_spacing() then
@@ -397,6 +414,9 @@ function Element:_normalize_props(props, style)
 	if style then
 		style = Element.static._normalize_style(style)
 		defaults.style = vim.tbl_deep_extend("keep", style, defaults.style)
+	end
+	if props.style then
+		props.style = Element.static._normalize_style(props.style)
 	end
 
 	return vim.tbl_deep_extend("keep", props, defaults)

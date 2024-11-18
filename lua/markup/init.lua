@@ -72,6 +72,7 @@ function markup.setup(opts)
 	config.debug = opts.debug or config.debug
 
 	require("markup-playground").setup()
+	require("markup.theme").setup()
 end
 
 return setmetatable(markup, {

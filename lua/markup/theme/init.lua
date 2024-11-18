@@ -1,4 +1,5 @@
 local log = require("markup.logger") ---@diagnostic disable-line: unused-local
+local default = require("markup.theme.default")
 
 ---@class markup.Theme
 local theme = {}
@@ -35,6 +36,11 @@ function theme.create_dynamic_hl(style)
 end
 
 function theme.load()
+	for key, t in pairs(default.get()) do
+		key = "markup_" .. key
+		vim.api.nvim_set_hl(0, key, t)
+	end
+
 	for style_str, name in pairs(cache) do
 		local style = load("return " .. style_str)()
 		vim.api.nvim_set_hl(0, style, name)
