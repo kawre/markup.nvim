@@ -1366,4 +1366,35 @@ describe("RowBox Renderer", function()
 			"                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        ",
 		})
 	end)
+
+	it("should add missing padding before elements", function()
+		vim.api.nvim_win_set_width(window.winid, 20)
+
+		RowBoxRenderer({
+			spacing = 2,
+			children = {
+				markup.Block({
+					markup.Block("inline"),
+					markup.Block("inline123"),
+					markup.Block("inline"),
+					markup.Block("inline"),
+				}),
+				markup.Block({
+					markup.Block("123"),
+					markup.Block("123"),
+					markup.Block("123"),
+					markup.Block("123"),
+					markup.Block("123"),
+					markup.Block("123"),
+				}),
+			},
+		}, {
+			"inline     123      ",
+			"inline123  123      ",
+			"inline     123      ",
+			"inline     123      ",
+			"           123      ",
+			"           123      ",
+		})
+	end)
 end)

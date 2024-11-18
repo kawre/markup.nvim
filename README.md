@@ -11,7 +11,7 @@
 - [ ] Reverse
 - [x] Background color
 - [x] Margin and Padding
-- [ ] Height and Width
+- [x] Height and Width
 - [ ] Max Width and Max Height
 - [ ] Window Layout Box
 - [x] Tab class
@@ -19,8 +19,6 @@
 
 ### 📦 Elements
 
-- [ ] Button
-- [ ] Event Box
 - [ ] Input (text, radio, checkbox)
 - [ ] Image
 - [ ] Table

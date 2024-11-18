@@ -36,7 +36,7 @@ function Flex:display_handler()
 				local line = child:_line(row)
 				local padding = child_width - line:width()
 				if padding > 0 then
-					line:prepend(markup.Pad(padding, self))
+					line:append(markup.Pad(padding, child))
 				end
 			end
 		end

@@ -57,7 +57,6 @@ end
 
 -- function Renderer:show()
 -- 	Renderer.super.show(self)
--- 	self:render()
 -- end
 
 ---@param root markup.Element

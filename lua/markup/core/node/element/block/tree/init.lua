@@ -10,7 +10,7 @@ local log = require("markup.logger")
 ---@class markup.Tree : markup.Block
 ---@field protected super markup.Block
 ---@field protected _ markup.Tree.props
-local Tree = markup.Flex:extend("markup.block.tree") ---@diagnostic disable-line: undefined-field
+local Tree = markup.Block:extend("markup.block.tree") ---@diagnostic disable-line: undefined-field
 
 function Tree:init(...)
 	self:_extend_default_props({
@@ -19,9 +19,12 @@ function Tree:init(...)
 		icons = {
 			expand = " ",
 			collapse = " ",
-			indent = "│",
-			indent_last = "└",
-			indent_hor = "─",
+			-- indent = "│",
+			-- indent_last = "└",
+			-- indent_hor = "─",
+			indent = " ",
+			indent_last = " ",
+			indent_hor = " ",
 		},
 		indent_size = 2,
 	})
@@ -42,7 +45,7 @@ function Tree:get_title()
 	local icon = self._.expanded and self._.icons.collapse or self._.icons.expand
 	local hl = self._.expanded and "collapse" or "expand"
 
-	return markup.Inline({
+	return markup.Block({
 		on_submit = function()
 			self:toggle()
 		end,
