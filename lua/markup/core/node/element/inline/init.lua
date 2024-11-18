@@ -90,7 +90,6 @@ function Inline:_merge_handler()
 end
 
 function Inline:display_handler()
-	log.debug(self.class.name)
 	self:_merge_handler()
 	self:_apply_peripherals()
 	self:_apply_spacing()

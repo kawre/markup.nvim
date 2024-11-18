@@ -37,7 +37,7 @@ end
 
 function theme.load()
 	for key, t in pairs(default.get()) do
-		key = "markup_" .. key
+		key = "Markup" .. key
 		vim.api.nvim_set_hl(0, key, t)
 	end
 

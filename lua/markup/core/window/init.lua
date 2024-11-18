@@ -27,6 +27,7 @@ local style = {
 	minimal = {
 		buf_opts = {},
 		win_opts = {
+			winhighlight = "Normal:MarkupNormal,NormalNC:MarkupNormalNC,WinBar:MarkupWinBar,WinBarNC:MarkupWinBarNC",
 			cursorcolumn = false,
 			cursorline = false,
 			cursorlineopt = "both",

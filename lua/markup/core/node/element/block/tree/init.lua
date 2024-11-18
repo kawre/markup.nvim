@@ -43,7 +43,7 @@ end
 
 function Tree:get_title()
 	local icon = (self._.expanded and self._.icons.collapse or self._.icons.expand) .. " "
-	local hl = "markup_tree_icon_" .. (self._.expanded and "collapse" or "expand")
+	local hl = "MarkupTreeIcon" .. (self._.expanded and "Collapse" or "Expand")
 
 	return markup.Block({
 		on_submit = function()
@@ -51,7 +51,7 @@ function Tree:get_title()
 		end,
 		children = {
 			markup.Inline(icon, hl),
-			markup.Inline(self._.title, "markup_tree_title"),
+			markup.Inline(self._.title, "MarkupTreeTitle"),
 		},
 	}, { bg = "red" })
 end
@@ -77,7 +77,7 @@ function Tree:_peripherals_hor_iter()
 	local indentl = self._.icons.indent_last
 	indentl = indentl .. (self._.icons.indent_hor):rep(sz - vim.fn.strcharlen(indentl) - 1) .. " "
 
-	local mock = self:mock_element("markup_tree_indent")
+	local mock = self:mock_element("MarkupTreeIndent")
 
 	return function()
 		if i >= h then

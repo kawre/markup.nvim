@@ -27,12 +27,21 @@ end
 ---@return markup.highlights
 M.get = function()
 	return {
-		normal = hl("Normal"),
+		Normal = hl("Normal"),
+		NormalSB = hl("NormalSB"),
+		NormalNC = hl("NormalNC"),
+		NormalFloat = hl("NormalFloat"),
+		FloatBorder = hl("FloatBorder"),
+		FloatTitle = hl("FloatTitle"),
+		WinBar = hl("WinBar"),
+		WinBarNC = hl("WinBarNC"),
 
-		tree_title = { fg = hl("Normal").fg },
-		tree_indent = { fg = hl("NonText").fg },
-		tree_icon_expand = { fg = hl("Number").fg },
-		tree_icon_collapse = { fg = hl("Number").fg },
+		Code = { fg = hl("Type").fg, bg = hl("Normal").bg },
+
+		TreeTitle = { fg = hl("Normal").fg },
+		TreeIndent = { fg = hl("NonText").fg },
+		TreeIconExpand = { fg = hl("Number").fg },
+		TreeIconCollapse = { fg = hl("Number").fg },
 	}
 end
 
