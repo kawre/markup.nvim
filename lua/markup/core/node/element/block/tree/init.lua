@@ -4,7 +4,7 @@ local log = require("markup.logger")
 ---@class markup.Tree.props : markup.Block.props
 ---@field title markup.Node
 ---@field expanded boolean
----@field icons table
+---@field icons markup.Tree.icons
 ---@field indent_size integer
 
 ---@class markup.Tree : markup.Block
@@ -17,8 +17,8 @@ function Tree:init(...)
 		title = markup.Inline("markup.tree title"),
 		expanded = false,
 		icons = {
-			expand = " ",
-			collapse = " ",
+			expand = "",
+			collapse = "",
 			-- indent = "│",
 			-- indent_last = "└",
 			-- indent_hor = "─",
@@ -42,15 +42,15 @@ function Tree:toggle()
 end
 
 function Tree:get_title()
-	local icon = self._.expanded and self._.icons.collapse or self._.icons.expand
-	local hl = self._.expanded and "collapse" or "expand"
+	local icon = (self._.expanded and self._.icons.collapse or self._.icons.expand) .. " "
+	local hl = "markup_tree_icon_" .. (self._.expanded and "collapse" or "expand")
 
 	return markup.Block({
 		on_submit = function()
 			self:toggle()
 		end,
 		children = {
-			markup.Inline(icon, "markup_tree_icon_" .. hl),
+			markup.Inline(icon, hl),
 			markup.Inline(self._.title, "markup_tree_title"),
 		},
 	})
@@ -97,8 +97,8 @@ function Tree:_periferals_hor_iter()
 end
 
 ---@class markup.Tree.constructor.props : markup.Block.constructor.props
----@field title? markup.Node
----@field icons? table
+---@field title? markup.Element.children
+---@field icons? markup.Tree.icons.props
 ---@field expanded? boolean
 ---@field indent_size? integer
 

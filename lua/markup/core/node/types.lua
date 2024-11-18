@@ -34,6 +34,9 @@
 
 ---@alias markup.Element.margin markup.Element.padding
 
+---@alias markup.Tree.icons.props {expand?: string, collapse?: string, indent?: string, indent_last?: string, indent_hor?: string}
+---@alias markup.Tree.icons {expand: string, collapse: string, indent: string, indent_last: string, indent_hor: string}
+
 ---------------------------------
 ---- Box
 ---------------------------------

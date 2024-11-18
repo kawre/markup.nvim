@@ -366,7 +366,7 @@ function Element:_in_range(c)
 		row_start = fpos.row,
 		col_start = fpos.col_start,
 		row_end = lpos.row,
-		col_end = lpos.col_end,
+		col_end = lpos.col_end - 1,
 	}
 
 	return row >= pos.row_start

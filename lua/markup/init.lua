@@ -9,7 +9,6 @@ local ui = require("markup.ui")
 ---@field Brake markup.Node.constructor
 ---@field Text markup.Text.constructor
 ---@field Pad markup.Padding.constructor
----@field Extmark markup.Extmark.constructor
 -- Element
 ---@field Element markup.Element.constructor
 -- Inline

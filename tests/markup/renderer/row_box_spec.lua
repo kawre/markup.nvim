@@ -1397,4 +1397,26 @@ describe("RowBox Renderer", function()
 			"           123      ",
 		})
 	end)
+
+	it("should correctly apply missing padding on markup.Text", function()
+		vim.api.nvim_win_set_width(window.winid, 30)
+
+		RowBoxRenderer({
+			"text",
+			markup.Tree({
+				expanded = true,
+				icons = {
+					collapse = "",
+				},
+				children = {
+					markup.Block("block"),
+					markup.Block("block"),
+				},
+			}),
+		}, {
+			"text markup.tree title       ",
+			"      block                   ",
+			"      block                   ",
+		})
+	end)
 end)

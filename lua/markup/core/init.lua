@@ -10,7 +10,6 @@ core.lookups = {
 	-- Text
 	Text = "markup.core.node.text",
 	Pad = "markup.core.node.text.padding",
-	Extmark = "markup.core.node.text.extmark",
 
 	-- TabPage
 	TabPage = "markup.core.tabpage",

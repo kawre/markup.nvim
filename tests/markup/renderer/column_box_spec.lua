@@ -516,4 +516,30 @@ describe("ColumnBox Renderer", function()
 			{ 4, 3, 8 },
 		})
 	end)
+
+	it("should break after text node", function()
+		vim.api.nvim_win_set_width(window.winid, 30)
+
+		ColumnBoxRenderer({
+			"text",
+			markup.Tree({
+				expanded = true,
+				icons = {
+					collapse = "",
+				},
+				children = {
+					markup.Block("block"),
+					markup.Block("block"),
+				},
+			}),
+			"text",
+			"text",
+		}, {
+			"text                          ",
+			" markup.tree title           ",
+			"  block                       ",
+			"  block                       ",
+			"texttext                      ",
+		})
+	end)
 end)
