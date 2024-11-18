@@ -560,4 +560,32 @@ describe("markup.Flex", function()
 			"444                           ",
 		})
 	end)
+
+	it("should normalize text node into one", function()
+		renderer.set_width(20)
+
+		renderer({
+			spacing = 2,
+			children = {
+				"text",
+				"text",
+				"text",
+				markup.Block("block"),
+				"text",
+				"text",
+				markup.Inline("inline"),
+			},
+		}, {
+			"texttexttext        ",
+			"                    ",
+			"                    ",
+			"block               ",
+			"                    ",
+			"                    ",
+			"texttext            ",
+			"                    ",
+			"                    ",
+			"inline              ",
+		})
+	end)
 end)

@@ -78,10 +78,6 @@ function Element:init(props, style)
 	props = self:_normalize_props(props, style)
 	Element.super.init(self, props)
 	self._default_props = nil
-
-	-- if self._.parent then
-	-- 	self:_set_state(self._.parent.owner, self._.parent)
-	-- end
 end
 
 ---------------------------------
@@ -314,7 +310,7 @@ function Element:_set_state(renderer, parent)
 end
 
 function Element:mock_element(style)
-	local _ = markup.Element(nil, style)
+	local _ = markup.Inline(nil, style)
 	_:_set_state(self.owner, self)
 	return _
 end

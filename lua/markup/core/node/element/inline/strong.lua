@@ -2,7 +2,7 @@ local markup = require("markup")
 
 ---@class markup.Inline.Strong : markup.Inline
 ---@field protected super markup.Inline
-local Strong = markup.Element:extend("markup.inline.strong") ---@diagnostic disable-line: undefined-field
+local Strong = markup.Inline:extend("markup.inline.strong") ---@diagnostic disable-line: undefined-field
 
 function Strong:init(...)
 	self:_extend_default_props({

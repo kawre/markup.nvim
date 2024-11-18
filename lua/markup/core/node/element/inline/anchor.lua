@@ -2,7 +2,7 @@ local markup = require("markup")
 
 ---@class markup.Inline.Anchor : markup.Inline
 ---@field protected super markup.Inline
-local Anchor = markup.Element:extend("markup.inline.anchor") ---@diagnostic disable-line: undefined-field
+local Anchor = markup.Inline:extend("markup.inline.anchor") ---@diagnostic disable-line: undefined-field
 
 function Anchor:init(...)
 	self:_extend_default_props({

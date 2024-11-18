@@ -84,7 +84,7 @@ Html.entities = {
 }
 
 Html.tag_map = {
-	["a"] = markup.Link,
+	["a"] = markup.Anchor,
 	["sub"] = markup.Sub,
 	["sup"] = markup.Sup,
 	["div"] = markup.Block,
@@ -137,6 +137,7 @@ end
 
 function Html:parse_node(node)
 	local children = {}
+
 	for child in node:iter_children() do
 		local ntype = child:type()
 		local x

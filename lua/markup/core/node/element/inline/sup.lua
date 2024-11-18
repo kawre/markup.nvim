@@ -2,7 +2,7 @@ local markup = require("markup")
 
 ---@class markup.Inline.Sup : markup.Inline
 ---@field protected super markup.Inline
-local Sup = markup.Element:extend("markup.inline.sup") ---@diagnostic disable-line: undefined-field
+local Sup = markup.Inline:extend("markup.inline.sup") ---@diagnostic disable-line: undefined-field
 
 function Sup:init(...)
 	self:_extend_default_props({

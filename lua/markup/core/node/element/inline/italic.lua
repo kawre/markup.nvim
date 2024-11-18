@@ -2,7 +2,7 @@ local markup = require("markup")
 
 ---@class markup.Inline.Italic : markup.Inline
 ---@field protected super markup.Inline
-local Italic = markup.Element:extend("markup.inline.italic") ---@diagnostic disable-line: undefined-field
+local Italic = markup.Inline:extend("markup.inline.italic") ---@diagnostic disable-line: undefined-field
 
 function Italic:init(...)
 	self:_extend_default_props({
