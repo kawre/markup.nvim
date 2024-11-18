@@ -1405,8 +1405,12 @@ describe("Horizontal Flex", function()
 			"text",
 			markup.Tree({
 				expanded = true,
+				title = "markup.tree title",
 				icons = {
 					collapse = "",
+					indent = " ",
+					indent_last = " ",
+					indent_hor = " ",
 				},
 				children = {
 					markup.Block("block"),
