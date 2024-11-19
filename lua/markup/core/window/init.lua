@@ -235,6 +235,10 @@ function Window:win_open()
 		self:handle_on_submit()
 	end)
 
+	vim.keymap.set("n", "r", function()
+		self:render()
+	end)
+
 	if self:win_is_valid() then
 		return
 	end

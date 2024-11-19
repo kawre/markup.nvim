@@ -11,35 +11,12 @@ local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 ---@class markup.Renderer : markup.Window
 ---@field protected super markup.Window
 ---@field _ markup.Renderer.props
+---@field root markup.Element
 local Renderer = markup.Window:extend("MarkupRenderer") ---@diagnostic disable-line: undefined-field
 
 ---------------------------------
 ---- Methods
 ---------------------------------
-
-function Renderer:reflow()
-	if not self:is_valid() or not self._.body then
-		return
-	end
-
-	-- self:preserve_cursor(function()
-	-- 	u.measure_time("markup.Renderer:render", function()
-	-- 		local root = markup.Block(self:body())
-	-- 		self:render_tree(root)
-	-- 		self._.root = root
-	-- 	end)
-	-- end)
-end
-
-function Renderer:reflow_tree(root)
-	self:with_buf_option("modifiable", function()
-		self:clear()
-		root:reflow(self) ---@diagnostic disable-line: missing-parameter
-		for row, line in pairs(root:computed_lines()) do
-			line:draw(self, row)
-		end
-	end)
-end
 
 function Renderer:render()
 	if not self:is_valid() or not self._.body then
@@ -47,11 +24,8 @@ function Renderer:render()
 	end
 
 	self:preserve_cursor(function()
-		u.measure_time("markup.Renderer:render", function()
-			local root = markup.Block(self:body())
-			self:render_tree(root)
-			self._.root = root
-		end)
+		self.root = markup.Block(self:body())
+		self:render_tree(self.root)
 	end)
 end
 

@@ -327,6 +327,9 @@ function Element:_normalize_child_nodes(children)
 		if child:is_type("fragment") then
 			---@cast child markup.Fragment
 			child:unpack(tmp)
+		elseif child:is_type("component") then
+			---@cast child markup.Component
+			table.insert(tmp, child:render())
 		else
 			table.insert(tmp, child)
 		end
@@ -541,11 +544,6 @@ function Element:replace_child(new_child, old_child)
 	assert(index, "child not found")
 	self.child_nodes[index] = new_child
 	return old_child
-end
-
-function Element:reflow()
-	self._.dirty = true
-	self.owner:reflow()
 end
 
 function Element:render()

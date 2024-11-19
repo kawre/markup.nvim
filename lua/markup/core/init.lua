@@ -51,7 +51,7 @@ core.lookups = {
 	RendererLine = "markup.core.window.renderer.line",
 
 	-- Component
-	Component = "markup.core.component",
+	Component = "markup.core.node.component",
 
 	-- Parser
 	Parser = "markup.core.parser",
