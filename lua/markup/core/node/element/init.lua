@@ -327,9 +327,6 @@ function Element:_normalize_child_nodes(children)
 		if child:is_type("fragment") then
 			---@cast child markup.Fragment
 			child:unpack(tmp)
-		elseif child:is_type("component") then
-			---@cast child markup.Component
-			table.insert(tmp, child:render())
 		else
 			table.insert(tmp, child)
 		end
@@ -349,6 +346,9 @@ function Element:_normalize_child_nodes(children)
 			end
 			table.insert(norm, markup.Text(table.concat(texts)))
 			i = j - 1
+		elseif node:is_type("component") then
+			---@cast node markup.Component
+			table.insert(tmp, node:render())
 		else
 			table.insert(norm, node)
 		end

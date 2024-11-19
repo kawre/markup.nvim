@@ -28,6 +28,9 @@ function Component:render()
 	return self.element
 end
 
+---@alias markup.Component.constructor fun(object: markup.Component.Class): fun(props: any): markup.Component
+
+---@type markup.Component.constructor
 return setmetatable({}, {
 	__call = function(_, object)
 		local instance = Component(object)
