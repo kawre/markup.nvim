@@ -432,7 +432,15 @@ function Element:_normalize_props(props, style)
 	else
 		props = props or {}
 		if not props.children then
-			props = { children = props }
+			if #props ~= vim.tbl_count(props) then
+				props.children = {}
+				for i, child in ipairs(props) do
+					table.insert(props.children, child)
+					table.remove(props, i)
+				end
+			else
+				props = { children = props }
+			end
 		end
 		props.children = Element.static._normalize_children(props.children)
 	end
@@ -561,6 +569,10 @@ local display_map = {
 }
 
 function Element:after_render()
+	if self.display == "none" then
+		return
+	end
+
 	markup[display_map[self.display]].display_handler(self)
 
 	if self._.on_submit then

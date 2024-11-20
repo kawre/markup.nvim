@@ -1,5 +1,5 @@
 local markup = require("markup")
-local log = require("leetcode.logger")
+local log = require("markup.logger")
 local ts = vim.treesitter
 
 ---@class markup.Parser.Html : markup.Parser
