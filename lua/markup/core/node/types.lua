@@ -21,7 +21,7 @@
 ---@field color? string `fg` alias
 ---@field strike? string `strikethrough` alias
 
----@alias markup.Element.style string|(vim.api.keyset.highlight|markup.Element.style.alias)
+---@alias markup.Element.style vim.api.keyset.highlight|markup.Element.style.alias
 
 ---@alias markup.Element.type
 ---|"block"

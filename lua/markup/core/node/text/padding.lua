@@ -11,8 +11,14 @@ function Padding:init(n, ...)
 	if not cache[n] then
 		cache[n] = (" "):rep(n)
 	end
-
 	Padding.super.init(self, cache[n], ...)
+end
+
+function Padding:_normalize_style()
+	local style = Padding.super._normalize_style(self)
+	if style and style.background then
+		return style
+	end
 end
 
 ---@alias markup.Padding.constructor.props integer

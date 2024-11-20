@@ -23,15 +23,13 @@ function Renderer:render()
 		return
 	end
 
-	self:preserve_cursor(function()
-		self.root = markup.Block(self:body())
-		self:render_tree(self.root)
+	u.measure_time("markup.Renderer:render", function()
+		self:preserve_cursor(function()
+			self.root = markup.Block(self:body())
+			self:render_tree(self.root)
+		end)
 	end)
 end
-
--- function Renderer:show()
--- 	Renderer.super.show(self)
--- end
 
 ---@param root markup.Element
 function Renderer:render_tree(root)
@@ -72,7 +70,7 @@ function Renderer:handle_on_submit()
 
 	for _, btn in ipairs(self._.buttons or {}) do
 		if btn:_in_range(c) then
-			btn._.on_submit()
+			btn:event("submit")
 			return
 		end
 	end

@@ -129,4 +129,44 @@ describe("markup.Block", function()
 			"55555               ",
 		})
 	end)
+
+	it("should handle components", function()
+		local TextComponent = markup.Component(function(self)
+			return markup.Block(self.props.text)
+		end)
+
+		renderer({
+			children = {
+				markup.Inline("1"),
+				markup.Inline("22"),
+				TextComponent({ text = "333" }),
+				markup.Inline("1"),
+				markup.Inline("22"),
+			},
+		}, {
+			"122122",
+			"333",
+		})
+	end)
+
+	it("should handle components with fragments", function()
+		local TextComponent = markup.Component(function(self)
+			return markup.Block(self.props.text)
+		end)
+
+		renderer({
+			children = {
+				markup.Inline("1"),
+				{
+					markup.Inline("22"),
+					TextComponent({ text = "333" }),
+				},
+				markup.Inline("1"),
+				markup.Inline("22"),
+			},
+		}, {
+			"122122",
+			"333",
+		})
+	end)
 end)

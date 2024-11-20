@@ -531,6 +531,15 @@ function Element:contains(other_node)
 	return u.index_of(self.child_nodes, other_node) ~= nil
 end
 
+---@param event string
+function Element:event(event, ...)
+	event = table.concat({ "on", event:lower() }, "_")
+
+	if self._[event] then
+		return self._[event](self, ...)
+	end
+end
+
 -- ---@param child markup.Node
 -- ---@param reference markup.Node
 -- function Element:insert_before(child, reference)
@@ -652,7 +661,7 @@ end
 
 ---@class markup.Element.constructor.props
 ---@field children? markup.Element.children element children
----@field style? markup.Element.style element style
+---@field style? markup.Element.style.props element style
 ---@field display? markup.Element.display element display
 ---@field margin? markup.Element.margin element margin
 ---@field padding? markup.Element.padding element padding

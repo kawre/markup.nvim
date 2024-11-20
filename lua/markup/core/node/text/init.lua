@@ -60,24 +60,29 @@ function Text:width()
 	return self._.width
 end
 
----@param style markup.Element.style
-function Text:_normalize_style(style)
-	if not style then
+function Text:_normalize_style()
+	if not self.parent then
 		return
 	end
 
+	local style = self.parent.style
 	local map = {
 		["color"] = "fg",
 	}
 
-	for key, value in pairs(style) do
-		if map[key] then
+	for key, value in pairs(map) do
+		if style[key] then
 			style[map[key]] = value
 			style[key] = nil
 		end
 	end
 
 	return style
+end
+
+---@return string|nil
+function Text:highlight()
+	return theme.create_dynamic_hl(self.style)
 end
 
 function Text:_set_position(row, col_start, col_end)
@@ -92,28 +97,8 @@ function Text:_get_position()
 	return self._.pos
 end
 
----@param linenr number line number (1-indexed)
----@param byte_start number start byte position (0-indexed)
----@return nil
-function Text:highlight(linenr, byte_start)
-	if not self.parent then
-		return
-	end
-
-	local style = self:_normalize_style(self.parent.style)
-	local hl = theme.create_dynamic_hl(style)
-
-	if hl then
-		self.owner:buf_set_extmark(nil, linenr, byte_start, {
-			end_col = byte_start + self:length(),
-			hl_group = hl --[[@as string]],
-			hl_mode = "combine",
-		})
-	end
-end
-
 function Text:render()
-	-- self.parent:_append(self) ---@diagnostic disable-line: invisible
+	self.style = self:_normalize_style()
 end
 
 ---@alias markup.Text.constructor fun(content: markup.Text.content, parent?: markup.Node): markup.Text

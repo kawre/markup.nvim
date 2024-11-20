@@ -86,19 +86,34 @@ end
 function Line:draw(renderer, row_at)
 	local str = self:content()
 	renderer:buf_set_lines(row_at, -1, false, { str })
-	self:hightlight(row_at)
+	self:paint(renderer, row_at)
 end
 
-function Line:hightlight(row_at)
-	local offset = 0
-	for _, text in ipairs(self:texts()) do
-		text:highlight(row_at, offset)
-		local old_offset = offset
-		offset = offset + text:length()
+---@param renderer markup.Renderer
+---@param row_at integer
+function Line:paint(renderer, row_at)
+	local offset, i, texts = 0, 1, self:texts()
 
-		if text.parent then
-			text:_set_position(row_at, old_offset, offset)
+	while texts[i] do
+		local start_offset = offset
+		local hl = texts[i]:highlight()
+
+		local j = i
+		while texts[j] and texts[j]:highlight() == hl do
+			local old_offset = offset
+			offset = offset + texts[j]:length()
+			texts[j]:_set_position(row_at, old_offset, offset)
+			j = j + 1
 		end
+
+		if hl then
+			renderer:buf_set_extmark(nil, row_at, start_offset, {
+				end_col = offset,
+				hl_group = hl,
+			})
+		end
+
+		i = j
 	end
 end
 
