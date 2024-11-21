@@ -7,6 +7,7 @@ local theme = {}
 local id, cache = 1, {}
 
 ---@param style? markup.Element.style
+---@return string?
 function theme.create_dynamic_hl(style)
 	if not style or vim.tbl_isempty(style) then
 		return
@@ -32,7 +33,7 @@ function theme.create_dynamic_hl(style)
 		hl_name = style
 	end
 
-	return hl_name
+	return hl_name ---@diagnostic disable-line: return-type-mismatch
 end
 
 function theme.load()

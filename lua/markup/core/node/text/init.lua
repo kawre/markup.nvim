@@ -72,7 +72,7 @@ function Text:_normalize_style()
 
 	for key, value in pairs(map) do
 		if style[key] then
-			style[map[key]] = value
+			style[value] = style[key]
 			style[key] = nil
 		end
 	end
@@ -80,7 +80,7 @@ function Text:_normalize_style()
 	return style
 end
 
----@return string|nil
+---@return string?
 function Text:highlight()
 	return theme.create_dynamic_hl(self.style)
 end
