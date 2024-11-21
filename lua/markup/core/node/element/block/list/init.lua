@@ -18,9 +18,10 @@ local List = markup.Block:extend("markup.list") ---@diagnostic disable-line: und
 function List:init(...)
 	self:_extend_default_props({
 		ordered = false,
-		marker = " • ",
+		marker = "• ",
 		ordered_counter = 1,
 		type = "element-list",
+		padding = { left = 2 },
 	})
 	List.super.init(self, ...)
 end
@@ -37,7 +38,7 @@ function List:item_marker(inc)
 	local marker = self._.marker
 
 	if self._.ordered then
-		marker = self._.ordered_counter .. ". "
+		marker = self._.ordered_counter .. "."
 		if inc then
 			self._.ordered_counter = self._.ordered_counter + 1
 		end

@@ -144,8 +144,9 @@ describe("markup.Block", function()
 				markup.Inline("22"),
 			},
 		}, {
-			"122122",
+			"122",
 			"333",
+			"122",
 		})
 	end)
 
@@ -165,8 +166,37 @@ describe("markup.Block", function()
 				markup.Inline("22"),
 			},
 		}, {
-			"122122",
+			"122",
 			"333",
+			"122",
+		})
+	end)
+
+	it("should render components while preserving the old order", function()
+		local TreeNode = markup.Component(function(self)
+			return markup.Block({
+				markup.Block("TreeNode " .. self.props),
+			})
+		end)
+
+		renderer({
+			children = {
+				markup.Block("block1"),
+				TreeNode(1),
+				TreeNode(2),
+				markup.Block("block2"),
+				TreeNode(3),
+				markup.Block("block3"),
+				TreeNode(4),
+			},
+		}, {
+			"block1",
+			"TreeNode 1",
+			"TreeNode 2",
+			"block2",
+			"TreeNode 3",
+			"block3",
+			"TreeNode 4",
 		})
 	end)
 end)

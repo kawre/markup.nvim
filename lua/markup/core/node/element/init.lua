@@ -330,25 +330,28 @@ function Element:_normalize_child_nodes(children)
 	local norm, i = {}, 1
 	while tmp[i] do
 		local node = tmp[i]
+
 		if node:is_type("text") then
 			---@cast node markup.Text
-			local j = i + 1
+			local j = i
 
-			local texts = { node:content() }
+			local texts = {}
 			while tmp[j] and tmp[j]:is_type("text") do
-				table.insert(texts, tmp[j]:content())
+				table.insert(texts, tmp[j]:content()) ---@diagnostic disable-line: undefined-field
 				j = j + 1
 			end
 			table.insert(norm, markup.Text(table.concat(texts)))
-			i = j - 1
-		elseif node:is_type("component") then
-			---@cast node markup.Component
-			table.insert(tmp, node:render())
+			i = j
 		else
-			table.insert(norm, node)
-		end
+			if node:is_type("component") then
+				---@cast node markup.Component
+				table.insert(norm, node:render())
+			else
+				table.insert(norm, node)
+			end
 
-		i = i + 1
+			i = i + 1
+		end
 	end
 
 	return norm
