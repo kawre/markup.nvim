@@ -37,8 +37,8 @@ function Inline:_flex_merge_handler()
 			---@cast child markup.Element
 			local lines = child:computed_lines()
 
+			local maxs = self:max_size()
 			if not vertical then
-				local maxs = self:max_size()
 				local width = child:width()
 
 				for row = 0, maxs.height - 1 do
@@ -91,7 +91,7 @@ end
 
 function Inline:display_handler()
 	self:_merge_handler()
-	self:_apply_peripherals()
+	-- self:_apply_border()
 	self:_apply_spacing()
 end
 

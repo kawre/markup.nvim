@@ -7,20 +7,28 @@ local ListItem = markup.Block:extend("markup.list.item") ---@diagnostic disable-
 -- function ListItem:after_render()
 --     ListItem.super.after_render(self)
 --
---     local list = self:find_parent(function(node)
---         return node:is_element("list")
---     end)
---
---     local marker = " • "
---     ---@cast list markup.List
---     if list then
---         marker = list:item_marker()
---     end
---
---     for _, line in pairs(self._.lines) do
---         line:prepend(markup.Text(marker))
---     end
 -- end
+function ListItem:after_render()
+	ListItem.super.after_render(self)
+
+	local list = self:find_parent(function(node)
+		return node:is_type("element-list")
+	end)
+
+	local marker = " • "
+	---@cast list markup.List
+	if list then
+		marker = list:item_marker(true)
+	end
+
+	for row, line in pairs(self._.lines) do
+		if row == 0 then
+			line:prepend(markup.Text(marker))
+		else
+			line:prepend(markup.Pad(marker:len()))
+		end
+	end
+end
 
 ---@alias markup.List.Item.constructor markup.Block.constructor
 

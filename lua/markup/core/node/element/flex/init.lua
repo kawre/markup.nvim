@@ -26,7 +26,7 @@ end
 
 function Flex:display_handler()
 	self:_flex_merge_handler()
-	self:_apply_peripherals()
+	self:_apply_border()
 	self:_apply_spacing()
 	self:_align_handler()
 end

@@ -1,4 +1,5 @@
 local markup = require("markup")
+local Border = require("markup.core.node.element.border")
 local u = require("markup.utils") ---@diagnostic disable-line: unused-local
 local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 
@@ -19,6 +20,7 @@ local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 ---@field on_submit? fun()
 ---@field on_key? table<string, fun()>
 ---@field parent markup.Element
+---@field border? markup.Element.border
 
 ---@class markup.Element : markup.Node
 ---@field protected _ markup.Element.props
@@ -232,18 +234,11 @@ function Element:_peripherals_hor_iter()
 	return function() end
 end
 
-function Element:_apply_peripherals()
-	if not self:is_block_kind() then
-		return
-	end
+function Element:_apply_border()
+	local border = self._.border
 
-	for row, left, right in self:_peripherals_hor_iter() do
-		if left then
-			self:_line(row):prepend(left)
-		end
-		if right then
-			self:_line(row):append(right)
-		end
+	if border and self:is_block_kind() then
+		border:apply(self)
 	end
 end
 
@@ -454,6 +449,10 @@ function Element:_normalize_props(props, style)
 	end
 	if props.style then
 		props.style = Element.static._normalize_style(props.style)
+	end
+
+	if props.border then
+		props.border = Border(props.border)
 	end
 
 	return vim.tbl_deep_extend("keep", props, defaults)
