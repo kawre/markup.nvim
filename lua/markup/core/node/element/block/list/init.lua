@@ -16,7 +16,7 @@ local List = markup.Block:extend("markup.list") ---@diagnostic disable-line: und
 ---------------------------------
 
 function List:init(...)
-	self:_extend_default_props({
+	self:extend_default_props({
 		ordered = false,
 		marker = "• ",
 		ordered_counter = 1,

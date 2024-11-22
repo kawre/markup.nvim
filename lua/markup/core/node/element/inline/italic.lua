@@ -5,7 +5,7 @@ local markup = require("markup")
 local Italic = markup.Inline:extend("markup.inline.italic") ---@diagnostic disable-line: undefined-field
 
 function Italic:init(...)
-	self:_extend_default_props({
+	self:extend_default_props({
 		style = { italic = true },
 	})
 	Italic.super.init(self, ...)

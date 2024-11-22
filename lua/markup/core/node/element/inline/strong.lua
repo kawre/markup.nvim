@@ -5,7 +5,7 @@ local markup = require("markup")
 local Strong = markup.Inline:extend("markup.inline.strong") ---@diagnostic disable-line: undefined-field
 
 function Strong:init(...)
-	self:_extend_default_props({
+	self:extend_default_props({
 		style = { bold = true },
 	})
 	Strong.super.init(self, ...)

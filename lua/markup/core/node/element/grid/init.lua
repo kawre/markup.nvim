@@ -9,7 +9,7 @@ local Grid = markup.Block:extend("markup.grid") ---@diagnostic disable-line: und
 ---------------------------------
 
 function Grid:init(...)
-	self:_extend_default_props({
+	self:extend_default_props({
 		display = "grid",
 	})
 	Grid.super.init(self, ...)

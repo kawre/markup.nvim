@@ -30,6 +30,73 @@ function Node:after_init() end
 ---- Methods (Private)
 ---------------------------------
 
+function Node:normalize_child_nodes(nodes)
+	---@type markup.Node[]
+	local tmp = {}
+	for _, child in ipairs(nodes) do
+		if child:is_type("fragment") then
+			---@cast child markup.Fragment
+			child:unpack(tmp)
+		else
+			table.insert(tmp, child)
+		end
+	end
+
+	local norm, i = {}, 1
+	while tmp[i] do
+		local node = tmp[i]
+
+		if node:is_type("text") then
+			---@cast node markup.Text
+			local j = i
+
+			local texts = {}
+			while tmp[j] and tmp[j]:is_type("text") do
+				table.insert(texts, tmp[j]:content()) ---@diagnostic disable-line: undefined-field
+				j = j + 1
+			end
+			table.insert(norm, markup.Text(table.concat(texts)))
+			i = j
+		else
+			if node:is_type("component") then
+				---@cast node markup.Component
+				table.insert(norm, node:render())
+			else
+				table.insert(norm, node)
+			end
+
+			i = i + 1
+		end
+	end
+
+	return norm
+end
+
+function Node:normalize_children(children)
+	if type(children) == "string" or type(children) == "number" then
+		return { markup.Text(children) }
+	elseif getmetatable(children) then
+		return { children }
+	else -- table
+		local result = {}
+
+		for _, child in ipairs(children or {}) do
+			---@cast child any
+			if type(child) == "string" or type(child) == "number" then
+				table.insert(result, markup.Text(child))
+			elseif getmetatable(child) then
+				table.insert(result, child)
+			else -- markup.Fragment
+				if not vim.tbl_isempty(child) then
+					table.insert(result, markup.Fragment(child))
+				end
+			end
+		end
+
+		return result
+	end
+end
+
 ---@protected
 ---@param renderer markup.Renderer
 ---@param parent markup.Element

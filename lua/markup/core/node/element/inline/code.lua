@@ -5,7 +5,7 @@ local markup = require("markup")
 local Code = markup.Inline:extend("markup.inline.code") ---@diagnostic disable-line: undefined-field
 
 function Code:init(...)
-	self:_extend_default_props({
+	self:extend_default_props({
 		style = { link = "MarkupCode" },
 	})
 	Code.super.init(self, ...)

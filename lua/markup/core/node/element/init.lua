@@ -15,6 +15,7 @@ local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 ---@field vertical boolean
 ---@field reverse boolean
 ---@field final {row_start: integer, row_end: integer, col_start: integer, col_end: integer}
+---@field size {width?: integer, height?: integer}
 ---@field on_submit? fun()
 ---@field on_key? table<string, fun()>
 ---@field parent markup.Element
@@ -56,7 +57,7 @@ Element.static._default_props = {
 }
 
 ---@param props any
-function Element:_extend_default_props(props)
+function Element:extend_default_props(props)
 	local defaults = self._default_props or {}
 	self._default_props = vim.tbl_deep_extend("force", props, defaults)
 end
@@ -64,7 +65,7 @@ end
 ---@param props markup.Element.constructor.props
 ---@param style? markup.Element.style
 function Element:init(props, style)
-	props = self:_normalize_props(props, style)
+	props = self:normalize_props(props, style)
 	Element.super.init(self, props)
 	self._default_props = nil
 	self.builder = markup.RendererBuilder()
@@ -310,7 +311,7 @@ function Element:_in_range(c)
 		and col <= pos.col_end
 end
 
-function Element:_should_br()
+function Element:should_br()
 	local prev_sibling = self:prev_sibling()
 	return prev_sibling and (prev_sibling:is_br() or self:is_br())
 end
@@ -330,7 +331,7 @@ end
 -- - Node[]
 -- - props
 ---@param props any
-function Element:_normalize_props(props, style)
+function Element:normalize_props(props, style)
 	if type(props) == "string" or type(props) == "number" then
 		props = { children = { markup.Text(props) } }
 	elseif getmetatable(props) then

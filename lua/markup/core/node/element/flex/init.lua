@@ -14,7 +14,7 @@ local Flex = markup.Block:extend("markup.flex") ---@diagnostic disable-line: und
 ---------------------------------
 
 function Flex:init(...)
-	self:_extend_default_props({
+	self:extend_default_props({
 		display = "flex",
 	})
 	Flex.super.init(self, ...)

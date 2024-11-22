@@ -5,7 +5,7 @@ local markup = require("markup")
 local Anchor = markup.Inline:extend("markup.inline.anchor") ---@diagnostic disable-line: undefined-field
 
 function Anchor:init(...)
-	self:_extend_default_props({
+	self:extend_default_props({
 		style = { underline = true, fg = "#89b4fb" },
 	})
 	Anchor.super.init(self, ...)

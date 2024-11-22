@@ -5,7 +5,7 @@ local markup = require("markup")
 local Sup = markup.Inline:extend("markup.inline.sup") ---@diagnostic disable-line: undefined-field
 
 function Sup:init(...)
-	self:_extend_default_props({
+	self:extend_default_props({
 		style = { color = "#9399b3" },
 	})
 	Sup.super.init(self, ...)

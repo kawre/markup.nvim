@@ -5,7 +5,7 @@ local markup = require("markup")
 local Strike = markup.Inline:extend("markup.inline.strike") ---@diagnostic disable-line: undefined-field
 
 function Strike:init(...)
-	self:_extend_default_props({
+	self:extend_default_props({
 		style = { strikethrough = true },
 	})
 	Strike.super.init(self, ...)

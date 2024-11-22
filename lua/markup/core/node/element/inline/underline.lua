@@ -5,7 +5,7 @@ local markup = require("markup")
 local Underline = markup.Inline:extend("markup.inline.underline") ---@diagnostic disable-line: undefined-field
 
 function Underline:init(...)
-	self:_extend_default_props({
+	self:extend_default_props({
 		style = { underline = true },
 	})
 	Underline.super.init(self, ...)

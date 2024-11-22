@@ -6,7 +6,7 @@ local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 local OrderedList = markup.List:extend("markup.list.ordered") ---@diagnostic disable-line: undefined-field
 
 function OrderedList:init(...)
-	self:_extend_default_props({
+	self:extend_default_props({
 		ordered = true,
 	})
 	OrderedList.super.init(self, ...)

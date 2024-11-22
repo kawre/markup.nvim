@@ -13,7 +13,7 @@ local log = require("markup.logger")
 local Tree = markup.Block:extend("markup.block.tree") ---@diagnostic disable-line: undefined-field
 
 function Tree:init(...)
-	self:_extend_default_props({
+	self:extend_default_props({
 		expanded = false,
 		title = "Tree", -- stackoverflow when title is a markup.Node
 		icons = {

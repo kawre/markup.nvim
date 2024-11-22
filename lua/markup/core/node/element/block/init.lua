@@ -12,7 +12,7 @@ local Block = markup.Inline:extend("markup.block") ---@diagnostic disable-line: 
 ---------------------------------
 
 function Block:init(...)
-	self:_extend_default_props({
+	self:extend_default_props({
 		display = "block",
 	})
 	Block.super.init(self, ...)
