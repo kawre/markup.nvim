@@ -11,6 +11,8 @@ local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 ---@field protected super markup.Window
 ---@field protected _ markup.Renderer.props
 ---@field body markup.Element.children
+---@field last_render integer
+---@field cooldown_ms integer ms
 local Renderer = markup.Window:extend("MarkupRenderer") ---@diagnostic disable-line: undefined-field
 
 ---------------------------------
@@ -18,6 +20,7 @@ local Renderer = markup.Window:extend("MarkupRenderer") ---@diagnostic disable-l
 ---------------------------------
 
 function Renderer:after_init()
+	self.cooldown_ms = 100
 	Renderer.super.after_init(self)
 	self.body = self._.body
 end
@@ -40,6 +43,13 @@ function Renderer:render_portal(fn)
 	if not self:is_valid() then
 		error("Renderer is not valid")
 	end
+
+	local now = vim.uv.hrtime()
+	local elapsed_ms = (now - (self.last_render or 0)) / 1e6
+	if elapsed_ms < self.cooldown_ms then
+		return
+	end
+	self.last_render = now
 
 	u.measure_time("markup.Renderer:render", function()
 		self:preserve_cursor(function()
