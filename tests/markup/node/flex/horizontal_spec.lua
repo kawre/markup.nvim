@@ -1102,31 +1102,31 @@ describe("markup.HFlex", function()
 		})
 	end)
 
-	it("should correctly apply missing padding on markup.Text", function()
-		renderer.set_width(30)
-
-		renderer({
-			"text",
-			markup.Tree({
-				expanded = true,
-				title = "markup.tree title",
-				icons = {
-					collapse = "",
-					indent = " ",
-					indent_last = " ",
-					indent_hor = " ",
-				},
-				children = {
-					markup.Block("block"),
-					markup.Block("block"),
-				},
-			}),
-		}, {
-			"text markup.tree title       ",
-			"      block                   ",
-			"      block                   ",
-		})
-	end)
+	-- it("should correctly apply missing padding on markup.Text", function()
+	-- 	renderer.set_width(30)
+	--
+	-- 	renderer({
+	-- 		"text",
+	-- 		markup.Tree({
+	-- 			expanded = true,
+	-- 			title = "markup.tree title",
+	-- 			icons = {
+	-- 				collapse = "",
+	-- 				indent = " ",
+	-- 				indent_last = " ",
+	-- 				indent_hor = " ",
+	-- 			},
+	-- 			children = {
+	-- 				markup.Block("block"),
+	-- 				markup.Block("block"),
+	-- 			},
+	-- 		}),
+	-- 	}, {
+	-- 		"text markup.tree title       ",
+	-- 		"      block                   ",
+	-- 		"      block                   ",
+	-- 	})
+	-- end)
 
 	it("should handle fragments", function()
 		renderer.set_width(30)

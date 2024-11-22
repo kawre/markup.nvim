@@ -5,42 +5,62 @@ local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 
 ---@class markup.Renderer.props : markup.Window.props
 ---@field body markup.Element.children
----@field root markup.Element
 ---@field buttons markup.Element[]
 
 ---@class markup.Renderer : markup.Window
 ---@field protected super markup.Window
----@field _ markup.Renderer.props
----@field root markup.Element
+---@field protected _ markup.Renderer.props
+---@field body markup.Element.children
 local Renderer = markup.Window:extend("MarkupRenderer") ---@diagnostic disable-line: undefined-field
 
 ---------------------------------
 ---- Methods
 ---------------------------------
 
-function Renderer:render()
-	if not self:is_valid() or not self._.body then
-		return
-	end
-
-	u.measure_time("markup.Renderer:render", function()
-		self:preserve_cursor(function()
-			self.root = markup.Block(self:body())
-			self:render_tree(self.root)
-		end)
-	end)
+function Renderer:after_init()
+	Renderer.super.after_init(self)
+	self.body = self._.body
 end
 
----@param root markup.Element
-function Renderer:render_tree(root)
-	self:with_buf_option("modifiable", function()
-		self:clear()
+---@param body? markup.Element.children
+function Renderer:render(body)
+	body = body or self.body
+	self:render_portal(function()
+		local root = markup.Block(body)
 		root:render_node(self) ---@diagnostic disable-line: missing-parameter
 		for row, line in pairs(root:computed_lines()) do
 			line:draw(self, row)
 		end
+		self.body = body
 	end)
 end
+
+---@param fn fun()
+function Renderer:render_portal(fn)
+	if not self:is_valid() then
+		error("Renderer is not valid")
+	end
+
+	u.measure_time("markup.Renderer:render", function()
+		self:preserve_cursor(function()
+			self:with_buf_option("modifiable", function()
+				self:clear()
+				fn()
+			end)
+		end)
+	end)
+end
+
+-- ---@param root markup.Element
+-- function Renderer:render_tree(root)
+-- 	self:with_buf_option("modifiable", function()
+-- 		self:clear()
+-- 		root:render_node(self) ---@diagnostic disable-line: missing-parameter
+-- 		for row, line in pairs(root:computed_lines()) do
+-- 			line:draw(self, row)
+-- 		end
+-- 	end)
+-- end
 
 ---@param line_start? integer
 ---@param line_end? integer
@@ -80,18 +100,18 @@ end
 ---- Setters
 ---------------------------------
 
----@param body markup.Element.children
-function Renderer:set_body(body)
-	self._.body = body
-end
-
----------------------------------
----- Getters
----------------------------------
-
-function Renderer:body()
-	return self._.body or ""
-end
+-- ---@param body markup.Element.children
+-- function Renderer:set_body(body)
+-- 	self._.body = body
+-- end
+--
+-- ---------------------------------
+-- ---- Getters
+-- ---------------------------------
+--
+-- function Renderer:body()
+-- 	return self._.body or ""
+-- end
 
 ---------------------------------
 ---- Initializer

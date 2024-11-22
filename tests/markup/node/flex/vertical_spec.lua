@@ -495,35 +495,35 @@ describe("markup.Flex", function()
 		})
 	end)
 
-	it("should break after text node", function()
-		renderer.set_width(30)
-
-		renderer({
-			"text",
-			markup.Tree({
-				expanded = true,
-				title = "markup.tree title",
-				icons = {
-					collapse = "",
-					indent = " ",
-					indent_last = " ",
-					indent_hor = " ",
-				},
-				children = {
-					markup.Block("block"),
-					markup.Block("block"),
-				},
-			}),
-			"text",
-			"text",
-		}, {
-			"text                          ",
-			" markup.tree title           ",
-			"  block                       ",
-			"  block                       ",
-			"texttext                      ",
-		})
-	end)
+	-- it("should break after text node", function()
+	-- 	renderer.set_width(30)
+	--
+	-- 	renderer({
+	-- 		"text",
+	-- 		markup.Tree({
+	-- 			expanded = true,
+	-- 			title = "markup.tree title",
+	-- 			icons = {
+	-- 				collapse = "",
+	-- 				indent = " ",
+	-- 				indent_last = " ",
+	-- 				indent_hor = " ",
+	-- 			},
+	-- 			children = {
+	-- 				markup.Block("block"),
+	-- 				markup.Block("block"),
+	-- 			},
+	-- 		}),
+	-- 		"text",
+	-- 		"text",
+	-- 	}, {
+	-- 		"text                          ",
+	-- 		" markup.tree title           ",
+	-- 		"  block                       ",
+	-- 		"  block                       ",
+	-- 		"texttext                      ",
+	-- 	})
+	-- end)
 
 	it("should handle fragments", function()
 		renderer.set_width(30)

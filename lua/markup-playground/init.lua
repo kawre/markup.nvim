@@ -9,13 +9,13 @@ function playground.open()
 	local api = vim.api
 
 	vim.cmd.tabe(path)
-	local bufnr, winid = api.nvim_get_current_buf(), api.nvim_get_current_win()
 
-	playground.editor = {
-		winid = winid,
-		bufnr = bufnr,
-		filename = api.nvim_buf_get_name(bufnr),
-	}
+	playground.editor = markup.Window({
+		winid = 0,
+		bufnr = 0,
+		filename = path,
+		minimal = false,
+	})
 
 	playground.preview = markup.Renderer({
 		ns_id = api.nvim_create_namespace("markup-playground"),
@@ -31,11 +31,9 @@ function playground.open()
 
 	vim.api.nvim_create_autocmd("BufWritePost", {
 		callback = function()
-			local ok, err = pcall(vim.cmd.luafile, playground.editor.filename)
+			local ok, err = pcall(vim.cmd.luafile, path)
 			if not ok then
 				log.error(err)
-			else
-				playground.preview:render()
 			end
 		end,
 	})

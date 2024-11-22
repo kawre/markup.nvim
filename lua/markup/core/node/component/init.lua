@@ -18,6 +18,11 @@ end
 function Component:render()
 	self.element = self.instance:render()
 	self.instance._element = self.element
+
+	if self.element:is_type("component") then
+		self.element:render()
+	end
+
 	return self.element
 end
 
