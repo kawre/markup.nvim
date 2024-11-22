@@ -21,7 +21,7 @@ function Text:init(content, parent)
 
 	self:set(content)
 	if parent then
-		self:_set_state(parent.owner, parent)
+		self:set_state(parent.owner, parent)
 	end
 end
 

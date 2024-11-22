@@ -4,8 +4,6 @@ local u = require("markup.utils") ---@diagnostic disable-line: unused-local
 local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 
 ---@class markup.Element.props : markup.Node.props
----@field row integer
----@field lines markup.Renderer.Line[]
 ---@field dirty boolean
 ---@field style markup.Element.style
 ---@field children markup.Node[]
@@ -33,14 +31,8 @@ local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 ---@field vertical boolean
 ---@field reverse boolean
 ---@field child_nodes markup.Node[]
----@field children markup.Element[]
----@field first_child markup.Node
----@field first_element_child markup.Element
----@field last_child markup.Node
----@field last_element_child markup.Element
----@field prev_element_sibling markup.Element
----@field next_element_sibling markup.Element
 ---@field component? markup.Component
+---@field builder markup.Renderer.Builder
 local Element = markup.Node:extend("markup.element") ---@diagnostic disable-line: undefined-field
 
 ---------------------------------
@@ -50,8 +42,6 @@ local Element = markup.Node:extend("markup.element") ---@diagnostic disable-line
 Element.static._default_props = {
 	dirty = false,
 	type = "element",
-	row = 0,
-	lines = {},
 	children = {},
 	style = {},
 	display = "inline",
@@ -61,10 +51,7 @@ Element.static._default_props = {
 	spacing = 0,
 	vertical = true,
 	reverse = false,
-	size = {
-		width = false,
-		height = false,
-	},
+	size = {},
 	final = {},
 }
 
@@ -80,96 +67,12 @@ function Element:init(props, style)
 	props = self:_normalize_props(props, style)
 	Element.super.init(self, props)
 	self._default_props = nil
+	self.builder = markup.RendererBuilder()
 end
 
 ---------------------------------
 ---- Methods (Private)
 ---------------------------------
-
----@protected
----@param n? integer
----@return markup.Element
-function Element:_newl(n)
-	self:_inc_row(n or 1)
-	self:_fill_lines()
-	return self
-end
-
----@protected
----@param row_at? integer (0-indexed)
----@return markup.Renderer.Line
-function Element:_line(row_at)
-	row_at = row_at or self:_row()
-	self:_fill_lines(row_at)
-	return self._.lines[row_at]
-end
-
----@protected
----@param row integer (0-indexed)
-function Element:_set_row(row)
-	self._.row = row
-	return self._.row
-end
-
----@protected
----@return integer (0-indexed)
-function Element:_row()
-	return self._.row
-end
-
----@protected
----@param row_at? integer (0-indexed)
-function Element:_fill_lines(row_at)
-	local lines = self._.lines
-	for i = #lines, row_at or self:_row() do
-		if not lines[i] then
-			lines[i] = markup.RendererLine()
-		end
-	end
-end
-
----@protected
----@param n integer
-function Element:_inc_row(n)
-	return self:_set_row(self:_row() + n)
-end
-
----@protected
----@param content string|markup.Text|markup.Renderer.Line
----@param row_at? integer (0-indexed)
----@return markup.Element
-function Element:_append(content, row_at)
-	self:_line(row_at):append(content)
-	return self
-end
-
----@protected
----@param line markup.Renderer.Line
----@param row_at? integer
-function Element:_append_line(line, row_at)
-	if row_at then
-		table.insert(self._.lines, row_at, line)
-	else
-		table.insert(self._.lines, line)
-	end
-	self:_inc_row(1)
-	return self
-end
-
----@protected
----@param line markup.Renderer.Line
-function Element:_prepend_line(line)
-	return self:_append_line(line, 0)
-end
-
----@protected
----@param content string|markup.Text|markup.Renderer.Line
----@param row_at? integer (0-indexed)
----@return markup.Element
-function Element:_prepend(content, row_at)
-	self:_line(row_at):prepend(content)
-	return self
-end
 
 ---@protected
 ---@param element markup.Element
@@ -198,7 +101,7 @@ end
 
 ---@param child markup.Element
 function Element:_index_of_element(child)
-	return u.index_of(self.children, child)
+	return u.index_of(self:children(), child)
 end
 
 function Element:_insert_line(row, content)
@@ -209,9 +112,9 @@ function Element:_insert_line(row, content)
 	end
 
 	if not row then
-		table.insert(self._.lines, line)
+		table.insert(self.builder.lines, line)
 	else
-		table.insert(self._.lines, row, line)
+		table.insert(self.builder.lines, row, line)
 	end
 end
 
@@ -224,14 +127,6 @@ function Element:_non_zero_spacing()
 		or self.padding.right > 0
 		or self.padding.bottom > 0
 		or self.padding.left > 0
-end
-
-function Element:_peripherals_ver_iter()
-	return function() end
-end
-
-function Element:_peripherals_hor_iter()
-	return function() end
 end
 
 function Element:_apply_border()
@@ -281,19 +176,16 @@ function Element:_apply_spacing()
 	end
 end
 
----@protected
 ---@param renderer markup.Renderer
 ---@param parent markup.Element
-function Element:_set_state(renderer, parent)
-	Element.super._set_state(self, renderer, parent)
+function Element:set_state(renderer, parent)
+	Element.super.set_state(self, renderer, parent)
 
-	self._.row = 0
-	self._.lines = {}
+	self.builder:reset()
 	self.display = self._.display
 	self.computed_display = self:_inherit_display(parent)
 	self.style = self:_inherit_style(parent)
 	self.child_nodes = self:_normalize_child_nodes(self._.children)
-	self:_sync_children()
 
 	self.margin = Element.static._normalize_spacing(self._.margin)
 	self.padding = Element.static._normalize_spacing(self._.padding)
@@ -306,13 +198,8 @@ end
 
 function Element:mock_element(style)
 	local _ = markup.Inline(nil, style)
-	_:_set_state(self.owner, self)
+	_:set_state(self.owner, self)
 	return _
-end
-
-function Element:_reset_lines()
-	self._.row = 0
-	self._.lines = {}
 end
 
 function Element:_normalize_child_nodes(children)
@@ -357,35 +244,56 @@ function Element:_normalize_child_nodes(children)
 	return norm
 end
 
-function Element:_sync_children()
-	self.children = vim.tbl_filter(function(child)
+function Element:children()
+	return vim.tbl_filter(function(child)
 		return child:is_element()
 	end, self.child_nodes)
+end
 
-	self.last_child = self.child_nodes[#self.child_nodes]
-	self.first_child = self.child_nodes[1]
-	self.first_element_child = self.children[1]
-	self.last_element_child = self.children[#self.children]
-
-	if self.parent then
-		local element_index = self.parent:_index_of_element(self)
-		if element_index then
-			self.prev_element_sibling = self.parent.children[element_index - 1]
-			self.next_element_sibling = self.parent.children[element_index + 1]
+function Element:iter_children()
+	local children = self:children()
+	local i = 0
+	return function()
+		if i == #children then
+			return nil
 		end
+
+		i = i + 1
+		return children[i], i
 	end
 end
 
+function Element:iter_child_nodes()
+	local nodes = self.child_nodes
+	local i = 0
+	return function()
+		if i == #nodes then
+			return nil
+		end
+
+		i = i + 1
+		return nodes[i], i
+	end
+end
+
+function Element:last_child()
+	return self.child_nodes[#self.child_nodes]
+end
+
+function Element:first_child()
+	return self.child_nodes[1]
+end
+
 function Element:_in_range(c)
-	local len = u.tbl_len(self._.lines)
+	local len = self.builder:height()
 	if len == 0 then
 		return false
 	end
 
 	local row, col = c[1] - 1, c[2]
 
-	local ftexts = self._.lines[0]:texts()
-	local ltexts = self._.lines[len - 1]:texts()
+	local ftexts = self.builder.lines[0]:texts()
+	local ltexts = self.builder.lines[len - 1]:texts()
 	local fpos = ftexts[1]:_get_position()
 	local lpos = ltexts[#ltexts]:_get_position()
 
@@ -403,7 +311,7 @@ function Element:_in_range(c)
 end
 
 function Element:_should_br()
-	local prev_sibling = self.prev_sibling
+	local prev_sibling = self:prev_sibling()
 	return prev_sibling and (prev_sibling:is_br() or self:is_br())
 end
 
@@ -510,29 +418,6 @@ end
 ---- Methods
 ---------------------------------
 
----@param child markup.Node
-function Element:append_child(child)
-	if not child then
-		return
-	end
-	table.insert(self._.children, child)
-	return child
-end
-
----@param child markup.Node
-function Element:prepend_child(child)
-	if not child then
-		return
-	end
-	table.insert(self._.children, 1, child)
-	return child
-end
-
----@param other_node markup.Node
-function Element:contains(other_node)
-	return u.index_of(self.child_nodes, other_node) ~= nil
-end
-
 ---@param event string
 function Element:event(event, ...)
 	event = table.concat({ "on", event:lower() }, "_")
@@ -540,29 +425,6 @@ function Element:event(event, ...)
 	if self._[event] then
 		return self._[event](self, ...)
 	end
-end
-
--- ---@param child markup.Node
--- ---@param reference markup.Node
--- function Element:insert_before(child, reference)
---     local index = u.index_of(self.child_nodes, node)
---     assert(index, "node not found")
---     table.insert(self.child_nodes, index, node)
---     return node
--- end
-
----@param child markup.Node
-function Element:remove_child(child)
-	local index = u.index_of(self.child_nodes, child)
-	assert(index, "child not found")
-	return table.remove(self.child_nodes, index)
-end
-
-function Element:replace_child(new_child, old_child)
-	local index = u.index_of(self.child_nodes, old_child)
-	assert(index, "child not found")
-	self.child_nodes[index] = new_child
-	return old_child
 end
 
 function Element:render()
@@ -607,11 +469,7 @@ function Element:width()
 		return self._.size.width
 	end
 
-	local max_len = 0
-	for _, line in pairs(self._.lines) do
-		max_len = math.max(max_len, line:width())
-	end
-	return max_len
+	return self.builder:width()
 end
 
 ---@return integer
@@ -620,7 +478,7 @@ function Element:height()
 		return self._.size.height
 	end
 
-	return u.tbl_len(self._.lines)
+	return self.builder:height()
 end
 
 ---@return integer, integer
@@ -638,10 +496,8 @@ function Element:box_size()
 end
 
 function Element:max_size()
-	local children = self.children
-
 	local max_width, max_height = 0, 0
-	for _, child in ipairs(children) do
+	for child in self:iter_children() do
 		max_height = math.max(max_height, child:height())
 		max_width = math.max(max_width, child:width())
 	end
@@ -654,7 +510,7 @@ function Element:computed_style()
 end
 
 function Element:computed_lines()
-	return self._.lines
+	return self.builder.lines
 end
 
 ---------------------------------

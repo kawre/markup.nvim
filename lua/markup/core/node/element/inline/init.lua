@@ -9,29 +9,28 @@ local Inline = markup.Element:extend("markup.inline") ---@diagnostic disable-lin
 
 function Inline:_flex_merge_handler()
 	local nodes, vertical = self.child_nodes, self.vertical
-
 	local spacing = self.spacing
 
 	for i, child in ipairs(nodes) do
 		local not_last = i ~= #nodes
 
-		local prev_sibling = child.prev_sibling
+		local prev_sibling = child:prev_sibling()
 		if prev_sibling and (prev_sibling:is_br() or child:is_br()) then
-			self:_newl()
+			self.builder:newl()
 		end
 
 		if child:is_type("text") then
 			---@cast child markup.Text
-			self:_append(child):_append(markup.Pad(spacing, self))
+			self.builder:append(child):append(markup.Pad(spacing, self))
 
 			if not vertical then
 				local maxs = self:max_size()
 				local pad = child:width() + spacing
 				for row = 1, maxs.height - 1 do
-					self:_line(row):append(markup.Pad(pad, self))
+					self.builder:line(row):append(markup.Pad(pad, self))
 				end
 			else
-				self:_newl(not_last and spacing or 0)
+				self.builder:newl(not_last and spacing or 0)
 			end
 		else
 			---@cast child markup.Element
@@ -42,7 +41,7 @@ function Inline:_flex_merge_handler()
 				local width = child:width()
 
 				for row = 0, maxs.height - 1 do
-					local line = child:_line(row)
+					local line = child.builder:line(row)
 					local padding = width - line:width()
 					if padding > 0 then
 						line:append(markup.Pad(padding, child))
@@ -51,16 +50,16 @@ function Inline:_flex_merge_handler()
 						line:append(markup.Pad(spacing, self))
 					end
 
-					self:_append(line, self:_row() + row)
+					self.builder:append(line, self.builder.row + row)
 				end
 
-				self:_set_row(0)
+				self.builder.row = 0
 			else
 				for row, line in pairs(lines) do
-					self:_append(line, self:_row() + row)
+					self.builder:append(line, self.builder.row + row)
 				end
 
-				self:_newl(#lines + (not_last and spacing or 0))
+				self.builder:newl(#lines + (not_last and spacing or 0))
 			end
 		end
 	end
@@ -70,21 +69,21 @@ function Inline:_merge_handler()
 	local nodes = self.child_nodes
 
 	for _, child in ipairs(nodes) do
-		local prev_sibling = child.prev_sibling
+		local prev_sibling = child:prev_sibling()
 		if prev_sibling and (prev_sibling:is_br() or child:is_br()) then
-			self:_newl()
+			self.builder:newl()
 		end
 
 		if child:is_type("text") then
 			---@cast child markup.Text
-			self:_append(child)
+			self.builder:append(child)
 		else
 			---@cast child markup.Element
 			local lines = child:computed_lines()
 			for row, line in pairs(lines) do
-				self:_append(line, self:_row() + row)
+				self.builder:append(line, self.builder.row + row)
 			end
-			self:_newl(#lines)
+			self.builder:newl(#lines)
 		end
 	end
 end

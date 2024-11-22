@@ -33,16 +33,22 @@ function Node:after_init() end
 ---@protected
 ---@param renderer markup.Renderer
 ---@param parent markup.Element
-function Node:_set_state(renderer, parent)
+function Node:set_state(renderer, parent)
 	self.owner = renderer
 	self.parent = parent
+end
 
-	if parent then
-		local node_index = parent:_index_of(self)
-		if node_index then
-			self.prev_sibling = parent.child_nodes[node_index - 1]
-			self.next_sibling = parent.child_nodes[node_index + 1]
-		end
+function Node:prev_sibling()
+	if self.parent then
+		local idx = self.parent:_index_of(self)
+		return idx and self.parent.child_nodes[idx - 1]
+	end
+end
+
+function Node:next_sibling()
+	if self.parent then
+		local idx = self.parent:_index_of(self)
+		return idx and self.parent.child_nodes[idx + 1]
 	end
 end
 
@@ -58,7 +64,7 @@ end
 ---@param renderer markup.Renderer
 ---@param parent markup.Element
 function Node:render_node(renderer, parent)
-	self:_set_state(renderer, parent)
+	self:set_state(renderer, parent)
 	self:before_render()
 	self:render()
 	self:after_render()
