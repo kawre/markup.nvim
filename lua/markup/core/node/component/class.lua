@@ -1,9 +1,9 @@
-local log = require("markup.logger")
+local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 
 ---@class markup.Component.Class
 ---@field state table
 ---@field props table
----@field private _element markup.Node
+---@field node markup.Node
 local ComponentClass = {}
 ComponentClass.__index = ComponentClass
 
@@ -17,7 +17,7 @@ function ComponentClass:constructor() end
 
 ---@private
 function ComponentClass:re_render()
-	self._element.owner:render()
+	return self.node.owner:render()
 end
 
 ---@return markup.Node

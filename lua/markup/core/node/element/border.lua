@@ -1,5 +1,5 @@
 local markup = require("markup")
-local log = require("markup.logger")
+local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 
 ---@class markup.Element.border : markup.Object
 ---@field x any
@@ -7,9 +7,6 @@ local log = require("markup.logger")
 ---@field style string[]
 local ElementBorder = markup.Object("markup.element.border")
 
--- init(char) 'X'
--- init(char, style?) 'X', 'solid'
--- init(chars, style?) 'X', 'solid'
 function ElementBorder:iter_vertical(range)
 	if self._.iter_vertical then
 		return self._.iter_vertical(range)
@@ -78,11 +75,11 @@ function ElementBorder:vertical(parent)
 	end
 
 	for _, top_line in ipairs(top_lines) do
-		parent:_prepend_line(markup.RendererLine():append(table.concat(top_line)))
+		parent.builder:prepend_line(markup.RendererLine():append(table.concat(top_line)))
 	end
 
 	for _, bottom_line in ipairs(bottom_lines) do
-		parent:_append_line(markup.RendererLine():append(table.concat(bottom_line)))
+		parent.builder:append_line(markup.RendererLine():append(table.concat(bottom_line)))
 	end
 
 	self:corners(parent)
@@ -129,8 +126,8 @@ function ElementBorder:horizontal(parent)
 
 	for row, left, right in self:iter_horizontal(parent:height()) do
 		local pleft, pright = h_process(left), h_process(right)
-		parent:_line(row):prepend(pleft or self.chars[8])
-		parent:_line(row):append(pright or self.chars[4])
+		parent.builder:line(row):prepend(pleft or self.chars[8])
+		parent.builder:line(row):append(pright or self.chars[4])
 	end
 end
 
@@ -156,10 +153,10 @@ function ElementBorder:corners(parent)
 		return
 	end
 
-	parent:_line(0):prepend(self.chars[1])
-	parent:_line(0):append(self.chars[3])
-	parent:_line():append(self.chars[5])
-	parent:_line():prepend(self.chars[7])
+	parent.builder:line(0):prepend(self.chars[1])
+	parent.builder:line(0):append(self.chars[3])
+	parent.builder:line():append(self.chars[5])
+	parent.builder:line():prepend(self.chars[7])
 end
 
 function ElementBorder:apply(parent)

@@ -16,13 +16,8 @@ function Component:init(object, ...)
 end
 
 function Component:render()
-	self.element = self.instance:render()
-	self.instance._element = self.element
-
-	if self.element:is_type("component") then
-		self.element:render()
-	end
-
+	self.element = markup.Fragment(self.instance:render())
+	self.instance.node = self.element
 	return self.element
 end
 

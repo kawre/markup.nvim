@@ -14,11 +14,15 @@ function Fragment:init(children)
 	self._child_nodes = markup.Element.static._normalize_children(children)
 end
 
-function Fragment:unpack(tbl)
+---@param tbl table
+---@param parent markup.Element
+function Fragment:unpack(tbl, parent)
+	self:set_state(parent.owner, parent)
+
 	for _, node in ipairs(self._child_nodes) do
 		if node:is_type("fragment") then
 			---@cast node markup.Fragment
-			node:unpack(tbl)
+			node:unpack(tbl, parent)
 		else
 			table.insert(tbl, node)
 		end

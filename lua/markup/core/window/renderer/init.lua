@@ -28,7 +28,7 @@ end
 ---@param body? markup.Element.children
 function Renderer:render(body)
 	body = body or self.body
-	self:render_portal(function()
+	return self:render_portal(function()
 		local root = markup.Block(body)
 		root:render_node(self) ---@diagnostic disable-line: missing-parameter
 		for row, line in pairs(root:computed_lines()) do
@@ -38,16 +38,23 @@ function Renderer:render(body)
 	end)
 end
 
+function Renderer:on_cooldown()
+	local now = vim.uv.hrtime()
+	local elapsed_ms = (now - (self.last_render or 0)) / 1e6
+	if elapsed_ms >= self.cooldown_ms then
+		return now
+	end
+end
+
 ---@param fn fun()
 function Renderer:render_portal(fn)
 	if not self:is_valid() then
 		error("Renderer is not valid")
 	end
 
-	local now = vim.uv.hrtime()
-	local elapsed_ms = (now - (self.last_render or 0)) / 1e6
-	if elapsed_ms < self.cooldown_ms then
-		return
+	local now = self:on_cooldown()
+	if not now then
+		return false
 	end
 	self.last_render = now
 
@@ -59,18 +66,9 @@ function Renderer:render_portal(fn)
 			end)
 		end)
 	end)
-end
 
--- ---@param root markup.Element
--- function Renderer:render_tree(root)
--- 	self:with_buf_option("modifiable", function()
--- 		self:clear()
--- 		root:render_node(self) ---@diagnostic disable-line: missing-parameter
--- 		for row, line in pairs(root:computed_lines()) do
--- 			line:draw(self, row)
--- 		end
--- 	end)
--- end
+	return true
+end
 
 ---@param line_start? integer
 ---@param line_end? integer

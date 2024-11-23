@@ -206,43 +206,39 @@ end
 function Element:_normalize_child_nodes(children)
 	---@type markup.Node[]
 	local tmp = {}
+
 	for _, child in ipairs(children) do
+		if child:is_type("component") then
+			---@cast child markup.Component
+			child = child:render()
+		end
 		if child:is_type("fragment") then
 			---@cast child markup.Fragment
-			child:unpack(tmp)
+			child:unpack(tmp, self)
 		else
 			table.insert(tmp, child)
 		end
 	end
 
-	local norm, i = {}, 1
-	while tmp[i] do
-		local node = tmp[i]
-
-		if node:is_type("text") then
-			---@cast node markup.Text
-			local j = i
-
-			local texts = {}
-			while tmp[j] and tmp[j]:is_type("text") do
-				table.insert(texts, tmp[j]:content()) ---@diagnostic disable-line: undefined-field
-				j = j + 1
-			end
-			table.insert(norm, markup.Text(table.concat(texts)))
-			i = j
+	local result, texts = {}, {}
+	for _, item in ipairs(tmp) do
+		if item:is_type("text") then
+			---@cast item markup.Text
+			table.insert(texts, item:content())
 		else
-			if node:is_type("component") then
-				---@cast node markup.Component
-				table.insert(norm, node:render())
-			else
-				table.insert(norm, node)
+			if not vim.tbl_isempty(texts) then
+				table.insert(result, markup.Text(table.concat(texts)))
+				texts = {}
 			end
-
-			i = i + 1
+			table.insert(result, item)
 		end
 	end
 
-	return norm
+	if not vim.tbl_isempty(texts) then
+		table.insert(result, markup.Text(table.concat(texts)))
+	end
+
+	return result
 end
 
 function Element:children()
@@ -371,27 +367,35 @@ function Element:normalize_props(props, style)
 end
 
 function Element.static._normalize_children(children)
-	if type(children) == "string" or type(children) == "number" then
-		return { markup.Text(children) }
-	elseif getmetatable(children) then
-		return { children }
+	if type(children) ~= "table" or getmetatable(children) then
+		return { Element.static.normalize_child(children) }
 	else -- table
 		local result = {}
 
 		for _, child in ipairs(children or {}) do
-			---@cast child any
-			if type(child) == "string" or type(child) == "number" then
-				table.insert(result, markup.Text(child))
-			elseif getmetatable(child) then
-				table.insert(result, child)
-			else -- markup.Fragment
-				if not vim.tbl_isempty(child) then
-					table.insert(result, markup.Fragment(child))
-				end
+			local norm = Element.static.normalize_child(child)
+			if norm then
+				table.insert(result, norm)
 			end
 		end
 
 		return result
+	end
+end
+
+function Element.static.normalize_child(child)
+	---@cast child any
+	if type(child) == "string" or type(child) == "number" then
+		return markup.Text(child)
+	elseif getmetatable(child) then
+		if child:is_type("component") then
+			---@cast child markup.Component
+			return child:render()
+		else
+			return child
+		end
+	elseif not vim.tbl_isempty(child) then
+		return markup.Fragment(child)
 	end
 end
 
