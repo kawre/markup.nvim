@@ -11,7 +11,7 @@ local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 ---@class markup.Text : markup.Node
 ---@field protected _ markup.Text.props
 ---@field protected super markup.Node
-local Text = markup.Node:extend("MarkupText") ---@diagnostic disable-line: undefined-field
+local Text = markup.Node:extend("markup.text") ---@diagnostic disable-line: undefined-field
 
 ---@param content markup.Text.content
 function Text:init(content, parent)

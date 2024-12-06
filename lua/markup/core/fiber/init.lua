@@ -35,19 +35,18 @@ function Fiber.static:build_tree(element, parent)
 		return nil
 	end
 
+	if type(element) == "string" or type(element) == "number" then
+		return markup.create_element("text", { children = tostring(element) })
+	end
+
 	local fiber = Fiber(element)
 	fiber["return"] = parent
 
-	if type(element) == "string" then
-		local e = markup.create_element("text", { text = element })
-		return Fiber.static:build_tree(e, fiber)
-	end
-
-	if type(element.type) == "function" then
-		return Fiber.static:build_tree(element.type(element.props), fiber)
-	end
-
 	local children = element.props.children
+	if type(element.type) == "function" then
+		children = element.type(element.props)
+	end
+
 	if children then
 		local prev_sibling = nil
 
@@ -66,7 +65,32 @@ function Fiber.static:build_tree(element, parent)
 		end
 	end
 
+	fiber.state_node = element
+
 	return fiber
+end
+
+function Fiber:print()
+	local function print_fiber_tree(fiber, depth)
+		if not fiber then
+			return
+		end
+
+		local indent = string.rep("\t", depth or 0)
+
+		local fiber_type = fiber.type or "unknown"
+		print(indent .. string.format("Fiber: %s", fiber_type))
+
+		if fiber.child then
+			print_fiber_tree(fiber.child, (depth or 0) + 1)
+		end
+
+		if fiber.sibling then
+			print_fiber_tree(fiber.sibling, depth)
+		end
+	end
+
+	print_fiber_tree(self, 0)
 end
 
 return Fiber

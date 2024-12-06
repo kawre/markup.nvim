@@ -10,18 +10,12 @@ local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 ---@field protected _ markup.Node.props
 ---@field owner markup.Renderer
 ---@field parent markup.Element
----@field dirty boolean
+---@field child_nodes markup.Node[]
 local Node = markup.Object("markup.node")
 
 ---------------------------------
 ---- Initializer
 ---------------------------------
-
-function Node.static:new(...)
-	local instance = setmetatable({ class = self }, self.__meta)
-	instance:init(...)
-	return instance
-end
 
 ---@param props markup.Node.constructor.props
 function Node:init(props)

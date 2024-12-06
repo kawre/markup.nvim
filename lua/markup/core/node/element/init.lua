@@ -436,8 +436,6 @@ function Element:render()
 	for _, child in ipairs(self.child_nodes) do
 		child:render_node(self.owner, self)
 	end
-
-	return markup.Fiber(self)
 end
 
 local display_map = {

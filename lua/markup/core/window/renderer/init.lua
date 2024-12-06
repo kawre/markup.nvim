@@ -29,7 +29,7 @@ end
 
 function Renderer:render(element)
 	self.fiber_tree = markup.Fiber.static:build_tree(element)
-	-- log.info(self.fiber_tree)
+	self.fiber_tree:print()
 end
 
 function Renderer:reconcile()
