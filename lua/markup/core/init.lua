@@ -1,26 +1,10 @@
+local log = require("markup.logger") ---@diagnostic disable-line: unused-local
+
 ---@class markup.core
 local core = {}
 
-core.lookups = {
-	-- Object
-	object = "markup.core.object",
-
-	-- Node
+core.node_lookup = {
 	node = "markup.core.node",
-	-- Text
-	text = "markup.core.node.text",
-	pad = "markup.core.node.text.padding",
-
-	-- Fiber
-	fiber = "markup.core.fiber",
-
-	-- TabPage
-	tabpage = "markup.core.tabpage",
-
-	-- Layout
-	layout = "markup.core.layout",
-
-	-- Element
 	element = "markup.core.node.element",
 	anchor = "markup.core.node.element.inline.anchor",
 	code = "markup.core.node.element.inline.code",
@@ -35,36 +19,42 @@ core.lookups = {
 	olist = "markup.core.node.element.block.list.ordered",
 	listitem = "markup.core.node.element.block.list.item",
 	pre = "markup.core.node.element.block.pre",
-	tree = "markup.core.node.element.block.tree",
-
-	-- Inline
 	inline = "markup.core.node.element.inline",
-	-- Block
 	block = "markup.core.node.element.block",
-	-- Flex
 	box = "markup.core.node.element.flex",
 	flex = "markup.core.node.element.flex",
 	hflex = "markup.core.node.element.flex.horizontal",
-	-- Grid
 	grid = "markup.core.node.element.grid",
+	["if"] = "markup.core.node.if",
+	fragment = "markup.core.node.fragment",
+	text = "markup.core.node.text",
+	pad = "markup.core.node.text.padding",
+}
 
-	-- Window
+core.default_lookups = {
+	fiber = "markup.core.fiber",
+	tabpage = "markup.core.tabpage",
+	object = "markup.core.object",
+	parser = "markup.core.parser",
 	window = "markup.core.window",
 	renderer = "markup.core.window.renderer",
 	rendererline = "markup.core.window.renderer.line",
 	rendererbuilder = "markup.core.window.renderer.line.builder",
-
-	-- Component
-	component = "markup.core.element.component",
-
-	-- Parser
-	parser = "markup.core.parser",
-
-	-- Utils
-	["if"] = "markup.core.node.if",
-	fragment = "markup.core.node.fragment",
-
-	element2 = "markup.core.element",
+	layout = "markup.core.layout",
+	create_element = "markup.core.create_element",
+	component = "markup.core.create_element.component",
 }
 
-return core
+core.lookups = vim.tbl_extend( --
+	"error",
+	core.default_lookups,
+	core.node_lookup
+)
+
+---@type markup.core
+return setmetatable(core, {
+	__index = function(t, k)
+		local u = require("markup.utils")
+		return u.lookup(t.lookups, k)
+	end,
+})

@@ -1,4 +1,4 @@
-local markup = require("markup")
+local markup = require("markup.core")
 local u = require("markup.utils") ---@diagnostic disable-line: unused-local
 local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 

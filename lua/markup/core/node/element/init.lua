@@ -1,4 +1,4 @@
-local markup = require("markup")
+local markup = require("markup.core")
 local Border = require("markup.core.node.element.border")
 local u = require("markup.utils") ---@diagnostic disable-line: unused-local
 local log = require("markup.logger") ---@diagnostic disable-line: unused-local
@@ -539,10 +539,5 @@ end
 
 ---@alias markup.Element.constructor fun(props?: markup.Element.children.content|markup.Element.constructor.props, style?: markup.Element.style.props): markup.Element
 
-local mt = getmetatable(Element)
-mt.__call = function(_, type, props, style)
-	return markup[type](props, style)
-end
-
 ---@type fun(type: markup.Element.type, props?: markup.Element.children.content|markup.Element.constructor.props, style?: markup.Element.style.props): markup.Element
-return setmetatable(Element, mt)
+return Element

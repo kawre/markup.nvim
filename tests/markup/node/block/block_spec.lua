@@ -1,6 +1,6 @@
 ---@module 'luassert'
 
-local markup = require("markup")
+local markup = require("markup.core")
 local h = require("tests.helpers")
 
 describe("markup.Block", function()

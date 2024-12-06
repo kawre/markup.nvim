@@ -1,4 +1,5 @@
 local log = require("markup.logger") ---@diagnostic disable-line: unused-local
+local markup = require("markup.core")
 
 ---@class markup.Element2
 ---@field type string
@@ -6,6 +7,14 @@ local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 ---@field ref any
 ---@field key any
 ---@field owner any
+
+local function normalize_type(_type)
+	if type(_type) == "string" then
+		return markup[_type:lower()]
+	end
+
+	return _type
+end
 
 local function normalize_props(props)
 	if not props then
@@ -42,17 +51,13 @@ end
 ---
 ---@return markup.Element2
 return function(type, props)
+	type = normalize_type(type)
 	props = normalize_props(props)
 
-	return setmetatable({
+	return {
 		type = type,
 		props = props,
 		ref = nil,
 		key = nil,
-		owner = nil,
-	}, {
-		__tostring = function(self)
-			return "Element<" .. self.type .. ">"
-		end,
-	})
+	}
 end

@@ -1,5 +1,6 @@
-local markup = require("markup")
+local markup = require("markup.core")
 local u = require("markup.utils") ---@diagnostic disable-line: unused-local
+local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 
 ---@class markup.Node.props
 ---@field type markup.Node.type
@@ -15,6 +16,12 @@ local Node = markup.Object("markup.node")
 ---------------------------------
 ---- Initializer
 ---------------------------------
+
+function Node.static:new(...)
+	local instance = setmetatable({ class = self }, self.__meta)
+	instance:init(...)
+	return instance
+end
 
 ---@param props markup.Node.constructor.props
 function Node:init(props)

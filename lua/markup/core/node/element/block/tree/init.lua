@@ -1,4 +1,4 @@
-local markup = require("markup")
+local markup = require("markup.core")
 local log = require("markup.logger")
 
 ---@class markup.Tree.props : markup.Block.props

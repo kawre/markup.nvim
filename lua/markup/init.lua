@@ -1,5 +1,4 @@
 local core = require("markup.core")
-local ui = require("markup.ui")
 
 ---@class markup
 -- Object
@@ -49,37 +48,60 @@ local ui = require("markup.ui")
 ---@field Fragment markup.Fragment.constructor
 local markup = {}
 
----@private
-markup.lookups = {}
----@private
-markup.modules = { core, ui }
+-- stylua: ignore start
+markup.node_lookup = {
+	block = "block",
+		list = "list",
+			listitem = "listitem",
+			olist = "olist",
+	flex = "flex",
+		hflex = "hflex",
+		box = "box",
+	grid = "grid",
+	inline = "inline",
+		anchor = "anchor",
+		code = "code",
+		italic = "italic",
+		mark = "mark",
+		strike = "strike",
+		strong = "strong",
+		sub = "sub",
+		sup = "sup",
+		underline = "underline",
+}
+-- stylua: ignore end
 
----@param lookups table<string, string>
-function markup.register(lookups)
-	for name, path in pairs(lookups) do
-		markup.lookups[name] = path
+markup.node_lookup = vim.tbl_map(function(v)
+	return function(props)
+		return core.create_element(core[v], props)
 	end
-end
+end, markup.node_lookup)
 
-for _, module in ipairs(markup.modules) do
-	markup.register(module.lookups)
-end
+markup.lookups = vim.tbl_extend("error", { --
+	object = "object",
+	layout = "layout",
+	parser = "parser",
+	tabpage = "tabpage",
+	window = "window",
+	renderer = "renderer",
+	create_element = "create_element",
+	component = "component",
+}, markup.node_lookup)
 
 function markup.setup(opts)
 	local config = require("markup.config")
-
 	config.user = vim.tbl_deep_extend("force", config, opts or {})
 	config.debug = opts.debug or config.debug
-
-	require("markup-playground").setup()
-	require("markup.theme").setup()
 end
+
+require("markup-playground").setup()
+require("markup.theme").setup()
 
 return setmetatable(markup, {
 	__index = function(t, k)
-		k = k:lower()
-		if t.lookups[k] then
-			return require(t.lookups[k])
-		end
+		local u = require("markup.utils")
+		return u.lookup(t.lookups, k, function(x)
+			return core[x]
+		end)
 	end,
 })

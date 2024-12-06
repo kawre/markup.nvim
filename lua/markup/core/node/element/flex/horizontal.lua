@@ -1,4 +1,4 @@
-local markup = require("markup")
+local markup = require("markup.core")
 
 ---@class markup.Flex.Horizontal : markup.Flex
 local HorizontalFlex = markup.Flex:extend("markup.flex.horizontal") ---@diagnostic disable-line: undefined-field

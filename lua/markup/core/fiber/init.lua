@@ -1,4 +1,4 @@
-local markup = require("markup")
+local markup = require("markup.core")
 local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 
 ---@class markup.Fiber : markup.Object
@@ -29,6 +29,7 @@ function Fiber:init(element)
 	self.type = element.type
 end
 
+---@return markup.Fiber?
 function Fiber.static:build_tree(element, parent)
 	if not element then
 		return nil
@@ -38,10 +39,8 @@ function Fiber.static:build_tree(element, parent)
 	fiber["return"] = parent
 
 	if type(element) == "string" then
-		return Fiber.static:build_tree({
-			type = "text",
-			props = { text = element },
-		}, fiber)
+		local e = markup.create_element("text", { text = element })
+		return Fiber.static:build_tree(e, fiber)
 	end
 
 	if type(element.type) == "function" then

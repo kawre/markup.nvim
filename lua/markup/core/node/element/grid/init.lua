@@ -1,4 +1,4 @@
-local markup = require("markup")
+local markup = require("markup.core")
 
 ---@class markup.Grid : markup.Block
 ---@field protected super markup.Block

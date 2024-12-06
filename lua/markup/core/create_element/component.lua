@@ -1,8 +1,8 @@
-local markup = require("markup")
+local markup = require("markup.core")
 local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 
 return function(component)
 	return function(props)
-		return markup.Element2(component, props)
+		return markup.create_element(component, props)
 	end
 end

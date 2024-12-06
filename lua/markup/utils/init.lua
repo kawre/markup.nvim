@@ -1,4 +1,4 @@
-local markup = require("markup")
+local markup = require("markup.core")
 local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 
 ---@class markup.Utils
@@ -79,6 +79,19 @@ function utils.tbl_len(tbl)
 		count = count + 1
 	end
 	return count
+end
+
+function utils.lookup(tbl, key, fn)
+	local k = key:lower()
+	local v = tbl[k]
+
+	assert(v, ("lookup: key '%s' not found"):format(key))
+
+	if type(v) == "function" then
+		return v
+	else
+		return fn and fn(v) or require(v)
+	end
 end
 
 return utils

@@ -1,4 +1,4 @@
-local markup = require("markup")
+local markup = require("markup.core")
 
 local u = require("markup.utils") ---@diagnostic disable-line: unused-local
 local log = require("markup.logger") ---@diagnostic disable-line: unused-local
@@ -13,8 +13,8 @@ local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 ---@field body markup.Element.children
 ---@field last_render integer
 ---@field cooldown_ms integer ms
----@field tree any
----@field wip_tree any
+---@field fiber_tree? markup.Fiber
+---@field wip_fiber_tree? markup.Fiber
 local Renderer = markup.Window:extend("MarkupRenderer") ---@diagnostic disable-line: undefined-field
 
 ---------------------------------
@@ -28,12 +28,8 @@ function Renderer:after_init()
 end
 
 function Renderer:render(element)
-	local fiber = markup.Fiber.static:build_tree(element)
-end
-
-function Renderer:render2(component)
-	self.root = component
-	self.tree = markup.Fiber(component):render()
+	self.fiber_tree = markup.Fiber.static:build_tree(element)
+	-- log.info(self.fiber_tree)
 end
 
 function Renderer:reconcile()
@@ -43,7 +39,7 @@ function Renderer:reconcile()
 
 	-- self.tree = self:_reconcile(self.currentTree, newNode:render())
 	-- self.tree:reconcile(self.tree)
-	self:_reconcile(self.tree, markup.Fiber(self.root))
+	-- self:_reconcile(self.tree, markup.Fiber(self.root))
 end
 
 ---@private

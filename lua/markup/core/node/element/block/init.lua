@@ -1,4 +1,4 @@
-local markup = require("markup")
+local markup = require("markup.core")
 local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 
 ---@class markup.Block.props : markup.Inline.props
