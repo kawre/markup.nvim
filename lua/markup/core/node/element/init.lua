@@ -436,6 +436,8 @@ function Element:render()
 	for _, child in ipairs(self.child_nodes) do
 		child:render_node(self.owner, self)
 	end
+
+	return markup.Fiber(self)
 end
 
 local display_map = {
@@ -537,7 +539,10 @@ end
 
 ---@alias markup.Element.constructor fun(props?: markup.Element.children.content|markup.Element.constructor.props, style?: markup.Element.style.props): markup.Element
 
----@type markup.Element.constructor
-local MarkupElement = Element ---@diagnostic disable-line: assign-type-mismatch
+local mt = getmetatable(Element)
+mt.__call = function(_, type, props, style)
+	return markup[type](props, style)
+end
 
-return MarkupElement
+---@type fun(type: markup.Element.type, props?: markup.Element.children.content|markup.Element.constructor.props, style?: markup.Element.style.props): markup.Element
+return setmetatable(Element, mt)

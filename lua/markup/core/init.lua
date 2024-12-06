@@ -3,63 +3,68 @@ local core = {}
 
 core.lookups = {
 	-- Object
-	Object = "markup.core.object",
+	object = "markup.core.object",
 
 	-- Node
-	Node = "markup.core.node",
+	node = "markup.core.node",
 	-- Text
-	Text = "markup.core.node.text",
-	Pad = "markup.core.node.text.padding",
+	text = "markup.core.node.text",
+	pad = "markup.core.node.text.padding",
+
+	-- Fiber
+	fiber = "markup.core.fiber",
 
 	-- TabPage
-	TabPage = "markup.core.tabpage",
+	tabpage = "markup.core.tabpage",
 
 	-- Layout
-	Layout = "markup.core.layout",
+	layout = "markup.core.layout",
 
 	-- Element
-	Element = "markup.core.node.element",
-	Anchor = "markup.core.node.element.inline.anchor",
-	Code = "markup.core.node.element.inline.code",
-	Italic = "markup.core.node.element.inline.italic",
-	Mark = "markup.core.node.element.inline.mark",
-	Strike = "markup.core.node.element.inline.strike",
-	Strong = "markup.core.node.element.inline.strong",
-	Sub = "markup.core.node.element.inline.sub",
-	Sup = "markup.core.node.element.inline.sup",
-	Underline = "markup.core.node.element.inline.underline",
-	List = "markup.core.node.element.block.list",
-	OList = "markup.core.node.element.block.list.ordered",
-	ListItem = "markup.core.node.element.block.list.item",
-	Pre = "markup.core.node.element.block.pre",
-	Tree = "markup.core.node.element.block.tree",
+	element = "markup.core.node.element",
+	anchor = "markup.core.node.element.inline.anchor",
+	code = "markup.core.node.element.inline.code",
+	italic = "markup.core.node.element.inline.italic",
+	mark = "markup.core.node.element.inline.mark",
+	strike = "markup.core.node.element.inline.strike",
+	strong = "markup.core.node.element.inline.strong",
+	sub = "markup.core.node.element.inline.sub",
+	sup = "markup.core.node.element.inline.sup",
+	underline = "markup.core.node.element.inline.underline",
+	list = "markup.core.node.element.block.list",
+	olist = "markup.core.node.element.block.list.ordered",
+	listitem = "markup.core.node.element.block.list.item",
+	pre = "markup.core.node.element.block.pre",
+	tree = "markup.core.node.element.block.tree",
 
 	-- Inline
-	Inline = "markup.core.node.element.inline",
+	inline = "markup.core.node.element.inline",
 	-- Block
-	Block = "markup.core.node.element.block",
+	block = "markup.core.node.element.block",
 	-- Flex
-	Box = "markup.core.node.element.flex",
-	Flex = "markup.core.node.element.flex",
-	HFlex = "markup.core.node.element.flex.horizontal",
+	box = "markup.core.node.element.flex",
+	flex = "markup.core.node.element.flex",
+	hflex = "markup.core.node.element.flex.horizontal",
 	-- Grid
-	Grid = "markup.core.node.element.grid",
+	grid = "markup.core.node.element.grid",
 
 	-- Window
-	Window = "markup.core.window",
-	Renderer = "markup.core.window.renderer",
-	RendererLine = "markup.core.window.renderer.line",
-	RendererBuilder = "markup.core.window.renderer.line.builder",
+	window = "markup.core.window",
+	renderer = "markup.core.window.renderer",
+	rendererline = "markup.core.window.renderer.line",
+	rendererbuilder = "markup.core.window.renderer.line.builder",
 
 	-- Component
-	Component = "markup.core.node.component",
+	component = "markup.core.element.component",
 
 	-- Parser
-	Parser = "markup.core.parser",
+	parser = "markup.core.parser",
 
 	-- Utils
-	If = "markup.core.node.if",
-	Fragment = "markup.core.node.fragment",
+	["if"] = "markup.core.node.if",
+	fragment = "markup.core.node.fragment",
+
+	element2 = "markup.core.element",
 }
 
 return core

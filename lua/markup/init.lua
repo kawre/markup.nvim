@@ -8,6 +8,8 @@ local ui = require("markup.ui")
 ---@field Node markup.Node.constructor
 ---@field Text markup.Text.constructor
 ---@field Pad markup.Padding.constructor
+-- Fiber
+---@field Fiber markup.Fiber
 -- Element
 ---@field Element markup.Element.constructor
 -- Inline
@@ -75,6 +77,7 @@ end
 
 return setmetatable(markup, {
 	__index = function(t, k)
+		k = k:lower()
 		if t.lookups[k] then
 			return require(t.lookups[k])
 		end

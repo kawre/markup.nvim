@@ -14,7 +14,7 @@ local function normalize(msg)
 	if type(msg) == "string" then
 		return msg
 	else
-		return vim.inspect(msg, { depth = 3 })
+		return vim.inspect(msg)
 	end
 end
 

@@ -13,6 +13,8 @@ local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 ---@field body markup.Element.children
 ---@field last_render integer
 ---@field cooldown_ms integer ms
+---@field tree any
+---@field wip_tree any
 local Renderer = markup.Window:extend("MarkupRenderer") ---@diagnostic disable-line: undefined-field
 
 ---------------------------------
@@ -25,17 +27,56 @@ function Renderer:after_init()
 	self.body = self._.body
 end
 
----@param body? markup.Element.children
-function Renderer:render(body)
-	body = body or self.body
-	return self:render_portal(function()
-		local root = markup.Block(body)
-		root:render_node(self) ---@diagnostic disable-line: missing-parameter
-		for row, line in pairs(root:computed_lines()) do
-			line:draw(self, row)
-		end
-		self.body = body
-	end)
+function Renderer:render(element)
+	local fiber = markup.Fiber.static:build_tree(element)
+end
+
+function Renderer:render2(component)
+	self.root = component
+	self.tree = markup.Fiber(component):render()
+end
+
+function Renderer:reconcile()
+	-- if not self.tree then
+	-- 	self.tree = markup.Fiber(self.root)
+	-- end
+
+	-- self.tree = self:_reconcile(self.currentTree, newNode:render())
+	-- self.tree:reconcile(self.tree)
+	self:_reconcile(self.tree, markup.Fiber(self.root))
+end
+
+---@private
+---@param old_fiber? markup.Fiber
+---@param new_fiber? markup.Fiber
+function Renderer:_reconcile(old_fiber, new_fiber)
+	if not old_fiber then
+		return new_fiber
+	end
+
+	if not new_fiber then
+		return nil
+	end
+
+	if old_fiber.type ~= new_fiber.type then
+		return new_fiber
+	end
+
+	new_fiber.state = old_fiber.state
+	new_fiber.alternate = old_fiber
+
+	-- Recursively reconcile children
+	local oldChildren = old_fiber.children or {}
+	local newChildren = new_fiber.children or {}
+	local maxChildren = math.max(#oldChildren, #newChildren)
+
+	local reconciledChildren = {}
+	for i = 1, maxChildren do
+		reconciledChildren[i] = self:_reconcile(oldChildren[i], newChildren[i])
+	end
+
+	new_fiber.children = reconciledChildren
+	return new_fiber
 end
 
 function Renderer:on_cooldown()

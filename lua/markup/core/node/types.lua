@@ -24,8 +24,12 @@
 ---@alias markup.Element.style vim.api.keyset.highlight|markup.Element.style.alias
 
 ---@alias markup.Element.type
----|"block"
----|"inline"
+---| "block"
+---| "inline"
+---| "flex"
+---| "hflex"
+---| "grid"
+---| "anchor"
 
 ---@alias markup.Element.padding
 ---|integer
