@@ -88,7 +88,7 @@ markup.lookups = vim.tbl_extend("error", { --
 	window = "window",
 	renderer = "renderer",
 	element = "create_element",
-	component = "component",
+	component = "create_component",
 }, markup.node_lookup)
 
 function markup.setup(opts)

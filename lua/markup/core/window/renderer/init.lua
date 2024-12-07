@@ -29,26 +29,17 @@ end
 
 ---@param element markup.ElementObject
 function Renderer:render(element)
-	self.root = markup.create_element("inline")
-	self.fiber_root = markup.Fiber(self.root)
-	self.fiber_root.child = markup.Fiber.static:build_tree(element, self.fiber_root)
-	self.fiber_root:print()
+	self.root = markup.create_fiber_root()
+	self.root.child = markup.Fiber.static:build_tree(element, self.root)
+	self.root:print()
 end
 
-function Renderer:reconcile()
-	-- if not self.tree then
-	-- 	self.tree = markup.Fiber(self.root)
-	-- end
-
-	-- self.tree = self:_reconcile(self.currentTree, newNode:render())
-	-- self.tree:reconcile(self.tree)
-	-- self:_reconcile(self.tree, markup.Fiber(self.root))
-end
+function Renderer:reconcile() end
 
 ---@private
----@param old_fiber? markup.Fiber
----@param new_fiber? markup.Fiber
-function Renderer:_reconcile(old_fiber, new_fiber)
+---@param current? markup.Fiber
+---@param wip? markup.Fiber
+function Renderer:_reconcile(current, wip)
 	if not old_fiber then
 		return new_fiber
 	end

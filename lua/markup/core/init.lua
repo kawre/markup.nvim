@@ -41,8 +41,10 @@ core.default_lookups = {
 	rendererline = "markup.core.window.renderer.line",
 	rendererbuilder = "markup.core.window.renderer.line.builder",
 	layout = "markup.core.layout",
-	create_element = "markup.core.create_element",
-	component = "markup.core.create_element.component",
+	create_element = "markup.core.create.element",
+	create_root = "markup.core.create.root",
+	create_fiber_root = "markup.core.create.fiber.root",
+	create_component = "markup.core.create.component",
 }
 
 core.lookups = vim.tbl_extend( --

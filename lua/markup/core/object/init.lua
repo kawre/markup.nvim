@@ -163,15 +163,16 @@ local function create_object(_, name)
 end
 
 ---@class markup.Object
+---@field is_class fun(class1: markup.Object, class2: table): boolean
 ---@field is_subclass fun(subclass: markup.Object, class: table): boolean
 ---@field is_instance fun(instance: markup.Object, class: table): boolean
 ---@field static any
 ---@field super any
 ---@field class any
 local Object = setmetatable({
+	is_class = is_class,
 	is_subclass = is_subclass,
 	is_instance = is_instance,
-	is_class = is_class,
 }, {
 	__call = create_object,
 })

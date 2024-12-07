@@ -45,32 +45,21 @@ end
 ---@return markup.Fiber
 function Fiber.static:build_tree(element, parent)
 	if type(element) == "string" or type(element) == "number" then
-		local e = markup.create_element("text", { children = tostring(element) })
-		return Fiber(e, parent)
+		element = markup.create_element("text", { children = tostring(element) })
 	end
 
 	local fiber = Fiber(element, parent)
+	local children = fiber.props.children
 
-	if fiber.tag == FiberTag.ELEMENT then
+	if fiber.tag == FiberTag.FUNCTION then
+		children = fiber.type(fiber.props)
+	elseif fiber.tag == FiberTag.ELEMENT then
+		fiber.state_node = fiber.type(fiber.props)
 		parent = fiber
 	end
 
-	local children = fiber.props.children
-	if fiber.tag == FiberTag.FUNCTION then
-		children = fiber.type(fiber.props)
-	end
-
-	if fiber.tag == FiberTag.ELEMENT then
-		fiber.state_node = fiber.type(fiber.props)
-	end
-
-	if children then
-		if type(children) ~= "table" then
-			return fiber
-		end
-
+	if children and type(children) == "table" then
 		local prev_sibling = nil
-
 		children = vim.islist(children) and children or { children }
 
 		for i, child in ipairs(children) do
@@ -84,13 +73,7 @@ function Fiber.static:build_tree(element, parent)
 
 			prev_sibling = child_fiber
 
-			-- local node = child_fiber.state_node
-			-- if node then
-			-- 	fiber.state_node:append_child(node)
-			-- 	child_fiber["return"] = fiber
-			-- end
-			-- child_fiber["return"].state_node:append_child(child_fiber.state_node)
-			-- log.info(child_fiber)
+			child_fiber["return"].state_node:append_child(child_fiber.state_node)
 		end
 	end
 
