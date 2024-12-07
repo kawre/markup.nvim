@@ -27,7 +27,7 @@ function Renderer:after_init()
 	self.body = self._.body
 end
 
----@param element markup.ElementObject
+---@param element markup.Element.Table
 function Renderer:render(element)
 	self.root = markup.create_fiber_root()
 	self.root.child = markup.Fiber.static:build_tree(element, self.root)

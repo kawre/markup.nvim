@@ -1,4 +1,4 @@
-local FiberTag = require("markup.core.fiber.types").Tag
+local FiberTag = require("markup.core.fiber.enum").Tag
 local markup = require("markup.core")
 local u = require("markup.utils")
 local log = require("markup.logger") ---@diagnostic disable-line: unused-local
@@ -29,7 +29,7 @@ function Fiber.static:tag(element)
 	end
 end
 
----@param element markup.ElementObject
+---@param element markup.Element.Table
 function Fiber:init(element, parent)
 	self.alternate = nil
 
@@ -40,7 +40,7 @@ function Fiber:init(element, parent)
 	self["return"] = parent
 end
 
----@param element markup.ElementObject
+---@param element markup.Element.Table
 ---@param parent markup.Fiber
 ---@return markup.Fiber
 function Fiber.static:build_tree(element, parent)
@@ -99,7 +99,7 @@ end
 
 ---@param returnf markup.Fiber
 ---@param current? markup.Fiber
----@param element markup.ElementObject
+---@param element markup.Element.Table
 function Fiber.reconcile_single_element_node(returnf, current, element)
 	local existing = current
 

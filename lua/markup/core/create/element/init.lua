@@ -1,7 +1,7 @@
 local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 local markup = require("markup.core")
 
----@class markup.ElementObject
+---@class markup.Element.Table
 ---@field type string
 ---@field props table
 ---@field ref any
@@ -51,10 +51,11 @@ local function normalize_props(props, style)
 	end
 end
 
----@param type string
----@param props { children?: (number|string|table)[] }
----
----@return markup.ElementObject
+---@alias markup.create_element.props { children?: (number|string|table)[] }
+---@alias markup.create_element
+---| fun(type: markup.Fiber.tag, props?: markup.create_element.props, style?: table): markup.Element.Table
+
+---@type markup.create_element
 local function create_element(type, props, style)
 	type = normalize_type(type)
 	props = normalize_props(props, style)

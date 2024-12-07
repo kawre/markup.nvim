@@ -1,6 +1,9 @@
 local markup = require("markup.core")
 
----@param element markup.ElementObject
+---@alias markup.create_fiber_from_element
+---| fun(element: markup.Element.Table): markup.Fiber
+
+---@type markup.create_fiber_from_element
 local function create_fiber_from_element(element)
 	return markup.create_fiber(element.type, element.props, element.key)
 end

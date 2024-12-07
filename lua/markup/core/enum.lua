@@ -62,6 +62,7 @@ enum.CreateFiber = {
 }
 
 enum.Create = {
+	CREATE_FRAGMENT = "markup.core.create.fragment",
 	enum.CreateElement,
 	enum.CreateFiber,
 }

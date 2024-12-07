@@ -1,5 +1,5 @@
 local markup = require("markup.core")
-local FiberTag = require("markup.core.fiber.types").Tag
+local FiberTag = require("markup.core.fiber.enum").Tag
 local u = require("markup.utils")
 
 local function tag_from_type(_type)
@@ -16,6 +16,10 @@ local function tag_from_type(_type)
 	end
 end
 
+---@alias markup.create_fiber
+---| fun(type: any, pending_props: table, key?: string): markup.Fiber
+
+---@type markup.create_fiber
 local function create_fiber(type, pending_props, key)
 	return {
 		props = pending_props,

@@ -31,14 +31,12 @@ enum.Node = {
 enum.CreateNode = enum:map(enum.Node, function(_, v)
 	local core = require("markup.core")
 	return function(props)
-		log.info(v)
 		return core.create_element(require(v), props)
 	end
 end)
 
 enum.Lookup = {
 	enum.CreateNode,
-	OBJECT = Lookup.OBJECT,
 	LAYOUT = Lookup.LAYOUT,
 	PARSER = Lookup.PARSER,
 	TABPAGE = Lookup.TABPAGE,
@@ -46,6 +44,7 @@ enum.Lookup = {
 	RENDERER = Lookup.RENDERER,
 	ELEMENT = Lookup.CREATE_ELEMENT,
 	COMPONENT = Lookup.CREATE_COMPONENT,
+	FRAGMENT = Lookup.CREATE_FRAGMENT,
 }
 
 return enum
