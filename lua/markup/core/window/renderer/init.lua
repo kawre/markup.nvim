@@ -29,9 +29,14 @@ end
 
 ---@param element markup.Element.Table
 function Renderer:render(element)
-	self.root = markup.create_fiber_root()
-	self.root.child = markup.Fiber.static:build_tree(element, self.root)
-	self.root:print()
+	local wip_tree = markup.create_fiber_root()
+	wip_tree.child = markup.create_fiber_from_element(element)
+
+	wip_tree.child = markup.Fiber.reconcile(wip_tree, self.fiber_tree.child, wip_tree.child)
+
+	self.fiber_tree = wip_tree
+
+	markup.Fiber.print(self.fiber_tree)
 end
 
 ---@private

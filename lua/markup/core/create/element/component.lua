@@ -2,7 +2,7 @@ local markup = require("markup.core")
 local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 
 ---@alias markup.create_component
----| fun(component: table|function): fun(props: markup.create_element.props): markup.Element.Table
+---| fun(component: table|function): fun(props?: markup.create_element.props): markup.Element.Table
 
 ---@type markup.create_component
 local function create_component(component)

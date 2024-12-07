@@ -1,5 +1,5 @@
 local log = require("markup.logger") ---@diagnostic disable-line: unused-local
-local NodeType = require("markup.core.node.types").Node
+local NodeType = require("markup.core.node.enum").Type
 local markup = require("markup.core")
 
 ---@class markup.Element : markup.Node

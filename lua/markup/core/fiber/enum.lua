@@ -1,3 +1,14 @@
+---@alias markup.Fiber.tag
+---| "function"
+---| "class"
+---| "text"
+---| "element"
+---| "root"
+---| "fragment"
+
+---@alias markup.Fiber.type
+---| any
+
 local Enum = require("markup.core.create.enum")
 
 ---@class markup.fiber.enum : markup.Enum

@@ -1,7 +1,0 @@
----@alias markup.Fiber.tag
----| 'function'
----| 'class'
----| 'text'
----| 'element'
----| 'root'
----| 'fragment'

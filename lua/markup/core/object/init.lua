@@ -1,4 +1,4 @@
--- source: https://github.com/kikito/middleclass
+-- source: https://github.com/kikito/middleclass, https://github.com/MunifTanjim/nui.nvim
 
 local idx = {
 	subclasses = { "<markup.utils.object:subclasses>" },

@@ -53,7 +53,7 @@ end
 
 ---@alias markup.create_element.props { children?: (number|string|table)[] }
 ---@alias markup.create_element
----| fun(type: markup.Fiber.tag, props?: markup.create_element.props, style?: table): markup.Element.Table
+---| fun(type: markup.Fiber.type, props?: markup.create_element.props, style?: table): markup.Element.Table
 
 ---@type markup.create_element
 local function create_element(type, props, style)
