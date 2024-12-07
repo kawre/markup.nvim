@@ -1,4 +1,6 @@
+local FiberTag = require("markup.core.fiber.types").Tag
 local markup = require("markup.core")
+local u = require("markup.utils")
 local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 
 ---@class markup.Fiber : markup.Object
@@ -6,54 +8,73 @@ local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 ---@field state_node markup.Node
 ---@field hooks any
 ---@field alternate? markup.Fiber
--- linked list
 ---@field child markup.Fiber
 ---@field sibling markup.Fiber
 ---@field index integer
--- state
 ---@field memoized_state any
 ---@field pending_props any
 ---@field memoized_props any
 ---@field update_queue any
 local Fiber = markup.Object("markup.fiber")
 
----@param element markup.Element2
-function Fiber:init(element)
-	self.state = {}
-	self.props = {}
-	self.hook_index = 0
-	self.hooks = {}
-	self.alternate = nil
-
-	self.props = element.props
-	self.type = element.type
+function Fiber.static:tag(element)
+	if type(element.type) == "function" then
+		return FiberTag.FUNCTION
+	elseif u.is_class(element.type, markup.Element) then
+		return FiberTag.ELEMENT
+	elseif u.is_class(element.type, markup.Text) then
+		return FiberTag.TEXT
+	else
+		error("Unknown element type: " .. element.type)
+	end
 end
 
----@return markup.Fiber?
+---@param element markup.ElementObject
+function Fiber:init(element, parent)
+	self.alternate = nil
+
+	self.index = 0
+	self.props = element.props
+	self.type = element.type
+	self.tag = Fiber.static:tag(element)
+	self["return"] = parent
+end
+
+---@param element markup.ElementObject
+---@param parent markup.Fiber
+---@return markup.Fiber
 function Fiber.static:build_tree(element, parent)
-	if not element then
-		return nil
-	end
-
 	if type(element) == "string" or type(element) == "number" then
-		return markup.create_element("text", { children = tostring(element) })
+		local e = markup.create_element("text", { children = tostring(element) })
+		return Fiber(e, parent)
 	end
 
-	local fiber = Fiber(element)
-	fiber["return"] = parent
+	local fiber = Fiber(element, parent)
 
-	local children = element.props.children
-	if type(element.type) == "function" then
-		children = element.type(element.props)
+	if fiber.tag == FiberTag.ELEMENT then
+		parent = fiber
+	end
+
+	local children = fiber.props.children
+	if fiber.tag == FiberTag.FUNCTION then
+		children = fiber.type(fiber.props)
+	end
+
+	if fiber.tag == FiberTag.ELEMENT then
+		fiber.state_node = fiber.type(fiber.props)
 	end
 
 	if children then
+		if type(children) ~= "table" then
+			return fiber
+		end
+
 		local prev_sibling = nil
 
 		children = vim.islist(children) and children or { children }
 
 		for i, child in ipairs(children) do
-			local child_fiber = Fiber.static:build_tree(child, fiber)
+			local child_fiber = Fiber.static:build_tree(child, parent)
 
 			if i == 1 then
 				fiber.child = child_fiber
@@ -62,10 +83,16 @@ function Fiber.static:build_tree(element, parent)
 			end
 
 			prev_sibling = child_fiber
+
+			-- local node = child_fiber.state_node
+			-- if node then
+			-- 	fiber.state_node:append_child(node)
+			-- 	child_fiber["return"] = fiber
+			-- end
+			-- child_fiber["return"].state_node:append_child(child_fiber.state_node)
+			-- log.info(child_fiber)
 		end
 	end
-
-	fiber.state_node = element
 
 	return fiber
 end
@@ -76,10 +103,9 @@ function Fiber:print()
 			return
 		end
 
-		local indent = string.rep("\t", depth or 0)
+		local indent = ("    "):rep(depth or 0)
 
-		local fiber_type = fiber.type or "unknown"
-		print(indent .. string.format("Fiber: %s", fiber_type))
+		print(indent .. ("Fiber: %s (%s)"):format(fiber.type, fiber.tag))
 
 		if fiber.child then
 			print_fiber_tree(fiber.child, (depth or 0) + 1)

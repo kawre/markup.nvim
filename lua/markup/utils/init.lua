@@ -42,10 +42,22 @@ function utils.measure_time(name, fn)
 	return res
 end
 
----@param object any
+---@param instance any
 ---@param class any
-function utils.is_instance(object, class)
-	return markup.Object.is_instance(object, class) ---@diagnostic disable-line: undefined-field
+function utils.is_instance(instance, class)
+	return markup.Object.is_instance(instance, class)
+end
+
+---@param subclass any
+---@param class any
+function utils.is_subclass(subclass, class)
+	return markup.Object.is_instance(subclass, class)
+end
+
+---@param class1 any
+---@param class2 any
+function utils.is_class(class1, class2)
+	return markup.Object.is_class(class1, class2)
 end
 
 function utils.shallow_copy(original)

@@ -1,7 +1,7 @@
 local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 local markup = require("markup.core")
 
----@class markup.Element2
+---@class markup.ElementObject
 ---@field type string
 ---@field props table
 ---@field ref any
@@ -10,15 +10,19 @@ local markup = require("markup.core")
 
 local function normalize_type(_type)
 	if type(_type) == "string" then
-		return markup[_type:lower()]
+		return require(markup.node_lookup[_type:lower()])
 	end
 
 	return _type
 end
 
-local function normalize_props(props)
+local function normalize_props(props, style)
 	if not props then
 		return {}
+	end
+
+	if type(props) == "string" or type(props) == "number" then
+		return { children = props }
 	end
 
 	if not props.children then
@@ -49,10 +53,10 @@ end
 ---@param type string
 ---@param props { children?: (number|string|table)[] }
 ---
----@return markup.Element2
-return function(type, props)
+---@return markup.ElementObject
+local function create_element(type, props, style)
 	type = normalize_type(type)
-	props = normalize_props(props)
+	props = normalize_props(props, style)
 
 	return {
 		type = type,
@@ -61,3 +65,5 @@ return function(type, props)
 		key = nil,
 	}
 end
+
+return create_element

@@ -1,0 +1,541 @@
+local markup = require("markup.core")
+local Border = require("markup.core.node.element.border")
+local u = require("markup.utils") ---@diagnostic disable-line: unused-local
+local log = require("markup.logger") ---@diagnostic disable-line: unused-local
+
+---@class markup.Element.props : markup.Node.props
+---@field dirty boolean
+---@field style markup.Element.style
+---@field children markup.Node[]
+---@field display markup.Element.display
+---@field padding markup.Element.padding
+---@field margin markup.Element.margin
+---@field align markup.Box.align
+---@field spacing markup.Box.spacing
+---@field vertical boolean
+---@field reverse boolean
+---@field final {row_start: integer, row_end: integer, col_start: integer, col_end: integer}
+---@field size {width?: integer, height?: integer}
+---@field on_submit? fun()
+---@field on_key? table<string, fun()>
+---@field parent markup.Element
+---@field border? markup.Element.border
+
+---@class markup.Element : markup.Node
+---@field protected _ markup.Element.props
+---@field protected super markup.Node
+---@field display markup.Element.display
+---@field padding markup.Element.padding
+---@field margin markup.Element.margin
+---@field align markup.Box.align
+---@field spacing markup.Box.spacing
+---@field vertical boolean
+---@field reverse boolean
+---@field child_nodes markup.Node[]
+---@field component? markup.Component
+---@field builder markup.Renderer.Builder
+local Element = markup.Node:extend("markup.element") ---@diagnostic disable-line: undefined-field
+
+---------------------------------
+---- Constructor
+---------------------------------
+
+Element.static._default_props = {
+	dirty = false,
+	type = "element",
+	children = {},
+	style = {},
+	display = "inline",
+	padding = 0,
+	margin = 0,
+	align = "start",
+	spacing = 0,
+	vertical = true,
+	reverse = false,
+	size = {},
+	final = {},
+}
+
+---@param props any
+function Element:extend_default_props(props)
+	local defaults = self._default_props or {}
+	self._default_props = vim.tbl_deep_extend("force", props, defaults)
+end
+
+---@param props markup.Element.constructor.props
+---@param style? markup.Element.style
+function Element:init(props, style)
+	props = self:normalize_props(props, style)
+	Element.super.init(self, props)
+	self._default_props = nil
+	self.builder = markup.RendererBuilder()
+end
+
+---------------------------------
+---- Methods (Private)
+---------------------------------
+
+---@protected
+---@param element markup.Element
+function Element:_inherit_style(element)
+	if not element then
+		return self._.style
+	else
+		return vim.tbl_deep_extend("force", element.style, self._.style)
+	end
+end
+
+---@protected
+---@param parent markup.Element
+function Element:_inherit_display(parent)
+	if parent and parent:is_box() then
+		return parent.vertical and "block" or "inline-block"
+	else
+		return self._.display
+	end
+end
+
+---@param child markup.Node
+function Element:_index_of(child)
+	return u.index_of(self.child_nodes, child)
+end
+
+---@param child markup.Element
+function Element:_index_of_element(child)
+	return u.index_of(self:children(), child)
+end
+
+function Element:_insert_line(row, content)
+	local line = markup.RendererLine()
+
+	if content then
+		line:append(content)
+	end
+
+	if not row then
+		table.insert(self.builder.lines, line)
+	else
+		table.insert(self.builder.lines, row, line)
+	end
+end
+
+function Element:_non_zero_spacing()
+	return self.margin.top > 0
+		or self.margin.right > 0
+		or self.margin.bottom > 0
+		or self.margin.left > 0
+		or self.padding.top > 0
+		or self.padding.right > 0
+		or self.padding.bottom > 0
+		or self.padding.left > 0
+end
+
+function Element:_apply_border()
+	local border = self._.border
+
+	if border and self:is_block_kind() then
+		border:apply(self)
+	end
+end
+
+function Element:_apply_spacing()
+	if not self:_non_zero_spacing() then
+		return
+	end
+
+	local lines = self:computed_lines()
+	local width = self:width()
+	local mar, pad = self.margin, self.padding
+
+	-- Apply vertical spacing
+	if self:is_block_kind() then
+		for _ = 1, self.padding.top do
+			self:_insert_line(0, markup.Pad(width, self))
+		end
+		for _ = 1, self.margin.top do
+			self:_insert_line(0, markup.Pad(width, self.parent))
+		end
+		for _ = 1, self.padding.bottom do
+			self:_insert_line(nil, markup.Pad(width, self))
+		end
+		for _ = 1, self.margin.bottom do
+			self:_insert_line(nil, markup.Pad(width, self.parent))
+		end
+	end
+
+	-- Apply horizontal spacing
+	for row, line in pairs(lines) do
+		if row < mar.bottom or row > #lines - mar.top then
+			line:prepend(markup.Pad(mar.left + pad.left, self.parent))
+			line:append(markup.Pad(mar.right + pad.right, self.parent))
+		else
+			line:prepend(markup.Pad(pad.left, self))
+			line:prepend(markup.Pad(mar.left, self.parent))
+			line:append(markup.Pad(pad.right, self))
+			line:append(markup.Pad(mar.right, self.parent))
+		end
+	end
+end
+
+---@param renderer markup.Renderer
+---@param parent markup.Element
+function Element:set_state(renderer, parent)
+	Element.super.set_state(self, renderer, parent)
+
+	self.builder:reset()
+	self.display = self._.display
+	self.computed_display = self:_inherit_display(parent)
+	self.style = self:_inherit_style(parent)
+	self.child_nodes = self:_normalize_child_nodes(self._.children)
+
+	self.margin = Element.static._normalize_spacing(self._.margin)
+	self.padding = Element.static._normalize_spacing(self._.padding)
+
+	self.align = self._.align
+	self.spacing = self._.spacing
+	self.vertical = self._.vertical
+	self.reverse = self._.reverse
+end
+
+function Element:mock_element(style)
+	local _ = markup.Inline(nil, style)
+	_:set_state(self.owner, self)
+	return _
+end
+
+function Element:_normalize_child_nodes(children)
+	---@type markup.Node[]
+	local tmp = {}
+
+	for _, child in ipairs(children) do
+		if child:is_type("component") then
+			---@cast child markup.Component
+			child = child:render()
+		end
+		if child:is_type("fragment") then
+			---@cast child markup.Fragment
+			child:unpack(tmp, self)
+		else
+			table.insert(tmp, child)
+		end
+	end
+
+	local result, texts = {}, {}
+	for _, item in ipairs(tmp) do
+		if item:is_type("text") then
+			---@cast item markup.Text
+			table.insert(texts, item:content())
+		else
+			if not vim.tbl_isempty(texts) then
+				table.insert(result, markup.Text(table.concat(texts)))
+				texts = {}
+			end
+			table.insert(result, item)
+		end
+	end
+
+	if not vim.tbl_isempty(texts) then
+		table.insert(result, markup.Text(table.concat(texts)))
+	end
+
+	return result
+end
+
+function Element:children()
+	return vim.tbl_filter(function(child)
+		return child:is_element()
+	end, self.child_nodes)
+end
+
+function Element:iter_children()
+	local children = self:children()
+	local i = 0
+	return function()
+		if i == #children then
+			return nil
+		end
+
+		i = i + 1
+		return children[i], i
+	end
+end
+
+function Element:iter_child_nodes()
+	local nodes = self.child_nodes
+	local i = 0
+	return function()
+		if i == #nodes then
+			return nil
+		end
+
+		i = i + 1
+		return nodes[i], i
+	end
+end
+
+function Element:last_child()
+	return self.child_nodes[#self.child_nodes]
+end
+
+function Element:first_child()
+	return self.child_nodes[1]
+end
+
+function Element:_in_range(c)
+	local len = self.builder:height()
+	if len == 0 then
+		return false
+	end
+
+	local row, col = c[1] - 1, c[2]
+
+	local ftexts = self.builder.lines[0]:texts()
+	local ltexts = self.builder.lines[len - 1]:texts()
+	local fpos = ftexts[1]:_get_position()
+	local lpos = ltexts[#ltexts]:_get_position()
+
+	local pos = {
+		row_start = fpos.row,
+		col_start = fpos.col_start,
+		row_end = lpos.row,
+		col_end = lpos.col_end - 1,
+	}
+
+	return row >= pos.row_start
+		and row <= pos.row_end
+		and col >= pos.col_start
+		and col <= pos.col_end
+end
+
+function Element:should_br()
+	local prev_sibling = self:prev_sibling()
+	return prev_sibling and (prev_sibling:is_br() or self:is_br())
+end
+
+function Element.static._normalize_style(style)
+	if type(style) == "string" then
+		return { link = style }
+	else
+		return style
+	end
+end
+
+-- Props can be:
+-- - string
+-- - number
+-- - Node
+-- - Node[]
+-- - props
+---@param props any
+function Element:normalize_props(props, style)
+	if type(props) == "string" or type(props) == "number" then
+		props = { children = { markup.Text(props) } }
+	elseif getmetatable(props) then
+		props = { children = { props } }
+	else
+		props = props or {}
+		if not props.children then
+			if #props ~= vim.tbl_count(props) then
+				props.children = {}
+				for i, child in ipairs(props) do
+					table.insert(props.children, child)
+					table.remove(props, i)
+				end
+			else
+				props = { children = props }
+			end
+		end
+		props.children = Element.static._normalize_children(props.children)
+	end
+
+	local defaults =
+		vim.tbl_deep_extend("keep", self._default_props or {}, Element.static._default_props)
+
+	if style then
+		style = Element.static._normalize_style(style)
+		defaults.style = vim.tbl_deep_extend("keep", style, defaults.style)
+	end
+	if props.style then
+		props.style = Element.static._normalize_style(props.style)
+	end
+
+	if props.border then
+		props.border = Border(props.border)
+	end
+
+	return vim.tbl_deep_extend("keep", props, defaults)
+end
+
+function Element.static._normalize_children(children)
+	if type(children) ~= "table" or getmetatable(children) then
+		return { Element.static.normalize_child(children) }
+	else -- table
+		local result = {}
+
+		for _, child in ipairs(children or {}) do
+			local norm = Element.static.normalize_child(child)
+			if norm then
+				table.insert(result, norm)
+			end
+		end
+
+		return result
+	end
+end
+
+function Element.static.normalize_child(child)
+	---@cast child any
+	if type(child) == "string" or type(child) == "number" then
+		return markup.Text(child)
+	elseif getmetatable(child) then
+		if child:is_type("component") then
+			---@cast child markup.Component
+			return child:render()
+		else
+			return child
+		end
+	elseif not vim.tbl_isempty(child) then
+		return markup.Fragment(child)
+	end
+end
+
+function Element.static._normalize_spacing(spacing)
+	local t = spacing
+
+	if type(t) == "number" then
+		return { top = t, right = t, bottom = t, left = t }
+	elseif vim.islist(t) then
+		if #t == 1 then
+			return { top = t[1], right = t[1], bottom = t[1], left = t[1] }
+		elseif #t == 2 then
+			return { top = t[1], right = t[2], bottom = t[1], left = t[2] }
+		elseif #t == 3 then
+			return { top = t[1], right = t[2], bottom = t[3], left = t[2] }
+		elseif #t == 4 then
+			return { top = t[1], right = t[2], bottom = t[3], left = t[4] }
+		end
+	else
+		return { top = t.top or 0, right = t.right or 0, bottom = t.bottom or 0, left = t.left or 0 }
+	end
+end
+
+---------------------------------
+---- Methods
+---------------------------------
+
+---@param event string
+function Element:event(event, ...)
+	event = table.concat({ "on", event:lower() }, "_")
+
+	if self._[event] then
+		return self._[event](self, ...)
+	end
+end
+
+function Element:render()
+	for _, child in ipairs(self.child_nodes) do
+		child:render_node(self.owner, self)
+	end
+end
+
+local display_map = {
+	["block"] = "Block",
+	["inline"] = "Inline",
+	["inline-block"] = "Inline",
+	["flex"] = "Flex",
+	["grid"] = "Grid",
+}
+
+function Element:after_render()
+	if self.display == "none" then
+		return
+	end
+
+	markup[display_map[self.display]].display_handler(self)
+
+	if self._.on_submit then
+		self.owner:add_button(self)
+	end
+
+	if self._.on_key then
+		for key, spec in pairs(self._.on_key) do
+			self.owner:map("n", key, spec, {})
+		end
+	end
+end
+
+function Element:display_handler()
+	error("[Element:display_handler] Method not implemented")
+end
+
+---@return integer
+function Element:width()
+	if self._.size.width then
+		return self._.size.width
+	end
+
+	return self.builder:width()
+end
+
+---@return integer
+function Element:height()
+	if self._.size.height then
+		return self._.size.height
+	end
+
+	return self.builder:height()
+end
+
+---@return integer, integer
+function Element:size()
+	return self:width(), self:height()
+end
+
+---@return integer, integer
+function Element:box_size()
+	if self:is_br() and not self:is_box_item() then
+		return self.owner:win_get_width(), self.owner:win_get_height()
+	else
+		return self:size()
+	end
+end
+
+function Element:max_size()
+	local max_width, max_height = 0, 0
+	for child in self:iter_children() do
+		max_height = math.max(max_height, child:height())
+		max_width = math.max(max_width, child:width())
+	end
+
+	return { width = max_width, height = max_height }
+end
+
+function Element:computed_style()
+	return self.style
+end
+
+function Element:computed_lines()
+	return self.builder.lines
+end
+
+---------------------------------
+---- Initializer
+---------------------------------
+
+---@class markup.Element.constructor.props
+---@field children? markup.Element.children element children
+---@field style? markup.Element.style.props element style
+---@field display? markup.Element.display element display
+---@field margin? markup.Element.margin element margin
+---@field padding? markup.Element.padding element padding
+---@field align? markup.Box.align box align
+---@field spacing? markup.Box.spacing box spacing
+---@field vertical? boolean box vertical
+---@field reverse? boolean box reverse
+
+---@alias markup.Element.style.props string|markup.Element.style
+
+---@alias markup.Element.constructor fun(props?: markup.Element.children.content|markup.Element.constructor.props, style?: markup.Element.style.props): markup.Element
+
+---@type fun(type: markup.Element.type, props?: markup.Element.children.content|markup.Element.constructor.props, style?: markup.Element.style.props): markup.Element
+return Element

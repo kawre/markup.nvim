@@ -1,109 +1,39 @@
-local markup = require("markup.core")
-local theme = require("markup.theme")
 local log = require("markup.logger") ---@diagnostic disable-line: unused-local
-
----@class markup.Text.props : markup.Node.props
----@field content string
----@field width integer
----@field length integer
----@field pos? table
+local markup = require("markup.core")
+local NodeType = require("markup.core.node.types").Node
 
 ---@class markup.Text : markup.Node
----@field protected _ markup.Text.props
----@field protected super markup.Node
-local Text = markup.Node:extend("markup.text") ---@diagnostic disable-line: undefined-field
+---@field content string
+---@field len integer
+---@field width integer
+local Text = markup.Node:extend("markup.text")
 
----@param content markup.Text.content
-function Text:init(content, parent)
-	Text.super.init(self, {
-		type = "text",
-	})
-
+function Text:init(content)
+	Text.super.init(self, NodeType.TEXT)
 	self:set(content)
-	if parent then
-		self:set_state(parent.owner, parent)
-	end
 end
 
----@param content markup.Text.content
-function Text:set(content)
-	content = tostring(content)
-	self._.content = content
-	self._.length = #content
-	self._.width = vim.api.nvim_strwidth(content)
+function Text:append(value)
+	self:set(self.content .. value)
 end
 
-function Text:split_at_newl()
-	local parts = {}
-
-	for part in vim.gsplit(self:content(), "\n") do
-		table.insert(parts, part)
-	end
-
-	return vim.tbl_map(function(part)
-		return Text(part, self.parent)
-	end, parts)
+function Text:prepend(value)
+	self:set(value .. self.content)
 end
 
----@return string
-function Text:content()
-	return self._.content
+function Text:remove()
+	self:set("")
 end
 
----@return integer
-function Text:length()
-	return self._.length
-end
-
----@return integer
-function Text:width()
-	return self._.width
-end
-
-function Text:_normalize_style()
-	if not self.parent then
+function Text:set(value)
+	if not value then
 		return
 	end
 
-	local style = self.parent.style
-	local map = {
-		["color"] = "fg",
-	}
-
-	for key, value in pairs(map) do
-		if style[key] then
-			style[value] = style[key]
-			style[key] = nil
-		end
-	end
-
-	return style
+	value = tostring(value)
+	self.len = #value
+	self.width = vim.api.nvim_strwidth(value)
+	self.content = value
 end
 
----@return string?
-function Text:highlight()
-	return theme.create_dynamic_hl(self.style)
-end
-
-function Text:_set_position(row, col_start, col_end)
-	self._.pos = {
-		row = row,
-		col_start = col_start,
-		col_end = col_end,
-	}
-end
-
-function Text:_get_position()
-	return self._.pos
-end
-
-function Text:render()
-	self.style = self:_normalize_style()
-end
-
----@alias markup.Text.constructor fun(content: markup.Text.content, parent?: markup.Node): markup.Text
-
----@type markup.Text.constructor
-local MarkupText = Text ---@diagnostic disable-line: assign-type-mismatch
-
-return MarkupText
+return Text

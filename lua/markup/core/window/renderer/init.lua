@@ -27,9 +27,12 @@ function Renderer:after_init()
 	self.body = self._.body
 end
 
+---@param element markup.ElementObject
 function Renderer:render(element)
-	self.fiber_tree = markup.Fiber.static:build_tree(element)
-	self.fiber_tree:print()
+	self.root = markup.create_element("inline")
+	self.fiber_root = markup.Fiber(self.root)
+	self.fiber_root.child = markup.Fiber.static:build_tree(element, self.fiber_root)
+	self.fiber_root:print()
 end
 
 function Renderer:reconcile()

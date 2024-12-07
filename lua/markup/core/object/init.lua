@@ -5,7 +5,7 @@ local idx = {
 }
 
 local function __tostring(self)
-	return "class " .. self.name
+	return "<class: " .. self.name .. ">"
 end
 
 local function __call(self, ...)
@@ -74,6 +74,10 @@ local function is_instance(instance, class)
 		return true
 	end
 	return is_subclass(instance.class, class)
+end
+
+local function is_class(class1, class2)
+	return class1 == class2 or is_subclass(class1, class2)
 end
 
 local function create_class(name, super)
@@ -167,6 +171,7 @@ end
 local Object = setmetatable({
 	is_subclass = is_subclass,
 	is_instance = is_instance,
+	is_class = is_class,
 }, {
 	__call = create_object,
 })
