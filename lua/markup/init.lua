@@ -1,4 +1,5 @@
-local core = require("markup.core")
+local log = require("markup.logger") ---@diagnostic disable-line: unused-local
+local enum = require("markup.enum")
 
 ---@class markup
 -- Object
@@ -48,49 +49,6 @@ local core = require("markup.core")
 ---@field Fragment markup.Fragment.constructor
 local markup = {}
 
--- stylua: ignore start
-markup.node_lookup = {
-	-- element
-		block = "block",
-			list = "list",
-				listitem = "listitem",
-				olist = "olist",
-		flex = "flex",
-			hflex = "hflex",
-			box = "box",
-		grid = "grid",
-		inline = "inline",
-			anchor = "anchor",
-			code = "code",
-			italic = "italic",
-			mark = "mark",
-			strike = "strike",
-			strong = "strong",
-			sub = "sub",
-			sup = "sup",
-			underline = "underline",
-	text = "text",
-		pad = "pad",
-}
--- stylua: ignore end
-
-markup.node_lookup = vim.tbl_map(function(v)
-	return function(props)
-		return core.create_element(core[v], props)
-	end
-end, markup.node_lookup)
-
-markup.lookups = vim.tbl_extend("error", { --
-	object = "object",
-	layout = "layout",
-	parser = "parser",
-	tabpage = "tabpage",
-	window = "window",
-	renderer = "renderer",
-	element = "create_element",
-	component = "create_component",
-}, markup.node_lookup)
-
 function markup.setup(opts)
 	local config = require("markup.config")
 	config.user = vim.tbl_deep_extend("force", config, opts or {})
@@ -101,10 +59,7 @@ require("markup-playground").setup()
 require("markup.theme").setup()
 
 return setmetatable(markup, {
-	__index = function(t, k)
-		local u = require("markup.utils")
-		return u.lookup(t.lookups, k, function(x)
-			return core[x]
-		end)
+	__index = function(_, k)
+		return enum:lookup(k)
 	end,
 })

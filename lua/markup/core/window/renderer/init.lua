@@ -34,39 +34,11 @@ function Renderer:render(element)
 	self.root:print()
 end
 
-function Renderer:reconcile() end
-
 ---@private
 ---@param current? markup.Fiber
 ---@param wip? markup.Fiber
-function Renderer:_reconcile(current, wip)
-	if not old_fiber then
-		return new_fiber
-	end
-
-	if not new_fiber then
-		return nil
-	end
-
-	if old_fiber.type ~= new_fiber.type then
-		return new_fiber
-	end
-
-	new_fiber.state = old_fiber.state
-	new_fiber.alternate = old_fiber
-
-	-- Recursively reconcile children
-	local oldChildren = old_fiber.children or {}
-	local newChildren = new_fiber.children or {}
-	local maxChildren = math.max(#oldChildren, #newChildren)
-
-	local reconciledChildren = {}
-	for i = 1, maxChildren do
-		reconciledChildren[i] = self:_reconcile(oldChildren[i], newChildren[i])
-	end
-
-	new_fiber.children = reconciledChildren
-	return new_fiber
+function Renderer:reconcile(current, wip)
+	--
 end
 
 function Renderer:on_cooldown()

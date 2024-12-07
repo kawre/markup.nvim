@@ -94,9 +94,7 @@ function utils.tbl_len(tbl)
 end
 
 function utils.lookup(tbl, key, fn)
-	local k = key:lower()
-	local v = tbl[k]
-
+	local v = tbl[key:upper()]
 	assert(v, ("lookup: key '%s' not found"):format(key))
 
 	if type(v) == "function" then

@@ -9,8 +9,9 @@ local markup = require("markup.core")
 ---@field owner any
 
 local function normalize_type(_type)
-	if type(_type) == "string" then
-		return require(markup.node_lookup[_type:lower()])
+	local Node = require("markup.core.enum").Node
+	if type(_type) == "string" and Node[_type] then
+		return require(Node[_type])
 	end
 
 	return _type

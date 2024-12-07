@@ -80,6 +80,61 @@ function Fiber.static:build_tree(element, parent)
 	return fiber
 end
 
+---@param returnf markup.Fiber
+---@param current? markup.Fiber
+---@param wip? markup.Fiber
+function Fiber.reconcile(returnf, current, wip)
+	if type(wip) == "string" or type(wip) == "number" then
+		return Fiber.reconcile_single_text_node(returnf, current, wip)
+	end
+
+	if vim.islist(wip) then
+		return Fiber.reconcile_children_list(returnf, current, wip)
+	end
+end
+
+function Fiber.reconcile_children_list(returnf, current, wip)
+	--
+end
+
+---@param returnf markup.Fiber
+---@param current? markup.Fiber
+---@param element markup.ElementObject
+function Fiber.reconcile_single_element_node(returnf, current, element)
+	local existing = current
+
+	while existing do
+		if existing.type == element.type then
+			local updated = use_fiber(existing, element.props)
+			updated["return"] = returnf
+			return updated
+		end
+		-- if (existingChild.type === element.type) {
+		-- const updatedFiber = useFiber(existingChild, element.props);
+		-- updatedFiber.return = returnFiber;
+		-- return updatedFiber;
+		-- }
+	end
+	--
+end
+
+function Fiber.use(current, props)
+	--
+end
+
+---@param returnf markup.Fiber
+---@param current? markup.Fiber
+---@param content string|number
+function Fiber.reconcile_single_text_node(returnf, current, content)
+	if current and current.tag == FiberTag.TEXT then
+		current.pending_props = content
+		return current
+	end
+
+	local fiber = markup.create_fiber(FiberTag.TEXT, content, returnf)
+	return fiber
+end
+
 function Fiber:print()
 	local function print_fiber_tree(fiber, depth)
 		if not fiber then
