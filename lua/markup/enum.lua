@@ -1,4 +1,5 @@
 local log = require("markup.logger") ---@diagnostic disable-line: unused-local
+local Node = require("markup.core.enum").Node
 local Lookup = require("markup.core.enum").Lookup
 local Enum = require("markup.core.create.enum")
 
@@ -6,26 +7,26 @@ local Enum = require("markup.core.create.enum")
 local enum = Enum()
 
 enum.Node = {
-	BLOCK = Lookup.BLOCK,
-	LIST = Lookup.LIST,
-	LISTITEM = Lookup.LISTITEM,
-	OLIST = Lookup.OLIST,
-	FLEX = Lookup.FLEX,
-	HFLEX = Lookup.HFLEX,
-	BOX = Lookup.BOX,
-	GRID = Lookup.GRID,
-	INLINE = Lookup.INLINE,
-	ANCHOR = Lookup.ANCHOR,
-	CODE = Lookup.CODE,
-	ITALIC = Lookup.ITALIC,
-	MARK = Lookup.MARK,
-	STRIKE = Lookup.STRIKE,
-	STRONG = Lookup.STRONG,
-	SUB = Lookup.SUB,
-	SUP = Lookup.SUP,
-	UNDERLINE = Lookup.UNDERLINE,
-	TEXT = Lookup.TEXT,
-	PAD = Lookup.PAD,
+	BLOCK = Node.BLOCK,
+	LIST = Node.LIST,
+	LISTITEM = Node.LISTITEM,
+	OLIST = Node.OLIST,
+	FLEX = Node.FLEX,
+	HFLEX = Node.HFLEX,
+	BOX = Node.BOX,
+	GRID = Node.GRID,
+	INLINE = Node.INLINE,
+	ANCHOR = Node.ANCHOR,
+	CODE = Node.CODE,
+	ITALIC = Node.ITALIC,
+	MARK = Node.MARK,
+	STRIKE = Node.STRIKE,
+	STRONG = Node.STRONG,
+	SUB = Node.SUB,
+	SUP = Node.SUP,
+	UNDERLINE = Node.UNDERLINE,
+	TEXT = Node.TEXT,
+	PAD = Node.PAD,
 }
 
 enum.CreateNode = enum:map(enum.Node, function(_, v)

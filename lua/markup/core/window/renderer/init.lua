@@ -11,10 +11,7 @@ local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 ---@field protected super markup.Window
 ---@field protected _ markup.Renderer.props
 ---@field body markup.Element.children
----@field last_render integer
----@field cooldown_ms integer ms
 ---@field fiber_tree? markup.Fiber
----@field wip_fiber_tree? markup.Fiber
 local Renderer = markup.Window:extend("MarkupRenderer") ---@diagnostic disable-line: undefined-field
 
 ---------------------------------
@@ -22,58 +19,46 @@ local Renderer = markup.Window:extend("MarkupRenderer") ---@diagnostic disable-l
 ---------------------------------
 
 function Renderer:after_init()
-	self.cooldown_ms = 100
 	Renderer.super.after_init(self)
 	self.body = self._.body
 end
 
 ---@param element markup.Element.Table
 function Renderer:render(element)
-	local wip_tree = markup.create_fiber_root()
-	wip_tree.child = markup.create_fiber_from_element(element)
-
-	wip_tree.child = markup.Fiber.reconcile(wip_tree, self.fiber_tree.child, wip_tree.child)
-
-	self.fiber_tree = wip_tree
+	self.fiber_tree = markup.Fiber.reconcile(self.fiber_tree, element)
 
 	markup.Fiber.print(self.fiber_tree)
 end
 
----@private
----@param current? markup.Fiber
----@param wip? markup.Fiber
-function Renderer:reconcile(current, wip)
-	--
+function Renderer:reconcile()
+	-- self:render(self.tree)
 end
 
-function Renderer:on_cooldown()
-	local now = vim.uv.hrtime()
-	local elapsed_ms = (now - (self.last_render or 0)) / 1e6
-	if elapsed_ms >= self.cooldown_ms then
-		return now
-	end
+---@private
+function Renderer:commit()
+	local root = self.fiber_tree.state_node
+	---@cast root markup.Element
+
+	self:render_portal(function()
+		for row, line in ipairs(root.builder.lines) do
+			self:buf_set_lines(row, row, false, line)
+			line:paint(self, row)
+		end
+	end)
 end
 
 ---@param fn fun()
 function Renderer:render_portal(fn)
-	if not self:is_valid() then
-		error("Renderer is not valid")
-	end
+	assert(self:is_valid(), "Renderer is not valid")
 
-	local now = self:on_cooldown()
-	if not now then
-		return false
-	end
-	self.last_render = now
-
-	u.measure_time("markup.Renderer:render", function()
-		self:preserve_cursor(function()
-			self:with_buf_option("modifiable", function()
-				self:clear()
-				fn()
-			end)
+	-- u.measure_time("markup.Renderer:render", function()
+	self:preserve_cursor(function()
+		self:with_buf_option("modifiable", function()
+			self:clear()
+			fn()
 		end)
 	end)
+	-- end)
 
 	return true
 end
