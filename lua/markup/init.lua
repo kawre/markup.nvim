@@ -16,6 +16,7 @@ local enum = require("markup.enum")
 ---@field Flex markup.Flex.constructor
 -- Collection
 ---@field Array markup.Array.constructor
+---@field Switch markup.Switch
 local markup = {}
 
 function markup.setup(opts)

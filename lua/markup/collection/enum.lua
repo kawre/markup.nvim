@@ -25,8 +25,8 @@ local Enum = setmetatable({}, {
 	__call = function(self)
 		return setmetatable({}, self)
 	end,
-	__name = "markup.collection.enum",
 })
+Enum.__name = "markup.collection.enum"
 
 Enum.__index = Enum
 

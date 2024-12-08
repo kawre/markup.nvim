@@ -6,24 +6,27 @@ local Array = setmetatable({}, {
 	__call = function(self, tbl)
 		return setmetatable(tbl or {}, self)
 	end,
-	__name = Collection.ARRAY,
 })
+Array.__name = Collection.ARRAY
 
 function Array:__index(key)
 	return Array[key] or table[key]
 end
 
-function Array:map(fn)
-	local res = Array()
+---@param fn fun(v: any, i: integer): any
+---@param in_place? boolean
+---@return markup.Array
+function Array:map(fn, in_place)
+	local arr = in_place and self or Array()
 
 	for i, v in ipairs(self) do
-		res[i] = fn(v, i)
+		arr[i] = fn(v, i)
 	end
 
-	return res
+	return arr
 end
 
----@alias markup.Array.constructor fun(table: table): markup.Array
+---@alias markup.Array.constructor fun(init?: table): markup.Array
 
 ---@type markup.Array.constructor
 return Array

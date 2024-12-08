@@ -36,8 +36,14 @@ enum.CreateNode = enum:map(enum.Node, function(_, v)
 	end
 end)
 
+enum.Collection = {
+	SWITCH = Lookup.SWITCH,
+	ARRAY = Lookup.ARRAY,
+}
+
 enum.Lookup = {
 	enum.CreateNode,
+	enum.Collection,
 	LAYOUT = Lookup.LAYOUT,
 	PARSER = Lookup.PARSER,
 	TABPAGE = Lookup.TABPAGE,
@@ -46,7 +52,6 @@ enum.Lookup = {
 	ELEMENT = Lookup.CREATE_ELEMENT,
 	COMPONENT = Lookup.CREATE_COMPONENT,
 	FRAGMENT = Lookup.CREATE_FRAGMENT,
-	ARRAY = Lookup.ARRAY,
 }
 
 return enum
