@@ -63,6 +63,7 @@ enum.CreateFiber = {
 
 enum.Create = {
 	CREATE_FRAGMENT = "markup.core.create.fragment",
+	CREATE_RENDERER_ROOT = "markup.core.create.renderer.root",
 	enum.CreateElement,
 	enum.CreateFiber,
 }
@@ -85,7 +86,7 @@ enum.Collection = {
 }
 
 enum.Lookup = {
-	FIBER = "markup.core.fiber",
+	RECONCILER = "markup.core.reconciler",
 	TABPAGE = "markup.core.tabpage",
 	OBJECT = "markup.core.object",
 	PARSER = "markup.core.parser",

@@ -1,6 +1,6 @@
 local markup = require("markup.core")
 
----@alias markup.create_root fun(): markup.Element.Table
+---@alias markup.create_root fun(): markup.xElement
 
 ---@type markup.create_root
 local function create_root()

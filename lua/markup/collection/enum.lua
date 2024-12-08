@@ -37,7 +37,7 @@ end
 function Enum:map(enum, fn)
 	local res = {}
 	for k, v in pairs(enum) do
-		res[k] = fn(k, v)
+		res[k] = fn(v, k)
 	end
 	return res
 end

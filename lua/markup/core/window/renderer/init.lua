@@ -23,15 +23,15 @@ function Renderer:after_init()
 	self.body = self._.body
 end
 
----@param element markup.Element.Table
+---@param element markup.xElement
 function Renderer:render(element)
-	self.fiber_tree = markup.Fiber.reconcile(self.fiber_tree, element)
-
-	markup.Fiber.print(self.fiber_tree)
+	self.root = markup.create_renderer_root(self, element)
+	self:reconcile()
 end
 
 function Renderer:reconcile()
-	-- self:render(self.tree)
+	self.root.current = markup.Reconciler.reconcile(self.root)
+	markup.Reconciler.print(self.root.current)
 end
 
 ---@private

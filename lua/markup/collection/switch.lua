@@ -18,23 +18,31 @@ local function normalize_cases(cases)
 end
 
 local Switch = setmetatable({}, {
-	__call = function(value, cases)
-		cases = normalize_cases(cases)
+	__call = function(_, value, cases)
+		return function(...)
+			cases = normalize_cases(cases)
 
-		local case = cases[value]
-		if case then
-			return case
-		end
+			local case = cases[value]
+			if case then
+				if type(case) == "function" then
+					return case(...)
+				end
+				return case
+			end
 
-		local default = cases.default
-		if default then
-			return default
+			local default = cases.default
+			if default then
+				if type(default) == "function" then
+					return default(...)
+				end
+				return default
+			end
 		end
 	end,
 	__name = Collection.SWITCH,
 })
 
----@alias markup.Switch fun(value: any, cases: { default?: any }): any
+---@alias markup.Switch fun(value: any, cases: { default?: any }, ...): any
 
 ---@type markup.Switch
 return Switch

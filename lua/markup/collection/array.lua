@@ -4,11 +4,22 @@ local Collection = require("markup.core.enum").Collection
 ---@class markup.Array : tablelib
 local Array = setmetatable({}, {
 	__call = function(self, tbl)
+		if tbl then
+			if type(tbl) == "table" then
+				if not vim.islist(tbl) then
+					error("Expected contiguous array")
+				end
+			else
+				error("Expected array or nil, got " .. type(tbl))
+			end
+		end
+
 		return setmetatable(tbl or {}, self)
 	end,
 })
 Array.__name = Collection.ARRAY
 
+---@private
 function Array:__index(key)
 	return Array[key] or table[key]
 end

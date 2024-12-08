@@ -29,7 +29,7 @@ enum.Node = {
 	PAD = Node.PAD,
 }
 
-enum.CreateNode = enum:map(enum.Node, function(_, v)
+enum.CreateNode = enum:map(enum.Node, function(v)
 	local core = require("markup.core")
 	return function(props)
 		return core.create_element(require(v), props)

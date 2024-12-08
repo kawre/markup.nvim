@@ -2,12 +2,17 @@ local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 local enum = require("markup.core.enum")
 
 ---@class markup.core
+-- Create
 ---@field create_element markup.create_element
 ---@field create_component markup.create_component
 ---@field create_root markup.create_root
 ---@field create_fiber markup.create_fiber
 ---@field create_fiber_root markup.create_fiber_root
 ---@field create_fiber_from_element markup.create_fiber_from_element
+---@field create_fiber_from_text markup.create_fiber_from_text
+---@field create_fiber_from_fragment markup.create_fiber_from_text
+---@field create_renderer_root markup.create_renderer_root
+--
 ---@field Object markup.Object.constructor
 ---@field Node markup.Node.constructor
 ---@field Text markup.Text.constructor
@@ -38,7 +43,11 @@ local enum = require("markup.core.enum")
 ---@field RendererLine markup.Renderer.Line.constructor
 ---@field TabPage markup.TabPage.constructor
 ---@field Parser markup.Parser.constructor
+-- Static
+---@field Reconciler markup.Reconciler
+-- Collection
 ---@field Switch markup.Switch
+---@field Array markup.Array.constructor
 local core = {}
 
 ---@type markup.core

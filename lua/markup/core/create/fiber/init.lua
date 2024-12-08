@@ -1,7 +1,22 @@
 local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 local markup = require("markup.core")
-local FiberTag = require("markup.core.fiber.enum").Tag
+local FiberTag = require("markup.core.reconciler.enum").Tag
 local u = require("markup.utils")
+
+---@class markup.Fiber
+---@field pending_props any
+---@field memoized_props any
+---@field memoized_state any
+---@field type markup.Fiber.type
+---@field tag markup.Fiber.tag
+---@field state_node markup.Node
+--@field update_queue? markup.Fiber.update_queue
+---@field key? any
+---@field flag? markup.Fiber.flag
+---@field alternate? markup.Fiber
+---@field child? markup.Fiber
+---@field sibling? markup.Fiber
+---@field index integer
 
 local function tag_from_type(etype)
 	if type(etype) == "function" then
@@ -18,7 +33,7 @@ local function tag_from_type(etype)
 end
 
 ---@alias markup.create_fiber
----| fun(type: markup.Fiber.type, props: any, key?: string): markup.Fiber
+---| fun(type: markup.Fiber.type, props?, key?): markup.Fiber
 
 ---@type markup.create_fiber
 local function create_fiber(type, props, key)
@@ -27,6 +42,7 @@ local function create_fiber(type, props, key)
 		type = type,
 		key = key,
 		tag = tag_from_type(type),
+		update_queue = nil,
 		alternate = nil,
 		flag = nil,
 		index = 1,
