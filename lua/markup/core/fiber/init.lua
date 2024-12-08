@@ -7,6 +7,7 @@ local markup = require("markup.core")
 ---@field props any
 ---@field pending_props any
 ---@field memoized_props any
+---@field memoized_state any
 ---@field type markup.Fiber.type
 ---@field tag markup.Fiber.tag
 ---@field state_node markup.Node
@@ -73,8 +74,6 @@ function Fiber.begin_work(current, wip)
 	assert(switch[wip.tag], ("Invalid Fiber tag: %s"):format(wip.tag))
 	local next = switch[wip.tag](current, wip)
 
-	wip.memoized_props = wip.pending_props
-
 	return next
 end
 
@@ -85,7 +84,8 @@ end
 ---@param current? markup.Fiber
 ---@param wip markup.Fiber
 function Fiber.update_function_component(current, wip)
-	local next_children = Fiber.render_with_hooks(wip.type, wip.pending_props)
+	local next_children = Fiber.render_with_hooks(current, wip)
+	log.info(next_children)
 
 	if current and wip.flag == FiberFlag.UPDATE then
 		-- bailoutHooks(current, workInProgress, renderLanes);
@@ -108,18 +108,65 @@ function Fiber.update_element_component(current, wip)
 	return wip.child
 end
 
-function Fiber.render_with_hooks(Component, ...)
-	return Component(...)
+---@param current? markup.Fiber
+---@param wip markup.Fiber
+function Fiber.render_with_hooks(current, wip)
+	local Component = wip.type
+	local props = wip.pending_props
+	--
+	-- wip.memoized_state = nil
+	-- if current and current.memoized_state then
+	-- 	wip.memoized_state = current.memoized_state
+	-- end
+
+	local children = Component(props)
+
+	return children
 end
 
 function Fiber.delete_child(returnf, child)
 	--
 end
 
-function Fiber.reconcile_children_list(returnf, current_first_child, new_children)
-	--
+function Fiber.create_child(returnf, child)
+	-- local switch = {
+	-- 	[FiberTag.FUNCTION] = Fiber.create_function_child,
+	-- 	[FiberTag.FRAGMENT] = Fiber.create_fragment_child,
+	-- 	[FiberTag.ELEMENT] = Fiber.create_element_child,
+	-- 	[FiberTag.ROOT] = Fiber.create_element_child,
+	-- 	[FiberTag.TEXT] = Fiber.create_text_child,
+	-- }
 end
 
+---@param returnf markup.Fiber
+---@param current_first_child? markup.Fiber
+---@param new_children markup.Element.Table[]
+function Fiber.reconcile_children_list(returnf, current_first_child, new_children)
+	local new_index = 1
+	local last_placed_index = 1
+
+	local old_fiber = current_first_child
+	local next_old_fiber = nil
+
+	while old_fiber and new_index <= #new_children do
+		last_placed_index = Fiber.place_child(old_fiber, last_placed_index, new_index)
+		old_fiber = old_fiber.sibling
+		new_index = new_index + 1
+	end
+
+	if new_index == #new_children then
+		Fiber.delete_remaining_children(returnf, old_fiber)
+	end
+
+	if not old_fiber then
+		while new_index <= #new_children do
+		end
+	end
+end
+
+---@param current? markup.Fiber
+---@param wip markup.Fiber
+---@param next_children markup.Element.Table
 function Fiber.reconcile_children(current, wip, next_children)
 	if not current then
 		return Fiber.reconcile_child_fibers(wip, nil, next_children)
@@ -130,18 +177,16 @@ end
 
 ---@param returnf markup.Fiber
 ---@param current_first_child? markup.Fiber
----@param new_child markup.Fiber
+---@param new_child markup.Element.Table
 function Fiber.reconcile_child_fibers(returnf, current_first_child, new_child)
-	if new_child.tag == FiberTag.FRAGMENT and new_child.props then
-		new_child = new_child.props.children
-	end
-
 	if (type(new_child) == "string" and new_child ~= "") or type(new_child) == "number" then
 		return Fiber.reconcile_single_text(returnf, current_first_child, tostring(new_child))
 	end
 
 	if vim.islist(new_child) then
 		return Fiber.reconcile_children_list(returnf, current_first_child, new_child)
+	elseif type(new_child) == "table" then
+		return Fiber.reconcile_single_element(returnf, current_first_child, new_child)
 	end
 
 	return Fiber.delete_remaining_children(returnf, current_first_child)

@@ -1,7 +1,7 @@
 local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 local Node = require("markup.core.enum").Node
 local Lookup = require("markup.core.enum").Lookup
-local Enum = require("markup.core.create.enum")
+local Enum = require("markup.collections.enum")
 
 ---@class markup.enum : markup.Enum
 local enum = Enum()

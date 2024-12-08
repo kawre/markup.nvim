@@ -1,4 +1,4 @@
-local Enum = require("markup.core.create.enum")
+local Enum = require("markup.collections.enum")
 
 ---@class markup.Node.enum : markup.Enum
 local enum = Enum()

@@ -1,7 +1,7 @@
 ---@alias markup.Fiber.type
 ---| any
 
-local Enum = require("markup.core.create.enum")
+local Enum = require("markup.collections.enum")
 
 ---@class markup.fiber.enum : markup.Enum
 local enum = Enum()
