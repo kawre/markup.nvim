@@ -1,4 +1,4 @@
-local Enum = require("markup.collections.enum")
+local Enum = require("markup.collection.enum")
 local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 
 ---@class markup.core.enum : markup.Enum
@@ -78,6 +78,12 @@ enum.Window = {
 	enum.Renderer,
 }
 
+enum.Collection = {
+	ENUM = "markup.collection.enum",
+	SWITCH = "markup.collection.switch",
+	ARRAY = "markup.collection.array",
+}
+
 enum.Lookup = {
 	FIBER = "markup.core.fiber",
 	TABPAGE = "markup.core.tabpage",
@@ -87,6 +93,7 @@ enum.Lookup = {
 	enum.Node,
 	enum.Create,
 	enum.Window,
+	enum.Collection,
 }
 
 return enum

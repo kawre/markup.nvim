@@ -38,6 +38,7 @@ local enum = require("markup.core.enum")
 ---@field RendererLine markup.Renderer.Line.constructor
 ---@field TabPage markup.TabPage.constructor
 ---@field Parser markup.Parser.constructor
+---@field Switch markup.Switch
 local core = {}
 
 ---@type markup.core

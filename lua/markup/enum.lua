@@ -1,10 +1,10 @@
 local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 local Node = require("markup.core.enum").Node
 local Lookup = require("markup.core.enum").Lookup
-local Enum = require("markup.collections.enum")
+local markup = require("markup.core")
 
 ---@class markup.enum : markup.Enum
-local enum = Enum()
+local enum = markup.Enum()
 
 enum.Node = {
 	BLOCK = Node.BLOCK,
@@ -46,6 +46,7 @@ enum.Lookup = {
 	ELEMENT = Lookup.CREATE_ELEMENT,
 	COMPONENT = Lookup.CREATE_COMPONENT,
 	FRAGMENT = Lookup.CREATE_FRAGMENT,
+	ARRAY = Lookup.ARRAY,
 }
 
 return enum

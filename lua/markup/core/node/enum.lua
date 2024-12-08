@@ -1,7 +1,7 @@
-local Enum = require("markup.collections.enum")
+local markup = require("markup.core")
 
 ---@class markup.Node.enum : markup.Enum
-local enum = Enum()
+local enum = markup.Enum()
 
 enum.Type = {
 	ELEMENT = "element",

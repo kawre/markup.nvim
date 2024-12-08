@@ -21,7 +21,13 @@ end
 
 ---@class markup.Enum
 ---@field Lookup? table
-local Enum = {}
+local Enum = setmetatable({}, {
+	__call = function(self)
+		return setmetatable({}, self)
+	end,
+	__name = "markup.collection.enum",
+})
+
 Enum.__index = Enum
 
 Enum.__newindex = function(tbl, key, value)
@@ -49,6 +55,4 @@ function Enum:lookup(key)
 	end
 end
 
-return function()
-	return setmetatable({}, Enum)
-end
+return Enum

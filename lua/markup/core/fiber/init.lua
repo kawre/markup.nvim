@@ -63,18 +63,18 @@ function Fiber.begin_work(current, wip)
 		wip.flag = nil
 	end
 
-	local switch = {
+	local next = markup.Switch(wip.tag, {
 		[FiberTag.FUNCTION] = Fiber.update_function_component,
 		[FiberTag.FRAGMENT] = Fiber.update_fragment_component,
-		[FiberTag.ELEMENT] = Fiber.update_element_component,
-		[FiberTag.ROOT] = Fiber.update_element_component,
+		[{ FiberTag.ELEMENT, FiberTag.ROOT }] = Fiber.update_element_component,
 		[FiberTag.TEXT] = Fiber.update_text_component,
-	}
 
-	assert(switch[wip.tag], ("Invalid Fiber tag: %s"):format(wip.tag))
-	local next = switch[wip.tag](current, wip)
+		default = function()
+			error(("Invalid Fiber tag: %s"):format(wip.tag))
+		end,
+	})
 
-	return next
+	return next(current, wip)
 end
 
 function Fiber.complete_work(fiber)

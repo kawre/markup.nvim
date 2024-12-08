@@ -1,10 +1,10 @@
----@alias markup.Fiber.type
----| any
-
-local Enum = require("markup.collections.enum")
+local markup = require("markup.core")
 
 ---@class markup.fiber.enum : markup.Enum
-local enum = Enum()
+local enum = markup.Enum()
+
+---@alias markup.Fiber.type
+---| any
 
 ---@alias markup.Fiber.tag
 ---| "function"
