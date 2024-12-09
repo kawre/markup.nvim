@@ -55,4 +55,22 @@ function Enum:lookup(key)
 	end
 end
 
+-- Bind an enum lookup table to a class
+function Enum.bind(enum, class)
+	class = class or {}
+	local mt = getmetatable(class) or {}
+
+	mt.__index = function(_, k)
+		local v = enum[k:upper()]
+		assert(v, ("lookup: key '%s' not found"):format(k))
+		if type(v) == "string" then
+			return require(v)
+		else
+			return v
+		end
+	end
+
+	return setmetatable(class, mt)
+end
+
 return Enum

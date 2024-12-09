@@ -90,6 +90,19 @@ enum.Hook = {
 	USE_STATE = "markup.core.hook.state",
 }
 
+enum.RenderFlow = {
+	FLOW = "markup.core.render.box.flow",
+	INLINE = "markup.core.render.box.flow.inline",
+	BLOCK = "markup.core.render.box.flow.block",
+	FLEX = "markup.core.render.box.flow.flex",
+}
+
+enum.Render = {
+	OBJECT = "markup.core.render.object",
+	BOX = "markup.core.render.box",
+	enum.RenderFlow,
+}
+
 enum.Lookup = {
 	RECONCILER = "markup.core.reconciler",
 	TABPAGE = "markup.core.tabpage",

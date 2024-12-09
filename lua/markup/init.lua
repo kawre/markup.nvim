@@ -1,39 +1,20 @@
 local log = require("markup.logger") ---@diagnostic disable-line: unused-local
+local enum_core = require("markup.core.enum")
 local enum = require("markup.enum")
 
 ---@class markup
--- Hook
----@field useState markup.use_state
----@field use_state markup.use_state
--- Object
----@field Parser markup.Parser.constructor
----@field Window markup.Window.constructor
----@field Renderer markup.Renderer.constructor
----@field TabPage markup.TabPage.constructor
--- Create
----@field Element markup.create_element
----@field Component markup.create_component
----@field Fragment markup.create_fragment
--- Create Element
----@field Inline markup.Inline.constructor
----@field Block markup.Block.constructor
----@field Flex markup.Flex.constructor
--- Collection
----@field Array markup.Array.constructor
----@field Switch markup.Switch
-local markup = {}
+local markup = enum.bind(enum.Lookup)
+markup.core = enum.bind(enum_core.Lookup)
 
+---@param opts? table
 function markup.setup(opts)
+	opts = opts or {}
 	local config = require("markup.config")
-	config.user = vim.tbl_deep_extend("force", config, opts or {})
+	config.user = vim.tbl_deep_extend("force", config, opts)
 	config.debug = opts.debug or config.debug
 end
 
 require("markup-playground").setup()
 require("markup.theme").setup()
 
-return setmetatable(markup, {
-	__index = function(_, k)
-		return enum:lookup(k)
-	end,
-})
+return markup

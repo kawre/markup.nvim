@@ -170,7 +170,7 @@ end
 ---@field extend fun(self, name: string): markup.Object
 ---@field new fun(self, ...): markup.Object
 
----@class markup.Object
+---@class markup.Object : markup.Object.static
 ---@field static markup.Object.static
 ---@field super any
 ---@field class any
