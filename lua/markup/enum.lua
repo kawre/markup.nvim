@@ -50,6 +50,7 @@ enum.Lookup = {
 	enum.CreateNode,
 	enum.Collection,
 	enum.Hook,
+	CORE = "markup.core",
 	LAYOUT = Lookup.LAYOUT,
 	PARSER = Lookup.PARSER,
 	TABPAGE = Lookup.TABPAGE,

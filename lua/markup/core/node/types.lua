@@ -2,8 +2,6 @@
 ---- Node
 ---------------------------------
 
----@alias markup.Node.type "text"|"element"
-
 ---@alias markup.Text.content string|integer
 
 ---------------------------------

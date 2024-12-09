@@ -1,10 +1,8 @@
 local log = require("markup.logger") ---@diagnostic disable-line: unused-local
-local enum_core = require("markup.core.enum")
 local enum = require("markup.enum")
 
 ---@class markup
-local markup = enum.bind(enum.Lookup)
-markup.core = enum.bind(enum_core.Lookup)
+local markup = enum:bind()
 
 ---@param opts? table
 function markup.setup(opts)

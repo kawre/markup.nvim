@@ -1,6 +1,6 @@
 ---@diagnostic disable-next-line: duplicate-doc-alias
 ---@alias markup
----| { core: markup.core.Lookup }
+---| { core: markup.core }
 ---| markup.Lookup
 ---| markup.Lookup.Node
 ---| markup.Lookup.Create

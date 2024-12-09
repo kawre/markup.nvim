@@ -17,36 +17,41 @@ local NodeType = require("markup.core.node.enum").Type
 ---@field border? markup.Element.border
 
 ---@class markup.Element : markup.Node
----@field protected props markup.Element.props
 ---@field protected super markup.Node
+---@field private _pending_props markup.Element.constructor.props
+---@field props markup.Element.props
 ---@field static markup.Element.static
 ---@field child_nodes markup.Node[]
 ---@field builder markup.Renderer.Builder
----@field default_props table
 local Element = markup.Node:extend("markup.element")
 
 ---@class markup.Element.static : markup.Node.static
 Element.static = Element.static
 
-Element.static.default_props = {
-	style = {},
-	display = "inline",
-	padding = 0,
-	margin = 0,
-	align = "start",
-	spacing = 0,
-	vertical = true,
-	reverse = false,
-	size = {},
-}
+---@return markup.Element.props
+Element.static.get_default_props = function()
+	return {
+		style = {},
+		display = "inline",
+		padding = 0,
+		margin = 0,
+		align = "start",
+		spacing = 0,
+		vertical = true,
+		reverse = false,
+		size = {},
+	}
+end
 
----@param props markup.Element.constructor.props
----@param style? markup.Element.style
+---@param props? markup.Element.constructor.props
+---@param style? markup.Element.style.props
 function Element:init(props, style)
 	props = self:normalize_props(props, style)
 	Element.super.init(self, NodeType.ELEMENT, props)
 
 	self.builder = markup.RendererBuilder()
+
+	self._pending_props = nil
 	self.style = nil
 end
 
@@ -192,26 +197,26 @@ function Element.static.normalize_spacing(spacing)
 	end
 end
 
----@param props any
+---@param props? markup.Element.constructor.props
 function Element:extend_default_props(props)
-	local defaults = self.default_props or {}
-	self.default_props = vim.tbl_deep_extend("force", props, defaults)
+	self._pending_props = vim.tbl_deep_extend("force", props or {}, self._pending_props or {})
 end
 
 ---@param props any
 function Element:normalize_props(props, style)
-	local defaults =
-		vim.tbl_deep_extend("keep", self.default_props or {}, Element.static.default_props)
+	local default_props = Element.static.get_default_props()
+	local pending_props = self._pending_props or {}
+	props = vim.tbl_deep_extend("keep", props or {}, pending_props, default_props)
 
 	if style then
 		style = Element.static.normalize_style(style)
-		defaults.style = vim.tbl_deep_extend("keep", style, defaults.style)
+		props.style = vim.tbl_deep_extend("keep", style, props.style)
 	end
 	if props.style then
 		props.style = Element.static.normalize_style(props.style)
 	end
 
-	return vim.tbl_deep_extend("keep", props, defaults)
+	return props
 end
 
 ---@class markup.Element.constructor.props
@@ -229,7 +234,7 @@ end
 ---| string
 
 ---@alias markup.Element.constructor
----| fun(props?: markup.Element.children.content | markup.Element.constructor.props, style?: markup.Element.style.props): markup.Element
+---| fun(props?: markup.Element.constructor.props, style?: markup.Element.style.props): markup.Element
 ---| { static: markup.Element.static }
 ---| markup.Element.static
 

@@ -1,21 +1,12 @@
 local markup = require("markup.core")
 
----@class markup.fiber.enum : markup.Enum
+---@class markup.Fiber.enum : markup.Enum
 local enum = markup.Enum()
 
 ---@alias markup.Fiber.type
 ---| any
 
----@alias markup.Fiber.tag
----| "function"
----| "class"
----| "text"
----| "element"
----| "root"
----| "fragment"
----| "indeterminate"
-
----@type table<string, markup.Fiber.tag>
+---@enum markup.Fiber.tag
 enum.Tag = {
 	FUNCTION = "function",
 	FRAGMENT = "fragment",
@@ -23,16 +14,9 @@ enum.Tag = {
 	ROOT = "root",
 	TEXT = "text",
 	ELEMENT = "element",
-	INDETERMINATE = "indeterminate",
 }
 
----@alias markup.Fiber.flag
----| 1
----| 2
----| 3
----| 4
-
----@type table<string, markup.Fiber.flag>
+---@enum markup.Fiber.flag
 enum.Flag = {
 	UPDATE = 1,
 	INSERT = 2,

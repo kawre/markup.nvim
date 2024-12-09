@@ -6,6 +6,19 @@ local markup = require("markup.core")
 ---@class markup.Reconciler : markup.Object
 local Reconciler = markup.Object("markup.reconciler")
 
+---@class markup.Reconciler.static
+---@field currently_working_reconciler markup.Reconciler?
+---@field get_currently_rendering_fiber fun(): markup.Fiber?
+Reconciler.static = Reconciler.static
+
+---@type markup.Reconciler?
+Reconciler.static.currently_working_reconciler = nil
+
+function Reconciler.static.get_currently_rendering_fiber()
+	local current_reconciler = Reconciler.static.currently_working_reconciler
+	return current_reconciler and current_reconciler.currently_rendering_fiber
+end
+
 ---@param renderer markup.Renderer
 function Reconciler:init(renderer)
 	self.currently_rendering_fiber = nil
@@ -439,21 +452,10 @@ function Reconciler:print()
 	log.info(table.concat(lines, "\n"))
 end
 
----@class markup.Reconciler.static
----@field currently_working_reconciler markup.Reconciler?
----@field get_currently_rendering_fiber fun(): markup.Fiber?
-
----@type markup.Reconciler?
-Reconciler.static.currently_working_reconciler = nil
-
-function Reconciler.static.get_currently_rendering_fiber()
-	local current_reconciler = Reconciler.static.currently_working_reconciler
-	return current_reconciler and current_reconciler.currently_rendering_fiber
-end
-
 ---@alias markup.Reconciler.constructor
 ---| fun(renderer: markup.Renderer): markup.Reconciler
 ---| { static: markup.Reconciler.static }
+---| markup.Reconciler.static
 
 ---@type markup.Reconciler.constructor
 return Reconciler
