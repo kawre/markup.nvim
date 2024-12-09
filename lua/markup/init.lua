@@ -2,6 +2,10 @@ local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 local enum = require("markup.enum")
 
 ---@class markup
+-- Hook
+---@field useState markup.use_state
+---@field use_state markup.use_state
+-- Object
 ---@field Parser markup.Parser.constructor
 ---@field Window markup.Window.constructor
 ---@field Renderer markup.Renderer.constructor
@@ -10,7 +14,7 @@ local enum = require("markup.enum")
 ---@field Element markup.create_element
 ---@field Component markup.create_component
 ---@field Fragment markup.create_fragment
--- CreateElement
+-- Create Element
 ---@field Inline markup.Inline.constructor
 ---@field Block markup.Block.constructor
 ---@field Flex markup.Flex.constructor

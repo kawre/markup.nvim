@@ -41,9 +41,15 @@ enum.Collection = {
 	ARRAY = Lookup.ARRAY,
 }
 
+enum.Hook = {
+	USESTATE = Lookup.USE_STATE,
+	USE_STATE = Lookup.USE_STATE,
+}
+
 enum.Lookup = {
 	enum.CreateNode,
 	enum.Collection,
+	enum.Hook,
 	LAYOUT = Lookup.LAYOUT,
 	PARSER = Lookup.PARSER,
 	TABPAGE = Lookup.TABPAGE,

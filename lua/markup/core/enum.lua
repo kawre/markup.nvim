@@ -87,7 +87,7 @@ enum.Collection = {
 }
 
 enum.Hook = {
-	USESTATE = "markup.core.hook.usestate",
+	USE_STATE = "markup.core.hook.state",
 }
 
 enum.Lookup = {
@@ -100,6 +100,7 @@ enum.Lookup = {
 	enum.Create,
 	enum.Window,
 	enum.Collection,
+	enum.Hook,
 }
 
 return enum

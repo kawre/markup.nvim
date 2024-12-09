@@ -45,8 +45,7 @@ local enum = require("markup.core.enum")
 ---@field RendererLine markup.Renderer.Line.constructor
 ---@field TabPage markup.TabPage.constructor
 ---@field Parser markup.Parser.constructor
--- Static
----@field Reconciler markup.Reconciler
+---@field Reconciler markup.Reconciler.constructor
 -- Collection
 ---@field Switch markup.Switch
 ---@field Array markup.Array.constructor

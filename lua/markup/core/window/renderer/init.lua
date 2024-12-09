@@ -26,12 +26,13 @@ end
 ---@param element markup.xElement
 function Renderer:render(element)
 	self.root = markup.create_renderer_root(self, element)
+	self.reconciler = markup.Reconciler(self.root)
 	self:reconcile()
 end
 
 function Renderer:reconcile()
-	self.root.current = markup.Reconciler.reconcile(self.root)
-	markup.Reconciler.print(self.root.current)
+	self.root.current = self.reconciler:reconcile()
+	self.reconciler:print()
 end
 
 ---@private
