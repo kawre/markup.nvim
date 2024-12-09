@@ -8,6 +8,9 @@ local NodeType = require("markup.core.node.enum").Type
 ---@field width integer
 local Text = markup.Node:extend("markup.text")
 
+---@class markup.Text.static : markup.Node.static
+Text.static = Text.static
+
 function Text:init(content)
 	Text.super.init(self, NodeType.TEXT)
 	self:set(content)
@@ -36,4 +39,10 @@ function Text:set(value)
 	self.content = value
 end
 
+---@alias markup.Text.constructor
+---| fun(content: string | number): markup.Text
+---| { static: markup.Text.static }
+---| markup.Text.static
+
+---@type markup.Text.constructor
 return Text

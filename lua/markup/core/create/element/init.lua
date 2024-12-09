@@ -1,19 +1,9 @@
 local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 local markup = require("markup.core")
 
----@alias markup.xElement.props
----| { children?: any }
-
----@class markup.xElement
----@field type string
----@field props? markup.xElement.props
----@field ref? any
----@field key? any
----@field _owner? any
-
 local function normalize_type(_type)
-	if type(_type) == "string" then
-		_type = markup[_type]
+	if not type or type(_type) == "string" then
+		_type = markup[_type or "inline"]
 	end
 
 	return _type
@@ -53,13 +43,28 @@ local function normalize_props(props, style)
 	end
 end
 
+---@class markup.xElement
+---@field type string
+---@field props? markup.xElement.props
+---@field ref? any
+---@field key? any
+---@field _owner? any
+
+---@alias markup.xElement.props
+---| markup.Element.constructor.props
+---| { children?: any }
+
 ---@alias markup.create_element.props
 ---| markup.xElement.props
----| string
----| number
 
 ---@alias markup.create_element
 ---| fun(type: markup.Fiber.type, props?: markup.create_element.props, style?: table): markup.xElement
+
+---@alias markup.create_element_from_text
+---| fun(props?: markup.create_element.props, style?: markup.Element.style.props): markup.xElement
+
+---@alias markup.create_element_from_element
+---| fun(props?: markup.create_element.props, style?: markup.Element.style.props): markup.xElement
 
 ---@type markup.create_element
 local function create_element(type, props, style)

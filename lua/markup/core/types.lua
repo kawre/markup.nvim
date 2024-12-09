@@ -2,7 +2,10 @@
 ---@alias markup.core
 ---| { Render: markup.core.Lookup.Render }
 ---| markup.core.Lookup
----| markup.core.Lookup.Node
+---| markup.core.Lookup.Node.Text
+---| markup.core.Lookup.Node.Inline
+---| markup.core.Lookup.Node.Block
+---| markup.core.Lookup.Node.Flex
 ---| markup.core.Lookup.Renderer
 ---| markup.core.Lookup.Render
 ---| markup.core.Lookup.Create
@@ -16,30 +19,36 @@
 ---@field Reconciler markup.Reconciler.constructor
 ---@field TabPage markup.TabPage.constructor
 
----@class markup.core.Lookup.Node
----@field Node markup.Node.constructor
+---@class markup.core.Lookup.Node.Text
 ---@field Text markup.Text.constructor
 ---@field Pad markup.Padding.constructor
----@field Element markup.Element.constructor
----@field Inline markup.Inline.constructor
----@field Anchor markup.Inline.constructor
----@field Code markup.Inline.constructor
----@field Italic markup.Inline.constructor
----@field Mark markup.Inline.constructor
----@field Strike markup.Inline.constructor
----@field Strong markup.Inline.constructor
----@field Sub markup.Inline.constructor
----@field Sup markup.Inline.constructor
----@field Underline markup.Inline.constructor
----@field Block markup.Block.constructor
+
+---@class markup.core.Lookup.Node.Flex
 ---@field Flex markup.Flex.constructor
----@field HFlex markup.Flex.constructor
 ---@field Box markup.Flex.constructor
+---@field HFlex markup.Flex.Horizontal.constructor
+
+---@class markup.core.Lookup.Node.Grid
 ---@field Grid markup.Grid.constructor
+
+---@class markup.core.Lookup.Node.Block
+---@field Block markup.Block.constructor
 ---@field List markup.List.constructor
 ---@field OList markup.List.constructor
 ---@field ListItem markup.Block.constructor
 ---@field Pre markup.Pre.constructor
+
+---@class markup.core.Lookup.Node.Inline
+---@field Inline markup.Inline.constructor
+---@field Anchor markup.Anchor.constructor
+---@field Code markup.Code.constructor
+---@field Italic markup.Italic.constructor
+---@field Mark markup.Mark.constructor
+---@field Strike markup.Strike.constructor
+---@field Strong markup.Strong.constructor
+---@field Sub markup.Sub.constructor
+---@field Sup markup.Sup.constructor
+---@field Underline markup.Underline.constructor
 
 ---@class markup.core.Lookup.Renderer
 ---@field Renderer markup.Renderer.constructor
