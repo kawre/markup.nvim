@@ -63,7 +63,7 @@ end
 
 ---@type markup.create_element
 local function create_element(type, props, style)
-	local _type, typeof = normalize_type(type)
+	type = normalize_type(type)
 	props = normalize_props(props, style)
 
 	return {
@@ -71,7 +71,6 @@ local function create_element(type, props, style)
 		props = props,
 		ref = nil,
 		key = nil,
-		_typeof = typeof,
 	}
 end
 

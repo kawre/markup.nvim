@@ -8,6 +8,7 @@ local Reconciler = {}
 
 Reconciler.currently_rendering_fiber = nil
 Reconciler.update_queue = markup.Array()
+Reconciler.work_stack = markup.Array()
 
 ---@param renderer_root markup.Renderer.Root
 ---@return markup.Fiber
@@ -17,44 +18,52 @@ end
 
 ---@param root markup.Fiber
 function Reconciler.work_loop(root)
-	local stack = markup.Array({ root })
+	Reconciler.work_stack:push(root)
 
-	while #stack >= 1 do
-		local unit = stack:remove()
-
+	while #Reconciler.work_stack > 0 do
+		local unit = Reconciler.work_stack:pop()
 		local next = Reconciler.process(unit)
-		log.info(next)
 
+		if unit.sibling then
+			Reconciler.work_stack:push(unit.sibling)
+		end
 		if next then
-			stack:insert(next)
-		else
-			Reconciler.complete_work(unit)
+			Reconciler.work_stack:push(next)
 		end
 	end
 
 	return root
 end
 
----@param wip markup.Fiber
-function Reconciler.process(wip)
-	local next = Reconciler.begin_work(wip.alternate, wip)
-	wip.memoized_props = wip.pending_props
+---@param unit markup.Fiber
+---@return markup.Fiber
+function Reconciler.process(unit)
+	local next = Reconciler.begin_work(unit.alternate, unit)
+	unit.memoized_props = unit.pending_props
+
+	if not next then
+		Reconciler.complete_work(unit)
+	end
+
 	return next
 end
 
 ---@param current? markup.Fiber
 ---@param wip markup.Fiber
+---@return markup.Fiber
 function Reconciler.begin_work(current, wip)
 	if current then
 		local old_props, new_props = current.memoized_props, wip.pending_props
-
-		if not vim.deep_equal(old_props, new_props) or current.type ~= wip.type then
-			wip.flag = FiberFlag.UPDATE
-		else
+		if vim.deep_equal(old_props, new_props) and current.type == wip.type then
+			-- If the props and type are the same,
+			-- we can reuse the current fiber
 			wip.flag = nil
+			return wip.child
+		else
+			wip.flag = FiberFlag.UPDATE
 		end
 	else
-		wip.flag = nil
+		wip.flag = FiberFlag.PLACEMENT
 	end
 
 	local next = markup.Switch(wip.tag, {
@@ -68,7 +77,6 @@ function Reconciler.begin_work(current, wip)
 			error(("Invalid Fiber tag: %s"):format(wip.tag))
 		end,
 	})
-	log.info(wip.tag)
 
 	return next(current, wip)
 end
@@ -102,7 +110,8 @@ function Reconciler.update_root_component(current, wip)
 	return wip.child
 end
 
-function Reconciler.update_text_component(current, wip)
+function Reconciler.update_text_component()
+	-- Nothing to do here (leaf node)
 	return nil
 end
 
@@ -141,7 +150,7 @@ end
 ---@param child markup.xElement
 function Reconciler.create_child(returnf, child)
 	if (type(child) == "string" and child ~= "") or type(child) == "number" then
-		local fiber = markup.create_fiber_from_text(tostring(child))
+		local fiber = markup.create_fiber_from_text(child)
 		fiber["return"] = returnf
 		return fiber
 	end
@@ -162,7 +171,7 @@ end
 function Reconciler.update_from_map(existing, returnf, new_index, new_child)
 	if (type(new_child) == "string" and new_child ~= "") or type(new_child) == "number" then
 		local matched = existing[new_index]
-		return Reconciler.update_text_node(returnf, matched, tostring(new_child))
+		return Reconciler.update_text_node(returnf, matched, new_child)
 	end
 
 	if new_child.type then
@@ -179,7 +188,7 @@ end
 function Reconciler.update_text_node(returnf, current, content)
 	if current and current.tag == FiberTag.TEXT then
 		-- If the existing fiber is a text node, update it
-		local existing = Reconciler.use(current, content)
+		local existing = Reconciler.use_fiber(current, content)
 		existing["return"] = returnf
 		return existing
 	else
@@ -196,7 +205,7 @@ end
 function Reconciler.update_element_node(returnf, current, element)
 	if current and current.type ~= element.type then
 		-- If the existing fiber is not an element node, create a new one
-		local existing = Reconciler.use(current, element.props)
+		local existing = Reconciler.use_fiber(current, element.props)
 		existing["return"] = returnf
 		return existing
 	else
@@ -222,10 +231,11 @@ function Reconciler.reconcile_children_list(returnf, current_first_child, new_ch
 	while old_fiber and new_index <= #new_children do
 		last_placed_index = Reconciler.place_child(old_fiber, last_placed_index, new_index)
 		old_fiber = old_fiber.sibling
+
 		new_index = new_index + 1
 	end
 
-	if new_index == #new_children then
+	if new_index == #new_children + 1 then
 		Reconciler.delete_remaining_children(returnf, old_fiber)
 		return result_first_child
 	end
@@ -235,16 +245,15 @@ function Reconciler.reconcile_children_list(returnf, current_first_child, new_ch
 			local new_fiber = Reconciler.create_child(returnf, new_children[new_index])
 
 			if new_fiber then
-				return nil
+				if prev_new_fiber then
+					prev_new_fiber.sibling = new_fiber
+				else
+					result_first_child = new_fiber
+				end
+
+				prev_new_fiber = new_fiber
 			end
 
-			if prev_new_fiber then
-				prev_new_fiber.sibling = new_fiber
-			else
-				result_first_child = new_fiber
-			end
-
-			prev_new_fiber = new_fiber
 			new_index = new_index + 1
 		end
 
@@ -291,7 +300,7 @@ end
 ---@param new_child markup.xElement
 function Reconciler.reconcile_child_fibers(returnf, current_first_child, new_child)
 	if (type(new_child) == "string" and new_child ~= "") or type(new_child) == "number" then
-		return Reconciler.reconcile_single_text(returnf, current_first_child, tostring(new_child))
+		return Reconciler.reconcile_single_text(returnf, current_first_child, new_child)
 	end
 
 	if vim.islist(new_child) then
@@ -358,7 +367,7 @@ function Reconciler.reconcile_single_element(returnf, current_first_child, eleme
 	return created
 end
 
-function Reconciler.use(fiber, props)
+function Reconciler.use_fiber(fiber, props)
 	local clone = markup.create_fiber(fiber.type, props, fiber.key)
 	clone.state_node = fiber.state_node
 	clone.alternate = fiber
@@ -368,7 +377,7 @@ end
 
 ---@param returnf markup.Fiber
 ---@param current? markup.Fiber
----@param content string
+---@param content string|number
 function Reconciler.reconcile_single_text(returnf, current, content)
 	if current and current.tag == FiberTag.TEXT then
 		current.pending_props = content
@@ -391,26 +400,31 @@ function Reconciler.delete_remaining_children(returnf, current_first_child)
 	end
 end
 
-function Reconciler:print()
-	local function print_fiber_tree(fiber, depth)
-		if not fiber then
+function Reconciler.print(fiber)
+	local lines = {}
+
+	---@param f markup.Fiber
+	local function print_fiber_tree(f, depth)
+		if not f then
 			return
 		end
 
 		local indent = ("    "):rep(depth or 0)
 
-		print(indent .. ("Fiber: %s (%s)"):format(fiber.type, fiber.tag))
+		local line = (indent .. ("Fiber: %s (%s)"):format(f.type, f.tag))
+		table.insert(lines, line)
 
-		if fiber.child then
-			print_fiber_tree(fiber.child, (depth or 0) + 1)
+		if f.child then
+			print_fiber_tree(f.child, (depth or 0) + 1)
 		end
 
-		if fiber.sibling then
-			print_fiber_tree(fiber.sibling, depth)
+		if f.sibling then
+			print_fiber_tree(f.sibling, depth)
 		end
 	end
 
-	print_fiber_tree(self, 0)
+	print_fiber_tree(fiber, 0)
+	log.info(table.concat(lines, "\n"))
 end
 
 return Reconciler

@@ -37,6 +37,18 @@ function Array:map(fn, in_place)
 	return arr
 end
 
+function Array:push(...)
+	for _, value in ipairs({ ... }) do
+		if value then
+			self:insert(value)
+		end
+	end
+end
+
+function Array:pop()
+	return self:remove()
+end
+
 ---@alias markup.Array.constructor fun(init?: table): markup.Array
 
 ---@type markup.Array.constructor

@@ -30,12 +30,14 @@ enum.Tag = {
 ---| 1
 ---| 2
 ---| 3
+---| 4
 
 ---@type table<string, markup.Fiber.flag>
 enum.Flag = {
 	UPDATE = 1,
 	INSERT = 2,
 	DELETE = 3,
+	PLACEMENT = 4,
 }
 
 return enum

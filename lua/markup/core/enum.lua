@@ -59,6 +59,7 @@ enum.CreateFiber = {
 	CREATE_FIBER = "markup.core.create.fiber",
 	CREATE_FIBER_ROOT = "markup.core.create.fiber.root",
 	CREATE_FIBER_FROM_ELEMENT = "markup.core.create.fiber.from_element",
+	CREATE_FIBER_FROM_TEXT = "markup.core.create.fiber.from_text",
 }
 
 enum.Create = {
@@ -83,6 +84,10 @@ enum.Collection = {
 	ENUM = "markup.collection.enum",
 	SWITCH = "markup.collection.switch",
 	ARRAY = "markup.collection.array",
+}
+
+enum.Hook = {
+	USESTATE = "markup.core.hook.usestate",
 }
 
 enum.Lookup = {

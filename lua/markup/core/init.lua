@@ -2,17 +2,19 @@ local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 local enum = require("markup.core.enum")
 
 ---@class markup.core
--- Create
+-- Create xElement
 ---@field create_element markup.create_element
 ---@field create_component markup.create_component
 ---@field create_root markup.create_root
+-- Create Fiber
 ---@field create_fiber markup.create_fiber
 ---@field create_fiber_root markup.create_fiber_root
 ---@field create_fiber_from_element markup.create_fiber_from_element
 ---@field create_fiber_from_text markup.create_fiber_from_text
 ---@field create_fiber_from_fragment markup.create_fiber_from_text
+-- Create Renderer Root
 ---@field create_renderer_root markup.create_renderer_root
---
+-- Object
 ---@field Object markup.Object.constructor
 ---@field Node markup.Node.constructor
 ---@field Text markup.Text.constructor
