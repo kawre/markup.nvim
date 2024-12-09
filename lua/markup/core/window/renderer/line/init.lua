@@ -84,9 +84,7 @@ end
 ---@param renderer markup.Renderer
 ---@param row_at integer
 function Line:draw(renderer, row_at)
-	local str = self:content()
-	renderer:buf_set_lines(row_at, -1, false, { str })
-	self:paint(renderer, row_at)
+	renderer:buf_set_lines(row_at, -1, false, { self:content() })
 end
 
 ---@param renderer markup.Renderer

@@ -10,8 +10,8 @@ local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 ---@class markup.Renderer : markup.Window
 ---@field protected super markup.Window
 ---@field protected _ markup.Renderer.props
----@field body markup.Element.children
----@field fiber_tree? markup.Fiber
+---@field reconciler markup.Reconciler
+---@field root markup.Renderer.Root
 local Renderer = markup.Window:extend("MarkupRenderer") ---@diagnostic disable-line: undefined-field
 
 ---------------------------------
@@ -26,23 +26,24 @@ end
 ---@param element markup.xElement
 function Renderer:render(element)
 	self.root = markup.create_renderer_root(self, element)
-	self.reconciler = markup.Reconciler(self.root)
+	self.reconciler = markup.Reconciler(self)
 	self:reconcile()
 end
 
 function Renderer:reconcile()
-	self.root.current = self.reconciler:reconcile()
+	self.reconciler:reconcile()
 	self.reconciler:print()
+	self:commit()
 end
 
 ---@private
 function Renderer:commit()
-	local root = self.fiber_tree.state_node
-	---@cast root markup.Element
+	local root = self.root.current.state_node
 
+	---@cast root markup.Element
 	self:render_portal(function()
-		for row, line in ipairs(root.builder.lines) do
-			self:buf_set_lines(row, row, false, line)
+		for row, line in ipairs(root:computed_lines()) do
+			line:draw(self, row)
 			line:paint(self, row)
 		end
 	end)

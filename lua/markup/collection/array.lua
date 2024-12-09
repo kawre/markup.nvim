@@ -37,11 +37,14 @@ function Array:map(fn, in_place)
 	return arr
 end
 
+---@param ...any
 function Array:push(...)
-	for _, value in ipairs({ ... }) do
-		if value then
-			self:insert(value)
-		end
+	local args = vim.tbl_filter(function(v)
+		return v ~= nil
+	end, { ... })
+
+	for _, value in ipairs(args) do
+		self:insert(value)
 	end
 end
 

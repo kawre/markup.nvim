@@ -1,4 +1,5 @@
 -- source: https://github.com/kikito/middleclass, https://github.com/MunifTanjim/nui.nvim
+local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 
 local idx = {
 	subclasses = { "<markup.utils.object:subclasses>" },
@@ -162,11 +163,15 @@ local function create_object(_, name)
 	return Class
 end
 
----@class markup.Object
+---@class markup.Object.static
 ---@field is_class fun(class1: markup.Object, class2: table): boolean
 ---@field is_subclass fun(subclass: markup.Object, class: table): boolean
 ---@field is_instance fun(instance: markup.Object, class: table): boolean
----@field static any
+---@field extend fun(self, name: string): markup.Object
+---@field new fun(self, ...): markup.Object
+
+---@class markup.Object
+---@field static markup.Object.static
 ---@field super any
 ---@field class any
 local Object = setmetatable({
@@ -177,7 +182,10 @@ local Object = setmetatable({
 	__call = create_object,
 })
 
----@alias markup.Object.constructor fun(name: string): markup.Object
+---@alias markup.Object.constructor
+---| fun(name: string): markup.Object
+---| { static: markup.Object.static }
+---| markup.Object.static
 
 ---@type markup.Object.constructor
 local MarkupObject = Object ---@diagnostic disable-line: assign-type-mismatch

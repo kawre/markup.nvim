@@ -6,12 +6,12 @@ local markup = require("markup.core")
 ---@class markup.Reconciler : markup.Object
 local Reconciler = markup.Object("markup.reconciler")
 
----@param renderer_root markup.Renderer.Root
-function Reconciler:init(renderer_root)
+---@param renderer markup.Renderer
+function Reconciler:init(renderer)
 	self.currently_rendering_fiber = nil
 	self.update_queue = markup.Array()
 	self.work_stack = markup.Array()
-	self.renderer_root = renderer_root
+	self.renderer = renderer
 end
 
 ---@return markup.Fiber
@@ -20,23 +20,17 @@ function Reconciler:reconcile()
 	self:work_loop()
 	Reconciler.static.currently_working_reconciler = nil
 
-	return self.renderer_root.current
+	return self.renderer.root.current
 end
 
 function Reconciler:work_loop()
-	self.work_stack:push(self.renderer_root.current)
+	self.work_stack:push(self.renderer.root.current)
 	self.work_stack_visited = {}
 
 	while #self.work_stack > 0 do
 		local unit = self.work_stack:pop()
 		local next = self:process(unit)
 
-		if not self.work_stack_visited[unit] then
-			self.work_stack:push(unit)
-		end
-		if unit.sibling then
-			self.work_stack:push(unit.sibling)
-		end
 		if next then
 			self.work_stack:push(next)
 		end
@@ -49,9 +43,13 @@ end
 ---@return markup.Fiber?
 function Reconciler:process(unit)
 	if self.work_stack_visited[unit] then
+		-- Fiber has already been processed,
+		-- complete the work and return
 		self:complete_work(unit)
 		return
 	end
+
+	self.work_stack:push(unit, unit.sibling)
 
 	self.currently_rendering_fiber = unit
 	local next = self:begin_work(unit.alternate, unit)
@@ -96,7 +94,7 @@ end
 
 ---@param fiber markup.Fiber
 function Reconciler:complete_work(fiber)
-	return fiber
+	--
 end
 
 ---@param current? markup.Fiber
@@ -423,7 +421,7 @@ function Reconciler:print()
 			return
 		end
 
-		local indent = ("    "):rep(depth or 0)
+		local indent = ("\t"):rep(depth or 0)
 
 		local line = (indent .. ("Fiber: %s (%s)"):format(fiber.type, fiber.tag))
 		table.insert(lines, line)
@@ -437,7 +435,7 @@ function Reconciler:print()
 		end
 	end
 
-	print_fiber_tree(self.renderer_root.current, 0)
+	print_fiber_tree(self.renderer.root.current, 0)
 	log.info(table.concat(lines, "\n"))
 end
 
@@ -454,7 +452,7 @@ function Reconciler.static.get_currently_rendering_fiber()
 end
 
 ---@alias markup.Reconciler.constructor
----| fun(renderer_root: markup.Renderer.Root): markup.Reconciler
+---| fun(renderer: markup.Renderer): markup.Reconciler
 ---| { static: markup.Reconciler.static }
 
 ---@type markup.Reconciler.constructor

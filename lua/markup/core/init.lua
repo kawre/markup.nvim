@@ -43,6 +43,7 @@ local enum = require("markup.core.enum")
 ---@field Window markup.Window.constructor
 ---@field Renderer markup.Renderer.constructor
 ---@field RendererLine markup.Renderer.Line.constructor
+---@field RendererBuilder markup.Renderer.Builder
 ---@field TabPage markup.TabPage.constructor
 ---@field Parser markup.Parser.constructor
 ---@field Reconciler markup.Reconciler.constructor

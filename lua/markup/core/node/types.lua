@@ -32,9 +32,9 @@
 ---| "anchor"
 
 ---@alias markup.Element.padding
----|integer
----|integer[]
----|{top?: integer, right?: integer, bottom?: integer, left?: integer}
+---| integer
+---| integer[]
+---| {top?: integer, right?: integer, bottom?: integer, left?: integer}
 
 ---@alias markup.Element.margin markup.Element.padding
 

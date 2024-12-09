@@ -26,7 +26,10 @@ function logger.log(lvl, ...)
 		return
 	end
 
-	local msg = table.concat(vim.tbl_map(normalize, { ... }), " ")
+	local args = vim.tbl_filter(function(v)
+		return v ~= nil
+	end, { ... })
+	local msg = table.concat(vim.tbl_map(normalize, args), " ")
 	vim.notify(msg, lvl, {
 		title = config.name,
 		on_open = function(win)
