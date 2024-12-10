@@ -17,32 +17,42 @@ local function normalize_cases(cases)
 	return new_cases
 end
 
+local function is_callable(value)
+	if type(value) == "function" then
+		return true
+	end
+	local mt = getmetatable(value)
+	return mt and type(mt.__call) == "function"
+end
+
+local function call_value(value, ...)
+	if is_callable(value) then
+		return value(...)
+	else
+		return value
+	end
+end
+
 local Switch = setmetatable({}, {
 	__call = function(_, value, cases)
-		return function(...)
-			cases = normalize_cases(cases)
+		cases = normalize_cases(cases)
+		local case = cases[value]
+		local default = cases.default
 
-			local case = cases[value]
+		return function(...)
 			if case then
-				if type(case) == "function" then
-					return case(...)
-				end
-				return case
+				return call_value(case, ...)
 			end
 
-			local default = cases.default
 			if default then
-				if type(default) == "function" then
-					return default(...)
-				end
-				return default
+				return call_value(default, ...)
 			end
 		end
 	end,
 	__name = Collection.SWITCH,
 })
 
----@alias markup.Switch fun(value: any, cases: { default?: any }, ...): any
+---@alias markup.Switch fun(value: any, cases: { default?: any }): fun(...): any
 
 ---@type markup.Switch
 return Switch

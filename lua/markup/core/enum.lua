@@ -91,18 +91,21 @@ enum.Hook = {
 }
 
 enum.RenderFlow = {
-	FLOW = "markup.core.render.box.flow",
-	INLINE = "markup.core.render.box.flow.inline",
-	BLOCK = "markup.core.render.box.flow.block",
-	FLEX = "markup.core.render.box.flow.flex",
+	INLINE = "markup.core.render.object.inline",
+	BLOCK = "markup.core.render.object.block",
+	FLEX = "markup.core.render.object.flex",
+	TEXT = "markup.core.render.object.text",
+}
+
+enum.RenderObject = {
+	OBJECT = "markup.core.render.object",
+	VIEW = "markup.core.render.object.view",
+	enum.RenderFlow,
 }
 
 enum.Render = {
-	OBJECT = "markup.core.render.object",
-	BOX = "markup.core.render.box",
 	TREE = "markup.core.render.tree",
-	VIEW = "markup.core.render.view",
-	enum.RenderFlow,
+	enum.RenderObject,
 }
 
 enum.Lookup = {

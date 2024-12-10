@@ -1,6 +1,5 @@
 ---@diagnostic disable-next-line: duplicate-doc-alias
 ---@alias markup.core
----| { Render: markup.core.Lookup.Render }
 ---| markup.core.Lookup
 ---| markup.core.Lookup.Node.Text
 ---| markup.core.Lookup.Node.Inline
@@ -57,10 +56,9 @@
 
 ---@class markup.core.Lookup.Render
 ---@field Tree markup.Render.Tree
----@field View markup.Render.View
 ---@field Object markup.Render.Object
----@field Box markup.Render.Box
----@field Flow markup.Render.Flow
+---@field Text markup.Render.Text
+---@field View markup.Render.View
 ---@field Inline markup.Render.Inline
 ---@field Block markup.Render.Block
 ---@field Flex markup.Render.Flex

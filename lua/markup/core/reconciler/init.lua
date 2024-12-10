@@ -90,19 +90,19 @@ function Reconciler:begin_work(current, wip)
 		wip.flag = FiberFlag.PLACEMENT
 	end
 
-	local next = markup.Switch(wip.tag, {
+	local next_work = markup.Switch(wip.tag, {
 		[FiberTag.FUNCTION] = Reconciler.update_function_component,
 		[FiberTag.FRAGMENT] = Reconciler.update_fragment_component,
 		[FiberTag.ELEMENT] = Reconciler.update_element_component,
 		[FiberTag.ROOT] = Reconciler.update_root_component,
 		[FiberTag.TEXT] = Reconciler.update_text_component,
 
-		default = function()
+		["default"] = function()
 			error(("Invalid Fiber tag: %s"):format(wip.tag))
 		end,
 	})
 
-	return next(self, current, wip)
+	return next_work(self, current, wip)
 end
 
 ---@param fiber markup.Fiber
@@ -135,7 +135,7 @@ function Reconciler:update_function_component(current, wip)
 	return wip.child
 end
 
-function Reconciler.update_fragment_component(current, wip)
+function Reconciler:update_fragment_component(current, wip)
 	return nil
 end
 
@@ -146,9 +146,8 @@ function Reconciler:update_root_component(current, wip)
 	return wip.child
 end
 
-function Reconciler.update_text_component()
-	-- Nothing to do here (leaf node)
-	return nil
+function Reconciler:update_text_component()
+	-- return nil
 end
 
 ---@param current? markup.Fiber

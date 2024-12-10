@@ -14,8 +14,6 @@ Node.static = Node.static
 ---@param type markup.Node.type
 ---@param props? markup.Node.constructor.props
 function Node:init(type, props)
-	assert(self.class.super, "Node is an abstract class")
-
 	self.child_nodes = {}
 	self.props = props or {} ---@diagnostic disable-line: assign-type-mismatch
 	self.type = type

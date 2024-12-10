@@ -11,6 +11,7 @@ local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 ---@field protected super markup.Window
 ---@field protected _ markup.Renderer.props
 ---@field reconciler markup.Reconciler
+---@field render_tree markup.Render.View
 ---@field root markup.Renderer.Root
 local Renderer = markup.Window:extend("MarkupRenderer") ---@diagnostic disable-line: undefined-field
 
@@ -32,10 +33,11 @@ end
 
 function Renderer:reconcile()
 	self.reconciler:reconcile()
-	-- self.reconciler:print()
+	self.reconciler:print()
 
-	local render_tree = markup.Render.Tree.static.build(self.root)
-	self:commit(render_tree)
+	self.render_tree = markup.Render.Tree.static.build(self.root)
+	self.render_tree:print()
+	self:commit(self.render_tree)
 end
 
 ---@private
