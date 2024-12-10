@@ -1,6 +1,7 @@
 local markup = require("markup.core")
 
 ---@class markup.Render.Flow : markup.Render.Box
+---@field protected super markup.Render.Box
 local RenderFlow = markup.Render.Box:extend("markup.render.flow")
 
 function RenderFlow:is_inline()
@@ -21,6 +22,10 @@ end
 
 function RenderFlow:make_children_non_inline()
 	--
+end
+
+function RenderFlow:layout()
+	error("Must be implemented by subclass")
 end
 
 return RenderFlow

@@ -17,7 +17,7 @@ function Node:init(type, props)
 	assert(self.class.super, "Node is an abstract class")
 
 	self.child_nodes = {}
-	self.props = props ---@diagnostic disable-line: assign-type-mismatch
+	self.props = props or {} ---@diagnostic disable-line: assign-type-mismatch
 	self.type = type
 end
 
@@ -27,6 +27,10 @@ end
 
 function Node:has_child_nodes()
 	return #self.child_nodes > 0
+end
+
+function Node:is_type(type)
+	return self.type == type
 end
 
 function Node:append_child(child)

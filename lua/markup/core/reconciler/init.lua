@@ -107,7 +107,18 @@ end
 
 ---@param fiber markup.Fiber
 function Reconciler:complete_work(fiber)
-	--
+	local parent = fiber["return"]
+
+	while parent and not parent["state_node"] do
+		parent = parent["return"]
+	end
+
+	if parent then
+		if fiber.tag == FiberTag.ELEMENT or fiber.tag == FiberTag.TEXT then
+			fiber.state_node = fiber.type(fiber.pending_props)
+			parent.state_node:append_child(fiber.state_node)
+		end
+	end
 end
 
 ---@param current? markup.Fiber

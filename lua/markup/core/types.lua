@@ -56,6 +56,8 @@
 ---@field RendererBuilder markup.Renderer.Builder
 
 ---@class markup.core.Lookup.Render
+---@field Tree markup.Render.Tree
+---@field View markup.Render.View
 ---@field Object markup.Render.Object
 ---@field Box markup.Render.Box
 ---@field Flow markup.Render.Flow

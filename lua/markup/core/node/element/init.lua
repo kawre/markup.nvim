@@ -49,8 +49,6 @@ function Element:init(props, style)
 	props = self:normalize_props(props, style)
 	Element.super.init(self, NodeType.ELEMENT, props)
 
-	self.builder = markup.RendererBuilder()
-
 	self._pending_props = nil
 	self.style = nil
 end
@@ -115,7 +113,7 @@ end
 function Element:children()
 	return vim.tbl_filter(function(child)
 		---@cast child markup.Element
-		return child:is_element()
+		return child:is_type(NodeType.ELEMENT)
 	end, self.child_nodes)
 end
 
@@ -159,14 +157,6 @@ function Element:max_size()
 	end
 
 	return { width = max_width, height = max_height }
-end
-
-function Element:computed_style()
-	return self.style
-end
-
-function Element:computed_lines()
-	return self.builder.lines
 end
 
 function Element.static.normalize_style(style)

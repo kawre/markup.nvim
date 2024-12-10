@@ -100,6 +100,8 @@ enum.RenderFlow = {
 enum.Render = {
 	OBJECT = "markup.core.render.object",
 	BOX = "markup.core.render.box",
+	TREE = "markup.core.render.tree",
+	VIEW = "markup.core.render.view",
 	enum.RenderFlow,
 }
 

@@ -32,15 +32,17 @@ end
 
 function Renderer:reconcile()
 	self.reconciler:reconcile()
-	self.reconciler:print()
-	self:commit()
+	-- self.reconciler:print()
+
+	local render_tree = markup.Render.Tree.static.build(self.root)
+	self:commit(render_tree)
 end
 
 ---@private
-function Renderer:commit()
-	local root = self.root.current.state_node
+---@param render_tree markup.Render.View
+function Renderer:commit(render_tree)
+	local root = render_tree
 
-	---@cast root markup.Element
 	self:render_portal(function()
 		for row, line in ipairs(root:computed_lines()) do
 			line:draw(self, row)
