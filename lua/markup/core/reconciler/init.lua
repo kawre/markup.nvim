@@ -107,15 +107,14 @@ end
 
 ---@param fiber markup.Fiber
 function Reconciler:complete_work(fiber)
-	local parent = fiber["return"]
+	if fiber.state_node then
+		local parent = fiber["return"]
 
-	while parent and not parent["state_node"] do
-		parent = parent["return"]
-	end
+		while parent and not parent["state_node"] do
+			parent = parent["return"]
+		end
 
-	if parent then
-		if fiber.tag == FiberTag.ELEMENT or fiber.tag == FiberTag.TEXT then
-			fiber.state_node = fiber.type(fiber.pending_props)
+		if parent then
 			parent.state_node:append_child(fiber.state_node)
 		end
 	end
@@ -139,6 +138,8 @@ function Reconciler:update_fragment_component(current, wip)
 	return nil
 end
 
+---@param current? markup.Fiber
+---@param wip markup.Fiber
 function Reconciler:update_root_component(current, wip)
 	assert(current, "Root must have a current fiber, this is a bug.")
 
@@ -146,7 +147,10 @@ function Reconciler:update_root_component(current, wip)
 	return wip.child
 end
 
-function Reconciler:update_text_component()
+---@param current? markup.Fiber
+---@param wip markup.Fiber
+function Reconciler:update_text_component(current, wip)
+	wip.state_node = wip.type(wip.pending_props)
 	-- return nil
 end
 
@@ -158,6 +162,7 @@ function Reconciler:update_element_component(current, wip)
 	local next_children = next_props.children
 
 	wip.child = self:reconcile_children(current, wip, next_children)
+	wip.state_node = wip.type(wip.pending_props)
 	return wip.child
 end
 
