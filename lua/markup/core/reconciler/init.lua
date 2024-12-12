@@ -78,7 +78,10 @@ end
 function Reconciler:begin_work(current, wip)
 	if current then
 		local old_props, new_props = current.memoized_props, wip.pending_props
-		if vim.deep_equal(old_props, new_props) and current.type == wip.type then
+		if
+			current.type == wip.type
+			and (old_props == new_props or vim.deep_equal(old_props, new_props))
+		then
 			-- If the props and type are the same,
 			-- we can reuse the current fiber
 			wip.flag = nil
@@ -107,16 +110,15 @@ end
 
 ---@param fiber markup.Fiber
 function Reconciler:complete_work(fiber)
-	if fiber.state_node then
+	if fiber.state_node and fiber.tag ~= FiberTag.ROOT then
 		local parent = fiber["return"]
 
 		while parent and not parent["state_node"] do
 			parent = parent["return"]
 		end
 
-		if parent then
-			parent.state_node:append_child(fiber.state_node)
-		end
+		assert(parent, "Parent node must exist, this is a bug.")
+		parent.state_node:prepend_child(fiber.state_node)
 	end
 end
 
@@ -151,7 +153,6 @@ end
 ---@param wip markup.Fiber
 function Reconciler:update_text_component(current, wip)
 	wip.state_node = wip.type(wip.pending_props)
-	-- return nil
 end
 
 ---@param current? markup.Fiber

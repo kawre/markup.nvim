@@ -1,7 +1,7 @@
 local markup = require("markup.core")
 
 ---@class markup.Render.Block : markup.Render.Object
-local RenderBlock = markup.Render.Object:extend("markup.render.block")
+local RenderBlock = markup.Render.Object:extend("RenderBlock")
 
 function RenderBlock:layout()
 	local children = self.children

@@ -1,7 +1,7 @@
 local markup = require("markup.core")
 
 ---@class markup.Render.Flex : markup.Render.Object
-local RenderFlex = markup.Render.Object:extend("markup.render.flex")
+local RenderFlex = markup.Render.Object:extend("RenderFlex")
 
 function RenderFlex:layout()
 	-- local nodes, vertical = self.child_nodes, self.vertical

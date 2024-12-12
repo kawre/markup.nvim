@@ -6,24 +6,42 @@ local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 ---@field children markup.Render.Object[]
 ---@field node markup.Node
 ---@field builder markup.Renderer.Builder
-local RenderObject = markup.Object("markup.render.object")
+---@field need_layout boolean
+local RenderObject = markup.Object("RenderObject")
 
 function RenderObject:init(node)
 	self.node = node
 	self.builder = markup.RendererBuilder()
 	self.children = {}
+	self.need_layout = true
+
+	self:attach(node)
 end
 
 ---@class markup.Render.Object.static : markup.Object.static
 RenderObject.static = RenderObject.static
 
-function RenderObject:first_child() end
+---@param node markup.Node
+function RenderObject:attach(node)
+	for _, child in ipairs(node.child_nodes) do
+		local renderer = markup.Render.Tree.static.factory(child)
+		table.insert(self.children, renderer)
+	end
 
-function RenderObject:last_child() end
+	self:layout()
+end
 
-function RenderObject:prev_sibling() end
+function RenderObject:layout()
+	error("Method not implemented")
+end
 
-function RenderObject:next_sibling() end
+---@param renderer markup.Renderer
+function RenderObject:paint(renderer)
+	for row, line in pairs(self:computed_lines()) do
+		line:draw(renderer, row)
+		line:paint(renderer, row)
+	end
+end
 
 function RenderObject:computed_lines()
 	return self.builder.lines
@@ -40,7 +58,7 @@ function RenderObject:print()
 
 		local indent = ("\t"):rep(depth or 0)
 
-		local line = (indent .. ("Object: %s (%s)"):format(object.node, object.node.type))
+		local line = (indent .. ("Object: %s"):format(object.class.name))
 		table.insert(lines, line)
 
 		for _, child in ipairs(object.children) do
@@ -52,4 +70,10 @@ function RenderObject:print()
 	log.info(table.concat(lines, "\n"))
 end
 
+---@alias markup.Render.Object.constructor
+---| fun(node: markup.Node): markup.Render.Object
+---| { static: markup.Render.Object.static }
+---| markup.Render.Object.static
+
+---@type markup.Render.Object.constructor
 return RenderObject

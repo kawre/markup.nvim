@@ -3,7 +3,7 @@ local markup = require("markup.core")
 ---@class markup.Node.props
 
 ---@class markup.Node : markup.Object
----@field protected props markup.Node.props
+---@field props markup.Node.props
 ---@field type markup.Node.type
 ---@field child_nodes markup.Node[]
 local Node = markup.Object("markup.node")
@@ -33,6 +33,10 @@ end
 
 function Node:append_child(child)
 	table.insert(self.child_nodes, child)
+end
+
+function Node:prepend_child(child)
+	table.insert(self.child_nodes, 1, child)
 end
 
 function Node:remove_child(child)

@@ -1,6 +1,7 @@
 local markup = require("markup.core")
 
----@class markup.Render.View : markup.Render.Object
-local RenderView = markup.Render.Object:extend("markup.render.view")
+---@class markup.Render.View : markup.Render.Inline
+---@field protected super markup.Render.Inline
+local RenderView = markup.Render.Inline:extend("RenderView")
 
 return RenderView

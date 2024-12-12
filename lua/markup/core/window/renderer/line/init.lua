@@ -26,7 +26,8 @@ end
 function Line:_sync()
 	if self._.dirty then
 		self._.content = table.concat(vim.tbl_map(function(text)
-			return text:content()
+			---@type markup.Text
+			return text.content
 		end, self._.texts)) or ""
 		self._.length = #self._.content
 		self._.width = vim.api.nvim_strwidth(self._.content)
@@ -99,8 +100,8 @@ function Line:paint(renderer, row_at)
 		local j = i
 		while texts[j] and texts[j]:highlight() == hl do
 			local old_offset = offset
-			offset = offset + texts[j]:length()
-			texts[j]:_set_position(row_at, old_offset, offset)
+			offset = offset + texts[j].len
+			-- texts[j]:_set_position(row_at, old_offset, offset)
 			j = j + 1
 		end
 

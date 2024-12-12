@@ -36,7 +36,6 @@ function Renderer:reconcile()
 	self.reconciler:print()
 
 	self.render_tree = markup.Render.Tree.static.build(self.root)
-	self.render_tree:print()
 	self:commit(self.render_tree)
 end
 
@@ -46,10 +45,7 @@ function Renderer:commit(render_tree)
 	local root = render_tree
 
 	self:render_portal(function()
-		for row, line in ipairs(root:computed_lines()) do
-			line:draw(self, row)
-			line:paint(self, row)
-		end
+		root:paint(self)
 	end)
 end
 

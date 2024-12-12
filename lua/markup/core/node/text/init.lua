@@ -1,5 +1,7 @@
-local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 local markup = require("markup.core")
+
+local theme = require("markup.theme")
+local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 local NodeType = require("markup.core.node.enum").Type
 
 ---@class markup.Text : markup.Node
@@ -37,6 +39,11 @@ function Text:set(value)
 	self.len = #value
 	self.width = vim.api.nvim_strwidth(value)
 	self.content = value
+end
+
+---@return string?
+function Text:highlight()
+	return theme.create_dynamic_hl(self.props.style)
 end
 
 ---@alias markup.Text.constructor
