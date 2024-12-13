@@ -90,30 +90,18 @@ enum.Hook = {
 	USE_STATE = "markup.core.hook.state",
 }
 
-enum.RenderFlow = {
-	INLINE = "markup.core.render.object.inline",
-	BLOCK = "markup.core.render.object.block",
-	FLEX = "markup.core.render.object.flex",
-	TEXT = "markup.core.render.object.text",
-}
-
-enum.RenderObject = {
-	OBJECT = "markup.core.render.object",
-	VIEW = "markup.core.render.object.view",
-	enum.RenderFlow,
-}
-
-enum.Render = {
-	TREE = "markup.core.render.tree",
-	enum.RenderObject,
+enum.Reconciler = {
+	RECONCILER = "markup.core.reconciler",
+	DISPATCHER = "markup.core.reconciler.dispatcher",
 }
 
 enum.Lookup = {
-	RECONCILER = "markup.core.reconciler",
 	TABPAGE = "markup.core.tabpage",
 	OBJECT = "markup.core.object",
 	PARSER = "markup.core.parser",
 	LAYOUT = "markup.core.layout",
+	RENDER = "markup.core.render",
+	enum.Reconciler,
 	enum.Node,
 	enum.Create,
 	enum.Window,

@@ -2,7 +2,7 @@ local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 local enum = require("markup.enum")
 
 ---@class markup
----@field package core markup.core
+---@field core markup.core
 local markup = enum:bind()
 
 ---@param opts? table

@@ -17,6 +17,7 @@
 ---@field Window markup.Window.constructor
 ---@field Reconciler markup.Reconciler.constructor
 ---@field TabPage markup.TabPage.constructor
+---@field Dispatcher markup.Dispatcher
 
 ---@class markup.core.Lookup.Node.Text
 ---@field Text markup.Text.constructor

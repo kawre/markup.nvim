@@ -8,7 +8,6 @@ local function flatten(tbl)
 			if type(v) == "table" then
 				dfs(v)
 			else
-				k = k:upper()
 				assert(not res[k], "Duplicate key: " .. k)
 				res[k] = v
 			end

@@ -104,4 +104,12 @@ function utils.lookup(tbl, key, fn)
 	end
 end
 
+function utils.is_callable(value)
+	if type(value) == "function" then
+		return true
+	end
+	local mt = getmetatable(value)
+	return mt and type(mt.__call) == "function"
+end
+
 return utils

@@ -236,7 +236,7 @@ function Window:win_open()
 	end)
 
 	vim.keymap.set("n", "r", function()
-		self:reconcile()
+		self:rerender()
 	end)
 
 	if self:win_is_valid() then

@@ -10,9 +10,8 @@ local RenderTree = markup.Object("markup.render.tree")
 RenderTree.static = RenderTree.static
 
 ---@param root markup.Renderer.Root
----@return markup.Render.View
-function RenderTree.static.build(root)
-	return markup.Render.View(root.current.state_node)
+function RenderTree:init(root)
+	self.view = markup.Render.View(root.current.state_node)
 end
 
 ---@param node markup.Node

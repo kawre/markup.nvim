@@ -10,9 +10,9 @@ local u = require("markup.utils")
 ---@field type markup.Fiber.type
 ---@field tag markup.Fiber.tag
 ---@field state_node markup.Node
---@field update_queue? markup.Fiber.update_queue
+---@field flags integer
+---@field update_queue? table
 ---@field key? any
----@field flag? markup.Fiber.flag
 ---@field alternate? markup.Fiber
 ---@field child? markup.Fiber
 ---@field sibling? markup.Fiber
@@ -44,8 +44,9 @@ local function create_fiber(type, props, key)
 		tag = tag_from_type(type),
 		update_queue = nil,
 		alternate = nil,
-		flag = nil,
+		flags = 0,
 		index = 1,
+		hooks = nil,
 	}
 end
 

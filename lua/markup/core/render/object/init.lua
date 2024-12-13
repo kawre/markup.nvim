@@ -23,6 +23,8 @@ RenderObject.static = RenderObject.static
 
 ---@param node markup.Node
 function RenderObject:attach(node)
+	self.children = {}
+
 	for _, child in ipairs(node.child_nodes) do
 		local renderer = markup.Render.Tree.static.factory(child)
 		table.insert(self.children, renderer)

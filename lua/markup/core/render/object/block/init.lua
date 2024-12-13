@@ -8,7 +8,7 @@ function RenderBlock:layout()
 
 	for _, child in ipairs(children) do
 		---@cast child markup.Render.Block
-		assert(child:is_block_flow(), "Block flow must contain only block children")
+		-- assert(child:is_block_flow(), "Block flow must contain only block children")
 
 		for _, line in pairs(child:computed_lines()) do
 			self.builder:append(line):newl()

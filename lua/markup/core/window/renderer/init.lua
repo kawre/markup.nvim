@@ -11,7 +11,7 @@ local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 ---@field protected super markup.Window
 ---@field protected _ markup.Renderer.props
 ---@field reconciler markup.Reconciler
----@field render_tree markup.Render.View
+---@field render_tree markup.Render.Tree
 ---@field root markup.Renderer.Root
 local Renderer = markup.Window:extend("MarkupRenderer") ---@diagnostic disable-line: undefined-field
 
@@ -28,24 +28,26 @@ end
 function Renderer:render(element)
 	self.root = markup.create_renderer_root(self, element)
 	self.reconciler = markup.Reconciler(self)
-	self:reconcile()
+
+	self.reconciler:reconcile()
+	self.render_tree = markup.Render.Tree(self.root)
+
+	-- self.reconciler:print()
+	-- self.render_tree:print()
+
+	self:rerender()
 end
 
-function Renderer:reconcile()
+function Renderer:rerender()
 	self.reconciler:reconcile()
-	self.reconciler:print()
-
-	self.render_tree = markup.Render.Tree.static.build(self.root)
-	self:commit(self.render_tree)
+	self.render_tree = markup.Render.Tree(self.root)
+	self:commit()
 end
 
 ---@private
----@param render_tree markup.Render.View
-function Renderer:commit(render_tree)
-	local root = render_tree
-
+function Renderer:commit()
 	self:render_portal(function()
-		root:paint(self)
+		self.render_tree.view:paint(self)
 	end)
 end
 
@@ -53,14 +55,12 @@ end
 function Renderer:render_portal(fn)
 	assert(self:is_valid(), "Renderer is not valid")
 
-	-- u.measure_time("markup.Renderer:render", function()
 	self:preserve_cursor(function()
 		self:with_buf_option("modifiable", function()
 			self:clear()
 			fn()
 		end)
 	end)
-	-- end)
 
 	return true
 end
@@ -75,7 +75,6 @@ function Renderer:clear()
 	self:buf_clear_namespace()
 	self:buf_set_lines(0, -1, false, {})
 	self:clear_keymaps()
-	self._.buttons = {}
 end
 
 function Renderer:preserve_cursor(fn)
