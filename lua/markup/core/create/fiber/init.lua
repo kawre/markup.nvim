@@ -42,11 +42,11 @@ local function create_fiber(type, props, key)
 		type = type,
 		key = key,
 		tag = tag_from_type(type),
-		update_queue = nil,
 		alternate = nil,
 		flags = 0,
 		index = 1,
 		hooks = nil,
+		update_queue = {},
 	}
 end
 

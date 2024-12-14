@@ -112,4 +112,14 @@ function utils.is_callable(value)
 	return mt and type(mt.__call) == "function"
 end
 
+---@param value any
+---@param ...any function arguments
+function utils.call_if_callable(value, ...)
+	if utils.is_callable(value) then
+		return value(...)
+	else
+		return value
+	end
+end
+
 return utils

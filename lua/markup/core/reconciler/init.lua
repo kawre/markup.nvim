@@ -43,8 +43,6 @@ end
 
 ---@return markup.Fiber
 function Reconciler:reconcile()
-	log.info("reconcile")
-
 	Reconciler.static.currently_working_reconciler = self
 	self:work_loop()
 	Reconciler.static.currently_working_reconciler = nil
@@ -111,8 +109,8 @@ function Reconciler:begin_work(current, wip)
 		if current.type == wip.type and vim.deep_equal(old_props, new_props) then
 			-- If the props and type are the same,
 			-- we can reuse the current fiber
-			if not FiberFlag.check(wip, FiberFlag.UPDATE) then
-				wip.flags = FiberFlag.NONE
+			if #wip.update_queue == 0 then
+				-- wip.flags = FiberFlag.NONE
 				return self:bailout(wip)
 			end
 		else
@@ -164,7 +162,7 @@ end
 
 ---@param fiber markup.Fiber
 function Reconciler:bailout(fiber)
-	fiber.flags = FiberFlag.NONE
+	-- fiber.flags = FiberFlag.NONE
 	self:clone_child_fibers(fiber)
 	return fiber.child
 end
@@ -230,7 +228,6 @@ function Reconciler:update_element_component(current, wip)
 	-- if is_direct_text_child then
 	-- 	next_children = nil
 	-- end
-	-- log.info("123")
 
 	wip.child = self:reconcile_children(current, wip, next_children)
 	return wip.child
@@ -246,6 +243,12 @@ function Reconciler:render_with_hooks(current, wip)
 	-- if current and current.memoized_state then
 	-- 	wip.memoized_state = current.memoized_state
 	-- end
+	for _, update in ipairs(wip.update_queue) do
+		if update.action then
+			update.action()
+		end
+	end
+	wip.update_queue = {}
 
 	local children = Component(props)
 
@@ -313,6 +316,7 @@ function Reconciler:create_wip(current, props)
 	else
 		wip.pending_props = props
 		wip.type = current.type
+		wip.flags = FiberFlag.NONE
 	end
 
 	wip.pending_props = props
@@ -320,7 +324,6 @@ function Reconciler:create_wip(current, props)
 	wip.memoized_state = current.memoized_state
 	wip.memoized_props = current.memoized_props
 	wip.update_queue = current.update_queue
-	wip.flags = FiberFlag.NONE
 
 	wip.sibling = current.sibling
 	wip.index = current.index
@@ -594,6 +597,12 @@ function Reconciler:delete_remaining_children(returnf, current_first_child)
 		self:delete_child(returnf, child)
 		child = child.sibling
 	end
+end
+
+function Reconciler:schedule_render()
+	vim.schedule(function()
+		self.renderer:rerender()
+	end)
 end
 
 function Reconciler:print()

@@ -13,19 +13,23 @@ local FiberFlag = require("markup.core.reconciler.enum").Flag
 ---@type markup.use_state
 local function use_state(initial)
 	local reconciler = markup.Reconciler.static.get()
+	assert(reconciler, "`use_state` must be called while reconciler work, this is a bug.")
 	local fiber = reconciler.currently_rendering_fiber
 	assert(fiber, "`use_state` must be called inside a fiber, this is a bug.")
 
-	if u.is_callable(initial) then
-		initial = initial()
-	end
+	initial = u.call_if_callable(initial)
 
 	local hook = reconciler:mount_wip_hook()
 	hook.base_state = initial
 	hook.memoized_state = hook.base_state
 
-	local dispatch = function()
-		reconciler.dispatcher:set_state(fiber, hook.queue)
+	local dispatch = function(value)
+		value = u.call_if_callable(value, hook.memoized_state)
+
+		reconciler.dispatcher:set_state(fiber, hook.queue, function()
+			hook.memoized_state = value
+			fiber.memoized_state.memoized_state = value
+		end)
 	end
 
 	local queue = {

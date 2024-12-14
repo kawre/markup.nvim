@@ -31,9 +31,11 @@ function Dispatcher:enqueue_update(update)
 	self.queues:push(update)
 end
 
+---@param fiber markup.Fiber
 function Dispatcher:enqueue_hook_update(fiber, queue, update)
 	update.next = queue
-	self:enqueue_update(update)
+	table.insert(fiber.update_queue, update)
+	-- self:enqueue_update(update)
 end
 
 ---@param fiber markup.Fiber
@@ -48,10 +50,9 @@ function Dispatcher:set_state(fiber, queue, action)
 	if self:is_render_phase_update(fiber) then
 	else
 		update.next = queue
-		self:enqueue_update(update)
+		self:enqueue_hook_update(fiber, queue, update)
 		FiberFlag.set(fiber, FiberFlag.UPDATE)
-		log.info(fiber)
-		self.reconciler:reconcile()
+		self.reconciler:schedule_render()
 	end
 end
 

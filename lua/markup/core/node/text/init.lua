@@ -37,7 +37,7 @@ function Text:set(value)
 
 	value = tostring(value)
 	self.len = #value
-	self.width = vim.api.nvim_strwidth(value)
+	-- self.width = vim.api.nvim_strwidth(value)
 	self.content = value
 end
 
