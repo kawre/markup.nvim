@@ -19,11 +19,15 @@ enum.Tag = {
 ---@enum markup.Fiber.flag
 enum.Flag = {
 	NONE = 0,
-	UPDATE = 1,
-	INSERT = 2,
+	-- indicates that the Fiber's associated node
+	-- needs to be inserted into the render tree
+	PLACEMENT = 1,
+	-- signals that the properties, state, or children of the Fiber node
+	-- have changed and need to be updated
+	UPDATE = 2,
+	-- indicates that the Fiber's associated node
+	-- should be removed from the render tree
 	DELETE = 4,
-	PLACEMENT = 8,
-	-- PERFORMED_WORK = 5,
 
 	---@param fiber markup.Fiber
 	---@param ... markup.Fiber.flag

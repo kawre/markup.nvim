@@ -6,6 +6,7 @@ local markup = require("markup.core")
 ---@field props markup.Node.props
 ---@field type markup.Node.type
 ---@field child_nodes markup.Node[]
+---@field parent? markup.Node
 local Node = markup.Object("markup.node")
 
 ---@class markup.Node.static : markup.Object.static
@@ -32,16 +33,19 @@ function Node:is_type(type)
 end
 
 function Node:append_child(child)
+	child.parent = self
 	table.insert(self.child_nodes, child)
 end
 
 function Node:prepend_child(child)
+	child.parent = self
 	table.insert(self.child_nodes, 1, child)
 end
 
 function Node:remove_child(child)
 	for i, node in ipairs(self.child_nodes) do
 		if node == child then
+			child.parent = nil
 			table.remove(self.child_nodes, i)
 			break
 		end
@@ -51,6 +55,8 @@ end
 function Node:replace_child(old, new)
 	for i, node in ipairs(self.child_nodes) do
 		if node == old then
+			old.parent = nil
+			new.parent = self
 			self.child_nodes[i] = new
 			break
 		end

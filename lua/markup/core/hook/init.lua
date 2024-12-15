@@ -3,13 +3,6 @@ local markup = require("markup.core")
 ---@class markup.hook
 local Hooks = {}
 
----@class markup.Fiber.hook
----@field memoized_state any
----@field base_state any
----@field base_queue any
----@field queue any
----@field next? markup.Fiber.hook
-
 function Hooks.mount_wip_hook()
 	---@type markup.Fiber.hook
 	local hook = {

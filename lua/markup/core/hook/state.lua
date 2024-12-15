@@ -23,21 +23,17 @@ local function use_state(initial)
 	hook.base_state = initial
 	hook.memoized_state = hook.base_state
 
-	local dispatch = function(value)
-		value = u.call_if_callable(value, hook.memoized_state)
-
-		reconciler.dispatcher:set_state(fiber, hook.queue, function()
-			hook.memoized_state = value
-			fiber.memoized_state.memoized_state = value
-		end)
-	end
-
-	local queue = {
+	hook.queue = {
 		pending = nil,
-		dispatch = dispatch,
 		last_rendered_state = initial,
 	}
-	hook.queue = queue
+
+	local function dispatch(value)
+		reconciler.dispatcher:set_state(fiber, hook.queue, function()
+			hook.memoized_state = u.call_if_callable(value, hook.memoized_state)
+		end)
+	end
+	-- hook.queue.dispatch = dispatch
 
 	return hook.memoized_state, dispatch
 end

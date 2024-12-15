@@ -3,6 +3,19 @@ local markup = require("markup.core")
 local FiberTag = require("markup.core.reconciler.enum").Tag
 local u = require("markup.utils")
 
+---@class markup.Fiber.hook
+---@field memoized_state any
+---@field base_state any
+---@field next? markup.Fiber.hook
+
+---@class markup.Fiber.queue
+---@field pending markup.Fiber.update[]
+---@field last_rendered_state any
+
+---@class markup.Fiber.update
+---@field action function
+---@field next? markup.Fiber.update
+
 ---@class markup.Fiber
 ---@field pending_props any
 ---@field memoized_props any
@@ -11,8 +24,9 @@ local u = require("markup.utils")
 ---@field tag markup.Fiber.tag
 ---@field state_node markup.Node
 ---@field flags integer
----@field update_queue? table
+---@field queue? markup.Fiber.queue
 ---@field key? any
+---@field hook? markup.Fiber.hook
 ---@field alternate? markup.Fiber
 ---@field child? markup.Fiber
 ---@field sibling? markup.Fiber
@@ -39,13 +53,14 @@ end
 local function create_fiber(type, props, key)
 	return {
 		pending_props = props,
+		memoized_state = {},
 		type = type,
 		key = key,
 		tag = tag_from_type(type),
 		alternate = nil,
 		flags = 0,
 		index = 1,
-		hooks = nil,
+		hook = nil,
 		update_queue = {},
 	}
 end

@@ -32,26 +32,29 @@ function Dispatcher:enqueue_update(update)
 end
 
 ---@param fiber markup.Fiber
+---@param queue markup.Fiber.queue
+---@param update markup.Fiber.update
 function Dispatcher:enqueue_hook_update(fiber, queue, update)
-	update.next = queue
-	table.insert(fiber.update_queue, update)
-	-- self:enqueue_update(update)
+	if not queue.pending then
+		queue.pending = {}
+	end
+
+	table.insert(queue.pending, update)
+	FiberFlag.set(fiber, FiberFlag.UPDATE)
 end
 
 ---@param fiber markup.Fiber
----@param queue table
----@param action? fun(state: any): any
+---@param queue markup.Fiber.queue
+---@param action? function
 function Dispatcher:set_state(fiber, queue, action)
+	---@type markup.Fiber.update
 	local update = {
 		action = action,
-		next = nil,
 	}
 
 	if self:is_render_phase_update(fiber) then
 	else
-		update.next = queue
 		self:enqueue_hook_update(fiber, queue, update)
-		FiberFlag.set(fiber, FiberFlag.UPDATE)
 		self.reconciler:schedule_render()
 	end
 end

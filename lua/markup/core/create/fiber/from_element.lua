@@ -5,7 +5,9 @@ local markup = require("markup.core")
 
 ---@type markup.create_fiber_from_element
 local function create_fiber_from_element(element)
-	return markup.create_fiber(element.type, element.props, element.key)
+	local fiber = markup.create_fiber(element.type, element.props, element.key)
+	fiber.memoized_state = { element = element }
+	return fiber
 end
 
 return create_fiber_from_element
