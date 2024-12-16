@@ -1,3 +1,4 @@
+local api = vim.api
 local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 
 ---@class markup-playground
@@ -5,10 +6,14 @@ local playground = {}
 
 function playground.open()
 	local markup = require("markup")
-	local path = vim.fn.stdpath("data") .. "/markup/playground.lua"
-	local api = vim.api
 
-	vim.cmd.tabe(path)
+	local path = vim.fn.stdpath("data") .. "/markup/lua/playground"
+
+	vim.fn.mkdir(path, "p")
+	local file = path .. "/init.lua"
+
+	vim.cmd.tabe(file)
+	vim.cmd.tcd(path)
 
 	playground.editor = markup.Window({
 		winid = 0,
@@ -31,7 +36,7 @@ function playground.open()
 
 	vim.api.nvim_create_autocmd("BufWritePost", {
 		callback = function()
-			local ok, err = pcall(vim.cmd.luafile, path)
+			local ok, err = pcall(vim.cmd.luafile, file)
 			if not ok then
 				log.error(err)
 			end

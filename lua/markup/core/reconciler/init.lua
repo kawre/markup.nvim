@@ -147,7 +147,7 @@ function Reconciler:begin_work(current, wip)
 end
 
 ---@param fiber markup.Fiber
----@return markup.Element, markup.Fiber
+---@return markup.Fiber
 function Reconciler:find_element_ancestor(fiber)
 	local parent = fiber and fiber["return"]
 
@@ -155,7 +155,7 @@ function Reconciler:find_element_ancestor(fiber)
 		parent = parent["return"]
 	end
 
-	return parent.state_node, parent
+	return parent
 end
 
 ---@param current? markup.Fiber
@@ -218,7 +218,7 @@ function Reconciler:place_single_child(fiber)
 
 	local node = fiber.state_node
 	local parent = self:find_element_ancestor(fiber)
-	parent:append_child(node)
+	parent.state_node:append_child(node)
 	FiberFlag.clear(fiber, FiberFlag.PLACEMENT)
 end
 
@@ -320,7 +320,7 @@ end
 ---@param returnf markup.Fiber
 ---@param child markup.Fiber
 function Reconciler:delete_child(returnf, child)
-	local parent = select(2, self:find_element_ancestor(child))
+	local parent = self:find_element_ancestor(child)
 
 	if not parent.deletions then
 		parent.deletions = { child }
