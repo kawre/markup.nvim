@@ -3,11 +3,15 @@ local markup = require("markup.core")
 local FiberTag = require("markup.core.reconciler.enum").Tag
 local u = require("markup.utils")
 
+---@class markup.Fiber.queue
+---@field dispatch function
+---@field pending? { action: fun() }[]
+---@field last_rendered_state any
+
 ---@class markup.Fiber.hook
 ---@field memoized_state any
 ---@field base_state any
----@field dispatch function
----@field last_rendered_state any
+---@field queue markup.Fiber.queue
 ---@field next? markup.Fiber.hook
 
 ---@class markup.Fiber

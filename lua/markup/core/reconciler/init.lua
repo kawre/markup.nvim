@@ -116,9 +116,9 @@ end
 ---@param wip markup.Fiber
 ---@return markup.Fiber
 function Reconciler:begin_work(current, wip)
-	-- log.inspect(current)
-	-- log.inspect(wip.memoized_state)
-	-- log.inspect("----")
+	-- if wip.tag == FiberTag.FUNCTION then
+	-- 	log.inspect(wip)
+	-- end
 
 	-- first check if the fiber can be reused
 	if current then
@@ -127,6 +127,7 @@ function Reconciler:begin_work(current, wip)
 			current.type == wip.type
 			and vim.deep_equal(old_props, new_props)
 			and FiberFlag.check(wip, FiberFlag.NONE)
+			and not self:has_pending_updates(wip)
 		then
 			-- nothing to do,
 			-- we can reuse the current fiber
@@ -222,7 +223,6 @@ function Reconciler:update_function_component(current, wip)
 	-- 	-- bailoutHooks(current, workInProgress, renderLanes);
 	-- 	-- return bailoutOnAlreadyFinishedWork(current, workInProgress, renderLanes);
 	-- end
-	-- log.info("123")
 
 	wip.child = self:reconcile_children(current, wip, next_children)
 	return wip.child
@@ -279,11 +279,22 @@ function Reconciler:update_element_component(current, wip)
 	return wip.child
 end
 
+---@param fiber markup.Fiber
+function Reconciler:has_pending_updates(fiber)
+	local hook = fiber.memoized_state
+	return fiber.tag == "function" and hook and hook.queue.pending
+end
+
 ---@param current? markup.Fiber
 ---@param wip markup.Fiber
 function Reconciler:render_with_hooks(current, wip)
 	-- clear the hooks to make space for the next hooks
 	self.wip_hook = nil
+
+	if self:has_pending_updates(wip) then
+		-- if there are pending updates, update the state
+		self.dispatcher:process_hook_updates(wip)
+	end
 
 	local Component = wip.type
 	local props = wip.pending_props
@@ -291,10 +302,6 @@ function Reconciler:render_with_hooks(current, wip)
 
 	wip.memoized_state = wip.hook
 	wip.hook = nil
-
-	if current then
-		FiberFlag.clear(wip, FiberFlag.UPDATE)
-	end
 
 	return children
 end
@@ -655,13 +662,15 @@ function Reconciler:delete_remaining_children(returnf, current_first_child)
 end
 
 function Reconciler:schedule_render()
-	if not self.render_scheduled then
-		self.render_scheduled = true
-		vim.schedule(function()
-			self.renderer:rerender()
-			self.render_scheduled = false
-		end)
+	if self.render_scheduled then
+		return
 	end
+
+	self.render_scheduled = true
+	vim.schedule(function()
+		self.render_scheduled = false
+		self.renderer:rerender()
+	end)
 end
 
 function Reconciler:print()

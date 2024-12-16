@@ -14,13 +14,19 @@ local function mount_state(initial)
 		memoized_state = initial,
 	})
 
-	hook.dispatch = function(value)
-		reconciler.dispatcher:set_state(fiber, function()
+	local function dispatch(value)
+		reconciler.dispatcher:set_state(hook, function()
 			hook.memoized_state = u.call_if_callable(value, hook.memoized_state)
 		end)
 	end
 
-	return hook.memoized_state, hook.dispatch
+	hook.queue = {
+		dispatch = dispatch,
+		last_rendered_state = initial,
+		pending = nil,
+	}
+
+	return hook.memoized_state, dispatch
 end
 
 local function update_state()
@@ -28,7 +34,7 @@ local function update_state()
 
 	local hook = reconciler:update_wip_hook()
 	assert(hook, "`update_state` must be called while reconciler work, this is a bug.")
-	return hook.memoized_state, hook.dispatch
+	return hook.memoized_state, hook.queue.dispatch
 end
 
 ---@generic T
@@ -39,7 +45,6 @@ end
 local function use_state(initial)
 	local fiber = markup.Reconciler.static.get_currently_rendering_fiber(true)
 
-	-- log.info(fiber.memoized_state)
 	if not fiber.memoized_state then
 		return mount_state(initial)
 	else

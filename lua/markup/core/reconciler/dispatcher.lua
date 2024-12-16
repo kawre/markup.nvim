@@ -15,11 +15,33 @@ local Dispatcher = setmetatable({}, {
 	end,
 })
 
----@param fiber markup.Fiber
+---@param hook markup.Fiber.hook
 ---@param action function
-function Dispatcher:set_state(fiber, action)
-	self:execute(action)
-	FiberFlag.set(fiber, FiberFlag.UPDATE)
+function Dispatcher:enqueue_hook_update(hook, action)
+	local queue = hook.queue
+	local update = {
+		action = action,
+	}
+	if not queue.pending then
+		queue.pending = {}
+	end
+	table.insert(queue.pending, update)
+end
+
+---@param fiber markup.Fiber
+function Dispatcher:process_hook_updates(fiber)
+	local hook = fiber.memoized_state
+	assert(hook and hook.queue.pending, "No pending updates to process")
+	for _, update in ipairs(hook.queue.pending) do
+		update.action()
+	end
+	hook.queue.pending = nil
+end
+
+---@param hook markup.Fiber.hook
+---@param action function
+function Dispatcher:set_state(hook, action)
+	self:enqueue_hook_update(hook, action)
 	self.reconciler:schedule_render()
 end
 
