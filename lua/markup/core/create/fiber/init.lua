@@ -28,6 +28,7 @@ local u = require("markup.utils")
 ---@field child? markup.Fiber
 ---@field sibling? markup.Fiber
 ---@field index integer
+---@field deletions? markup.Fiber[]
 
 local function tag_from_type(etype)
 	if type(etype) == "function" then

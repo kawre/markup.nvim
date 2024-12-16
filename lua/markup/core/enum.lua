@@ -87,7 +87,7 @@ enum.Collection = {
 }
 
 enum.Hook = {
-	USE_STATE = "markup.core.hook.state",
+	USE_STATE = "markup.core.reconciler.hook.state",
 }
 
 enum.Reconciler = {

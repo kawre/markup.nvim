@@ -5,28 +5,26 @@ local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 
 ---@param initial any
 local function mount_state(initial)
-	local fiber, reconciler = markup.Reconciler.static.get_currently_rendering_fiber(true)
+	local reconciler = markup.Reconciler.static.get(true)
 
 	initial = u.call_if_callable(initial)
 
 	local hook = reconciler:mount_wip_hook({
 		base_state = initial,
 		memoized_state = initial,
+		queue = {
+			last_rendered_state = initial,
+			pending = nil,
+		},
 	})
 
-	local function dispatch(value)
+	hook.queue.dispatch = function(value)
 		reconciler.dispatcher:set_state(hook, function()
 			hook.memoized_state = u.call_if_callable(value, hook.memoized_state)
 		end)
 	end
 
-	hook.queue = {
-		dispatch = dispatch,
-		last_rendered_state = initial,
-		pending = nil,
-	}
-
-	return hook.memoized_state, dispatch
+	return hook.memoized_state, hook.queue.dispatch
 end
 
 local function update_state()

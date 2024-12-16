@@ -22,10 +22,12 @@ function Dispatcher:enqueue_hook_update(hook, action)
 	local update = {
 		action = action,
 	}
+
 	if not queue.pending then
-		queue.pending = {}
+		queue.pending = { update }
+	else
+		table.insert(queue.pending, update)
 	end
-	table.insert(queue.pending, update)
 end
 
 ---@param fiber markup.Fiber
