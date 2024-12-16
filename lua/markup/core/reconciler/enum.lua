@@ -44,7 +44,7 @@ enum.Flag = {
 	---@param fiber markup.Fiber
 	---@param ... markup.Fiber.flag
 	check = function(fiber, ...)
-		return bit.band(fiber.flags, ...) ~= 0 ---@diagnostic disable-line: param-type-mismatch
+		return fiber.flags == ... or bit.band(fiber.flags, ...) ~= 0 ---@diagnostic disable-line: param-type-mismatch
 	end,
 }
 

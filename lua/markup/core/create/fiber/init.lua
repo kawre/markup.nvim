@@ -6,15 +6,9 @@ local u = require("markup.utils")
 ---@class markup.Fiber.hook
 ---@field memoized_state any
 ---@field base_state any
----@field next? markup.Fiber.hook
-
----@class markup.Fiber.queue
----@field pending markup.Fiber.update[]
+---@field dispatch function
 ---@field last_rendered_state any
-
----@class markup.Fiber.update
----@field action function
----@field next? markup.Fiber.update
+---@field next? markup.Fiber.hook
 
 ---@class markup.Fiber
 ---@field pending_props any
@@ -24,7 +18,6 @@ local u = require("markup.utils")
 ---@field tag markup.Fiber.tag
 ---@field state_node markup.Node
 ---@field flags integer
----@field queue? markup.Fiber.queue
 ---@field key? any
 ---@field hook? markup.Fiber.hook
 ---@field alternate? markup.Fiber
@@ -61,7 +54,6 @@ local function create_fiber(type, props, key)
 		flags = 0,
 		index = 1,
 		hook = nil,
-		update_queue = {},
 	}
 end
 

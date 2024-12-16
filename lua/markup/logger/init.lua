@@ -40,6 +40,10 @@ function logger.log(lvl, ...)
 	})
 end
 
+function logger.inspect(...)
+	require("snacks").debug.inspect(...)
+end
+
 return setmetatable(logger, {
 	__index = function(_, key)
 		local lvl = lvls[key:upper()]

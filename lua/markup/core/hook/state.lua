@@ -1,10 +1,35 @@
 local markup = require("markup.core")
 
 local u = require("markup.utils")
-local Hooks = require("markup.core.hook")
-
 local log = require("markup.logger") ---@diagnostic disable-line: unused-local
-local FiberFlag = require("markup.core.reconciler.enum").Flag
+
+---@param initial any
+local function mount_state(initial)
+	local fiber, reconciler = markup.Reconciler.static.get_currently_rendering_fiber(true)
+
+	initial = u.call_if_callable(initial)
+
+	local hook = reconciler:mount_wip_hook({
+		base_state = initial,
+		memoized_state = initial,
+	})
+
+	hook.dispatch = function(value)
+		reconciler.dispatcher:set_state(fiber, function()
+			hook.memoized_state = u.call_if_callable(value, hook.memoized_state)
+		end)
+	end
+
+	return hook.memoized_state, hook.dispatch
+end
+
+local function update_state()
+	local reconciler = markup.Reconciler.static.get(true)
+
+	local hook = reconciler:update_wip_hook()
+	assert(hook, "`update_state` must be called while reconciler work, this is a bug.")
+	return hook.memoized_state, hook.dispatch
+end
 
 ---@generic T
 ---@alias markup.use_state
@@ -12,30 +37,13 @@ local FiberFlag = require("markup.core.reconciler.enum").Flag
 
 ---@type markup.use_state
 local function use_state(initial)
-	local reconciler = markup.Reconciler.static.get()
-	assert(reconciler, "`use_state` must be called while reconciler work, this is a bug.")
-	local fiber = reconciler.currently_rendering_fiber
-	assert(fiber, "`use_state` must be called inside a fiber, this is a bug.")
+	local fiber = markup.Reconciler.static.get_currently_rendering_fiber(true)
 
-	initial = u.call_if_callable(initial)
-
-	local hook = reconciler:mount_wip_hook()
-	hook.base_state = initial
-	hook.memoized_state = hook.base_state
-
-	hook.queue = {
-		pending = nil,
-		last_rendered_state = initial,
-	}
-
-	local function dispatch(value)
-		reconciler.dispatcher:set_state(fiber, hook.queue, function()
-			hook.memoized_state = u.call_if_callable(value, hook.memoized_state)
-		end)
+	if not fiber.hook then
+		return mount_state(initial)
+	else
+		return update_state()
 	end
-	-- hook.queue.dispatch = dispatch
-
-	return hook.memoized_state, dispatch
 end
 
 return use_state

@@ -44,19 +44,15 @@ function Dispatcher:enqueue_hook_update(fiber, queue, update)
 end
 
 ---@param fiber markup.Fiber
----@param queue markup.Fiber.queue
----@param action? function
-function Dispatcher:set_state(fiber, queue, action)
-	---@type markup.Fiber.update
-	local update = {
-		action = action,
-	}
-
-	if self:is_render_phase_update(fiber) then
-	else
-		self:enqueue_hook_update(fiber, queue, update)
-		self.reconciler:schedule_render()
-	end
+---@param action function
+function Dispatcher:set_state(fiber, action)
+	-- if self:is_render_phase_update(fiber) then
+	-- else
+	-- self:enqueue_hook_update(fiber, queue, update)
+	action()
+	FiberFlag.set(fiber, FiberFlag.UPDATE)
+	self.reconciler:schedule_render()
+	-- end
 end
 
 function Dispatcher:dispatch() end
