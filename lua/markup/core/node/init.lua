@@ -1,5 +1,7 @@
 local markup = require("markup.core")
 
+local log = require("markup.logger") ---@diagnostic disable-line: unused-local
+
 ---@class markup.Node.props
 
 ---@class markup.Node : markup.Object
@@ -61,6 +63,29 @@ function Node:replace_child(old, new)
 			break
 		end
 	end
+end
+
+function Node:print()
+	local lines = {}
+
+	---@param node markup.Node
+	local function print_node_tree(node, depth)
+		if not node then
+			return
+		end
+
+		local indent = ("\t"):rep(depth or 0)
+
+		local line = (indent .. ("node: %s (%s)"):format(node, node.type))
+		table.insert(lines, line)
+
+		for _, child in ipairs(node.child_nodes) do
+			print_node_tree(child, (depth or 0) + 1)
+		end
+	end
+
+	print_node_tree(self, 0)
+	log.info(table.concat(lines, "\n"))
 end
 
 ---@class markup.Node.constructor.props

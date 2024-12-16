@@ -96,7 +96,7 @@ function Reconciler:process(unit)
 	if self.work_stack_visited[unit] then
 		-- Fiber has already been processed,
 		-- complete the work and return
-		self:complete_work(unit)
+		self:complete_work(unit.alternate, unit)
 		return nil
 	end
 
@@ -106,8 +106,6 @@ function Reconciler:process(unit)
 
 	self.currently_rendering_fiber = unit
 	local next = self:begin_work(unit.alternate, unit)
-	-- log.inspect("next: ", next, next and next.tag)
-	-- log.inspect("-----")
 	self.currently_rendering_fiber = nil
 	unit.memoized_props = unit.pending_props
 
@@ -118,9 +116,10 @@ end
 ---@param wip markup.Fiber
 ---@return markup.Fiber
 function Reconciler:begin_work(current, wip)
-	-- log.inspect("current: ", current, current and current.tag)
-	-- log.inspect("wip: ", wip, wip.tag)
-	--
+	-- log.inspect(current)
+	-- log.inspect(wip.memoized_state)
+	-- log.inspect("----")
+
 	-- first check if the fiber can be reused
 	if current then
 		local old_props, new_props = current.memoized_props, wip.pending_props
@@ -151,43 +150,61 @@ function Reconciler:begin_work(current, wip)
 end
 
 ---@param fiber markup.Fiber
-function Reconciler:remove_fiber_node_from_parent(fiber)
-	local parent = self:element_parent(fiber)
-	parent.state_node:remove_child(fiber.state_node)
-end
-
----@param fiber markup.Fiber
-function Reconciler:element_parent(fiber)
+---@return markup.Element
+function Reconciler:find_element_ancestor(fiber)
 	local parent = fiber["return"]
 
-	while parent and not parent["state_node"] do
+	while parent and not parent.state_node do
 		parent = parent["return"]
 	end
 
-	return parent
+	return parent.state_node
+end
+
+---@param current? markup.Fiber
+---@param wip markup.Fiber
+function Reconciler:complete_work(current, wip)
+	-- if not FiberFlag.check(fiber, FiberFlag.PLACEMENT) then
+	-- 	return
+	-- end
+
+	local complete = markup.Switch(wip.tag, {
+		[FiberTag.FUNCTION] = function()
+			-- nothing to do
+		end,
+		[FiberTag.FRAGMENT] = function()
+			-- nothing to do
+		end,
+		[FiberTag.ELEMENT] = function()
+			if FiberFlag.check(wip, FiberFlag.PLACEMENT) then
+				self:place_single_child(wip)
+			end
+		end,
+		[FiberTag.ROOT] = function()
+			-- self:place_single_child(fiber)
+		end,
+		[FiberTag.TEXT] = function()
+			if FiberFlag.check(wip, FiberFlag.PLACEMENT) then
+				self:place_single_child(wip)
+			end
+		end,
+
+		["default"] = function()
+			error(("Invalid Fiber tag: %s"):format(wip.tag))
+		end,
+	})
+
+	complete()
 end
 
 ---@param fiber markup.Fiber
-function Reconciler:complete_work(fiber)
-	if not FiberFlag.check(fiber, FiberFlag.PLACEMENT) then
-		return
-	end
+function Reconciler:place_single_child(fiber)
+	assert(fiber.state_node, "Fiber state node must exist, this is a bug.")
 
-	if fiber.state_node and fiber.tag ~= FiberTag.ROOT then
-		local parent = self:element_parent(fiber)
-
-		-- fiber root is an element node,
-		-- so there should always be at least one parent
-		assert(parent, "Parent node must exist, this is a bug.")
-
-		parent.state_node:prepend_child(fiber.state_node)
-		FiberFlag.clear(fiber, FiberFlag.PLACEMENT)
-	end
-end
-
----@param current markup.Fiber?
-function Reconciler:has_scheduled_update(current)
-	return current and #current.update_queue > 0
+	local node = fiber.state_node
+	local parent = self:find_element_ancestor(fiber)
+	parent:append_child(node)
+	FiberFlag.clear(fiber, FiberFlag.PLACEMENT)
 end
 
 ---@param fiber markup.Fiber
@@ -205,6 +222,7 @@ function Reconciler:update_function_component(current, wip)
 	-- 	-- bailoutHooks(current, workInProgress, renderLanes);
 	-- 	-- return bailoutOnAlreadyFinishedWork(current, workInProgress, renderLanes);
 	-- end
+	-- log.info("123")
 
 	wip.child = self:reconcile_children(current, wip, next_children)
 	return wip.child
@@ -227,31 +245,22 @@ function Reconciler:update_root_component(current, wip)
 	return wip.child
 end
 
-function Reconciler:place_single_child(new_fiber)
-	if new_fiber.alternate then
-		FiberFlag.set(new_fiber, FiberFlag.PLACEMENT)
-	end
-	return new_fiber
-end
-
 ---@param current? markup.Fiber
 ---@param wip markup.Fiber
 function Reconciler:update_text_component(current, wip)
-	if not current then
-		-- If there is no current fiber, create a new one
-		wip.state_node = wip.type(wip.pending_props)
-		FiberFlag.set(wip, FiberFlag.PLACEMENT)
-	else
-		if vim.deep_equal(current.memoized_props, wip.pending_props) then
-			-- Reuse the current fiber if the props are the same
-			wip = self:create_wip(current, current.pending_props)
-		else
-			-- Reuse the current fiber with new props
-			wip = self:use_fiber(current, wip.pending_props)
-		end
+	if not (current and current.state_node) then
+		self:create_instance(wip)
 	end
-	-- do nothing, it will be handled immediately
-	-- by `complete_work()`
+end
+
+function Reconciler:create_instance(fiber)
+	assert(not fiber.state_node, "Fiber state node must not exist, this is a bug.")
+
+	FiberFlag.set(fiber, FiberFlag.PLACEMENT)
+	local node = fiber.type(fiber.pending_props)
+	fiber.state_node = node
+
+	return fiber
 end
 
 ---@param current? markup.Fiber
@@ -262,10 +271,9 @@ function Reconciler:update_element_component(current, wip)
 	local next_children = next_props.children
 	local prev_props = current and current.memoized_props
 
-	-- local is_direct_text_child = type(next_children) == "string" or type(next_children) == "number"
-	-- if is_direct_text_child then
-	-- 	next_children = nil
-	-- end
+	if not (current and current.state_node) then
+		self:create_instance(wip)
+	end
 
 	wip.child = self:reconcile_children(current, wip, next_children)
 	return wip.child
@@ -279,12 +287,14 @@ function Reconciler:render_with_hooks(current, wip)
 
 	local Component = wip.type
 	local props = wip.pending_props
-	local children = Component(props)
+	local children = Component(props) -- re-render the component
 
-	local fiber = self.currently_rendering_fiber
-	fiber.memoized_state = fiber.memoized_state or {}
-	fiber.memoized_state = fiber.hook
-	fiber.hook = nil
+	wip.memoized_state = wip.hook
+	wip.hook = nil
+
+	if current then
+		FiberFlag.clear(wip, FiberFlag.UPDATE)
+	end
 
 	return children
 end
@@ -596,6 +606,7 @@ function Reconciler:reconcile_single_text(returnf, current, content)
 		self:delete_remaining_children(returnf, current)
 		local fiber = markup.create_fiber_from_text(content)
 		fiber["return"] = returnf
+		FiberFlag.set(fiber, FiberFlag.PLACEMENT)
 		return fiber
 	end
 end
@@ -622,6 +633,7 @@ function Reconciler:update_wip_hook()
 	if not self.wip_hook then
 		-- first hook to be updated
 		self.wip_hook = self.currently_rendering_fiber.memoized_state
+		self.currently_rendering_fiber.hook = self.wip_hook
 	end
 
 	local hook = self.wip_hook

@@ -39,6 +39,7 @@ end
 local function use_state(initial)
 	local fiber = markup.Reconciler.static.get_currently_rendering_fiber(true)
 
+	-- log.info(fiber.memoized_state)
 	if not fiber.memoized_state then
 		return mount_state(initial)
 	else

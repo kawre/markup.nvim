@@ -18,9 +18,13 @@ local Dispatcher = setmetatable({}, {
 ---@param fiber markup.Fiber
 ---@param action function
 function Dispatcher:set_state(fiber, action)
-	action()
+	self:execute(action)
 	FiberFlag.set(fiber, FiberFlag.UPDATE)
 	self.reconciler:schedule_render()
+end
+
+function Dispatcher:execute(fn, ...)
+	fn(...)
 end
 
 return Dispatcher

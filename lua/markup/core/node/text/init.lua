@@ -8,7 +8,7 @@ local NodeType = require("markup.core.node.enum").Type
 ---@field content string
 ---@field len integer
 ---@field width integer
-local Text = markup.Node:extend("markup.text")
+local Text = markup.Node:extend("MarkupText")
 
 ---@class markup.Text.static : markup.Node.static
 Text.static = Text.static
