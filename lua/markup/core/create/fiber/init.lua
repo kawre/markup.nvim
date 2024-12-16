@@ -46,14 +46,11 @@ end
 local function create_fiber(type, props, key)
 	return {
 		pending_props = props,
-		memoized_state = {},
 		type = type,
 		key = key,
 		tag = tag_from_type(type),
-		alternate = nil,
 		flags = 0,
 		index = 1,
-		hook = nil,
 	}
 end
 

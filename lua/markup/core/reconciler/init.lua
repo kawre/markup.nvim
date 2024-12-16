@@ -4,7 +4,7 @@ local FiberFlag = require("markup.core.reconciler.enum").Flag
 local markup = require("markup.core")
 
 ---@class markup.Reconciler : markup.Object
----@field currently_rendering_fiber markup.Fiber?
+---@field currently_rendering_fiber markup.Fiber
 ---@field wip_hook markup.Fiber.hook?
 ---@field dispatcher markup.Dispatcher
 ---@field renderer markup.Renderer
@@ -275,11 +275,16 @@ end
 ---@param wip markup.Fiber
 function Reconciler:render_with_hooks(current, wip)
 	-- clear the hooks to make space for the next hooks
-	Reconciler.static.wip_hook = nil
+	self.wip_hook = nil
 
 	local Component = wip.type
 	local props = wip.pending_props
 	local children = Component(props)
+
+	local fiber = self.currently_rendering_fiber
+	fiber.memoized_state = fiber.memoized_state or {}
+	fiber.memoized_state = fiber.hook
+	fiber.hook = nil
 
 	return children
 end
@@ -616,7 +621,7 @@ end
 function Reconciler:update_wip_hook()
 	if not self.wip_hook then
 		-- first hook to be updated
-		self.wip_hook = self.currently_rendering_fiber.hook
+		self.wip_hook = self.currently_rendering_fiber.memoized_state
 	end
 
 	local hook = self.wip_hook
