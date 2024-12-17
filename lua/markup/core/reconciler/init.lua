@@ -100,9 +100,10 @@ function Reconciler:process(unit)
 		return nil
 	end
 
-	-- Push the current fiber and its sibling to the stack
+	-- Push the current fiber to the stack
 	-- to be processed after all descendants have been processed (bottom-up)
-	self.work_stack:push(unit, unit.sibling)
+	self.work_stack:push(unit)
+	self.work_stack:push(unit.child)
 
 	self.currently_rendering_fiber = unit
 	local next = self:begin_work(unit.alternate, unit)
@@ -155,18 +156,17 @@ function Reconciler:find_element_ancestor(fiber)
 		parent = parent["return"]
 	end
 
+	assert(parent, "Element ancestor must exist, this is a bug.")
 	return parent
 end
 
 ---@param current? markup.Fiber
 ---@param wip markup.Fiber
 function Reconciler:complete_work(current, wip)
-	-- if not FiberFlag.check(fiber, FiberFlag.PLACEMENT) then
-	-- 	return
+	-- if wip.deletions then
+	-- 	log.inspect(wip)
 	-- end
-	if wip.deletions then
-		log.inspect(wip)
-	end
+	local info = wip.tag
 
 	local complete = markup.Switch(wip.tag, {
 		[FiberTag.FUNCTION] = function()
@@ -202,6 +202,8 @@ function Reconciler:complete_work(current, wip)
 	})
 
 	complete()
+
+	self.work_stack:push(wip.sibling)
 end
 
 function Reconciler:process_deletions(fiber)
@@ -409,12 +411,12 @@ end
 function Reconciler:update_from_map(existing, returnf, new_index, new_child)
 	if (type(new_child) == "string" and new_child ~= "") or type(new_child) == "number" then
 		local matched = existing[new_index]
-		return Reconciler:update_text_node(returnf, matched, new_child)
+		return self:update_text_node(returnf, matched, new_child)
 	end
 
 	if new_child.type then
 		local matched = existing[new_child.key or new_index]
-		return Reconciler:update_element_node(returnf, matched, new_child)
+		return self:update_element_node(returnf, matched, new_child)
 	end
 
 	return nil
@@ -526,7 +528,7 @@ end
 ---@param wip markup.Fiber
 ---@param next_children markup.xElement
 function Reconciler:reconcile_children(current, wip, next_children)
-	return Reconciler:reconcile_child_fibers(wip, (current or {}).child, next_children)
+	return self:reconcile_child_fibers(wip, (current or {}).child, next_children)
 end
 
 ---@param returnf markup.Fiber
@@ -534,7 +536,7 @@ end
 ---@param new_child markup.xElement
 function Reconciler:reconcile_child_fibers(returnf, current_first_child, new_child)
 	if (type(new_child) == "string" and new_child ~= "") or type(new_child) == "number" then
-		return Reconciler:reconcile_single_text(returnf, current_first_child, new_child)
+		return self:reconcile_single_text(returnf, current_first_child, new_child)
 	end
 
 	if vim.islist(new_child) then
