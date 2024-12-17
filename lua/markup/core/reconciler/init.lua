@@ -78,13 +78,7 @@ function Reconciler:work_loop()
 	local unit
 	while #self.work_stack > 0 do
 		unit = self.work_stack:pop()
-		local next = self:process(unit)
-
-		if next then
-			self.work_stack:push(next)
-		end
-
-		self.work_stack_visited[unit] = true
+		self:process_unit(unit)
 	end
 
 	self.renderer.root.current = unit
@@ -92,24 +86,22 @@ end
 
 ---@param unit markup.Fiber
 ---@return markup.Fiber?
-function Reconciler:process(unit)
+function Reconciler:process_unit(unit)
 	if self.work_stack_visited[unit] then
-		-- Fiber has already been processed,
-		-- complete the work and return
-		self:complete_work(unit.alternate, unit)
-		return nil
+		return self:complete_unit(unit)
 	end
-
-	-- Push the current fiber to the stack
-	-- to be processed after all descendants have been processed (bottom-up)
-	self.work_stack:push(unit, unit.child)
 
 	self.currently_rendering_fiber = unit
 	local next = self:begin_work(unit.alternate, unit)
 	self.currently_rendering_fiber = nil
 	unit.memoized_props = unit.pending_props
 
-	return next
+	-- if next then
+	self.work_stack:push(unit, next)
+	self.work_stack_visited[unit] = true
+	-- else
+	-- 	self:complete_unit(unit)
+	-- end
 end
 
 ---@param current? markup.Fiber
@@ -131,7 +123,7 @@ function Reconciler:begin_work(current, wip)
 		end
 	end
 
-	local next_work = markup.Switch(wip.tag, {
+	return markup.Switch(wip.tag, {
 		[FiberTag.FUNCTION] = Reconciler.update_function_component,
 		[FiberTag.FRAGMENT] = Reconciler.update_fragment_component,
 		[FiberTag.ELEMENT] = Reconciler.update_element_component,
@@ -142,26 +134,12 @@ function Reconciler:begin_work(current, wip)
 			error(("Invalid Fiber tag: %s"):format(wip.tag))
 		end,
 	}, self, current, wip)
-
-	return next_work
 end
 
----@param fiber markup.Fiber
----@return markup.Fiber
-function Reconciler:find_element_ancestor(fiber)
-	local parent = fiber and fiber["return"]
+---@param unit markup.Fiber
+function Reconciler:complete_unit(unit)
+	local current, wip = unit.alternate, unit
 
-	while parent and not parent.state_node do
-		parent = parent["return"]
-	end
-
-	assert(parent, "Element ancestor must exist, this is a bug.")
-	return parent
-end
-
----@param current? markup.Fiber
----@param wip markup.Fiber
-function Reconciler:complete_work(current, wip)
 	markup.Switch(wip.tag, {
 		[FiberTag.FUNCTION] = function()
 			-- nothing to do
@@ -195,7 +173,20 @@ function Reconciler:complete_work(current, wip)
 		end,
 	})
 
-	self.work_stack:push(wip.sibling)
+	self.work_stack:push(unit.sibling)
+end
+
+---@param fiber markup.Fiber
+---@return markup.Fiber
+function Reconciler:find_element_ancestor(fiber)
+	local parent = fiber and fiber["return"]
+
+	while parent and not parent.state_node do
+		parent = parent["return"]
+	end
+
+	assert(parent, "Element ancestor must exist, this is a bug.")
+	return parent
 end
 
 function Reconciler:process_deletions(fiber)
@@ -327,8 +318,8 @@ end
 ---@param returnf markup.Fiber
 ---@param child markup.xElement
 function Reconciler:create_child(returnf, child)
-	if (type(child) == "string" and child ~= "") or type(child) == "number" then
-		local fiber = markup.create_fiber_from_text(child)
+	if self:valid_text(child) then
+		local fiber = markup.create_fiber_from_text(child) ---@diagnostic disable-line: param-type-mismatch
 		fiber["return"] = returnf
 		return fiber
 	end
@@ -337,6 +328,37 @@ function Reconciler:create_child(returnf, child)
 		local fiber = markup.create_fiber_from_element(child)
 		fiber["return"] = returnf
 		return fiber
+	end
+
+	return nil
+end
+
+---@param element markup.xElement
+function Reconciler:valid_text(element)
+	return (type(element) == "string" and element ~= "") or type(element) == "number"
+end
+
+---@param returnf markup.Fiber
+---@param old_fiber? markup.Fiber
+---@param new_child markup.xElement
+function Reconciler:update_slot(returnf, old_fiber, new_child)
+	local key = old_fiber and old_fiber.key
+
+	if self:valid_text(new_child) then
+		if key then
+			return nil
+		end
+
+		---@diagnostic disable-next-line: param-type-mismatch
+		return self:update_text_node(returnf, old_fiber, new_child)
+	end
+
+	if new_child then
+		if vim.islist(new_child) then
+			-- TODO handle fragments
+		elseif new_child.key == key then
+			return self:update_element_node(returnf, old_fiber, new_child)
+		end
 	end
 
 	return nil
@@ -435,7 +457,7 @@ end
 ---@param current? markup.Fiber
 ---@param element markup.xElement
 function Reconciler:update_element_node(returnf, current, element)
-	if current and current.type ~= element.type then
+	if current and current.type == element.type then
 		-- If the existing fiber is not an element node, create a new one
 		local existing = self:use_fiber(current, element.props)
 		existing["return"] = returnf
@@ -452,20 +474,43 @@ end
 ---@param current_first_child? markup.Fiber
 ---@param new_children markup.xElement[]
 function Reconciler:reconcile_children_list(returnf, current_first_child, new_children)
-	local new_index = 1
-	local last_placed_index = 1
+	local new_index, last_placed_index = 1, 1
 
 	local old_fiber = current_first_child
-	local next_old_fiber = nil
-	local prev_new_fiber = nil
-	local result_first_child = nil
+	local next_old_fiber, prev_new_fiber, result_first_child
 
 	while old_fiber and new_index <= #new_children do
-		last_placed_index = self:place_child(old_fiber, last_placed_index, new_index)
-		old_fiber = old_fiber.sibling
+		if old_fiber.index > new_index then
+			next_old_fiber = old_fiber
+			old_fiber = nil
+		else
+			next_old_fiber = old_fiber.sibling
+		end
+
+		local new_fiber = self:update_slot(returnf, old_fiber, new_children[new_index])
+
+		if not new_fiber then
+			if not old_fiber then
+				old_fiber = next_old_fiber
+			end
+			break
+		end
+
+		last_placed_index = self:place_child(new_fiber, last_placed_index, new_index)
+
+		if not prev_new_fiber then
+			result_first_child = new_fiber
+		else
+			prev_new_fiber.sibling = new_fiber
+		end
+
+		prev_new_fiber = new_fiber
+		old_fiber = next_old_fiber
 
 		new_index = new_index + 1
 	end
+
+	local xd = 5
 
 	if new_index == #new_children + 1 then
 		self:delete_remaining_children(returnf, old_fiber)
@@ -555,25 +600,28 @@ function Reconciler:map_remaining_children(returnf, current_first_child)
 	return existing
 end
 
----@param new_fiber? markup.Fiber
+---@param new_fiber markup.Fiber
 ---@param last_placed_index integer
 ---@param new_index integer
 function Reconciler:place_child(new_fiber, last_placed_index, new_index)
-	if not new_fiber then
+	new_fiber.index = new_index
+	local current = new_fiber.alternate
+
+	if current then
+		local old_index = current.index
+		if old_index < last_placed_index then
+			-- this is a move
+			FiberFlag.set(new_fiber, FiberFlag.PLACEMENT)
+			return last_placed_index
+		else
+			-- this is can stay in place
+			return old_index
+		end
+	else
+		-- this is an insertion
+		FiberFlag.set(new_fiber, FiberFlag.PLACEMENT)
 		return last_placed_index
 	end
-
-	if new_fiber.alternate then
-		local old_index = new_fiber.alternate.index
-
-		if old_index >= last_placed_index then
-			last_placed_index = old_index
-		end
-	end
-
-	new_fiber.index = new_index
-
-	return last_placed_index
 end
 
 ---@param returnf markup.Fiber
@@ -603,11 +651,9 @@ end
 ---@param fiber markup.Fiber
 ---@param props any
 function Reconciler:use_fiber(fiber, props)
-	local clone = markup.create_fiber(fiber.type, props, fiber.key)
-	clone.tag = fiber.tag
-	clone.state_node = fiber.state_node
-	clone.alternate = fiber
-	fiber.alternate = clone
+	local clone = self:create_wip(fiber, props)
+	clone.sibling = nil
+	clone.index = 1
 	return clone
 end
 
@@ -686,7 +732,8 @@ function Reconciler:schedule_render()
 	end)
 end
 
-function Reconciler:print()
+---@param f? markup.Fiber
+function Reconciler:print(f)
 	local lines = {}
 
 	---@param fiber markup.Fiber
@@ -709,8 +756,10 @@ function Reconciler:print()
 		end
 	end
 
-	print_fiber_tree(self.renderer.root.current, 0)
+	print_fiber_tree(f or self.renderer.root.current, 0)
 	log.info(table.concat(lines, "\n"))
+
+	return lines
 end
 
 ---@alias markup.Reconciler.constructor
