@@ -102,8 +102,7 @@ function Reconciler:process(unit)
 
 	-- Push the current fiber to the stack
 	-- to be processed after all descendants have been processed (bottom-up)
-	self.work_stack:push(unit)
-	self.work_stack:push(unit.child)
+	self.work_stack:push(unit, unit.child)
 
 	self.currently_rendering_fiber = unit
 	local next = self:begin_work(unit.alternate, unit)
@@ -142,9 +141,9 @@ function Reconciler:begin_work(current, wip)
 		["default"] = function()
 			error(("Invalid Fiber tag: %s"):format(wip.tag))
 		end,
-	})
+	}, self, current, wip)
 
-	return next_work(self, current, wip)
+	return next_work
 end
 
 ---@param fiber markup.Fiber
@@ -163,12 +162,7 @@ end
 ---@param current? markup.Fiber
 ---@param wip markup.Fiber
 function Reconciler:complete_work(current, wip)
-	-- if wip.deletions then
-	-- 	log.inspect(wip)
-	-- end
-	local info = wip.tag
-
-	local complete = markup.Switch(wip.tag, {
+	markup.Switch(wip.tag, {
 		[FiberTag.FUNCTION] = function()
 			-- nothing to do
 		end,
@@ -200,8 +194,6 @@ function Reconciler:complete_work(current, wip)
 			error(("Invalid Fiber tag: %s"):format(wip.tag))
 		end,
 	})
-
-	complete()
 
 	self.work_stack:push(wip.sibling)
 end

@@ -34,25 +34,23 @@ local function call_value(value, ...)
 end
 
 local Switch = setmetatable({}, {
-	__call = function(_, value, cases)
+	__call = function(_, value, cases, ...)
 		cases = normalize_cases(cases)
 		local case = cases[value]
 		local default = cases.default
 
-		return function(...)
-			if case then
-				return call_value(case, ...)
-			end
+		if case then
+			return call_value(case, ...)
+		end
 
-			if default then
-				return call_value(default, ...)
-			end
+		if default then
+			return call_value(default, ...)
 		end
 	end,
 	__name = Collection.SWITCH,
 })
 
----@alias markup.Switch fun(value: any, cases: { default?: any }): fun(...): any
+---@alias markup.Switch fun(value: any, cases: { default?: any }, ...): any
 
 ---@type markup.Switch
 return Switch

@@ -48,11 +48,29 @@ function Renderer:rerender()
 	end)
 end
 
+---@param node markup.Node
+function Renderer:add_btn(node)
+	local nd = node or {}
+	local children = nd.child_nodes or {}
+
+	for _, child in ipairs(children) do
+		self:add_btn(child)
+	end
+
+	if nd and nd.props and nd.props.on_submit then
+		vim.keymap.set("n", "b", function()
+			nd.props.on_submit()
+		end)
+	end
+end
+
 ---@private
 function Renderer:commit()
 	self:render_portal(function()
 		self.render_tree.view:paint(self)
 	end)
+
+	self:add_btn(self.root.current.state_node)
 end
 
 ---@param fn fun()

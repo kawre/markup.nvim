@@ -31,7 +31,7 @@ function RenderTree.static.factory(node)
 			---@cast node markup.Element
 
 			assert(node.class, "Element node must have a class")
-			local element = markup.Switch(node.class, {
+			return markup.Switch(node.class, {
 				[markup.Inline] = markup.Render.Inline,
 				[markup.Block] = markup.Render.Block,
 				[markup.Flex] = markup.Render.Flex,
@@ -39,13 +39,11 @@ function RenderTree.static.factory(node)
 
 				-- Default to inline
 				["default"] = markup.Render.Inline,
-			})
-
-			return element(node)
+			}, node)
 		end,
 	})
 
-	return object()
+	return object
 end
 
 return RenderTree

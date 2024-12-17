@@ -7,7 +7,8 @@ local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 ---@type markup.create_component
 local function create_component(Component)
 	return function(...)
-		return markup.create_element(Component, ...)
+		local element = markup.create_element(Component, ...)
+		return element
 	end
 end
 
