@@ -34,10 +34,16 @@ end
 function Dispatcher:process_hook_updates(fiber)
 	local hook = fiber.memoized_state
 	assert(hook and hook.queue.pending, "No pending updates to process")
-	for _, update in ipairs(hook.queue.pending) do
-		update.action()
+
+	while hook do
+		if hook.queue.pending then
+			for _, update in ipairs(hook.queue.pending) do
+				update.action()
+			end
+			hook.queue.pending = nil
+		end
+		hook = hook.next
 	end
-	hook.queue.pending = nil
 end
 
 ---@param hook markup.Fiber.hook

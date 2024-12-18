@@ -96,12 +96,8 @@ function Reconciler:process_unit(unit)
 	self.currently_rendering_fiber = nil
 	unit.memoized_props = unit.pending_props
 
-	-- if next then
 	self.work_stack:push(unit, next)
 	self.work_stack_visited[unit] = true
-	-- else
-	-- 	self:complete_unit(unit)
-	-- end
 end
 
 ---@param current? markup.Fiber
@@ -155,6 +151,12 @@ function Reconciler:complete_unit(unit)
 			if FiberFlag.check(wip, FiberFlag.DELETE) then
 				self:process_deletions(wip)
 			end
+
+			-- TODO update node props
+			-- simple implementation for now
+			if wip.state_node then
+				wip.state_node.props = wip.memoized_props
+			end
 		end,
 		[FiberTag.ROOT] = function()
 			-- self:place_single_child(fiber)
@@ -163,8 +165,16 @@ function Reconciler:complete_unit(unit)
 			end
 		end,
 		[FiberTag.TEXT] = function()
+			if not (current and current.state_node) then
+				self:create_instance(wip)
+			end
+
 			if FiberFlag.check(wip, FiberFlag.PLACEMENT) then
 				self:place_single_child(wip)
+			end
+
+			if current then
+				self:update_node_text(wip)
 			end
 		end,
 
@@ -242,9 +252,8 @@ end
 ---@param current? markup.Fiber
 ---@param wip markup.Fiber
 function Reconciler:update_text_component(current, wip)
-	if not (current and current.state_node) then
-		self:create_instance(wip)
-	end
+	-- do nothing,
+	-- this is handled immediately after in `complete_unit`
 end
 
 function Reconciler:create_instance(fiber)
@@ -450,6 +459,16 @@ function Reconciler:update_text_node(returnf, current, content)
 		local fiber = markup.create_fiber_from_text(content)
 		fiber["return"] = returnf
 		return fiber
+	end
+end
+
+---@param fiber markup.Fiber
+function Reconciler:update_node_text(fiber)
+	local old_text, new_text = fiber.alternate.pending_props, fiber.pending_props
+	local node = fiber.state_node ---@cast node markup.Text
+
+	if old_text ~= new_text then
+		node:set(new_text)
 	end
 end
 
