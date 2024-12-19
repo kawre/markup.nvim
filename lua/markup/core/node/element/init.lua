@@ -47,7 +47,9 @@ end
 ---@param props? markup.Element.constructor.props
 ---@param style? markup.Element.style.props
 function Element:init(props, style)
+	log.info(props)
 	props = self:normalize_props(props, style)
+	log.info(props)
 	Element.super.init(self, NodeType.ELEMENT, props)
 
 	self._pending_props = nil

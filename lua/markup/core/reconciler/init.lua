@@ -3,6 +3,7 @@ local FiberTag = require("markup.core.reconciler.enum").Tag
 local FiberFlag = require("markup.core.reconciler.enum").Flag
 local markup = require("markup.core")
 local assertor = require("markup.assertor")
+local Stack = require("markup.collection.stack")
 
 ---@class markup.Reconciler : markup.Object
 ---@field currently_rendering_fiber markup.Fiber
@@ -43,7 +44,6 @@ end
 ---@param renderer markup.Renderer
 function Reconciler:init(renderer)
 	self.currently_rendering_fiber = nil
-	self.work_stack = {}
 	self.renderer = renderer
 	self.dispatcher = markup.Dispatcher(self)
 end
@@ -63,7 +63,9 @@ end
 ---@param root markup.Renderer.Root
 function Reconciler:fresh_stack(root)
 	local wip = self:create_wip(root.current, root.current.pending_props)
-	self.work_stack = { wip }
+
+	self.work_stack = Stack:new()
+	Stack.push(self.work_stack, wip)
 	self.work_stack_visited = {}
 
 	return self.work_stack
@@ -74,8 +76,8 @@ function Reconciler:work_loop()
 	self.work_stack = self:fresh_stack(self.renderer.root)
 
 	local unit
-	while #self.work_stack > 0 do
-		unit = table.remove(self.work_stack)
+	while self.work_stack.len > 0 do
+		unit = Stack.pop(self.work_stack)
 		self:process_unit(unit)
 	end
 
@@ -95,9 +97,8 @@ function Reconciler:process_unit(unit)
 
 	unit.memoized_props = unit.pending_props
 
-	table.insert(self.work_stack, unit)
-	table.insert(self.work_stack, next)
-
+	Stack.push(self.work_stack, unit)
+	Stack.push(self.work_stack, next)
 	self.work_stack_visited[unit] = true
 end
 
@@ -164,7 +165,7 @@ function Reconciler:complete_unit(unit)
 			-- TODO update node props
 			-- simple implementation for now
 			if wip.state_node then
-				wip.state_node.props = wip.memoized_props
+				wip.state_node:set_props(wip.memoized_props)
 			end
 		end,
 		[FiberTag.ROOT] = function()
@@ -188,7 +189,7 @@ function Reconciler:complete_unit(unit)
 		end,
 	})
 
-	table.insert(self.work_stack, unit.sibling)
+	Stack.push(self.work_stack, unit.sibling)
 	assertor.bug(
 		FiberFlag.check(unit, FiberFlag.NONE),
 		"Fiber flags must be `NONE` after completion"

@@ -57,12 +57,12 @@
 
 ---@class markup.core.Lookup.Render
 ---@field Tree markup.Render.Tree
----@field Object markup.Render.Object.constructor
----@field Text markup.Render.Object.constructor
----@field View markup.Render.Object.constructor
----@field Inline markup.Render.Object.constructor
----@field Block markup.Render.Object.constructor
----@field Flex markup.Render.Object.constructor
+---@field Layout markup.Render.Layout.constructor
+---@field Text markup.Render.Layout.constructor
+---@field View markup.Render.Layout.constructor
+---@field Inline markup.Render.Layout.constructor
+---@field Block markup.Render.Layout.constructor
+---@field Flex markup.Render.Layout.constructor
 
 ---@class markup.core.Lookup.Create
 ---@field create_element markup.create_element

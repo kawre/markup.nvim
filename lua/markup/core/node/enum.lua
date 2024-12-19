@@ -9,4 +9,11 @@ enum.Type = {
 	TEXT = "text",
 }
 
+enum.Display = {
+	NONE = "none",
+	BLOCK = "block",
+	INLINE = "inline",
+	FLEX = "flex",
+}
+
 return enum

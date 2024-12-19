@@ -85,6 +85,21 @@ function Window:init(props)
 		self:show()
 	end
 
+	self.win = setmetatable({ window = self }, {
+		__index = function(_, key)
+			return function(_, ...)
+				return vim.api["nvim_win_" .. key](_.window.winid, ...)
+			end
+		end,
+	})
+	self.buf = setmetatable({ window = self }, {
+		__index = function(_, key)
+			return function(_, ...)
+				return vim.api["nvim_buf_" .. key](_.window.bufnr, ...)
+			end
+		end,
+	})
+
 	self:after_init()
 end
 

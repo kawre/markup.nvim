@@ -29,10 +29,10 @@ function TabPage:init(props)
 	end
 end
 
-function TabPage:_tab_cmd()
-	local cmd = self._.count .. "tab"
-	if self._.file then
-		return cmd .. "edit " .. self._.file
+local function tabpage_cmd(count, file)
+	local cmd = count .. "tab"
+	if file then
+		return cmd .. "edit " .. file
 	else
 		return cmd .. "new"
 	end
@@ -40,8 +40,9 @@ end
 
 function TabPage:mount()
 	if not self:is_valid() then
-		vim.cmd(self:_tab_cmd())
+		vim.cmd(tabpage_cmd(self._.count, self._.file))
 		self.tabpage = vim.api.nvim_get_current_tabpage()
+
 		if not self._.enter then
 			vim.cmd.tabprevious()
 		end

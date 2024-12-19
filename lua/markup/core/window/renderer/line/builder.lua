@@ -77,9 +77,9 @@ function Builder:height()
 end
 
 function Builder:width()
-	local max_len = 0
+	local max_len, max = 0, math.max
 	for _, line in pairs(self.lines) do
-		max_len = math.max(max_len, line:width())
+		max_len = max(max_len, line:width())
 	end
 	return max_len
 end

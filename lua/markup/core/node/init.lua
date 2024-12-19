@@ -5,7 +5,7 @@ local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 ---@class markup.Node.props
 
 ---@class markup.Node : markup.Object
----@field props markup.Node.props
+---@field props markup.Element.props
 ---@field type markup.Node.type
 ---@field child_nodes markup.Node[]
 ---@field parent? markup.Node
@@ -28,6 +28,11 @@ end
 
 function Node:has_child_nodes()
 	return #self.child_nodes > 0
+end
+
+---@param props markup.Element.props
+function Node:set_props(props)
+	self.props = vim.tbl_extend("force", self.props, props)
 end
 
 function Node:is_type(type)

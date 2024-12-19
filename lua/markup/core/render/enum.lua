@@ -4,15 +4,15 @@ local markup = require("markup.core")
 local enum = markup.Enum()
 
 enum.RenderFlow = {
-	INLINE = "markup.core.render.object.inline",
-	BLOCK = "markup.core.render.object.block",
-	FLEX = "markup.core.render.object.flex",
-	TEXT = "markup.core.render.object.text",
+	INLINE = "markup.core.render.layout.inline",
+	BLOCK = "markup.core.render.layout.block",
+	FLEX = "markup.core.render.layout.flex",
+	TEXT = "markup.core.render.layout.text",
 }
 
 enum.RenderObject = {
-	OBJECT = "markup.core.render.object",
-	VIEW = "markup.core.render.object.view",
+	LAYOUT = "markup.core.render.layout",
+	VIEW = "markup.core.render.layout.view",
 	enum.RenderFlow,
 }
 

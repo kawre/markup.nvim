@@ -44,15 +44,15 @@ local function normalize_props(props, style)
 		local new_props = {}
 
 		for key, value in pairs(props) do
-			if not (value == nil or value == false) then
-				if type(key) == "number" then
+			if type(key) == "number" then
+				if value then
 					if not new_props.children then
 						new_props.children = {}
 					end
 					table.insert(new_props.children, value)
-				else
-					new_props[key] = value
 				end
+			else
+				new_props[key] = value
 			end
 		end
 
