@@ -1,7 +1,6 @@
 local markup = require("markup.core")
 
 local log = require("markup.logger") ---@diagnostic disable-line: unused-local
-local FiberFlag = require("markup.core.reconciler.enum").Flag
 
 ---@class markup.Dispatcher
 ---@field reconciler markup.Reconciler
@@ -31,9 +30,8 @@ function Dispatcher:enqueue_hook_update(hook, action)
 end
 
 ---@param fiber markup.Fiber
-function Dispatcher:process_hook_updates(fiber)
+function Dispatcher:resolve_hook_updates(fiber)
 	local hook = fiber.memoized_state
-	assert(hook and hook.queue.pending, "No pending updates to process")
 
 	while hook do
 		if hook.queue.pending then

@@ -9,7 +9,7 @@ local function create_fiber_root(child)
 
 	fiber_root.state_node = fiber_root.type(fiber_root.pending_props)
 	fiber_root.tag = FiberTag.ROOT
-	fiber_root.pending_props.children = child
+	fiber_root.pending_props = { children = child }
 
 	return fiber_root
 end

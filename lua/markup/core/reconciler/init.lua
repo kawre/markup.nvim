@@ -2,7 +2,7 @@ local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 local FiberTag = require("markup.core.reconciler.enum").Tag
 local FiberFlag = require("markup.core.reconciler.enum").Flag
 local markup = require("markup.core")
-local u = require("markup.utils")
+local assertor = require("markup.assertor")
 
 ---@class markup.Reconciler : markup.Object
 ---@field currently_rendering_fiber markup.Fiber
@@ -23,7 +23,7 @@ Reconciler.static.currently_working_reconciler = nil
 function Reconciler.static.get(assert_)
 	local reconciler = Reconciler.static.currently_working_reconciler
 	if assert_ then
-		assert(reconciler, "`reconciler` must be set, this is a bug.")
+		assertor.bug(reconciler, "`reconciler` must be set")
 	end
 	return reconciler
 end
@@ -34,7 +34,7 @@ function Reconciler.static.get_currently_rendering_fiber(assert_)
 	local fiber = reconciler and reconciler.currently_rendering_fiber
 
 	if assert_ then
-		assert(fiber, "`fiber` must be set, this is a bug.")
+		assertor.bug(fiber, "`fiber` must be set")
 	end
 
 	return fiber, reconciler
@@ -145,7 +145,9 @@ function Reconciler:complete_unit(unit)
 
 	markup.Switch(wip.tag, {
 		[FiberTag.FUNCTION] = function()
-			-- nothing to do
+			-- function component placemenet is handled
+			-- during `begin_work`
+			FiberFlag.clear(wip, FiberFlag.PLACEMENT)
 		end,
 		[FiberTag.FRAGMENT] = function()
 			-- nothing to do
@@ -172,10 +174,6 @@ function Reconciler:complete_unit(unit)
 			end
 		end,
 		[FiberTag.TEXT] = function()
-			if not (current and current.state_node) then
-				self:create_instance(wip)
-			end
-
 			if FiberFlag.check(wip, FiberFlag.PLACEMENT) then
 				self:place_single_child(wip)
 			end
@@ -191,6 +189,10 @@ function Reconciler:complete_unit(unit)
 	})
 
 	table.insert(self.work_stack, unit.sibling)
+	assertor.bug(
+		FiberFlag.check(unit, FiberFlag.NONE),
+		"Fiber flags must be `NONE` after completion"
+	)
 end
 
 ---@param fiber markup.Fiber
@@ -202,7 +204,7 @@ function Reconciler:find_element_ancestor(fiber)
 		parent = parent["return"]
 	end
 
-	assert(parent, "Element ancestor must exist, this is a bug.")
+	assertor.bug(parent, "Element ancestor must exist")
 	return parent
 end
 
@@ -216,7 +218,7 @@ end
 
 ---@param fiber markup.Fiber
 function Reconciler:place_single_child(fiber)
-	assert(fiber.state_node, "Fiber state node must exist, this is a bug.")
+	assertor.bug(fiber.state_node, "`fiber.state_node` must exist during placement")
 
 	local node = fiber.state_node
 	local parent = self:find_element_ancestor(fiber)
@@ -243,14 +245,10 @@ function Reconciler:update_fragment_component(current, wip)
 	return nil
 end
 
----@param current? markup.Fiber
+---@param current markup.Fiber
 ---@param wip markup.Fiber
 function Reconciler:update_root_component(current, wip)
-	assert(current, "Root must have a current fiber, this is a bug.")
-
-	-- local prev_state = current.memoized_state
-	-- local next_props = wip.pending_props
-	-- local next_state = wip.memoized_state
+	assertor.bug(current, "Root must always have an alternate fiber")
 
 	wip.child = self:reconcile_children(current, wip, wip.pending_props.children)
 	return wip.child
@@ -259,12 +257,13 @@ end
 ---@param current? markup.Fiber
 ---@param wip markup.Fiber
 function Reconciler:update_text_component(current, wip)
-	-- do nothing,
-	-- this is handled immediately after in `complete_unit`
+	if not (current and current.state_node) then
+		self:create_instance(wip)
+	end
 end
 
 function Reconciler:create_instance(fiber)
-	assert(not fiber.state_node, "Fiber state node must not exist, this is a bug.")
+	assertor.bug(not fiber.state_node, "`fiber.state_node` must not exist during creation")
 
 	FiberFlag.set(fiber, FiberFlag.PLACEMENT)
 	local node = fiber.type(fiber.pending_props)
@@ -291,9 +290,18 @@ end
 
 ---@param fiber markup.Fiber
 function Reconciler:has_pending_updates(fiber)
+	if fiber.tag ~= "function" then
+		return false
+	end
+
 	local hook = fiber.memoized_state
-	-- TODO check all hooks
-	return fiber.tag == "function" and hook and hook.queue.pending
+	while hook do
+		if hook.queue and hook.queue.pending then
+			return true
+		end
+		hook = hook.next
+	end
+	return false
 end
 
 ---@param current? markup.Fiber
@@ -302,10 +310,8 @@ function Reconciler:render_with_hooks(current, wip)
 	-- clear the hooks to make space for the next hooks
 	self.wip_hook = nil
 
-	if self:has_pending_updates(wip) then
-		-- if there are pending updates, update the state
-		self.dispatcher:process_hook_updates(wip)
-	end
+	-- if there are pending updates, update the state
+	self.dispatcher:resolve_hook_updates(wip)
 
 	local Component = wip.type
 	local props = wip.pending_props
@@ -594,14 +600,15 @@ end
 ---@param wip markup.Fiber
 ---@param next_children markup.xElement
 function Reconciler:reconcile_children(current, wip, next_children)
-	return self:reconcile_child_fibers(wip, (current or {}).child, next_children)
+	return self:reconcile_child_fibers(wip, current and current.child, next_children)
 end
 
 ---@param returnf markup.Fiber
 ---@param current_first_child? markup.Fiber
 ---@param new_child markup.xElement
 function Reconciler:reconcile_child_fibers(returnf, current_first_child, new_child)
-	if (type(new_child) == "string" and new_child ~= "") or type(new_child) == "number" then
+	if self:valid_text(new_child) then
+		---@diagnostic disable-next-line: param-type-mismatch
 		return self:reconcile_single_text(returnf, current_first_child, new_child)
 	end
 
@@ -611,7 +618,7 @@ function Reconciler:reconcile_child_fibers(returnf, current_first_child, new_chi
 		return self:reconcile_single_element(returnf, current_first_child, new_child)
 	end
 
-	-- return Fiber.delete_remaining_children(returnf, current_first_child)
+	return self:delete_remaining_children(returnf, current_first_child)
 end
 
 ---@param returnf markup.Fiber
@@ -663,8 +670,16 @@ function Reconciler:reconcile_single_element(returnf, current_first_child, eleme
 
 	-- iterate over existing children
 	while child do
-		if child.key ~= nil and child.key == key then
+		if child.key == key then
 			-- if the key matches, update the existing child
+			if child.type == element.type then
+				local existing = self:use_fiber(child, element.props)
+				existing["return"] = returnf
+				return existing
+			end
+
+			self:delete_remaining_children(returnf, child)
+			break
 		else
 			self:delete_child(returnf, child)
 		end
@@ -734,7 +749,7 @@ function Reconciler:update_wip_hook()
 	local hook = self.wip_hook
 	self.wip_hook = self.wip_hook.next
 
-	assert(hook, "`update_state` must be called while reconciler work, this is a bug.")
+	assertor.hook_user(hook, "Rendered more hooks than on previous render") ---@cast hook -nil
 	return hook
 end
 
