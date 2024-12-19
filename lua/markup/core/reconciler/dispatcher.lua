@@ -36,7 +36,7 @@ function Dispatcher:resolve_hook_updates(fiber)
 	while hook do
 		if hook.queue.pending then
 			for _, update in ipairs(hook.queue.pending) do
-				update.action()
+				self:execute(update.action)
 			end
 			hook.queue.pending = nil
 		end

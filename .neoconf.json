@@ -1,5 +1,7 @@
 {
 	"lspconfig": {
-		"lua_ls": {}
+		"lua_ls": {
+			"Lua.type.weakNilCheck": true
+		}
 	}
 }
