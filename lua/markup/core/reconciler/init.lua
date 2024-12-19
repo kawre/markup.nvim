@@ -2,6 +2,7 @@ local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 local FiberTag = require("markup.core.reconciler.enum").Tag
 local FiberFlag = require("markup.core.reconciler.enum").Flag
 local markup = require("markup.core")
+local u = require("markup.utils")
 
 ---@class markup.Reconciler : markup.Object
 ---@field currently_rendering_fiber markup.Fiber
@@ -42,8 +43,7 @@ end
 ---@param renderer markup.Renderer
 function Reconciler:init(renderer)
 	self.currently_rendering_fiber = nil
-	self.update_queue = markup.Array()
-	self.work_stack = markup.Array()
+	self.work_stack = {}
 	self.renderer = renderer
 	self.dispatcher = markup.Dispatcher(self)
 end
@@ -62,22 +62,20 @@ end
 
 ---@param root markup.Renderer.Root
 function Reconciler:fresh_stack(root)
-	self.work_stack = markup.Array()
-	self.work_stack_visited = {}
-
 	local wip = self:create_wip(root.current, root.current.pending_props)
-	self.work_stack:push(wip)
+	self.work_stack = { wip }
+	self.work_stack_visited = {}
 
 	return self.work_stack
 end
 
--- Bottom-up reconciliation
+-- dfs reconciliation
 function Reconciler:work_loop()
 	self.work_stack = self:fresh_stack(self.renderer.root)
 
 	local unit
 	while #self.work_stack > 0 do
-		unit = self.work_stack:pop()
+		unit = table.remove(self.work_stack)
 		self:process_unit(unit)
 	end
 
@@ -94,9 +92,12 @@ function Reconciler:process_unit(unit)
 	self.currently_rendering_fiber = unit
 	local next = self:begin_work(unit.alternate, unit)
 	self.currently_rendering_fiber = nil
+
 	unit.memoized_props = unit.pending_props
 
-	self.work_stack:push(unit, next)
+	table.insert(self.work_stack, unit)
+	table.insert(self.work_stack, next)
+
 	self.work_stack_visited[unit] = true
 end
 
@@ -109,9 +110,9 @@ function Reconciler:begin_work(current, wip)
 		local old_props, new_props = current.memoized_props, wip.pending_props
 		if
 			current.type == wip.type
+			and old_props == new_props
 			and FiberFlag.check(wip, FiberFlag.NONE)
 			and not self:has_pending_updates(wip)
-			and vim.deep_equal(old_props, new_props)
 		then
 			-- nothing to do,
 			-- we can reuse the current fiber
@@ -119,17 +120,23 @@ function Reconciler:begin_work(current, wip)
 		end
 	end
 
-	return markup.Switch(wip.tag, {
-		[FiberTag.FUNCTION] = Reconciler.update_function_component,
-		[FiberTag.FRAGMENT] = Reconciler.update_fragment_component,
-		[FiberTag.ELEMENT] = Reconciler.update_element_component,
-		[FiberTag.ROOT] = Reconciler.update_root_component,
-		[FiberTag.TEXT] = Reconciler.update_text_component,
+	local next_work ---@type function
+	if wip.tag == FiberTag.FUNCTION then
+		next_work = Reconciler.update_function_component
+	elseif wip.tag == FiberTag.ELEMENT then
+		next_work = Reconciler.update_element_component
+	elseif wip.tag == FiberTag.TEXT then
+		next_work = Reconciler.update_text_component
+	elseif wip.tag == FiberTag.ROOT then
+		next_work = Reconciler.update_root_component
+	elseif wip.tag == FiberTag.FRAGMENT then
+		next_work = Reconciler.update_fragment_component
+	else
+		error(("Invalid Fiber tag: %s"):format(wip.tag))
+	end
 
-		["default"] = function()
-			error(("Invalid Fiber tag: %s"):format(wip.tag))
-		end,
-	}, self, current, wip)
+	---@diagnostic disable-next-line: return-type-mismatch
+	return next_work(self, current, wip)
 end
 
 ---@param unit markup.Fiber
@@ -183,7 +190,7 @@ function Reconciler:complete_unit(unit)
 		end,
 	})
 
-	self.work_stack:push(unit.sibling)
+	table.insert(self.work_stack, unit.sibling)
 end
 
 ---@param fiber markup.Fiber
@@ -285,6 +292,7 @@ end
 ---@param fiber markup.Fiber
 function Reconciler:has_pending_updates(fiber)
 	local hook = fiber.memoized_state
+	-- TODO check all hooks
 	return fiber.tag == "function" and hook and hook.queue.pending
 end
 
@@ -541,6 +549,8 @@ function Reconciler:reconcile_children_list(returnf, current_first_child, new_ch
 			local new_fiber = self:create_child(returnf, new_children[new_index])
 
 			if new_fiber then
+				last_placed_index = self:place_child(new_fiber, last_placed_index, new_index)
+
 				if prev_new_fiber then
 					prev_new_fiber.sibling = new_fiber
 				else

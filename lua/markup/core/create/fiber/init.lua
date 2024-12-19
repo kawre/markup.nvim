@@ -30,17 +30,18 @@ local u = require("markup.utils")
 ---@field index integer
 ---@field deletions? markup.Fiber[]
 
+---@param etype markup.Fiber.type
 local function tag_from_type(etype)
 	if type(etype) == "function" then
 		return FiberTag.FUNCTION
 	elseif type(etype) == "table" and type(etype.render) == "function" then
 		return FiberTag.CLASS
-	elseif u.is_class(etype, markup.Element) then
+	elseif etype.__type == "element" then
 		return FiberTag.ELEMENT
-	elseif u.is_class(etype, markup.Text) then
+	elseif etype.__type == "text" then
 		return FiberTag.TEXT
 	else
-		error("Unknown element type " .. etype)
+		error("Unknown element type " .. vim.inspect(etype))
 	end
 end
 

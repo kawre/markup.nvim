@@ -1,5 +1,7 @@
 local markup = require("markup.core")
 
+local log = require("markup.logger") ---@diagnostic disable-line: unused-local
+
 ---@class markup.Render.Inline : markup.Render.Object
 local RenderInline = markup.Render.Object:extend("RenderInline")
 
@@ -16,8 +18,6 @@ function RenderInline:layout()
 
 	for _, child in ipairs(children) do
 		---@cast child markup.Render.Inline
-		-- assert(child:is_inline_flow(), "Inline flow must contain only inline children")
-
 		self.builder:append(child:computed_line())
 	end
 end

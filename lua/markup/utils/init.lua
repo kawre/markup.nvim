@@ -38,7 +38,7 @@ function utils.measure_time(name, fn)
 
 	local elapsed = end_time - start_time
 	local elapsed_ms, fps = elapsed / 1e6, math.floor(1e9 / elapsed)
-	-- log.debug(("[%s]: %.2f ms | %d fps"):format(name, elapsed_ms, fps))
+	log.debug(("[%s]: %.2f ms | %d fps"):format(name, elapsed_ms, fps))
 	return res
 end
 
@@ -104,18 +104,19 @@ function utils.lookup(tbl, key, fn)
 	end
 end
 
-function utils.is_callable(value)
-	if type(value) == "function" then
-		return true
-	end
-	local mt = getmetatable(value)
-	return mt and type(mt.__call) == "function"
-end
+-- function utils.is_callable(value)
+-- 	if type(value) == "function" then
+-- 		return true
+-- 	end
+--
+-- 	local mt = getmetatable(value)
+-- 	return mt and type(mt.__call) == "function"
+-- end
 
 ---@param value any
 ---@param ...any function arguments
 function utils.call_if_callable(value, ...)
-	if utils.is_callable(value) then
+	if type(value) == "function" then
 		return value(...)
 	else
 		return value

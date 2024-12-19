@@ -20,30 +20,25 @@ function RenderTree.static.factory(node)
 		return nil
 	end
 
-	local object = markup.Switch(node.type, {
-		[NodeType.TEXT] = function()
-			---@cast node markup.Text
+	if node.type == NodeType.TEXT then
+		return markup.Render.Text(node)
+	else -- Element Node
+		---@cast node markup.Element
+		return RenderTree.static.element_factory(node)
+	end
+end
 
-			return markup.Render.Text(node)
-		end,
-
-		[NodeType.ELEMENT] = function()
-			---@cast node markup.Element
-
-			assert(node.class, "Element node must have a class")
-			return markup.Switch(node.class, {
-				[markup.Inline] = markup.Render.Inline,
-				[markup.Block] = markup.Render.Block,
-				[markup.Flex] = markup.Render.Flex,
-				-- [markup.List] = markup.Render.List,
-
-				-- Default to inline
-				["default"] = markup.Render.Inline,
-			}, node)
-		end,
-	})
-
-	return object
+---@param element markup.Element
+function RenderTree.static.element_factory(element)
+	if element.class == markup.Inline then
+		return markup.Render.Inline(element)
+	elseif element.class == markup.Block then
+		return markup.Render.Block(element)
+	elseif element.class == markup.Flex then
+		return markup.Render.Flex(element)
+	else
+		return markup.Render.Inline(element)
+	end
 end
 
 return RenderTree

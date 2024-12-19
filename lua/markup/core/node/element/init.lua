@@ -24,6 +24,7 @@ local NodeType = require("markup.core.node.enum").Type
 ---@field child_nodes markup.Node[]
 ---@field builder markup.Renderer.Builder
 local Element = markup.Node:extend("markup.element")
+Element.__type = "element"
 
 ---@class markup.Element.static : markup.Node.static
 Element.static = Element.static

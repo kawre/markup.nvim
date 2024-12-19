@@ -39,8 +39,15 @@ end
 
 ---@param renderer markup.Renderer
 function RenderObject:paint(renderer)
-	for row, line in pairs(self:computed_lines()) do
-		line:draw(renderer, row)
+	local lines = self:computed_lines()
+
+	local lines_str = vim.tbl_map(function(line)
+		return line:content()
+	end, vim.tbl_values(lines))
+	renderer:buf_set_lines(0, -1, false, lines_str)
+
+	-- Paint each line
+	for row, line in pairs(lines) do
 		line:paint(renderer, row)
 	end
 end

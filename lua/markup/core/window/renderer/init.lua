@@ -26,25 +26,37 @@ end
 
 ---@param element markup.xElement
 function Renderer:render(element)
-	u.measure_time("render", function()
-		self.root = markup.create_renderer_root(self, element)
-		self.reconciler = markup.Reconciler(self)
-
-		self.reconciler:reconcile()
-		self.render_tree = markup.Render.Tree(self.root)
-
-		-- self.reconciler:print()
-		-- self.render_tree:print()
-
-		self:commit()
+	u.measure_time("--- #RENDER", function()
+		u.measure_time("create_renderer_root", function()
+			self.root = markup.create_renderer_root(self, element)
+		end)
+		u.measure_time("reconciler:init", function()
+			self.reconciler = markup.Reconciler(self)
+		end)
+		u.measure_time("reconciler", function()
+			self.reconciler:reconcile()
+		end)
+		u.measure_time("render_tree", function()
+			self.render_tree = markup.Render.Tree(self.root)
+		end)
+		u.measure_time("commit", function()
+			self:commit()
+		end)
 	end)
+	log.debug("-----")
 end
 
 function Renderer:rerender()
-	u.measure_time("ReRender", function()
-		self.reconciler:reconcile()
-		self.render_tree = markup.Render.Tree(self.root)
-		self:commit()
+	u.measure_time("--- #RE-RENDER", function()
+		u.measure_time("reconcile", function()
+			self.reconciler:reconcile()
+		end)
+		u.measure_time("render_tree", function()
+			self.render_tree = markup.Render.Tree(self.root)
+		end)
+		u.measure_time("commit", function()
+			self:commit()
+		end)
 	end)
 end
 
@@ -95,7 +107,6 @@ end
 
 function Renderer:clear()
 	self:buf_clear_namespace()
-	self:buf_set_lines(0, -1, false, {})
 	self:clear_keymaps()
 end
 
