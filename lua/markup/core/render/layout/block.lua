@@ -10,7 +10,6 @@ end
 
 function RenderBlock:layout()
 	local children = self.children
-	local children_len = #children
 
 	local prev_child ---@type markup.Render.Layout
 	for _, child in ipairs(children) do
@@ -19,8 +18,8 @@ function RenderBlock:layout()
 		end
 
 		local lines, lines_len = child:computed_lines()
-		for row, line in pairs(lines) do
-			self.builder:line(self.builder.row + row):append(line)
+		for row, line in ipairs(lines) do
+			self.builder:line(self.builder.row + (row - 1)):append(line)
 		end
 		self.builder:newl(lines_len)
 

@@ -16,37 +16,40 @@ function RenderFlex:layout()
 	for i, child in ipairs(children) do
 		local not_last = i ~= children_len
 
-		if prev_child and (child:is_block() or prev_child:is_block()) then
-			self.builder:newl()
-		end
-
 		if props.horizontal then
 			local width = child.builder:width()
 
 			for row = 1, pre.height do
 				local line = child.builder:line(row)
 
-				-- local padding = width - line:width()
-				-- if padding > 0 then
-				-- 	line:append(markup.Pad(padding))
-				-- end
-				-- if props.spacing > 0 and not_last then
-				-- 	line:append(markup.Pad(props.spacing))
-				-- end
+				local padding = width - line:width()
+				if padding > 0 then
+					line:append(markup.Pad(padding))
+				end
+				if props.spacing > 0 and not_last then
+					line:append(markup.Pad(props.spacing))
+				end
 
 				self.builder:line(self.builder.row + (row - 1)):append(line)
 			end
 
 			self.builder.row = 1
 		else
-			-- local lines = child:computed_lines()
-			-- local lines_len = #lines
-			--
-			-- for row, line in pairs(lines) do
-			-- 	self.builder:append(line, self.builder.row + row)
-			-- end
-			--
-			-- self.builder:newl(lines_len + (not_last and props.spacing or 0))
+			if prev_child and (child:is_block() or prev_child:is_block()) then
+				self.builder:newl()
+			end
+
+			local lines, lines_len = child:computed_lines()
+
+			for row, line in ipairs(lines) do
+				self.builder:line(self.builder.row + (row - 1)):append(line)
+			end
+
+			-- TODO temporary fix for newl
+			if not_last then
+				self.builder:newl(lines_len - 1 + (not_last and props.spacing or 0))
+				self.builder:line()
+			end
 		end
 
 		prev_child = child

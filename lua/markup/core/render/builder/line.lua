@@ -98,6 +98,9 @@ function Line:prepend(content)
 		next = self.head,
 	}
 
+	if not self.head then
+		self.tail = node
+	end
 	self.head = node
 
 	self.dirty = true

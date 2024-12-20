@@ -34,13 +34,14 @@ function Builder:line(row_at)
 end
 
 function Builder:_line(row_at)
-	self.len = math.max(self.len, row_at)
 	self:fill(row_at)
 	return self.lines[row_at]
 end
 
 ---@param row_at? integer (1-indexed)
 function Builder:fill(row_at)
+	self.len = math.max(self.len, row_at or self.row)
+
 	for i = self.len, row_at or self.row do
 		if not self.lines[i] then
 			self.lines[i] = RenderLine()

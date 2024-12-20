@@ -4,7 +4,11 @@ return function()
 			local instance = setmetatable({}, {
 				__index = self,
 				__tostring = function(b)
-					return self.__tostring(b)
+					if self.__tostring then
+						return self.__tostring(b)
+					else
+						return tostring(b)
+					end
 				end,
 			})
 			instance:init()

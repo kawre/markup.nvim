@@ -13,13 +13,17 @@ function RenderInline:is_inline()
 	return true
 end
 
+function RenderInline:computed_line()
+	return self.builder.lines[1]
+end
+
 function RenderInline:layout()
 	local children = self.children
 
 	for _, child in ipairs(children) do
 		assert(child:is_inline(), "Inline flow must contain only inline children")
 		---@cast child markup.Render.Inline
-		self.builder:line():append(child:computed_lines())
+		self.builder:line():append(child:computed_line())
 	end
 end
 
