@@ -30,7 +30,7 @@ function Line:_sync()
 			return text.content
 		end, self._.texts)) or ""
 		self._.length = #self._.content
-		-- self._.width = vim.api.nvim_strwidth(self._.content)
+		self._.width = vim.api.nvim_strwidth(self._.content)
 
 		self._.dirty = false
 	end

@@ -1,25 +1,25 @@
-local RenderObject = require("markup.core.render.layout")
+local RenderLayout = require("markup.core.render.layout")
 
 local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 
 ---@class markup.Render.Inline : markup.Render.Layout
-local RenderInline = RenderObject:extend("RenderInline")
+local RenderInline = RenderLayout:extend("RenderInline")
 
 function RenderInline:height()
 	return 1
 end
 
-function RenderInline:computed_line()
-	return self.builder:line(0)
+function RenderInline:is_inline()
+	return true
 end
 
 function RenderInline:layout()
 	local children = self.children
 
 	for _, child in ipairs(children) do
-		-- assert(child:is_inline_flow(), "Inline flow must contain only inline children")
+		assert(child:is_inline(), "Inline flow must contain only inline children")
 		---@cast child markup.Render.Inline
-		self.builder:append(child:computed_line())
+		self.builder:line():append(child:computed_lines())
 	end
 end
 

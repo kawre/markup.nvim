@@ -14,6 +14,10 @@ Text.__type = "text"
 ---@class markup.Text.static : markup.Node.static
 Text.static = Text.static
 
+function Text:__tostring()
+	return self.content
+end
+
 function Text:init(content)
 	Text.super.init(self, NodeType.TEXT)
 	self:set(content)

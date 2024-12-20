@@ -6,7 +6,7 @@ local HFlex = markup.Flex:extend("markup.flex.horizontal")
 
 function HFlex:init(...)
 	self:extend_default_props({
-		vertical = false,
+		horizontal = true,
 	})
 	HFlex.super.init(self, ...)
 end

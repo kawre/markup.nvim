@@ -11,6 +11,7 @@ local NodeType = require("markup.core.node.enum").Type
 ---@field align markup.Box.align
 ---@field spacing markup.Box.spacing
 ---@field vertical boolean
+---@field horizontal boolean
 ---@field reverse boolean
 ---@field on_submit? fun()
 ---@field on_key? table<string, fun()>
@@ -38,7 +39,7 @@ Element.static.get_default_props = function()
 		margin = 0,
 		align = "start",
 		spacing = 0,
-		vertical = true,
+		horizontal = false,
 		reverse = false,
 		size = {},
 	}
@@ -47,9 +48,7 @@ end
 ---@param props? markup.Element.constructor.props
 ---@param style? markup.Element.style.props
 function Element:init(props, style)
-	log.info(props)
 	props = self:normalize_props(props, style)
-	log.info(props)
 	Element.super.init(self, NodeType.ELEMENT, props)
 
 	self._pending_props = nil
@@ -220,6 +219,7 @@ end
 ---@field align? markup.Box.align box align
 ---@field spacing? markup.Box.spacing box spacing
 ---@field vertical? boolean box vertical
+---@field horizontal? boolean box vertical
 ---@field reverse? boolean box reverse
 
 ---@alias markup.Element.style.props

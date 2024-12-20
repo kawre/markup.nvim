@@ -1,3 +1,4 @@
+local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 local markup = require("markup.core")
 
 ---@class markup.Renderer.Builder : markup.Object

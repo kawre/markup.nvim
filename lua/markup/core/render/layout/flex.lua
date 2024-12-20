@@ -11,8 +11,8 @@ function RenderFlex:layout()
 
 	local children_len = #children
 	local prev_child ---@type markup.Render.Layout
+	local pre = self:pre_layout_size()
 
-	log.info(props.vertical)
 	for i, child in ipairs(children) do
 		local not_last = i ~= children_len
 
@@ -20,33 +20,33 @@ function RenderFlex:layout()
 			self.builder:newl()
 		end
 
-		local box = child:box_size()
+		if props.horizontal then
+			local width = child.builder:width()
 
-		if not props.vertical then
-			local width = box.width
-
-			for row = 0, box.height - 1 do
+			for row = 1, pre.height do
 				local line = child.builder:line(row)
-				local padding = width - line:width()
-				if padding > 0 then
-					line:append(markup.Pad(padding))
-				end
-				if props.spacing > 0 and not_last then
-					line:append(markup.Pad(props.spacing))
-				end
 
-				self.builder:append(line, self.builder.row + row)
+				-- local padding = width - line:width()
+				-- if padding > 0 then
+				-- 	line:append(markup.Pad(padding))
+				-- end
+				-- if props.spacing > 0 and not_last then
+				-- 	line:append(markup.Pad(props.spacing))
+				-- end
+
+				self.builder:line(self.builder.row + (row - 1)):append(line)
 			end
 
-			self.builder.row = 0
+			self.builder.row = 1
 		else
-			local lines = child:computed_lines()
-			local lines_len = #lines
-
-			for row, line in pairs(lines) do
-				self.builder:append(line, self.builder.row + row)
-			end
-			self.builder:newl(lines_len + (not_last and props.spacing or 0))
+			-- local lines = child:computed_lines()
+			-- local lines_len = #lines
+			--
+			-- for row, line in pairs(lines) do
+			-- 	self.builder:append(line, self.builder.row + row)
+			-- end
+			--
+			-- self.builder:newl(lines_len + (not_last and props.spacing or 0))
 		end
 
 		prev_child = child

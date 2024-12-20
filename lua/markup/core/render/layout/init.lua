@@ -1,14 +1,14 @@
 local NODE = require("markup.core.node.enum")
 local Object = require("markup.core.object")
 local RenderTree = require("markup.core.render.tree")
-local RenderBuilder = require("markup.core.window.renderer.line.builder")
+local RenderBuilder = require("markup.core.render.builder")
 
 local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 
 ---@class markup.Render.Layout : markup.Object
 ---@field children markup.Render.Layout[]
 ---@field node markup.Node
----@field builder markup.Renderer.Builder
+---@field builder markup.Render.Builder
 ---@field need_layout boolean
 local RenderLayout = Object("RenderLayout")
 
@@ -40,6 +40,21 @@ function RenderLayout:layout()
 	error("Method not implemented")
 end
 
+function RenderLayout:pre_layout_size()
+	local max_width, max_height = 0, 0
+	local max = math.max
+
+	for _, child in ipairs(self.children) do
+		max_height = max(max_height, child:box_size().height)
+		max_width = max(max_width, child:box_size().width)
+	end
+
+	return {
+		width = max_width,
+		height = max_height,
+	}
+end
+
 -- the total size of the node
 function RenderLayout:box_size()
 	return {
@@ -69,7 +84,7 @@ function RenderLayout:content_size()
 end
 
 function RenderLayout:computed_lines()
-	return self.builder.lines
+	return self.builder.lines, self.builder.len
 end
 
 function RenderLayout:is_block_flow()
@@ -94,9 +109,7 @@ end
 function RenderLayout:paint(renderer)
 	local lines = self:computed_lines()
 
-	local lines_str = vim.tbl_map(function(line)
-		return line:content()
-	end, vim.tbl_values(lines))
+	local lines_str = vim.tbl_map(tostring, vim.tbl_values(lines))
 	renderer.buf:set_lines(0, -1, false, lines_str)
 
 	-- Paint each line

@@ -24,7 +24,7 @@ function RenderTree.static.factory(node)
 		return renderer("text", node)
 	end
 
-	local display = node.props.display or "inline"
+	local display = node.props.display or "block"
 	if display == NODE.Display.NONE then
 		return nil
 	else
