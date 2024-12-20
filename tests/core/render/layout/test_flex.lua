@@ -1,3 +1,5 @@
+---@module 'mini.test'
+
 local helpers = dofile("tests/helpers/init.lua")
 local T = MiniTest.new_set()
 

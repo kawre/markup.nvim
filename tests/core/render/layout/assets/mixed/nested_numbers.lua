@@ -4,7 +4,7 @@ local markup = require("markup")
 local content = {
 	markup.Block(1),
 	markup.Inline(2),
-	markup.Inline({
+	markup.Block({
 		children = {
 			markup.Inline(3),
 			markup.Inline(4),

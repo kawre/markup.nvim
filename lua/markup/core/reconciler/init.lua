@@ -164,7 +164,7 @@ function Reconciler:complete_unit(unit)
 
 			-- TODO update node props
 			-- simple implementation for now
-			if wip.state_node then
+			if wip.state_node and wip.memoized_props then
 				wip.state_node:set_props(wip.memoized_props)
 			end
 		end,
@@ -278,7 +278,7 @@ end
 function Reconciler:update_element_component(current, wip)
 	-- local prev_props = current and current.memoized_props
 	local next_props = wip.pending_props
-	local next_children = next_props.children
+	local next_children = next_props and next_props.children
 	local prev_props = current and current.memoized_props
 
 	if not (current and current.state_node) then
