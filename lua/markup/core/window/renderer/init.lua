@@ -24,12 +24,14 @@ function Renderer:after_init()
 	self.body = self._.body
 end
 
----@param element markup.xElement
+---@param element markup.xElement | markup.xElement[]
 function Renderer:render(element)
 	self.root = markup.create_renderer_root(self, element)
 	self.reconciler = markup.Reconciler(self)
 	self.reconciler:reconcile()
+	self.reconciler:print()
 	self.render_tree = markup.Render.Tree(self.root)
+	self.root.current.state_node:print()
 	self:commit()
 end
 

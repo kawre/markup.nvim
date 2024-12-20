@@ -802,7 +802,7 @@ function Reconciler:print(f)
 	end
 
 	print_fiber_tree(f or self.renderer.root.current, 0)
-	log.info(table.concat(lines, "\n"))
+	log.debug(table.concat(lines, "\n"))
 
 	return lines
 end

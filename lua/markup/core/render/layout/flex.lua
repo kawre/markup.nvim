@@ -5,6 +5,10 @@ local RenderBlock = require("markup.core.render.layout.block")
 ---@class markup.Render.Flex : markup.Render.Layout
 local RenderFlex = RenderBlock:extend("RenderFlex")
 
+function RenderFlex:is_flexible()
+	return true
+end
+
 function RenderFlex:layout()
 	local children = self.children
 	local props = self.node.props

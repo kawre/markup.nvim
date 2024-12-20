@@ -92,8 +92,7 @@ function RenderLayout:is_block_flow()
 end
 
 function RenderLayout:is_block()
-	local display = self.node.props.display
-	return display == NODE.Display.BLOCK or display == NODE.Display.FLEX
+	return false
 end
 
 function RenderLayout:is_inline_flow()
@@ -101,8 +100,11 @@ function RenderLayout:is_inline_flow()
 end
 
 function RenderLayout:is_inline()
-	local display = self.node.props.display
-	return display == NODE.Display.INLINE
+	return false
+end
+
+function RenderLayout:is_flexible()
+	return false
 end
 
 ---@param renderer markup.Renderer
@@ -138,7 +140,7 @@ function RenderLayout:print()
 	end
 
 	print_tree(self, 0)
-	log.info(table.concat(lines, "\n"))
+	log.debug(table.concat(lines, "\n"))
 end
 
 ---@alias markup.Render.Layout.constructor

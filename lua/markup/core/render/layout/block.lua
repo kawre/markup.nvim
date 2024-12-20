@@ -13,15 +13,19 @@ function RenderBlock:layout()
 
 	local prev_child ---@type markup.Render.Layout
 	for _, child in ipairs(children) do
-		if prev_child and (child:is_block() or prev_child:is_block()) then
+		local is_block = child:is_block()
+		if prev_child and (is_block or prev_child:is_block()) then
 			self.builder:newl()
 		end
 
 		local lines, lines_len = child:computed_lines()
-		for row, line in ipairs(lines) do
-			self.builder:line(self.builder.row + (row - 1)):append(line)
+		for row = 1, lines_len do
+			self.builder:line(self.builder.row + (row - 1)):append(lines[row])
 		end
-		self.builder:newl(lines_len)
+
+		if is_block then
+			self.builder:newl(lines_len - 1)
+		end
 
 		prev_child = child
 	end

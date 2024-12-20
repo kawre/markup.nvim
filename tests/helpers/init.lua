@@ -94,10 +94,10 @@ function helpers.mock_layout(assets_path, node_name)
 	return function(content)
 		local str = helpers.read_lua_file(assets_path .. content)
 		return ([[
-		frame = markup.Renderer()
-		%s
-		frame:render(markup.%s(content))
-	]]):format(str, node_name)
+			frame = markup.Renderer()
+			%s
+			frame:render(markup.%s(content))
+		]]):format(str, node_name)
 	end
 end
 

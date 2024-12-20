@@ -90,7 +90,7 @@ function Node:print()
 	end
 
 	print_node_tree(self, 0)
-	log.info(table.concat(lines, "\n"))
+	log.debug(table.concat(lines, "\n"))
 end
 
 ---@class markup.Node.constructor.props
