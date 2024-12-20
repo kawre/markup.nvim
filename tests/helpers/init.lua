@@ -79,4 +79,34 @@ function helpers.assert_extmarks(window, extmarks)
 	assert.are.same(extmarks, buf_extmarks)
 end
 
+function helpers.read_lua_file(filename)
+	local file, err = io.open(filename, "r") -- Open the file in read mode
+	if not file then
+		return nil, "Error opening file: " .. (err or "unknown error")
+	end
+
+	local content = file:read("*a") -- Read the entire content of the file
+	file:close() -- Close the file
+	return content
+end
+
+function helpers.mock_layout(assets_path, node_name)
+	return function(content)
+		local str = helpers.read_lua_file(assets_path .. content)
+		return ([[
+		frame = markup.Renderer()
+		%s
+		frame:render(markup.%s(content))
+	]]):format(str, node_name)
+	end
+end
+
+function helpers.render(content)
+	return ([[
+		frame = markup.Renderer()
+		%s
+		frame:render(content)
+	]]):format(content)
+end
+
 return helpers

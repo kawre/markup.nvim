@@ -37,7 +37,7 @@ local function normalize_props(props, style)
 	-- end
 
 	if type(props) == "string" or type(props) == "number" then
-		return props ~= "" and { children = props } or nil
+		return { children = props }
 	end
 
 	if not props.children then
