@@ -10,19 +10,20 @@ function RenderFlex:is_flex()
 	return true
 end
 
-function RenderFlex:align()
-	local width = self:box_size()
-	local align = self.align
+---@param constrains markup.Render.Layout.constrains
+function RenderFlex:align(constrains)
+	local align = self.node.props.align
+
 	for _, line in pairs(self:computed_lines()) do
-		local padding = width - line:width()
+		local padding = constrains.width - line:width()
 		if align == "start" then
-			line:append(markup.Pad(padding, self))
+			line:append(markup.Pad(padding))
 		elseif align == "center" then
 			local halfpad = math.floor(padding / 2)
 			local leftpad, rightpad = halfpad, halfpad + padding % 2
-			line:prepend(markup.Pad(rightpad, self)):append(markup.Pad(leftpad, self))
+			line:prepend(markup.Pad(rightpad)):append(markup.Pad(leftpad))
 		elseif align == "end" then
-			line:prepend(markup.Pad(padding, self))
+			line:prepend(markup.Pad(padding))
 		end
 	end
 end
@@ -76,6 +77,8 @@ function RenderFlex:aggregate(constrains)
 
 		prev_child = child
 	end
+
+	self:align(constrains)
 end
 
 function RenderFlex:layout(constrains)
