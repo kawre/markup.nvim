@@ -14,8 +14,24 @@ function RenderTree:init(root)
 	self.view = markup.Render.View(root)
 end
 
+local display_map = {
+	[NODE.Display.BLOCK] = "block",
+	[NODE.Display.INLINE] = "inline",
+	[NODE.Display.INLINE_BLOCK] = "inline.block",
+	[NODE.Display.FLEX] = "flex",
+	[NODE.Display.NONE] = "none",
+	["text"] = "inline.text",
+}
+
 local function renderer(display, ...)
-	return require("markup.core.render.layout." .. display)(...)
+	local path = display_map[display]
+	assert(path, "Unknown display type: " .. display)
+
+	if display == NODE.Display.NONE then
+		return nil
+	end
+
+	return require("markup.core.render.layout." .. path)(...)
 end
 
 ---@param node markup.Node
@@ -26,12 +42,7 @@ function RenderTree.static.factory(node, parent)
 		return renderer("text", node)
 	end
 
-	local display = node.props.display or "block"
-	if display == NODE.Display.NONE then
-		return nil
-	else
-		return renderer(display, node)
-	end
+	return renderer(node.props.display, node)
 end
 
 return RenderTree

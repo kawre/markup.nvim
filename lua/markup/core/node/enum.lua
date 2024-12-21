@@ -14,6 +14,7 @@ enum.Display = {
 	BLOCK = "block",
 	INLINE = "inline",
 	FLEX = "flex",
+	INLINE_BLOCK = "inline-block",
 }
 
 return enum

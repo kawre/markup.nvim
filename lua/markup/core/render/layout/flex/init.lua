@@ -34,7 +34,6 @@ function RenderFlex:aggregate(constrains)
 	local props = self.node.props
 
 	local children_len = #children
-	local prev_child ---@type markup.Render.Layout
 	local pre = self:content_size()
 
 	for i, child in ipairs(children) do
@@ -59,7 +58,7 @@ function RenderFlex:aggregate(constrains)
 
 			self.builder.row = 1
 		else
-			if prev_child and (child:is_block() or prev_child:is_block()) then
+			if i ~= 1 then
 				self.builder:newl()
 			end
 
@@ -74,8 +73,6 @@ function RenderFlex:aggregate(constrains)
 				self.builder:newl(lines_len - 1 + (not_last and props.spacing or 0))
 			end
 		end
-
-		prev_child = child
 	end
 
 	self:align(constrains)

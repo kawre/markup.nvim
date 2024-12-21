@@ -4,6 +4,10 @@ local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 ---@class markup.Render.Block : markup.Render.Layout
 local RenderBlock = markup.Render.Layout:extend("RenderBlock")
 
+function RenderBlock:occupy_full_width(line, constrains)
+	line:append(markup.Pad(constrains.width - line:width()))
+end
+
 ---@param constrains markup.Render.Layout.constrains
 function RenderBlock:aggregate(constrains)
 	local children = self.children
@@ -17,7 +21,9 @@ function RenderBlock:aggregate(constrains)
 
 		local lines, lines_len = child:computed_lines()
 		for row = 1, lines_len do
-			self.builder:line(self.builder.row + (row - 1)):append(lines[row])
+			local line = lines[row]
+			self:occupy_full_width(line, constrains)
+			self.builder:line(self.builder.row + (row - 1)):append(line)
 		end
 
 		if is_block then
