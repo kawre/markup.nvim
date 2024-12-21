@@ -40,6 +40,7 @@ function RenderLayout:calc_constrains(constrains)
 
 	local width = constrains.width
 	local height = constrains.height
+
 	if size then
 		width = math.ceil(width * (size.width or 1))
 		height = math.ceil(height * (size.height or 1))
