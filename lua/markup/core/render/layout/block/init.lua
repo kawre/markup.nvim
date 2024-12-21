@@ -5,7 +5,7 @@ local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 local RenderBlock = markup.Render.Layout:extend("RenderBlock")
 
 function RenderBlock:occupy_full_width(line, constrains)
-	line:append(markup.Pad(constrains.width - line:width()))
+	-- line:append(markup.Pad(constrains.width - line:width()))
 end
 
 ---@param constrains markup.Render.Layout.constrains
@@ -35,6 +35,10 @@ function RenderBlock:aggregate(constrains)
 end
 
 function RenderBlock:is_block()
+	return true
+end
+
+function RenderBlock:is_block_flow()
 	return true
 end
 

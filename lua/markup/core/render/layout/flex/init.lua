@@ -1,6 +1,5 @@
 local markup = require("markup.core")
 local log = require("markup.logger") ---@diagnostic disable-line: unused-local
-local RenderTree = require("markup.core.render.tree")
 local RenderBlock = require("markup.core.render.layout.block")
 
 ---@class markup.Render.Flex : markup.Render.Layout

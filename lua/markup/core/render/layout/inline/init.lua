@@ -13,6 +13,10 @@ function RenderInline:is_inline()
 	return true
 end
 
+function RenderInline:is_inline_flow()
+	return true
+end
+
 function RenderInline:computed_line()
 	return self.builder.lines[1]
 end

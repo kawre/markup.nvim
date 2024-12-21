@@ -120,26 +120,6 @@ function RenderLayout:computed_lines()
 	return self.builder.lines, self.builder.len
 end
 
-function RenderLayout:is_block_flow()
-	return false
-end
-
-function RenderLayout:is_block()
-	return false
-end
-
-function RenderLayout:is_inline_flow()
-	return false
-end
-
-function RenderLayout:is_inline()
-	return false
-end
-
-function RenderLayout:is_flex()
-	return false
-end
-
 ---@param renderer markup.Renderer
 function RenderLayout:paint(renderer)
 	local lines = self:computed_lines()
@@ -174,6 +154,30 @@ function RenderLayout:print()
 
 	print_tree(self, 0)
 	log.debug(table.concat(lines, "\n"))
+end
+
+function RenderLayout:is_block_flow()
+	return false
+end
+
+function RenderLayout:is_block()
+	return false
+end
+
+function RenderLayout:is_inline_flow()
+	return false
+end
+
+function RenderLayout:is_inline()
+	return false
+end
+
+function RenderLayout:is_flex()
+	return false
+end
+
+function RenderLayout:is_grid()
+	return false
 end
 
 ---@alias markup.Render.Layout.constructor

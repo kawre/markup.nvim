@@ -8,4 +8,8 @@ function RenderInlineBlock:occupy_full_width()
 	-- do nothing
 end
 
+function RenderInlineBlock:is_inline_flow()
+	return true
+end
+
 return RenderInlineBlock
