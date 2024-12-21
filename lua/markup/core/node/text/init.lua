@@ -23,6 +23,10 @@ function Text:init(content)
 	self:set(content)
 end
 
+function Text:is_text()
+	return true
+end
+
 function Text:append(value)
 	self:set(self.content .. value)
 end

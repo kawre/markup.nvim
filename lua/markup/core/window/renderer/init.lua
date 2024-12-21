@@ -31,6 +31,7 @@ function Renderer:render(element)
 	self.reconciler:reconcile()
 	self.reconciler:print()
 	self.render_tree = markup.Render.Tree(self.root)
+	self.render_tree.view:layout()
 	self.root.current.state_node:print()
 	self:commit()
 end

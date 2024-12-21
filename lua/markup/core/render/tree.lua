@@ -11,7 +11,7 @@ RenderTree.static = RenderTree.static
 
 ---@param root markup.Renderer.Root
 function RenderTree:init(root)
-	self.view = markup.Render.View(root.current.state_node)
+	self.view = markup.Render.View(root)
 end
 
 local function renderer(display, node)
@@ -19,6 +19,7 @@ local function renderer(display, node)
 end
 
 ---@param node markup.Node
+---@return markup.Render.Layout?
 function RenderTree.static.factory(node)
 	if node.type == NODE.Type.TEXT then
 		return renderer("text", node)

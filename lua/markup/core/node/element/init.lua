@@ -55,6 +55,10 @@ function Element:init(props, style)
 	self.style = nil
 end
 
+function Element:is_element()
+	return true
+end
+
 function Element:apply_spacing()
 	if not self:_non_zero_spacing() then
 		return

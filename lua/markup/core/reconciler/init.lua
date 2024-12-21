@@ -269,6 +269,7 @@ function Reconciler:create_instance(fiber)
 	FiberFlag.set(fiber, FiberFlag.PLACEMENT)
 	local node = fiber.type(fiber.pending_props)
 	fiber.state_node = node
+	fiber.state_node.frame = self.renderer
 
 	return fiber
 end

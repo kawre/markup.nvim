@@ -1,21 +1,40 @@
 local markup = require("markup.core")
 local log = require("markup.logger") ---@diagnostic disable-line: unused-local
+local RenderTree = require("markup.core.render.tree")
 local RenderBlock = require("markup.core.render.layout.block")
 
 ---@class markup.Render.Flex : markup.Render.Layout
 local RenderFlex = RenderBlock:extend("RenderFlex")
 
-function RenderFlex:is_flexible()
+function RenderFlex:is_flex()
 	return true
 end
 
-function RenderFlex:layout()
+function RenderFlex:align()
+	local width = self:box_size()
+	local align = self.align
+	for _, line in pairs(self:computed_lines()) do
+		local padding = width - line:width()
+		if align == "start" then
+			line:append(markup.Pad(padding, self))
+		elseif align == "center" then
+			local halfpad = math.floor(padding / 2)
+			local leftpad, rightpad = halfpad, halfpad + padding % 2
+			line:prepend(markup.Pad(rightpad, self)):append(markup.Pad(leftpad, self))
+		elseif align == "end" then
+			line:prepend(markup.Pad(padding, self))
+		end
+	end
+end
+
+---@param constrains markup.Render.Layout.constrains
+function RenderFlex:aggregate(constrains)
 	local children = self.children
 	local props = self.node.props
 
 	local children_len = #children
 	local prev_child ---@type markup.Render.Layout
-	local pre = self:pre_layout_size()
+	local pre = self:content_size()
 
 	for i, child in ipairs(children) do
 		local not_last = i ~= children_len
@@ -52,12 +71,15 @@ function RenderFlex:layout()
 			-- TODO temporary fix for newl
 			if not_last then
 				self.builder:newl(lines_len - 1 + (not_last and props.spacing or 0))
-				self.builder:line()
 			end
 		end
 
 		prev_child = child
 	end
+end
+
+function RenderFlex:layout(constrains)
+	RenderFlex.super.layout(self, constrains)
 end
 
 return RenderFlex

@@ -4,11 +4,8 @@ local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 ---@class markup.Render.Block : markup.Render.Layout
 local RenderBlock = markup.Render.Layout:extend("RenderBlock")
 
-function RenderBlock:is_block()
-	return true
-end
-
-function RenderBlock:layout()
+---@param constrains markup.Render.Layout.constrains
+function RenderBlock:aggregate(constrains)
 	local children = self.children
 
 	local prev_child ---@type markup.Render.Layout
@@ -29,6 +26,10 @@ function RenderBlock:layout()
 
 		prev_child = child
 	end
+end
+
+function RenderBlock:is_block()
+	return true
 end
 
 return RenderBlock
