@@ -14,13 +14,14 @@ function RenderTree:init(root)
 	self.view = markup.Render.View(root)
 end
 
-local function renderer(display, node)
-	return require("markup.core.render.layout." .. display)(node)
+local function renderer(display, ...)
+	return require("markup.core.render.layout." .. display)(...)
 end
 
 ---@param node markup.Node
+---@param parent markup.Render.Layout
 ---@return markup.Render.Layout?
-function RenderTree.static.factory(node)
+function RenderTree.static.factory(node, parent)
 	if node.type == NODE.Type.TEXT then
 		return renderer("text", node)
 	end

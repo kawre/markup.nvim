@@ -24,60 +24,62 @@ end
 ---@class markup.Render.Layout.static : markup.Object.static
 RenderLayout.static = RenderLayout.static
 
--- ---@param node markup.Node
--- function RenderLayout:attach(node)
--- 	self.children = {}
---
--- 	for _, child in ipairs(node.child_nodes) do
--- 		local layout = RenderTree.static.factory(child)
---
--- 		if layout then
--- 			table.insert(self.children, layout)
--- 			layout:attach(child)
--- 			layout.parent = self
--- 		end
--- 	end
---
--- 	-- self:layout()
--- end
-
-function RenderLayout:children_iter()
-	local i = 0
-	local n = #self.node.child_nodes
-
-	return function()
-		i = i + 1
-		if i <= n then
-			local layout = RenderTree.static.factory(self.node.child_nodes[i])
-			while i <= n and not layout do
-				i = i + 1
-				layout = RenderTree.static.factory(self.node.child_nodes[i])
-			end
-			return layout
-		end
-	end
-end
-
 ---@alias markup.Render.Layout.constrains
 ---| { width: number, height: number }
 
 ---@param constrains markup.Render.Layout.constrains
-function RenderLayout:aggregate(constrains)
+function RenderLayout:calc_constrains(constrains)
+	local parent = self.parent
+
+	if not parent then
+		return constrains
+	end
+
+	local style = self.node.props
+	local size = style.size
+
+	local width = constrains.width
+	local height = constrains.height
+	if size then
+		width = math.ceil(width * (size.width or 1))
+		height = math.ceil(height * (size.height or 1))
+	end
+
+	return {
+		width = width,
+		height = height,
+	}
+end
+
+---@param constrains markup.Render.Layout.constrains
+function RenderLayout:aggregate(constrains) ---@diagnostic disable-line: unused-local
 	error("Method not implemented")
+end
+
+---@param child markup.Node
+function RenderLayout:attach(child)
+	local renderer = RenderTree.static.factory(child, self)
+
+	table.insert(self.children, renderer)
+	renderer.parent = self
+
+	return renderer
 end
 
 ---@param constrains markup.Render.Layout.constrains
 function RenderLayout:layout(constrains)
+	local new_constrains = self:calc_constrains(constrains)
+
 	for _, child in ipairs(self.node.child_nodes) do
-		local renderer = RenderTree.static.factory(child)
+		local renderer = self:attach(child)
 		if renderer then
-			table.insert(self.children, renderer)
-			renderer:layout(constrains)
-			renderer.parent = self
+			renderer:layout(new_constrains)
 		end
 	end
 
-	self:aggregate(constrains)
+	if not vim.tbl_isempty(self.children) then
+		self:aggregate(new_constrains)
+	end
 end
 
 function RenderLayout:reflow()
