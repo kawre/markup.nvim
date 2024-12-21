@@ -42,8 +42,12 @@ function RenderLayout:calc_constrains(constrains)
 	local height = constrains.height
 
 	if size then
-		width = math.ceil(width * (size.width or 1))
-		height = math.ceil(height * (size.height or 1))
+		if size.width then
+			width = size.width < 1 and math.ceil(width * size.width) or size.width
+		end
+		if size.height then
+			height = size.height < 1 and math.ceil(height * size.height) or size.height
+		end
 	end
 
 	return {
@@ -101,22 +105,6 @@ function RenderLayout:content_size()
 	return {
 		width = max_width,
 		height = max_height,
-	}
-end
-
-function RenderLayout:available_height()
-	-- return self.builder:available_size()
-end
-
-function RenderLayout:available_width()
-	-- return self.builder:available_size()
-	-- local parent = self.node.parent
-end
-
-function RenderLayout:available_size()
-	return {
-		width = self:available_width(),
-		height = self:available_height(),
 	}
 end
 
