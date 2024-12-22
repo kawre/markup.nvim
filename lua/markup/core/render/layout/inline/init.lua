@@ -27,7 +27,7 @@ function RenderInline:aggregate(constrains)
 	for _, child in ipairs(children) do
 		assert(child:is_inline(), "Inline flow must contain only inline children")
 		---@cast child markup.Render.Inline
-		self.builder:line():append(child:computed_line())
+		self.builder:append(child:computed_line())
 	end
 end
 

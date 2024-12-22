@@ -9,6 +9,10 @@ function RenderFlex:is_flex()
 	return true
 end
 
+function RenderFlex:justify()
+	-- TODO
+end
+
 ---@param constrains markup.Render.Layout.constrains
 function RenderFlex:align(constrains)
 	local align = self.node.props.align
@@ -34,7 +38,7 @@ function RenderFlex:aggregate(constrains)
 	local props = self.node.props
 
 	local children_len = #children
-	local pre = self:content_size()
+	local intrinsic = self:intrinsic_size()
 
 	for i, child in ipairs(children) do
 		local not_last = i ~= children_len
@@ -42,7 +46,7 @@ function RenderFlex:aggregate(constrains)
 		if props.horizontal then
 			local width = child.builder:width()
 
-			for row = 1, pre.height do
+			for row = 1, intrinsic.height do
 				local line = child.builder:line(row)
 
 				local padding = width - line:width()
@@ -53,17 +57,13 @@ function RenderFlex:aggregate(constrains)
 					line:append(markup.Pad(props.spacing))
 				end
 
-				self.builder:line(self.builder.row + (row - 1)):append(line)
+				self.builder:append(line):newl()
 			end
 
 			self.builder.row = 1
 		else
-			local lines, lines_len = child:computed_lines()
-			for row = 1, lines_len do
-				self.builder:line():append(lines[row])
-				if row ~= lines_len then
-					self.builder:newl()
-				end
+			for _, line, is_last in child:computed_lines_iter() do
+				self.builder:append(line):newl(is_last and 0 or 1)
 			end
 
 			if not_last then
@@ -71,16 +71,13 @@ function RenderFlex:aggregate(constrains)
 			end
 		end
 	end
-
-	self:align(constrains)
 end
 
--- function RenderFlex:layout(constrains)
--- 	RenderFlex.super.layout(self, constrains)
--- end
+function RenderFlex:layout(constrains)
+	RenderFlex.super.layout(self, constrains)
 
--- function RenderFlex:factory(node)
--- 	return require("markup.core.render.layout.flex.item")(node)
--- end
+	self:align(constrains)
+	self:justify(constrains)
+end
 
 return RenderFlex

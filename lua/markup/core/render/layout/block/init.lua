@@ -7,7 +7,7 @@ local RenderBlock = markup.Render.Layout:extend("RenderBlock")
 ---@param constrains markup.Render.Layout.constrains
 function RenderBlock:aggregate(constrains)
 	local children = self.children
-	local box = self:box_size()
+	local intrinsic = self:intrinsic_size()
 
 	local prev_child ---@type markup.Render.Layout
 	for _, child in ipairs(children) do
@@ -16,19 +16,13 @@ function RenderBlock:aggregate(constrains)
 			self.builder:newl()
 		end
 
-		local lines, lines_len = child:computed_lines()
-		for row, line in ipairs(lines) do
-			line:append(markup.Pad(box.width - line:width()))
-			self.builder:line(self.builder.row + (row - 1)):append(line)
-		end
-
-		if is_block_flow then
-			self.builder:newl(lines_len - 1)
+		for _, line, is_last in child:computed_lines_iter() do
+			line:append(markup.Pad(intrinsic.width - line:width()))
+			self.builder:append(line):newl(is_last and 0 or 1)
 		end
 
 		prev_child = child
 	end
-	log.info(self.builder.lines)
 end
 
 function RenderBlock:is_block()

@@ -92,9 +92,8 @@ function RenderLayout:reflow()
 end
 
 -- total size of the layout children
-function RenderLayout:content_size()
-	local max_width, max_height = 0, 0
-	local max = math.max
+function RenderLayout:intrinsic_size()
+	local max, max_width, max_height = math.max, 0, 0
 
 	-- TODO optimize this with memoization
 	for _, child in ipairs(self.children) do
@@ -118,6 +117,18 @@ end
 
 function RenderLayout:computed_lines()
 	return self.builder.lines, self.builder.len
+end
+
+function RenderLayout:computed_lines_iter()
+	local lines, len = self.builder.lines, self.builder.len
+	local i = 0
+
+	return function()
+		i = i + 1
+		if i <= len then
+			return i, lines[i], i == len
+		end
+	end
 end
 
 ---@param renderer markup.Renderer

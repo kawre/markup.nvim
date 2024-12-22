@@ -42,6 +42,13 @@ function Builder:line(row_at)
 	return self.lines[row_at]
 end
 
+---@param content any
+---@param row_at? integer (1-indexed)
+function Builder:append(content, row_at)
+	self:line(row_at):append(content)
+	return self
+end
+
 function Builder:height()
 	return self.len
 end
