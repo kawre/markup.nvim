@@ -62,6 +62,14 @@ function Renderer:add_btn(node)
 	end
 end
 
+function Renderer:add_keymap(key, event)
+	if not self._.keymaps.pending then
+		self._.keymaps.pending = {}
+	end
+
+	self._.keymaps.pending[key] = { mode = "n", callback = event }
+end
+
 ---@private
 function Renderer:commit()
 	self:render_portal(function()
@@ -69,6 +77,21 @@ function Renderer:commit()
 	end)
 
 	self:add_btn(self.root.current.state_node)
+	self:commit_keymaps()
+end
+
+function Renderer:commit_keymaps()
+	if not self._.keymaps.pending then
+		return
+	end
+
+	for key, map in pairs(self._.keymaps.pending) do
+		self.buf:set_keymap(map.mode, key, "", {
+			callback = map.callback,
+		})
+	end
+	self._.keymaps.active = self._.keymaps.pending
+	self._.keymaps.pending = nil
 end
 
 ---@param fn fun()

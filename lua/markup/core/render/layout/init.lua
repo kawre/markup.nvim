@@ -71,6 +71,16 @@ function RenderLayout:attach(child)
 	return renderer
 end
 
+function RenderLayout:add_on_key()
+	local on_key = self.node.props.on_key
+	if on_key then
+		local frame = self.node.frame
+		for key, cb in pairs(on_key or {}) do
+			frame:add_keymap(key, cb)
+		end
+	end
+end
+
 --@param constrains markup.Render.Layout.constrains
 function RenderLayout:layout(style)
 	-- local new_constrains = self:calc_constrains(constrains)
@@ -86,6 +96,8 @@ function RenderLayout:layout(style)
 	if not vim.tbl_isempty(self.children) then
 		self:aggregate()
 	end
+
+	self:add_on_key()
 end
 
 function RenderLayout:reflow()

@@ -15,7 +15,7 @@ local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 ---@field show boolean
 ---@field config vim.api.keyset.win_config
 ---@field position markup.Window.position
----@field keymaps table<string, string>
+---@field keymaps { active?: table, pending?: table }
 
 ---@class markup.Window : markup.Object
 ---@field protected _ markup.Window.props
@@ -211,16 +211,16 @@ function Window:map(mode, key, spec, opts)
 	})
 end
 
-function Window:unmap(mode, key)
-	pcall(vim.api.nvim_buf_del_keymap, self.bufnr, mode, key)
-end
-
 function Window:clear_keymaps()
-	for key, mode in pairs(self._.keymaps) do
-		self:unmap(mode, key)
+	if not self._.keymaps.active then
+		return
 	end
 
-	self._.keymaps = {}
+	for key, map in pairs(self._.keymaps.active) do
+		self.buf:del_keymap(map.mode, key)
+	end
+
+	self._.keymaps.active = nil
 end
 
 local split_commands = {
