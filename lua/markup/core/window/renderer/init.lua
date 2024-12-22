@@ -26,20 +26,24 @@ end
 
 ---@param element markup.xElement | markup.xElement[]
 function Renderer:render(element)
-	self.root = markup.create_renderer_root(self, element)
-	self.reconciler = markup.Reconciler(self)
-	self.reconciler:reconcile()
-	self.reconciler:print()
-	self.render_tree = markup.Render.Tree(self.root)
-	self.render_tree.view:layout()
-	self.root.current.state_node:print()
-	self:commit()
+	u.measure_time("--- render", function()
+		self.root = markup.create_renderer_root(self, element)
+		self.reconciler = markup.Reconciler(self)
+		self.reconciler:reconcile()
+		self.reconciler:print()
+		self.render_tree = markup.Render.Tree(self.root)
+		self.render_tree.view:layout()
+		self.root.current.state_node:print()
+		self:commit()
+	end)
 end
 
 function Renderer:rerender()
-	self.reconciler:reconcile()
-	self.render_tree = markup.Render.Tree(self.root)
-	self:commit()
+	u.measure_time("--- re-render", function()
+		self.reconciler:reconcile()
+		self.render_tree = markup.Render.Tree(self.root)
+		self:commit()
+	end)
 end
 
 ---@param node markup.Node

@@ -13,7 +13,7 @@ function RenderView:init(root)
 end
 
 function RenderView:layout()
-	RenderView.super.layout(self, self:box_size())
+	RenderView.super.layout(self, self.node.props.style)
 end
 
 function RenderView:box_width()

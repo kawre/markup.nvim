@@ -57,7 +57,7 @@ function RenderLayout:calc_constrains(constrains)
 end
 
 ---@param constrains markup.Render.Layout.constrains
-function RenderLayout:aggregate(constrains) ---@diagnostic disable-line: unused-local
+function RenderLayout:aggregate() ---@diagnostic disable-line: unused-local
 	error("Method not implemented")
 end
 
@@ -71,19 +71,20 @@ function RenderLayout:attach(child)
 	return renderer
 end
 
----@param constrains markup.Render.Layout.constrains
-function RenderLayout:layout(constrains)
-	local new_constrains = self:calc_constrains(constrains)
+--@param constrains markup.Render.Layout.constrains
+function RenderLayout:layout(style)
+	-- local new_constrains = self:calc_constrains(constrains)
+	style = vim.tbl_deep_extend("force", self.node.props.style or {}, style)
 
 	for _, child in ipairs(self.node.child_nodes) do
 		local renderer = self:attach(child)
 		if renderer then
-			renderer:layout(new_constrains)
+			renderer:layout(style)
 		end
 	end
 
 	if not vim.tbl_isempty(self.children) then
-		self:aggregate(new_constrains)
+		self:aggregate()
 	end
 end
 

@@ -46,13 +46,13 @@ function Text:set(value)
 
 	value = tostring(value)
 	self.len = #value
-	-- self.width = vim.api.nvim_strwidth(value)
+	self.width = vim.api.nvim_strwidth(value)
 	self.content = value
 end
 
 ---@return string?
 function Text:highlight()
-	return theme.create_dynamic_hl(self.props.style)
+	return theme.create_dynamic_hl(self.props.style or {})
 end
 
 ---@alias markup.Text.constructor

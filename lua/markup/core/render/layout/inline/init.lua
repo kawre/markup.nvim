@@ -21,7 +21,7 @@ function RenderInline:computed_line()
 	return self.builder.lines[1]
 end
 
-function RenderInline:aggregate(constrains)
+function RenderInline:aggregate()
 	local children = self.children
 
 	for _, child in ipairs(children) do

@@ -39,6 +39,7 @@ Element.static.get_default_props = function()
 		margin = 0,
 		align = "start",
 		spacing = 0,
+		gap = 0,
 		horizontal = false,
 		reverse = false,
 		size = {},

@@ -53,7 +53,6 @@ function Reconciler:root()
 	return self.renderer.root
 end
 
----@return markup.Fiber
 function Reconciler:reconcile()
 	Reconciler.static.currently_working_reconciler = self
 	self:work_loop()
@@ -274,16 +273,26 @@ function Reconciler:create_instance(fiber)
 	return fiber
 end
 
+function Reconciler:is_direct_text_child(fiber)
+	local parent = fiber["return"]
+	return parent and parent.tag == FiberTag.ELEMENT
+end
+
 ---@param current? markup.Fiber
 ---@param wip markup.Fiber
 function Reconciler:update_element_component(current, wip)
-	-- local prev_props = current and current.memoized_props
 	local next_props = wip.pending_props
 	local next_children = next_props and next_props.children
-	local prev_props = current and current.memoized_props
 
 	if not (current and current.state_node) then
 		self:create_instance(wip)
+	end
+
+	if self:valid_text(next_children) then
+		wip.state_node:append_child(markup.Text(next_children))
+		next_children = nil
+		-- dont return,
+		-- keep the function going to delete the remaining children
 	end
 
 	wip.child = self:reconcile_children(current, wip, next_children)

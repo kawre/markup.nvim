@@ -31,8 +31,8 @@ enum.Node = {
 
 enum.CreateNode = enum:map(enum.Node, function(v)
 	local core = require("markup.core")
-	return function(props)
-		return core.create_element(require(v), props)
+	return function(...)
+		return core.create_element(require(v), ...)
 	end
 end)
 

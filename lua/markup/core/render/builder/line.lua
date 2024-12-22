@@ -2,6 +2,7 @@ local markup = require("markup.core")
 local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 local u = require("markup.utils") ---@diagnostic disable-line: unused-local
 local BasicObject = require("markup.core.object.basic")
+local Stack = require("markup.collection.stack")
 
 ---@class markup.Render.Line.node
 ---@field val markup.Text | markup.Render.Line
@@ -120,29 +121,34 @@ end
 ---@param renderer markup.Renderer
 ---@param row_at integer (1-indexed)
 function Line:paint(renderer, row_at)
-	-- local offset, i = 0, 1
-	-- local node = self.head
-	-- while texts[i] do
-	-- 	local start_offset = offset
-	-- 	local hl = texts[i]:highlight()
-	--
-	-- 	local j = i
-	-- 	while texts[j] and texts[j]:highlight() == hl do
-	-- 		local old_offset = offset
-	-- 		offset = offset + texts[j].len
-	-- 		-- texts[j]:_set_position(row_at, old_offset, offset)
-	-- 		j = j + 1
-	-- 	end
-	--
-	-- 	if hl then
-	-- 		renderer.buf:set_extmark(nil, row_at, start_offset, {
-	-- 			end_col = offset,
-	-- 			hl_group = hl,
-	-- 		})
-	-- 	end
-	--
-	-- 	i = j
-	-- end
+	local offset = 0
+
+	local stack = Stack.new()
+	Stack.push(stack, self.head)
+
+	while stack.len > 0 do
+		local node = Stack.pop(stack) ---@cast node -nil
+
+		if node.val.head then
+			Stack.push(stack, node.next)
+			Stack.push(stack, node.val.head)
+		else
+			local text = node.val ---@type markup.Text
+			local hl = text:highlight()
+
+			local start_offset = offset
+			offset = offset + node.val.width
+
+			if hl then
+				renderer.buf:set_extmark(renderer._.ns_id, row_at - 1, start_offset, {
+					end_col = offset,
+					hl_group = hl,
+				})
+			end
+
+			Stack.push(stack, node.next)
+		end
+	end
 end
 
 return Line

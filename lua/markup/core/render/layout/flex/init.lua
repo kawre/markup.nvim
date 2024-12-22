@@ -73,11 +73,11 @@ function RenderFlex:aggregate(constrains)
 	end
 end
 
-function RenderFlex:layout(constrains)
-	RenderFlex.super.layout(self, constrains)
+function RenderFlex:layout(style)
+	RenderFlex.super.layout(self, style)
 
-	self:align(constrains)
-	self:justify(constrains)
+	self:align()
+	self:justify()
 end
 
 return RenderFlex

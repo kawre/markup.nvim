@@ -40,6 +40,11 @@ local function normalize_props(props, style)
 		return { children = props }
 	end
 
+	if style then
+		-- TODO only handle string style for now
+		props.style = { link = style }
+	end
+
 	if not props.children then
 		local new_props = {}
 
