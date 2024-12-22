@@ -13,7 +13,7 @@ function Builder:init()
 	self.len = 0
 end
 
----@param n? integer
+---@param n? integer|boolean
 ---@return markup.Render.Builder
 function Builder:newl(n)
 	self.row = self.row + (n or 1)

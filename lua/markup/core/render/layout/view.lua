@@ -12,21 +12,16 @@ function RenderView:init(root)
 	self.frame = root.owner
 end
 
+function RenderView:layout()
+	RenderView.super.layout(self, self:box_size())
+end
+
 function RenderView:box_width()
 	return self.frame.win:get_width()
 end
 
 function RenderView:box_height()
 	return self.frame.win:get_height()
-end
-
-function RenderView:layout()
-	local constrains = {
-		width = self:box_width(),
-		height = self:box_height(),
-	}
-
-	RenderView.super.layout(self, constrains)
 end
 
 function RenderView:box_size()

@@ -8,7 +8,6 @@ local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 local Dispatcher = setmetatable({}, {
 	__call = function(self, reconciler)
 		local instance = setmetatable({}, { __index = self })
-		instance.queues = markup.Array()
 		instance.reconciler = reconciler
 		return instance
 	end,
