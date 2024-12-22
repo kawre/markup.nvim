@@ -30,23 +30,16 @@ end
 ---@return markup.Render.Line
 function Builder:line(row_at)
 	row_at = row_at or self.row
-	return self:_line(row_at)
-end
+	assert(row_at > 0, "row_at must be greater than 0")
 
-function Builder:_line(row_at)
-	self:fill(row_at)
-	return self.lines[row_at]
-end
-
----@param row_at? integer (1-indexed)
-function Builder:fill(row_at)
-	self.len = math.max(self.len, row_at or self.row)
-
-	for i = self.len, row_at or self.row do
+	for i = math.max(1, self.len), row_at do
 		if not self.lines[i] then
 			self.lines[i] = RenderLine()
 		end
 	end
+
+	self.len = math.max(self.len, row_at)
+	return self.lines[row_at]
 end
 
 function Builder:height()
@@ -56,7 +49,7 @@ end
 function Builder:width()
 	local max_len, max = 0, math.max
 	for i = 1, self.len do
-		max_len = max(max_len, self.lines[i]:text().width)
+		max_len = max(max_len, self:line(i):text().width)
 	end
 	return max_len
 end

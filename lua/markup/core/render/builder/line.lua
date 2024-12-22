@@ -53,7 +53,6 @@ function Line:text()
 		self._text.content = tostring(self)
 		self._text.len = #self._text.content
 		self._text.width = vim.api.nvim_strwidth(self._text.content)
-
 		self.dirty = false
 	end
 
@@ -79,11 +78,10 @@ function Line:append(content)
 
 	if not self.tail then
 		self.head = node
-		self.tail = node
 	else
 		self.tail.next = node
-		self.tail = node
 	end
+	self.tail = node
 
 	self.dirty = true
 	return self
@@ -122,11 +120,8 @@ end
 ---@param renderer markup.Renderer
 ---@param row_at integer (1-indexed)
 function Line:paint(renderer, row_at)
-	local offset, i = 0, 1
-
+	-- local offset, i = 0, 1
 	-- local node = self.head
-	-- while node do
-	-- end
 	-- while texts[i] do
 	-- 	local start_offset = offset
 	-- 	local hl = texts[i]:highlight()

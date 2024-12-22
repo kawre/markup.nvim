@@ -63,7 +63,7 @@ end
 
 ---@param child markup.Node
 function RenderLayout:attach(child)
-	local renderer = RenderTree.static.factory(child, self)
+	local renderer = self:factory(child, self)
 
 	table.insert(self.children, renderer)
 	renderer.parent = self
@@ -178,6 +178,37 @@ end
 
 function RenderLayout:is_grid()
 	return false
+end
+
+RenderLayout.static.display_map = {
+	[NODE.Display.BLOCK] = "block",
+	[NODE.Display.INLINE] = "inline",
+	[NODE.Display.INLINE_BLOCK] = "inline.block",
+	[NODE.Display.FLEX] = "flex",
+	[NODE.Display.NONE] = "none",
+	["text"] = "inline.text",
+}
+
+local function renderer(display, ...)
+	local path = RenderLayout.static.display_map[display]
+	assert(path, "Unknown display type: " .. display)
+
+	if display == NODE.Display.NONE then
+		return nil
+	end
+
+	return require("markup.core.render.layout." .. path)(...)
+end
+
+---@param node markup.Node
+---@param parent markup.Render.Layout
+---@return markup.Render.Layout?
+function RenderLayout:factory(node, parent)
+	if node.type == NODE.Type.TEXT then
+		return renderer("text", node)
+	end
+
+	return renderer(node.props.display, node)
 end
 
 ---@alias markup.Render.Layout.constructor

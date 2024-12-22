@@ -3,6 +3,18 @@ local RenderLayout = require("markup.core.render.layout") ---@diagnostic disable
 ---@class markup.Render.Flex.Item : markup.Render.Layout
 local FlexItem = RenderLayout:extend("FlexItem")
 
--- function Fle
+function FlexItem:is_block_flow()
+	return true
+end
+
+function FlexItem:aggregate()
+	-- do nothing
+end
+
+function FlexItem:init(node)
+	self.node = node
+	self.children = { node }
+	self.need_layout = true
+end
 
 return FlexItem
