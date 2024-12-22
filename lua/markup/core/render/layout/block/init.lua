@@ -17,7 +17,10 @@ function RenderBlock:aggregate(constrains)
 		end
 
 		for _, line, is_last in child:computed_lines_iter() do
-			line:append(markup.Pad(intrinsic.width - line:width()))
+			local padding = intrinsic.width - line:width()
+			if padding >= 1 then
+				line:append(markup.Pad(padding))
+			end
 			self.builder:append(line):newl(is_last and 0 or 1)
 		end
 

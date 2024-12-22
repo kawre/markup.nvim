@@ -127,7 +127,7 @@ function Line:paint(renderer, row_at)
 	Stack.push(stack, self.head)
 
 	while stack.len > 0 do
-		local node = Stack.pop(stack) ---@cast node -nil
+		local node = Stack.pop(stack)
 
 		if node.val.head then
 			Stack.push(stack, node.next)
@@ -137,7 +137,7 @@ function Line:paint(renderer, row_at)
 			local hl = text:highlight()
 
 			local start_offset = offset
-			offset = offset + node.val.width
+			offset = offset + text.len
 
 			if hl then
 				renderer.buf:set_extmark(renderer._.ns_id, row_at - 1, start_offset, {

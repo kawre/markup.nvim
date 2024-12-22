@@ -86,7 +86,12 @@ function Node:print()
 
 		local indent = ("\t"):rep(depth or 0)
 
-		local line = (indent .. ("node: %s (%s)"):format(node, node.type))
+		local line
+		if node.type == "text" then
+			line = indent .. ("󰚞 `%s`"):format(node)
+		else
+			line = indent .. ("󰅩 [%s]"):format(node)
+		end
 		table.insert(lines, line)
 
 		for _, child in ipairs(node.child_nodes) do

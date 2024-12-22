@@ -6,7 +6,7 @@ local idx = {
 }
 
 local function __tostring(self)
-	return "<class: " .. self.name .. ">"
+	return ("<class: %s>"):format(self.name)
 end
 
 local function __call(self, ...)
@@ -129,7 +129,7 @@ local function create_object(_, name)
 
 	---@return string
 	function Class:__tostring()
-		return "instance of " .. tostring(self.class)
+		return ("<instance of: %s>"):format(self.class.name)
 	end
 
 	---@return nil

@@ -20,14 +20,22 @@ function RenderFlex:align(constrains)
 
 	for _, line in pairs(self:computed_lines()) do
 		local padding = width - line:width()
-		if align == "start" then
-			line:append(markup.Pad(padding))
-		elseif align == "center" then
-			local halfpad = math.floor(padding / 2)
-			local leftpad, rightpad = halfpad, halfpad + padding % 2
-			line:prepend(markup.Pad(rightpad)):append(markup.Pad(leftpad))
-		elseif align == "end" then
-			line:prepend(markup.Pad(padding))
+
+		if padding >= 1 then
+			if align == "start" then
+				line:append(markup.Pad(padding))
+			elseif align == "center" then
+				local halfpad = math.floor(padding / 2)
+				local leftpad, rightpad = halfpad, halfpad + padding % 2
+				if rightpad >= 1 then
+					line:prepend(markup.Pad(rightpad))
+				end
+				if leftpad >= 1 then
+					line:append(markup.Pad(leftpad))
+				end
+			elseif align == "end" then
+				line:prepend(markup.Pad(padding))
+			end
 		end
 	end
 end
@@ -50,10 +58,10 @@ function RenderFlex:aggregate(constrains)
 				local line = child.builder:line(row)
 
 				local padding = width - line:width()
-				if padding > 0 then
+				if padding >= 1 then
 					line:append(markup.Pad(padding))
 				end
-				if props.spacing > 0 and not_last then
+				if props.spacing >= 1 and not_last then
 					line:append(markup.Pad(props.spacing))
 				end
 

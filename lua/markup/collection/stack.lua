@@ -16,9 +16,7 @@ function Stack:push(value)
 end
 
 function Stack:pop()
-	if self.len == 0 then
-		return nil
-	end
+	assert(self.len > 0, "stack is empty")
 	local value = self[self.len]
 	self[self.len] = nil
 	self.len = self.len - 1

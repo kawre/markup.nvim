@@ -11,8 +11,18 @@ local function normalize_type(_type)
 end
 
 ---@param style markup.Element.style.props
-local function normalize_style(style)
-	return type(style) == "string" and { link = style } or style
+local function normalize_style(props_style, style)
+	if not style then
+		return props_style
+	end
+
+	if type(style) == "string" then
+		return { link = style }
+	elseif props_style then
+		return vim.tbl_extend("force", props_style, style)
+	else
+		return style
+	end
 end
 
 ---@param props? markup.create_element.props
@@ -21,29 +31,11 @@ local function normalize_props(props, style)
 	if not props then
 		return nil
 	end
-	-- if not props and not style then
-	-- 	return nil
-	-- end
 
-	-- if style then
-	-- 	---@cast props -nil
-	-- 	style = normalize_style(style)
-	--
-	-- 	if not props.style then
-	-- 		props.style = style
-	-- 	else
-	-- 		props.style = vim.tbl_deep_extend("force", props.style, style)
-	-- 	end
-	-- end
-
-	if type(props) == "string" or type(props) == "number" then
-		return { children = props }
+	if type(props) ~= "table" then
+		return { children = props, style = normalize_style(nil, style) }
 	end
-
-	if style then
-		-- TODO only handle string style for now
-		props.style = { link = style }
-	end
+	props.style = normalize_style(props.style, style)
 
 	if not props.children then
 		local new_props = {}

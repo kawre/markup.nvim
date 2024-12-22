@@ -9,6 +9,8 @@ local cache = {}
 
 ---@param n integer
 function Padding:init(n)
+	assert(n >= 1, "padding must be greater than or equal to 1")
+
 	if not cache[n] then
 		cache[n] = (" "):rep(n)
 	end
