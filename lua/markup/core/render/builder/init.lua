@@ -16,7 +16,7 @@ end
 ---@param n? integer|boolean
 ---@return markup.Render.Builder
 function Builder:newl(n)
-	self.row = self.row + (n or 1)
+	self.row = self.row + (type(n) == "boolean" and (n and 1 or 0) or (n or 1))
 	return self
 end
 
@@ -47,6 +47,15 @@ end
 function Builder:append(content, row_at)
 	self:line(row_at):append(content)
 	return self
+end
+
+function Builder:offset()
+	local start, _end = 0, 0
+	for _, line in ipairs(self.lines) do
+		local start_offset, end_offset = line:offset()
+	end
+
+	return start, _end
 end
 
 function Builder:height()

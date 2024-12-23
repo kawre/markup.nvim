@@ -118,6 +118,22 @@ function Line:width()
 	return self:text().width
 end
 
+function Line:offset()
+	local text = self.head.val
+	while text.head do
+		text = text.head.val
+	end
+	local start_offset = text:offset().col_start
+
+	text = self.tail.val
+	while text.head do
+		text = text.head.val
+	end
+	local end_offset = text:offset().col_end
+
+	return start_offset, end_offset
+end
+
 ---@param renderer markup.Renderer
 ---@param row_at integer (1-indexed)
 function Line:paint(renderer, row_at)
@@ -138,6 +154,8 @@ function Line:paint(renderer, row_at)
 
 			local start_offset = offset
 			offset = offset + text.len
+
+			text:set_offset(row_at, start_offset, offset)
 
 			if hl then
 				renderer.buf:set_extmark(renderer._.ns_id, row_at - 1, start_offset, {

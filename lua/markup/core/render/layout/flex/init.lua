@@ -71,7 +71,7 @@ function RenderFlex:aggregate(constrains)
 			self.builder.row = 1
 		else
 			for _, line, is_last in child:computed_lines_iter() do
-				self.builder:append(line):newl(is_last and 0)
+				self.builder:append(line):newl(not is_last)
 			end
 
 			if not_last then

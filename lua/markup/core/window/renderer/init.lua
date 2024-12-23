@@ -47,19 +47,12 @@ function Renderer:rerender()
 end
 
 ---@param node markup.Node
-function Renderer:add_btn(node)
-	local nd = node or {}
-	local children = nd.child_nodes or {}
-
-	for _, child in ipairs(children) do
-		self:add_btn(child)
+function Renderer:add_button(node)
+	if not self._.buttons then
+		self._.buttons = {}
 	end
 
-	if nd and nd.props and nd.props.on_submit then
-		vim.keymap.set("n", "b", function()
-			nd.props.on_submit()
-		end)
-	end
+	table.insert(self._.buttons, node)
 end
 
 function Renderer:add_keymap(key, event)
@@ -76,7 +69,6 @@ function Renderer:commit()
 		self.render_tree.view:paint(self)
 	end)
 
-	self:add_btn(self.root.current.state_node)
 	self:commit_keymaps()
 end
 
@@ -115,22 +107,19 @@ function Renderer:buf_clear_namespace(line_start, line_end)
 end
 
 function Renderer:clear()
-	self:buf_clear_namespace()
+	self.buf:clear_namespace(self._.ns_id, 0, -1)
 	self:clear_keymaps()
+	self._.buttons = nil
 end
 
 function Renderer:preserve_cursor(fn)
-	local c = vim.api.nvim_win_get_cursor(self.winid)
+	local c = vim.api.nvim_win_get_cursor(self.id)
 	fn()
-	pcall(vim.api.nvim_win_set_cursor, self.winid, c)
-end
-
-function Renderer:add_button(button)
-	table.insert(self._.buttons, button)
+	pcall(vim.api.nvim_win_set_cursor, self.id, c)
 end
 
 function Renderer:handle_on_submit()
-	local c = vim.api.nvim_win_get_cursor(self.winid)
+	local c = vim.api.nvim_win_get_cursor(self.id)
 
 	for _, btn in ipairs(self._.buttons or {}) do
 		if btn:_in_range(c) then

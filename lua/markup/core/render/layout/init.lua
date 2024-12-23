@@ -81,6 +81,14 @@ function RenderLayout:add_on_key()
 	end
 end
 
+function RenderLayout:add_submit()
+	local submit = self.node.props.on_submit
+	if submit then
+		local frame = self.node.frame
+		frame:add_button(self.node)
+	end
+end
+
 --@param constrains markup.Render.Layout.constrains
 function RenderLayout:layout(style)
 	-- local new_constrains = self:calc_constrains(constrains)
@@ -98,6 +106,7 @@ function RenderLayout:layout(style)
 	end
 
 	self:add_on_key()
+	self:add_submit()
 end
 
 function RenderLayout:reflow()

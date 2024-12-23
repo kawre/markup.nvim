@@ -1,11 +1,13 @@
 local markup = require("markup.core")
 local u = require("markup.utils") ---@diagnostic disable-line: unused-local
 local log = require("markup.logger") ---@diagnostic disable-line: unused-local
+local Buf = require("markup.core.window.buf")
+local Win = require("markup.core.window.win")
 
 ---@alias markup.Window.position "float"|"top"|"right"|"bottom"|"left"
 
 ---@class markup.Window.props
----@field winid integer
+---@field id integer
 ---@field bufnr integer
 ---@field ns_id integer
 ---@field buf_opts table<any, any>
@@ -19,7 +21,7 @@ local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 
 ---@class markup.Window : markup.Object
 ---@field protected _ markup.Window.props
----@field winid integer
+---@field id integer
 ---@field bufnr integer
 local Window = markup.Object("markup.window")
 
@@ -79,26 +81,14 @@ end
 function Window:init(props)
 	self._ = Window.static:_normalize_props(props)
 	self.bufnr = self._.bufnr == 0 and vim.api.nvim_get_current_buf() or self._.bufnr
-	self.winid = self._.winid == 0 and vim.api.nvim_get_current_win() or self._.winid
+	self.id = self._.id == 0 and vim.api.nvim_get_current_win() or self._.id
+
+	self.win = Win(self)
+	self.buf = Buf(self)
 
 	if self._.show == true then
 		self:show()
 	end
-
-	self.win = setmetatable({ window = self }, {
-		__index = function(_, key)
-			return function(_, ...)
-				return vim.api["nvim_win_" .. key](_.window.winid, ...)
-			end
-		end,
-	})
-	self.buf = setmetatable({ window = self }, {
-		__index = function(_, key)
-			return function(_, ...)
-				return vim.api["nvim_buf_" .. key](_.window.bufnr, ...)
-			end
-		end,
-	})
 
 	self:after_init()
 end
@@ -148,36 +138,22 @@ function Window:_win_config()
 end
 
 function Window:show()
-	self:win_open()
+	self:open()
 	self:apply_opts()
 end
 
 ---@param preserve_buf? boolean
 function Window:close(preserve_buf)
 	vim.schedule(function()
-		self:win_close()
+		self.win:close()
 		if preserve_buf ~= true then
-			self:buf_delete()
+			self.buf:delete()
 		end
 		-- if self.augroup then
 		--     pcall(vim.api.nvim_del_augroup_by_id, self.augroup)
 		--     self.augroup = nil
 		-- end
 	end)
-end
-
-function Window:buf_delete()
-	if self:buf_is_valid() then
-		vim.api.nvim_buf_delete(self.bufnr, { force = true })
-	end
-	self.bufnr = nil
-end
-
-function Window:win_close()
-	if self:win_is_valid() then
-		vim.api.nvim_win_close(self.winid, true)
-	end
-	self.winid = nil
 end
 
 function Window:hide()
@@ -190,14 +166,6 @@ function Window:toggle()
 	else
 		self:show()
 	end
-end
-
-function Window:buf_open()
-	if not self.bufnr or not self:buf_is_valid() then
-		self.bufnr = vim.api.nvim_create_buf(false, true)
-	end
-
-	return self.bufnr
 end
 
 function Window:map(mode, key, spec, opts)
@@ -234,7 +202,6 @@ local split_commands = {
 		top = "aboveleft",
 		right = "vertical rightbelow",
 		bottom = "belowright",
-		left = "vertical leftabove",
 	},
 }
 
@@ -243,18 +210,16 @@ function Window:_split_cmd(relative, position, size)
 	return ("silent noswapfile %s %s split"):format(cmd, size)
 end
 
-function Window:win_open()
-	self:buf_open()
+function Window:open()
+	self.buf:open()
 
-	vim.keymap.set("n", "<CR>", function()
-		self:handle_on_submit()
-	end)
+	self.buf:set_keymap("n", "<CR>", "", {
+		callback = function()
+			self:handle_on_submit()
+		end,
+	})
 
-	vim.keymap.set("n", "r", function()
-		self:rerender()
-	end)
-
-	if self:win_is_valid() then
+	if self.win:is_valid() then
 		return
 	end
 
@@ -262,7 +227,7 @@ function Window:win_open()
 	local config = self:_win_config()
 
 	if self:_is_float() then
-		self.winid = vim.api.nvim_open_win(self.bufnr, props.enter, config)
+		self.id = vim.api.nvim_open_win(self.bufnr, props.enter, config)
 	else
 		local parent = config.win or 0
 		local size = config.vertical and config.width or config.height
@@ -270,11 +235,11 @@ function Window:win_open()
 		vim.api.nvim_win_call(parent, function()
 			vim.cmd(self:_split_cmd(config.relative, props.position, size))
 			vim.api.nvim_win_set_buf(0, self.bufnr)
-			self.winid = vim.api.nvim_get_current_win()
+			self.id = vim.api.nvim_get_current_win()
 		end)
 
 		if props.enter then
-			vim.api.nvim_set_current_win(self.winid)
+			vim.api.nvim_set_current_win(self.id)
 		end
 	end
 end
@@ -289,88 +254,11 @@ function Window:apply_buf_opts()
 end
 
 function Window:apply_win_opts()
-	u.win_set_opts(self.winid, self._.win_opts)
-end
-
-function Window:buf_is_valid()
-	return self.bufnr and vim.api.nvim_buf_is_valid(self.bufnr)
-end
-
-function Window:win_is_valid()
-	return self.winid and vim.api.nvim_win_is_valid(self.winid)
+	u.win_set_opts(self.id, self._.win_opts)
 end
 
 function Window:is_valid()
-	return self:win_is_valid()
-		and self:buf_is_valid()
-		and vim.api.nvim_win_get_buf(self.winid) == self.bufnr
-end
-
----@param name string
-function Window:buf_get_option_value(name)
-	assert(self:buf_is_valid(), "Buffer is not valid")
-	return vim.api.nvim_get_option_value(name, { buf = self.bufnr })
-end
-
----@param name string
----@param value any
-function Window:buf_set_option_value(name, value)
-	assert(self:buf_is_valid(), "Buffer is not valid")
-	vim.api.nvim_set_option_value(name, value, { buf = self.bufnr })
-end
-
----@param name string
-function Window:win_get_option_value(name)
-	assert(self:win_is_valid(), "Window is not valid")
-	return vim.api.nvim_get_option_value(name, { win = self.winid, scope = "local" })
-end
-
----@param name string
----@param value any
-function Window:win_set_option_value(name, value)
-	assert(self:win_is_valid(), "Window is not valid")
-	vim.api.nvim_set_option_value(name, value, { win = self.winid, scope = "local" })
-end
-
----@param start number
----@param end_ number
----@param strict_indexing boolean
----@param replacement string[]
-function Window:buf_set_lines(start, end_, strict_indexing, replacement)
-	assert(self:buf_is_valid(), "Buffer is not valid")
-	vim.api.nvim_buf_set_lines(self.bufnr, start, end_, strict_indexing, replacement)
-end
-
----@param start number
----@param end_ number
----@param strict_indexing boolean
-function Window:buf_get_lines(start, end_, strict_indexing)
-	assert(self:buf_is_valid(), "Buffer is not valid")
-	return vim.api.nvim_buf_get_lines(self.bufnr, start, end_, strict_indexing)
-end
-
----@param ns_id? integer
----@param line_start? integer
----@param line_end? integer
-function Window:buf_clear_namespace(ns_id, line_start, line_end)
-	ns_id = ns_id or self._.ns_id
-	vim.api.nvim_buf_clear_namespace(self.bufnr, ns_id, line_start or 0, line_end or -1)
-end
-
----@param line integer
----@param col integer
----@param opts vim.api.keyset.set_extmark
----@return integer
-function Window:buf_set_extmark(ns_id, line, col, opts)
-	ns_id = ns_id or self._.ns_id
-	return vim.api.nvim_buf_set_extmark(self.bufnr, ns_id, line, col, opts)
-end
-
----@param start integer
----@param end_ integer
----@param opts vim.api.keyset.get_extmarks
-function Window:buf_get_extmarks(start, end_, opts)
-	return vim.api.nvim_buf_get_extmarks(self.bufnr, self._.ns_id, start, end_, opts)
+	return self.win:is_valid() and self.buf:is_valid() and self.win:get_buf() == self.bufnr
 end
 
 ---@param buffer_opts? table<any, any>
@@ -380,7 +268,7 @@ function Window:set_opts(buffer_opts, window_opts)
 		u.buf_set_opts(self.bufnr, buffer_opts)
 	end
 	if window_opts then
-		u.win_set_opts(self.winid, window_opts)
+		u.win_set_opts(self.id, window_opts)
 	end
 end
 
@@ -388,12 +276,12 @@ end
 ---@param fn fun()
 ---@param inverse? boolean
 function Window:with_buf_option(option, fn, inverse)
-	local value = self:buf_get_option_value(option)
+	local value = self.buf:get_option_value(option)
 	if not value then
 		inverse = inverse or false
-		self:buf_set_option_value(option, not inverse)
+		self.buf:set_option_value(option, not inverse)
 		fn()
-		self:buf_set_option_value(option, inverse)
+		self.buf:set_option_value(option, inverse)
 	else
 		fn()
 	end
@@ -403,12 +291,12 @@ end
 ---@param fn fun()
 ---@param inverse? boolean
 function Window:with_win_option(option, fn, inverse)
-	local value = self:win_get_option_value(option)
+	local value = self.win:get_option_value(option)
 	if not value then
 		inverse = inverse or false
-		self:win_set_option_value(option, not inverse)
+		self.win:set_option_value(option, not inverse)
 		fn()
-		self:win_set_option_value(option, inverse)
+		self.win:set_option_value(option, inverse)
 	else
 		fn()
 	end
@@ -418,26 +306,9 @@ function Window:_update()
 	if self:is_valid() then
 		self:apply_opts()
 		if self:_is_float() then
-			-- opts.noautocmd = nil
-			vim.api.nvim_win_set_config(self.winid, self:_win_config())
+			self.win:set_config(self:_win_config())
 		end
 	end
-end
-
-function Window:win_get_width()
-	return vim.api.nvim_win_get_width(self.winid)
-end
-
-function Window:win_set_width(width)
-	vim.api.nvim_win_set_width(self.winid, width)
-end
-
-function Window:win_get_height()
-	return vim.api.nvim_win_get_height(self.winid)
-end
-
-function Window:win_set_height(height)
-	vim.api.nvim_win_set_height(self.winid, height)
 end
 
 function Window:parent_size()
@@ -452,7 +323,7 @@ function Window:parent_size()
 end
 
 ---@class markup.Window.constructor.props
----@field winid? integer bind to an existing window
+---@field id? integer bind to an existing window
 ---@field bufnr? integer bind to an existing buffer
 ---@field ns_id? integer namespace id
 ---@field buf_opts? table<any, any> buffer options

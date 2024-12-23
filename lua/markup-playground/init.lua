@@ -16,7 +16,7 @@ function playground.open()
 	vim.cmd.tcd(path)
 
 	playground.editor = markup.Window({
-		winid = 0,
+		id = 0,
 		bufnr = 0,
 		filename = path,
 		minimal = false,

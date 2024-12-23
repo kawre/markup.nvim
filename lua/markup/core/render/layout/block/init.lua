@@ -21,7 +21,7 @@ function RenderBlock:aggregate(constrains)
 			if padding >= 1 then
 				line:append(markup.Pad(padding))
 			end
-			self.builder:append(line):newl(is_last and 0 or 1)
+			self.builder:append(line):newl(not is_last)
 		end
 
 		prev_child = child

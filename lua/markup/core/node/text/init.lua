@@ -8,6 +8,7 @@ local NodeType = require("markup.core.node.enum").Type
 ---@field content string
 ---@field len integer
 ---@field width integer
+---@field offset { row: integer, col_start: integer, col_end: integer }
 local Text = markup.Node:extend("MarkupText")
 Text.__type = "text"
 
@@ -18,7 +19,9 @@ function Text:__tostring()
 	return self.content
 end
 
+---@param content string | number
 function Text:init(content)
+	assert(content and content ~= "", "Text content cannot be empty")
 	Text.super.init(self, NodeType.TEXT)
 	self:set(content)
 end
@@ -48,6 +51,10 @@ function Text:set(value)
 	self.len = #value
 	self.width = vim.api.nvim_strwidth(value)
 	self.content = value
+end
+
+function Text:set_offset(row, col_start, col_end)
+	self.offset = { row = row, col_start = col_start, col_end = col_end }
 end
 
 ---@return string?
