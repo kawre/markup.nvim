@@ -158,7 +158,7 @@ function Line:paint(renderer, row_at)
 			text:set_offset(row_at, start_offset, offset)
 
 			if hl then
-				renderer.buf:set_extmark(renderer._.ns_id, row_at - 1, start_offset, {
+				renderer.buf:set_extmark(renderer.ns, row_at - 1, start_offset, {
 					end_col = offset,
 					hl_group = hl,
 				})

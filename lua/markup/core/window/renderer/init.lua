@@ -100,26 +100,20 @@ function Renderer:render_portal(fn)
 	return true
 end
 
----@param line_start? integer
----@param line_end? integer
-function Renderer:buf_clear_namespace(line_start, line_end)
-	Renderer.super.buf_clear_namespace(self, self._.ns_id, line_start, line_end)
-end
-
 function Renderer:clear()
-	self.buf:clear_namespace(self._.ns_id, 0, -1)
+	self.buf:clear_namespace(self.ns, 0, -1)
 	self:clear_keymaps()
 	self._.buttons = nil
 end
 
 function Renderer:preserve_cursor(fn)
-	local c = vim.api.nvim_win_get_cursor(self.id)
+	local c = self.win:get_cursor()
 	fn()
 	pcall(vim.api.nvim_win_set_cursor, self.id, c)
 end
 
 function Renderer:handle_on_submit()
-	local c = vim.api.nvim_win_get_cursor(self.id)
+	local c = self.win:get_cursor()
 
 	for _, btn in ipairs(self._.buttons or {}) do
 		if btn:_in_range(c) then

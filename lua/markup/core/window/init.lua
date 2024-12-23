@@ -12,6 +12,8 @@ local Win = require("markup.core.window.win")
 ---@field ns_id integer
 ---@field buf_opts table<any, any>
 ---@field win_opts table<any, any>
+---@field bo table<any, any>
+---@field wo table<any, any>
 ---@field keys table<string, string>
 ---@field enter boolean
 ---@field show boolean
@@ -23,6 +25,9 @@ local Win = require("markup.core.window.win")
 ---@field protected _ markup.Window.props
 ---@field id integer
 ---@field bufnr integer
+---@field ns integer
+---@field win markup.Window.win
+---@field buf markup.Window.win
 local Window = markup.Object("markup.window")
 
 local style = {
@@ -82,6 +87,7 @@ function Window:init(props)
 	self._ = Window.static:_normalize_props(props)
 	self.bufnr = self._.bufnr == 0 and vim.api.nvim_get_current_buf() or self._.bufnr
 	self.id = self._.id == 0 and vim.api.nvim_get_current_win() or self._.id
+	self.ns = self._.ns_id
 
 	self.win = Win(self)
 	self.buf = Buf(self)

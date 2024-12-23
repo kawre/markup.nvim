@@ -1,17 +1,16 @@
 local markup = require("markup.core")
+local BasicObject = require("markup.core.object.basic")
 
 local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 
 ---@class markup.Dispatcher
 ---@field reconciler markup.Reconciler
 ---@field queues table
-local Dispatcher = setmetatable({}, {
-	__call = function(self, reconciler)
-		local instance = setmetatable({}, { __index = self })
-		instance.reconciler = reconciler
-		return instance
-	end,
-})
+local Dispatcher = BasicObject()
+
+function Dispatcher:init(reconciler)
+	self.reconciler = reconciler
+end
 
 ---@param hook markup.Fiber.hook
 ---@param action function
