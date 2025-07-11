@@ -1,4 +1,5 @@
 local FiberFactory = require("markup.core.factory.fiber")
+local log = require("markup.logger")
 
 ---@class markup.Renderer.Root
 ---@field owner markup.Renderer

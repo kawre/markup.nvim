@@ -37,18 +37,28 @@ function M.create_from_element(element)
 	return M.create_from_type_and_props(element.type, element.props, element.key)
 end
 
-function M.create_from_type_and_props(type, props, key)
-	local resolved_type = type
-	local tag = FiberTag.FUNCTION
+function M.create_from_type_and_props(_type, props, key)
+	local resolved_type = _type
+	local tag
+
+	if type(_type) == "string" then
+		tag = FiberTag.ELEMENT
+		resolved_type = _type
+	elseif type(_type) == "function" then
+		tag = FiberTag.FUNCTION
+		resolved_type = _type
+	end
 
 	local fiber = M.create(tag, props, key)
-	fiber.element_type = type
+	fiber.element_type = _type
 	fiber.type = resolved_type
 	return fiber
 end
 
-function M.create_root(...)
-	return M.create(FiberTag.ROOT, ...)
+function M.create_root(child)
+	local fiber = M.create(FiberTag.ROOT)
+	fiber.pending_props = { children = child }
+	return fiber
 end
 
 return M

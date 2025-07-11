@@ -33,14 +33,14 @@ function playground.open()
 		},
 	})
 
-	-- vim.api.nvim_create_autocmd("BufWritePost", {
-	-- 	callback = function()
-	-- 		local ok, err = pcall(vim.cmd.luafile, file)
-	-- 		if not ok then
-	-- 			log.error(err)
-	-- 		end
-	-- 	end,
-	-- })
+	vim.api.nvim_create_autocmd("BufWritePost", {
+		callback = function()
+			local ok, err = pcall(vim.cmd.luafile, file)
+			if not ok then
+				log.error(err)
+			end
+		end,
+	})
 end
 
 function playground.run()
