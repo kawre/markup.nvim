@@ -2,6 +2,8 @@ local markup = require("markup.core")
 
 local u = require("markup.utils") ---@diagnostic disable-line: unused-local
 local log = require("markup.logger") ---@diagnostic disable-line: unused-local
+local RenderNodeFactory = require("markup.core.factory.render-node")
+local RendererFactory = require("markup.core.factory.renderer")
 
 ---@class markup.Renderer.props : markup.Window.props
 ---@field body markup.Element.children
@@ -27,14 +29,16 @@ end
 ---@param element markup.xElement | markup.xElement[]
 function Renderer:render(element)
 	u.measure_time("--- render", function()
-		self.root = markup.create_renderer_root(self, element)
+		self.root = RendererFactory.create_root(self, element)
 		self.reconciler = markup.Reconciler(self)
 		self.reconciler:reconcile()
-		-- self.reconciler:print()
-		self.render_tree = markup.Render.Tree(self.root)
-		self.render_tree.view:layout()
+		self.reconciler:print()
+		-- self.render_tree = RenderNodeFactory(self.root.current.state_node, "block")
+		-- self.render_tree:layout()
+		-- self.render_tree.view:layout()
+		-- log.info(self.root)
 		-- self.root.current.state_node:print()
-		self:commit()
+		-- self:commit()
 	end)
 end
 

@@ -1,9 +1,14 @@
 local log = require("markup.logger") ---@diagnostic disable-line: unused-local
-local enum = require("markup.enum")
+local lookup = require("markup.lookup")
 
----@class markup
----@field core markup.core
-local markup = enum:bind()
+---@class markup: markup.lookup
+local markup = {}
+setmetatable(markup, {
+	__index = function(_, k)
+		---@diagnostic disable-next-line: no-unknown
+		return lookup[k]
+	end,
+})
 
 ---@param opts? table
 function markup.setup(opts)

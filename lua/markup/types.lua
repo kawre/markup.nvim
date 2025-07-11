@@ -1,5 +1,5 @@
 ---@diagnostic disable-next-line: duplicate-doc-alias
----@alias markup
+---@alias markup2
 ---| markup.Lookup
 ---| markup.Lookup.Node.Text
 ---| markup.Lookup.Node.Inline
@@ -9,6 +9,8 @@
 ---| markup.Lookup.Create
 ---| markup.Lookup.Collection
 ---| markup.Lookup.Hook
+
+---@class markup.elements
 
 ---@class markup.Lookup
 ---@field Parser markup.Parser.constructor

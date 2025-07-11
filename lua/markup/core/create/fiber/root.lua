@@ -5,9 +5,8 @@ local FiberTag = require("markup.core.reconciler.enum").Tag
 
 ---@type markup.create_fiber_root
 local function create_fiber_root(child)
-	local fiber_root = markup.create_fiber_from_element(markup.create_root())
+	local fiber_root = markup.create_fiber(nil)
 
-	fiber_root.state_node = fiber_root.type(fiber_root.pending_props)
 	fiber_root.tag = FiberTag.ROOT
 	fiber_root.pending_props = { children = child }
 

@@ -4,6 +4,7 @@ local FiberFlag = require("markup.core.reconciler.enum").Flag
 local markup = require("markup.core")
 local assertor = require("markup.assertor")
 local Stack = require("markup.collection.stack")
+local FiberFactory = require("markup.core.factory.fiber")
 
 ---@class markup.Reconciler : markup.Object
 ---@field currently_rendering_fiber markup.Fiber
@@ -262,12 +263,18 @@ function Reconciler:update_text_component(current, wip)
 	end
 end
 
+---@param fiber markup.Fiber
 function Reconciler:create_instance(fiber)
 	assertor.bug(not fiber.state_node, "`fiber.state_node` must not exist during creation")
 
 	FiberFlag.set(fiber, FiberFlag.PLACEMENT)
-	local node = fiber.type(fiber.pending_props)
-	fiber.state_node = node
+
+	if fiber.tag == FiberTag.FUNCTION then
+		fiber.state_node = fiber.type(fiber.pending_props)
+	elseif fiber.tag == FiberTag.ELEMENT then
+		-- fiber.state_node =
+	elseif fiber.tag == FiberTag.ROOT then
+	end
 	fiber.state_node.frame = self.renderer
 
 	return fiber
@@ -353,13 +360,13 @@ end
 ---@param child markup.xElement
 function Reconciler:create_child(returnf, child)
 	if self:valid_text(child) then
-		local fiber = markup.create_fiber_from_text(child) ---@diagnostic disable-line: param-type-mismatch
+		local fiber = FiberFactory.create_from_text(child) ---@diagnostic disable-line: param-type-mismatch
 		fiber["return"] = returnf
 		return fiber
 	end
 
 	if child then
-		local fiber = markup.create_fiber_from_element(child)
+		local fiber = FiberFactory.create_from_element(child)
 		fiber["return"] = returnf
 		return fiber
 	end
@@ -429,8 +436,10 @@ function Reconciler:create_wip(current, props)
 	local wip = current.alternate
 
 	if not wip then
-		wip = markup.create_fiber(current.type, props, current.key)
+		wip = FiberFactory.create(current.tag, props, current.key)
 		wip.tag = current.tag
+		wip.element_type = current.element_type
+		wip.type = current.type
 		wip.state_node = current.state_node
 		wip.alternate = current
 		current.alternate = wip
@@ -481,7 +490,7 @@ function Reconciler:update_text_node(returnf, current, content)
 		return existing
 	else
 		-- Create a new text node
-		local fiber = markup.create_fiber_from_text(content)
+		local fiber = FiberFactory.create_from_text(content)
 		fiber["return"] = returnf
 		return fiber
 	end
@@ -508,7 +517,7 @@ function Reconciler:update_element_node(returnf, current, element)
 		return existing
 	else
 		-- Create a new element node
-		local fiber = markup.create_fiber_from_element(element)
+		local fiber = FiberFactory.create_from_element(element)
 		fiber["return"] = returnf
 		return fiber
 	end
@@ -698,7 +707,7 @@ function Reconciler:reconcile_single_element(returnf, current_first_child, eleme
 		child = child.sibling
 	end
 
-	local created = markup.create_fiber_from_element(element)
+	local created = FiberFactory.create_from_element(element)
 	created["return"] = returnf
 	return created
 end
@@ -725,7 +734,7 @@ function Reconciler:reconcile_single_text(returnf, current, content)
 	else
 		-- create a new text node and delete existing children
 		self:delete_remaining_children(returnf, current)
-		local fiber = markup.create_fiber_from_text(content)
+		local fiber = FiberFactory.create_from_text(content)
 		fiber["return"] = returnf
 		FiberFlag.set(fiber, FiberFlag.PLACEMENT)
 		return fiber
@@ -812,7 +821,7 @@ function Reconciler:print(f)
 	end
 
 	print_fiber_tree(f or self.renderer.root.current, 0)
-	log.debug(table.concat(lines, "\n"))
+	log.info(table.concat(lines, "\n"))
 
 	return lines
 end

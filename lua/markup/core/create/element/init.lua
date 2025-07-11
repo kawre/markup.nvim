@@ -97,12 +97,13 @@ end
 
 ---@type markup.create_element
 local function create_element(type, props, style)
-	type = normalize_type(type)
-	props = normalize_props(props, style)
+	-- type = normalize_type(type)
+	-- props = normalize_props(props, style)
 
 	return {
 		type = type,
 		props = props,
+		_style = style,
 		ref = nil,
 		key = nil,
 	}

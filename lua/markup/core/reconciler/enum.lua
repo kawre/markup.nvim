@@ -1,5 +1,6 @@
 local markup = require("markup.core")
 local u = require("markup.utils")
+local bit = require("bit")
 
 ---@class markup.Fiber.enum : markup.Enum
 local enum = markup.Enum()

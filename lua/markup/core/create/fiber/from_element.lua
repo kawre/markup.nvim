@@ -6,13 +6,12 @@ local FiberTag = require("markup.core.reconciler.enum").Tag
 
 ---@type markup.create_fiber_from_element
 local function create_fiber_from_element(element)
-	--
 	-- if type(element.type) == "function" then
 	-- 	fiber.children = element.children
 	-- elseif type(element.type) == 'string' then
 	-- elseif type(element.type)
 	-- end
-	--
+
 	local fiber = markup.create_fiber(element.type, element.props, element.key)
 	return fiber
 end

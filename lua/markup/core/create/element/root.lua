@@ -4,7 +4,7 @@ local markup = require("markup.core")
 
 ---@type markup.create_root
 local function create_root()
-	return markup.create_element(markup.Block)
+	return markup.create_element("block")
 end
 
 return create_root
