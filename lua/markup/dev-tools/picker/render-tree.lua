@@ -1,10 +1,10 @@
 local FiberTag = require("markup.core.reconciler.enum").Tag
 local FiberFlag = require("markup.core.reconciler.enum").Flag
-local picker = require("snacks.picker")
 local log = require("markup.logger")
 
 ---@param root? markup.Render.Node
 return function(root)
+	local picker = require("snacks.picker")
 	local lines = {}
 
 	---@param node markup.Render.Node

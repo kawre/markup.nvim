@@ -1,5 +1,5 @@
 local normalizer = require("markup.core.node.normalizer")
-local Node = require("markup.core.node.init2")
+local Node = require("markup.core.node")
 local FiberTag = require("markup.core.reconciler.enum").Tag
 
 ---@class markup.factory.Node

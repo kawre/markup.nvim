@@ -33,7 +33,7 @@ end
 
 local ns = vim.api.nvim_create_namespace("markup_renderer")
 
----@param element markup.xElement | markup.xElement[]
+---@param element markup.Element|markup.Element[]
 function Renderer:render(element)
 	_XDDD = {}
 	-- if vim.in_fast_event() then

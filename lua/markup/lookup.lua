@@ -16,6 +16,7 @@ setmetatable(M, {
 		end
 	end,
 })
+M.element = ElementFactory.create
 
 -----------------------------------------------
 -- Complex Element Creation

@@ -368,7 +368,7 @@ function Reconciler:delete_child(returnf, child)
 end
 
 ---@param returnf markup.Fiber
----@param child markup.xElement
+---@param child markup.Element
 function Reconciler:create_child(returnf, child)
 	if self:valid_text(child) then
 		local fiber = FiberFactory.create_from_text(child) ---@diagnostic disable-line: param-type-mismatch
@@ -385,14 +385,14 @@ function Reconciler:create_child(returnf, child)
 	return nil
 end
 
----@param element markup.xElement
+---@param element markup.Element
 function Reconciler:valid_text(element)
 	return (type(element) == "string" and element ~= "") or type(element) == "number"
 end
 
 ---@param returnf markup.Fiber
 ---@param old_fiber? markup.Fiber
----@param new_child markup.xElement
+---@param new_child markup.Element
 function Reconciler:update_slot(returnf, old_fiber, new_child)
 	local key = old_fiber and old_fiber.key
 
@@ -475,7 +475,7 @@ end
 ---@param existing table<any, markup.Fiber>
 ---@param returnf markup.Fiber
 ---@param new_index integer
----@param new_child markup.xElement
+---@param new_child markup.Element
 function Reconciler:update_from_map(existing, returnf, new_index, new_child)
 	if (type(new_child) == "string" and new_child ~= "") or type(new_child) == "number" then
 		local matched = existing[new_index]
@@ -519,7 +519,7 @@ end
 
 ---@param returnf markup.Fiber
 ---@param current? markup.Fiber
----@param element markup.xElement
+---@param element markup.Element
 function Reconciler:update_element_node(returnf, current, element)
 	if current and current.type == element.type then
 		-- If the existing fiber is not an element node, create a new one
@@ -536,7 +536,7 @@ end
 
 ---@param returnf markup.Fiber
 ---@param current_first_child? markup.Fiber
----@param new_children markup.xElement[]
+---@param new_children markup.Element[]
 function Reconciler:reconcile_children_list(returnf, current_first_child, new_children)
 	local new_index, last_placed_index = 1, 1
 
@@ -629,14 +629,14 @@ end
 
 ---@param current? markup.Fiber
 ---@param wip markup.Fiber
----@param next_children markup.xElement
+---@param next_children markup.Element
 function Reconciler:reconcile_children(current, wip, next_children)
 	return self:reconcile_child_fibers(wip, current and current.child, next_children)
 end
 
 ---@param returnf markup.Fiber
 ---@param current_first_child? markup.Fiber
----@param new_child markup.xElement
+---@param new_child markup.Element
 function Reconciler:reconcile_child_fibers(returnf, current_first_child, new_child)
 	if self:valid_text(new_child) then
 		---@diagnostic disable-next-line: param-type-mismatch
@@ -693,7 +693,7 @@ end
 
 ---@param returnf markup.Fiber
 ---@param current_first_child? markup.Fiber
----@param element markup.xElement
+---@param element markup.Element
 ---@return markup.Fiber?
 function Reconciler:reconcile_single_element(returnf, current_first_child, element)
 	local key = element.key

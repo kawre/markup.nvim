@@ -1,26 +1,26 @@
-local markup = require("markup.core")
-
 local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 
----@class markup.Node.props
+---@class markup.Node
+---@field tag_name string
+local Node = {}
+Node.__index = Node
 
----@class markup.Node : markup.Object
----@field props markup.Element.props
----@field type markup.Node.type
----@field child_nodes markup.Node[]
----@field parent? markup.Node
----@field frame? markup.Renderer
-local Node = markup.Object("markup.node")
-
----@class markup.Node.static : markup.Object.static
-Node.static = Node.static
+---@alias markup.Node.type "element" | "text"
 
 ---@param type markup.Node.type
+---@param name? string
 ---@param props? markup.Node.constructor.props
-function Node:init(type, props)
-	self.child_nodes = {}
-	self.props = props or {} ---@diagnostic disable-line: assign-type-mismatch
-	self.type = type
+function Node:new(_type, name, props)
+	local instance = setmetatable({}, self)
+	instance.child_nodes = {}
+	if props and type(props) == "table" and type(props.children) == "string" then
+		instance.child_nodes = { Node:new("text", nil, props.children) }
+	end
+	instance.parent = nil
+	instance.type = _type
+	instance.tag_name = name
+	instance.props = props
+	return instance
 end
 
 function Node:clone()
@@ -29,19 +29,6 @@ end
 
 function Node:has_child_nodes()
 	return #self.child_nodes > 0
-end
-
----@param props markup.Element.props
-function Node:set_props(props)
-	self.props = vim.tbl_extend("force", self.props, props)
-end
-
-function Node:is_text()
-	return false
-end
-
-function Node:is_element()
-	return false
 end
 
 function Node:append_child(child)
@@ -75,40 +62,9 @@ function Node:replace_child(old, new)
 	end
 end
 
-function Node:print()
-	local lines = {}
-
-	---@param node markup.Node
-	local function print_node_tree(node, depth)
-		if not node then
-			return
-		end
-
-		local indent = ("\t"):rep(depth or 0)
-
-		local line
-		if node.type == "text" then
-			line = indent .. ("󰚞 `%s`"):format(node)
-		else
-			line = indent .. ("󰅩 [%s]"):format(node)
-		end
-		table.insert(lines, line)
-
-		for _, child in ipairs(node.child_nodes) do
-			print_node_tree(child, (depth or 0) + 1)
-		end
-	end
-
-	print_node_tree(self, 0)
-	log.debug(table.concat(lines, "\n"))
+---@param _type markup.Node.type
+function Node:is(_type)
+	return self.type == _type
 end
 
----@class markup.Node.constructor.props
-
----@alias markup.Node.constructor
----| fun(type: markup.Node.type, props?: markup.Node.constructor.props): markup.Node
----| { static: markup.Node.static }
----| markup.Node.static
-
----@type markup.Node.constructor
 return Node

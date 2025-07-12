@@ -1,45 +1,14 @@
-local markup = require("markup.core")
-
 local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 
----@class markup.Element
----@field type string
----@field props? markup.xElement.props
----@field ref? any
----@field key? any
----@field _style? markup.Element.style.props
----@field _owner? any
-
----@alias markup.xElement.props
----| markup.Element.constructor.props
----| { children?: any }
-
----@alias markup.create_element.props
----| markup.xElement.props
----| string
----| number
-
----@alias markup.create_element
----| fun(type: markup.Fiber.type, props?: markup.create_element.props, style?: markup.Element.style.props): markup.xElement
-
----@alias markup.create_element_from
----| fun(props?: markup.create_element.props, style?: markup.Element.style.props): markup.xElement
-
----@alias markup.create_element_from_text
----| markup.create_element_from
-
----@alias markup.create_element_from_element
----| markup.create_element_from
+local M = {}
+local Element = {}
 
 local function normalize_props(props, style)
 	if not props then
-		return nil
-	end
-
-	if type(props) ~= "table" then
+		return {}
+	elseif type(props) ~= "table" or getmetatable(props) then
 		return { children = props }
 	end
-	-- props.style = normalize_style(props.style, style)
 
 	if not props.children then
 		local new_props = {}
@@ -58,7 +27,7 @@ local function normalize_props(props, style)
 		end
 
 		props = new_props
-	elseif type(props.children) == "table" then
+	elseif type(props.children) == "table" and not getmetatable(props.children) then
 		props.children = vim.tbl_filter(function(child)
 			return not (child == nil or child == false)
 		end, props.children)
@@ -71,22 +40,82 @@ local function normalize_props(props, style)
 	return props
 end
 
-local M = {}
+---@class markup.Element
+---@field type string
+---@field props markup.Element.props
+---@field ref? any
+---@field key? any
+---@field _owner? any
 
----@type markup.create_element
-function M.create(_type, props, style)
-	return {
-		type = _type,
-		props = normalize_props(props), -- not normalized yet
-		_style = style, -- store as temporary variable to later merge with props.style
+---@class markup.Element.props.normalized
+---@field children? markup.Element.constructor.props
+---@field style markup.Element.style
+---@field display markup.Element.display
+---@field padding markup.Element.padding
+---@field margin markup.Element.margin
+---@field align markup.Box.align
+---@field spacing markup.Box.spacing
+---@field vertical boolean
+---@field horizontal boolean
+---@field reverse boolean
+---@field on_submit? fun()
+---@field on_key? table<string, fun()>
+
+---@class markup.Element.props
+---@field children? markup.Element.constructor.props
+---@field style? markup.Element.constructor.props.style
+---@field display? markup.Element.display
+---@field padding? markup.Element.padding
+---@field margin? markup.Element.margin
+---@field align? markup.Box.align
+---@field spacing? markup.Box.spacing
+---@field vertical? boolean
+---@field horizontal? boolean
+---@field reverse? boolean
+---@field on_submit? fun()
+---@field on_key? table<string, fun()>
+
+---@alias markup.factory.Element.constructor.props.children
+---| string
+---| number
+---| table
+
+---@alias markup.factory.Element.constructor.props
+---| markup.factory.Element.constructor.props.children
+---| { children?: markup.factory.Element.constructor.props.children }
+---| markup.Element.props
+
+---@alias markup.factory.Element.constructor.style
+---| string
+---| vim.api.keyset.highlight
+
+---@alias markup.factory.Element.constructor
+---| fun(props?: markup.factory.Element.constructor.props, style?: markup.factory.Element.constructor.style): markup.Element
+
+---@alias markup.factory.Element.constructor.raw
+---| fun(type: any, props?: markup.factory.Element.constructor.props, style?: markup.factory.Element.constructor.style): markup.Element
+
+---@type markup.factory.Element.constructor.raw
+function M.create(type, props, style)
+	return setmetatable({
+		type = type,
+		props = normalize_props(props, style),
 		ref = nil,
 		key = nil,
-	}
+	}, Element)
 end
 
+---@param Component fun()
 function M.create_component(Component)
 	return function(...)
 		return M.create(Component, ...)
+	end
+end
+
+---@param Class table
+function M.create_class(Class)
+	return function(...)
+		return M.create(Class, ...)
 	end
 end
 
