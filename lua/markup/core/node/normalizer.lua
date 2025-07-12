@@ -1,3 +1,5 @@
+local log = require("markup.logger") ---@diagnostic disable-line: unused-local
+
 ---@class markup.Node.Normalizer
 local M = {}
 
@@ -36,32 +38,15 @@ function M.props(props, style)
 	end
 	props.style = M.style(props.style, style)
 
-	if not props.children then
-		local new_props = {}
+	local new_props = {}
 
-		for key, value in pairs(props) do
-			if type(key) == "number" then
-				if value then
-					if not new_props.children then
-						new_props.children = {}
-					end
-					table.insert(new_props.children, value)
-				end
-			else
-				new_props[key] = value
-			end
+	for key, value in pairs(props) do
+		if type(key) ~= "number" or key == "children" then
+			new_props[key] = value
 		end
-
-		props = new_props
-	elseif type(props.children) == "table" then
-		props.children = vim.tbl_filter(function(child)
-			return not (child == nil or child == false)
-		end, props.children)
 	end
 
-	if type(props.children) == "table" and #props.children == 1 then
-		props.children = props.children[1]
-	end
+	props = new_props
 
 	return props
 end

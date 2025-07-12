@@ -21,13 +21,17 @@ end
 
 ---@param fiber markup.Fiber
 function M.create_from_fiber(fiber)
+	local node
 	if fiber.tag == FiberTag.TEXT then
-		return M.create("text", fiber.element_type, fiber.pending_props)
+		node = M.create("text", fiber.element_type, fiber.pending_props)
 	elseif fiber.tag == FiberTag.ELEMENT then
-		return M.create("element", fiber.element_type, fiber.pending_props)
+		node = M.create("element", fiber.element_type, fiber.pending_props)
 	else
 		error("Unknown fiber tag: " .. vim.inspect(fiber.tag))
 	end
+
+	node._fiber = fiber
+	return node
 end
 
 return M

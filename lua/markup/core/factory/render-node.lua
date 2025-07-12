@@ -1,11 +1,12 @@
-local RenderNode = require("markup.core.render.node")
-
 ---@alias markup.Render.LayoutType "flex" | "block" | "inline" | "none"
 
+local M = {}
+
 ---@param node markup.Node
----@param layout_type markup.Render.LayoutType
 ---@return markup.Render.Node
-local function create_render_node(node, layout_type)
+function M.create(node)
+	local RenderNode = require("markup.core.render.node")
+	local layout_type = type(node.props) == "table" and node.props.layout or "block"
 	local layout_strategy
 
 	if layout_type == "flex" then
@@ -21,4 +22,4 @@ local function create_render_node(node, layout_type)
 	return RenderNode:new(node, layout_strategy)
 end
 
-return create_render_node
+return M

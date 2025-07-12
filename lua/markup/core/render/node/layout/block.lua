@@ -3,12 +3,10 @@ local log = require("markup.logger")
 
 ---@class markup.Render.Layout.Block : markup.Render.Layout
 local BlockLayout = {}
-BlockLayout.__index = BlockLayout
-setmetatable(BlockLayout, { __index = LayoutStrategy })
+BlockLayout.__name = "RenderBlock"
 
----@param render_node markup.Render.Node
-function BlockLayout:layout(render_node)
-	local node = render_node.node
+---@param node markup.Render.Node
+function BlockLayout.layout(node)
 	local props = node.props
 
 	-- local contentX = node.x or 0

@@ -23,6 +23,14 @@ function Node:new(_type, name, props)
 	return instance
 end
 
+function Node:clone()
+	return vim.deepcopy(self)
+end
+
+function Node:has_child_nodes()
+	return #self.child_nodes > 0
+end
+
 function Node:append_child(child)
 	child.parent = self
 	table.insert(self.child_nodes, child)
@@ -52,6 +60,11 @@ function Node:replace_child(old, new)
 			break
 		end
 	end
+end
+
+---@param _type markup.Node.type
+function Node:is(_type)
+	return self.type == _type
 end
 
 return Node

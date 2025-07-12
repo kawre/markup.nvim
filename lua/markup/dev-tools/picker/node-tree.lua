@@ -8,7 +8,7 @@ return function(root)
 	local lines = {}
 
 	---@param node markup.Node
-	local function print_node_tree(node, depth, prefix)
+	local function print_node_tree(node, depth, prefix, is_last)
 		if not node then
 			return
 		end
@@ -16,8 +16,7 @@ return function(root)
 		depth = depth or 0
 		prefix = prefix or ""
 
-		-- local mark = (fiber.child or fiber.sibling) and "├╴" or "└╴"
-		local mark = "├╴"
+		local mark = not (vim.tbl_isempty(node.child_nodes) and is_last) and "├╴" or "└╴"
 		local indent_marker = prefix .. (depth > 0 and mark or "")
 
 		local xd
@@ -49,8 +48,13 @@ return function(root)
 			},
 		})
 
-		for _, child in ipairs(node.child_nodes) do
-			print_node_tree(child, depth + 1, prefix .. (depth > 0 and "│ " or ""))
+		for i, child in ipairs(node.child_nodes) do
+			print_node_tree(
+				child,
+				depth + 1,
+				prefix .. (depth > 0 and "│ " or ""),
+				i == #node.child_nodes
+			)
 		end
 	end
 
