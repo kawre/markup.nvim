@@ -1,11 +1,21 @@
-local LayoutStrategy = require("markup.core.render.node.layout")
+local log = require("markup.logger")
 
 ---@class markup.Render.Layout.Inline: markup.Render.Layout
 local InlineLayout = {}
 InlineLayout.__name = "RenderInline"
+InlineLayout.__type = { inline = true }
 
-function InlineLayout.layout(node)
-	-- flex layout logic
+---@param box markup.Render.Node
+function InlineLayout.layout(box)
+	box.height = 1
+
+	for _, child in ipairs(box.children) do
+		assert(child:is("inline"), "Inline layout can only be used for inline nodes")
+		child:layout()
+		box.cx = box.cx + child.width
+	end
+
+	box.width = box.cx - box.x
 end
 
 return InlineLayout

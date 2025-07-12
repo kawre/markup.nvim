@@ -1,5 +1,4 @@
 local markup = require("markup.core")
-local default_styles = require("markup.core.factory.element.default")
 
 local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 

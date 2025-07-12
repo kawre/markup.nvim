@@ -15,6 +15,8 @@ function M.create_root(renderer, element)
 	return {
 		owner = renderer,
 		current = FiberFactory.create_root(element),
+		width = vim.api.nvim_win_get_width(renderer.id),
+		height = vim.api.nvim_win_get_height(renderer.id),
 	}
 end
 

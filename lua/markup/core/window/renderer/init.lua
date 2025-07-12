@@ -8,6 +8,8 @@ local DevToolsFiberTreePicker = require("markup.dev-tools.picker.fiber-tree")
 local DevToolsNodeTreePicker = require("markup.dev-tools.picker.node-tree")
 local DevToolsRenderTreePicker = require("markup.dev-tools.picker.render-tree")
 
+_XDDD = {}
+
 ---@class markup.Renderer.props : markup.Window.props
 ---@field body markup.Element.children
 ---@field buttons markup.Element[]
@@ -16,7 +18,7 @@ local DevToolsRenderTreePicker = require("markup.dev-tools.picker.render-tree")
 ---@field protected super markup.Window
 ---@field protected _ markup.Renderer.props
 ---@field reconciler markup.Reconciler
----@field render_tree markup.Render.Tree
+---@field render_tree markup.Render.Node
 ---@field root markup.Renderer.Root
 local Renderer = markup.Window:extend("MarkupRenderer") ---@diagnostic disable-line: undefined-field
 
@@ -29,17 +31,45 @@ function Renderer:after_init()
 	self.body = self._.body
 end
 
+local ns = vim.api.nvim_create_namespace("markup_renderer")
+
 ---@param element markup.xElement | markup.xElement[]
 function Renderer:render(element)
+	_XDDD = {}
+	-- if vim.in_fast_event() then
+	-- 	return vim.schedule(function()
+	-- 		self:render(element)
+	-- 	end)
+	-- end
+	vim.api.nvim_buf_clear_namespace(self.bufnr, ns, 0, -1)
+
 	u.measure_time("--- render", function()
 		self.root = RendererFactory.create_root(self, element)
 		self.reconciler = markup.Reconciler(self)
 		self.reconciler:reconcile()
 		-- DevToolsFiberTreePicker(self.root.current)
 		-- DevToolsNodeTreePicker(self.root.current.state_node)
-		self.render_tree = RenderNodeFactory.create(self.root.current.state_node)
+		self.render_tree = RenderNodeFactory.create_root(self)
 		self.render_tree:build()
-		DevToolsRenderTreePicker(self.render_tree)
+		for _, child in ipairs(self.render_tree.children) do
+			child:layout()
+		end
+
+		local xd = {}
+		local line = (" "):rep(self.render_tree.width)
+		for i = 1, self.render_tree.height do
+			table.insert(xd, line)
+		end
+		vim.api.nvim_buf_set_lines(self.bufnr, 0, -1, false, xd)
+
+		for _, box in ipairs(_XDDD) do
+			vim.api.nvim_buf_set_extmark(self.bufnr, ns, box.y, box.x, {
+				virt_text = { { box.node.props } },
+				end_col = box.x + box.width,
+				virt_text_win_col = box.x,
+				strict = false,
+			})
+		end
 		-- self.render_tree:layout()
 		-- self.render_tree.view:layout()
 		-- log.info(self.root)

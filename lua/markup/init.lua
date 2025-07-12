@@ -1,7 +1,12 @@
 local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 local lookup = require("markup.lookup")
 
----@class markup: markup.lookup
+---@class markup
+---@field inline markup.Element.constructor
+---@field block markup.Element.constructor
+---@field flex markup.Element.constructor
+---@field grid markup.Element.constructor
+---@field [string]? markup.Element.constructor
 local markup = {}
 setmetatable(markup, {
 	__index = function(_, k)

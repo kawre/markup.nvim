@@ -1,25 +1,28 @@
 local ElementFactory = require("markup.core.factory.element")
 
+---@alias markup.Element.constructor fun(props: any, style: any): markup.Element
+
 ---@class markup.lookup
 local M = {}
 
 -----------------------------------------------
--- Element Creation
+-- Primitives
 -----------------------------------------------
 
-M.Inline = function(...)
-	return ElementFactory.create("inline", ...)
-end
-M.Block = function(...)
-	return ElementFactory.create("block", ...)
-end
-M.Flex = function(...)
-	return ElementFactory.create("flex", ...)
-end
-M.Element = function(...)
-	return ElementFactory.create(...)
-end
+setmetatable(M, {
+	__index = function(_, key)
+		return function(...)
+			return ElementFactory.create(key:lower(), ...)
+		end
+	end,
+})
+
+-----------------------------------------------
+-- Complex Element Creation
+-----------------------------------------------
+
 M.Component = ElementFactory.create_component
+M.Class = ElementFactory.create_class
 M.Fragment = ElementFactory.create_fragment
 
 -----------------------------------------------

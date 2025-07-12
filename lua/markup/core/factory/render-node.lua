@@ -1,4 +1,4 @@
----@alias markup.Render.LayoutType "flex" | "block" | "inline" | "none"
+---@alias markup.Render.LayoutType "flex" | "block" | "inline" | "text"
 
 local M = {}
 
@@ -6,20 +6,41 @@ local M = {}
 ---@return markup.Render.Node
 function M.create(node)
 	local RenderNode = require("markup.core.render.node")
-	local layout_type = type(node.props) == "table" and node.props.layout or "block"
+	-- local layout_type = type(node.props) == "table" and node.props.layout or "text"
+	local layout_type = node.type == "text" and "text" or node.tag_name
 	local layout_strategy
 
 	if layout_type == "flex" then
 		layout_strategy = require("markup.core.render.node.layout.flex")
-	elseif layout_type == "block" then
+	elseif layout_type == "block" or layout_type == "root" then
 		layout_strategy = require("markup.core.render.node.layout.block")
 	elseif layout_type == "inline" then
 		layout_strategy = require("markup.core.render.node.layout.inline")
+	elseif layout_type == "text" then
+		layout_strategy = require("markup.core.render.node.layout.text")
 	else
 		error("Unknown layout type: " .. tostring(layout_type))
 	end
 
 	return RenderNode:new(node, layout_strategy)
+end
+
+---@param renderer markup.Renderer
+function M.create_root(renderer)
+	-- local RenderNode = require("markup.core.render.node")
+	-- local root_node = RenderNode:new(nil, nil)
+	-- root_node.renderer = renderer
+	-- root_node.layout_strategy = require("markup.core.render.node.layout.flex")
+	-- root_node.dirty = true
+	-- root_node:build()
+	local root = M.create(renderer.root.current.state_node)
+	root.x = 0
+	root.y = 0
+	root.cy = 0
+	root.cx = 0
+	root.width = vim.api.nvim_win_get_width(renderer.id)
+	root.height = vim.api.nvim_win_get_height(renderer.id)
+	return root
 end
 
 return M
