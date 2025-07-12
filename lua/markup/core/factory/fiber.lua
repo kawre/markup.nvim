@@ -1,4 +1,5 @@
 local FiberTag = require("markup.core.reconciler.enum").Tag
+local NodeFactory = require("markup.core.factory.node")
 
 ---@param etype markup.Fiber.type
 local function tag_from_type(etype)
@@ -20,7 +21,6 @@ local M = {}
 function M.create(tag, props, key)
 	return {
 		pending_props = props,
-		-- type = type,
 		key = key,
 		tag = tag,
 		flags = 0,
@@ -34,7 +34,9 @@ end
 
 ---@param element markup.Element
 function M.create_from_element(element)
-	return M.create_from_type_and_props(element.type, element.props, element.key)
+	local fiber = M.create_from_type_and_props(element.type, element.props, element.key)
+	fiber._style = element._style
+	return fiber
 end
 
 function M.create_from_type_and_props(_type, props, key)
@@ -55,9 +57,11 @@ function M.create_from_type_and_props(_type, props, key)
 	return fiber
 end
 
-function M.create_root(child)
+---@param element markup.Element
+function M.create_root(element)
 	local fiber = M.create(FiberTag.ROOT)
-	fiber.pending_props = { children = child }
+	fiber.pending_props = { children = element }
+	fiber.state_node = NodeFactory.create("element", "root")
 	return fiber
 end
 

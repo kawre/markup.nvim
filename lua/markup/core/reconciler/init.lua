@@ -5,6 +5,7 @@ local markup = require("markup.core")
 local assertor = require("markup.assertor")
 local Stack = require("markup.collection.stack")
 local FiberFactory = require("markup.core.factory.fiber")
+local NodeFactory = require("markup.core.factory.node")
 
 ---@class markup.Reconciler : markup.Object
 ---@field currently_rendering_fiber markup.Fiber
@@ -144,50 +145,59 @@ end
 function Reconciler:complete_unit(unit)
 	local current, wip = unit.alternate, unit
 
-	-- markup.Switch(wip.tag, {
-	-- 	[FiberTag.FUNCTION] = function()
-	-- 		-- function component placemenet is handled
-	-- 		-- during `begin_work`
-	-- 		FiberFlag.clear(wip, FiberFlag.PLACEMENT)
-	-- 	end,
-	-- 	[FiberTag.FRAGMENT] = function()
-	-- 		-- nothing to do
-	-- 	end,
-	-- 	[FiberTag.ELEMENT] = function()
-	-- 		if FiberFlag.check(wip, FiberFlag.PLACEMENT) then
-	-- 			self:place_single_child(wip)
-	-- 		end
-	--
-	-- 		if FiberFlag.check(wip, FiberFlag.DELETE) then
-	-- 			self:process_deletions(wip)
-	-- 		end
-	--
-	-- 		-- TODO update node props
-	-- 		-- simple implementation for now
-	-- 		if wip.state_node and wip.memoized_props then
-	-- 			wip.state_node:set_props(wip.memoized_props)
-	-- 		end
-	-- 	end,
-	-- 	[FiberTag.ROOT] = function()
-	-- 		-- self:place_single_child(fiber)
-	-- 		if FiberFlag.check(wip, FiberFlag.DELETE) then
-	-- 			self:process_deletions(wip)
-	-- 		end
-	-- 	end,
-	-- 	[FiberTag.TEXT] = function()
-	-- 		if FiberFlag.check(wip, FiberFlag.PLACEMENT) then
-	-- 			self:place_single_child(wip)
-	-- 		end
-	--
-	-- 		if current then
-	-- 			self:update_node_text(wip)
-	-- 		end
-	-- 	end,
-	--
-	-- 	["default"] = function()
-	-- 		error(("Invalid Fiber tag: %s"):format(wip.tag))
-	-- 	end,
-	-- })
+	markup.Switch(wip.tag, {
+		[FiberTag.FUNCTION] = function()
+			-- function component placemenet is handled
+			-- during `begin_work`
+			FiberFlag.clear(wip, FiberFlag.PLACEMENT)
+		end,
+		[FiberTag.FRAGMENT] = function()
+			-- nothing to do
+		end,
+		[FiberTag.ELEMENT] = function()
+			-- if FiberFlag.check(wip, FiberFlag.PLACEMENT) then
+			-- 	self:place_single_child(wip)
+			-- end
+			--
+			-- if FiberFlag.check(wip, FiberFlag.DELETE) then
+			-- 	self:process_deletions(wip)
+			-- end
+
+			-- TODO update node props
+			-- simple implementation for now
+			-- if wip.state_node and wip.memoized_props then
+			-- 	wip.state_node:set_props(wip.memoized_props)
+			-- end
+			wip.state_node = NodeFactory.create_from_fiber(wip)
+			local node = wip.child
+			while node do
+				wip.state_node:append_child(node.state_node)
+				node = node.sibling
+			end
+		end,
+		[FiberTag.ROOT] = function()
+			-- self:place_single_child(fiber)
+			-- if FiberFlag.check(wip, FiberFlag.DELETE) then
+			-- 	self:process_deletions(wip)
+			-- end
+			local node = wip.child
+			while node do
+				wip.state_node:append_child(node.state_node)
+				node = node.sibling
+			end
+		end,
+		[FiberTag.TEXT] = function()
+			if current then
+				self:update_node_text(wip)
+			else
+				wip.state_node = NodeFactory.create_from_fiber(wip)
+			end
+		end,
+
+		["default"] = function()
+			error(("Invalid Fiber tag: %s"):format(wip.tag))
+		end,
+	})
 
 	Stack.push(self.work_stack, unit.sibling)
 	-- assertor.bug(
@@ -219,12 +229,13 @@ end
 
 ---@param fiber markup.Fiber
 function Reconciler:place_single_child(fiber)
-	assertor.bug(fiber.state_node, "`fiber.state_node` must exist during placement")
+	-- assertor.bug(fiber.state_node, "`fiber.state_node` must exist during placement")
 
-	local node = fiber.state_node
-	local parent = self:find_element_ancestor(fiber)
-	parent.state_node:append_child(node)
-	FiberFlag.clear(fiber, FiberFlag.PLACEMENT)
+	-- local node = fiber.state_node
+	-- fiber.state_node = NodeFactory.create_from_fiber(fiber)
+	-- -- local parent = self:find_element_ancestor(fiber)
+	-- -- parent.state_node:append_child(node)
+	-- FiberFlag.clear(fiber, FiberFlag.PLACEMENT)
 end
 
 ---@param fiber markup.Fiber
@@ -258,8 +269,8 @@ end
 ---@param current? markup.Fiber
 ---@param wip markup.Fiber
 function Reconciler:update_text_component(current, wip)
-	if not (current and current.state_node) then
-		self:create_instance(wip)
+	if not current then
+		FiberFlag.set(wip, FiberFlag.PLACEMENT)
 	end
 end
 
@@ -291,9 +302,9 @@ function Reconciler:update_element_component(current, wip)
 	local next_props = wip.pending_props
 	local next_children = next_props and next_props.children
 
-	if not (current and current.state_node) then
-		self:create_instance(wip)
-	end
+	-- if not (current and current.state_node) then
+	-- 	self:create_instance(wip)
+	-- end
 
 	if self:valid_text(next_children) then
 		-- wip.state_node:append_child(markup.Text(next_children))
@@ -796,79 +807,17 @@ function Reconciler:schedule_render()
 	end)
 end
 
----@param f? markup.Fiber
-function Reconciler:print(f)
-	local lines = {}
-
-	local picker = require("snacks.picker")
-
-	---@param fiber markup.Fiber
-	local function print_fiber_tree(fiber, depth, prefix)
-		if not fiber then
-			return
+function Reconciler:bubble_up_fiber(fiber)
+	-- bubble up the fiber to the root
+	local parent = fiber["return"]
+	while parent do
+		if parent.tag == FiberTag.ROOT then
+			return parent
 		end
-
-		depth = depth or 0
-		prefix = prefix or ""
-
-		local indent_marker = prefix .. (depth > 0 and "├╴" or "")
-		local entries = {
-			{ indent_marker, "Conceal" },
-			{ " ", "DiagnosticHint" },
-			{ tostring(fiber.type or "ROOT") },
-			{ " " },
-			{ ("(%s)"):format(fiber.tag), "Conceal" },
-		}
-		local text_mapped = vim.tbl_map(function(e)
-			return e[1]
-		end, entries)
-
-		table.insert(lines, {
-			text = table.concat(text_mapped, " "),
-			item = {
-				entry = entries,
-				value = fiber,
-			},
-			preview = {
-				text = vim.inspect(fiber, { depth = 2 }),
-				ft = "lua",
-			},
-		})
-
-		if fiber.child then
-			print_fiber_tree(fiber.child, depth + 1, prefix .. (depth > 0 and "│ " or ""))
-		end
-
-		if fiber.sibling then
-			print_fiber_tree(fiber.sibling, depth, prefix)
-		end
+		parent = parent["return"]
 	end
 
-	print_fiber_tree(f or self.renderer.root.current, 0, "")
-
-	picker.pick({
-		items = lines,
-		layout = {
-			preset = "default",
-		},
-		win = {
-			preview = { minimal = true },
-		},
-		preview = "preview",
-		format = function(item)
-			local ret = {}
-			vim.tbl_map(function(col)
-				if type(col) == "table" then
-					ret[#ret + 1] = col
-				else
-					ret[#ret + 1] = { col }
-				end
-			end, item.item.entry)
-			return ret
-		end,
-	})
-
-	return lines
+	error("Fiber is not part of a root")
 end
 
 ---@alias markup.Reconciler.constructor

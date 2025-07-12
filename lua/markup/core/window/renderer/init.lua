@@ -4,6 +4,8 @@ local u = require("markup.utils") ---@diagnostic disable-line: unused-local
 local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 local RenderNodeFactory = require("markup.core.factory.render-node")
 local RendererFactory = require("markup.core.factory.renderer")
+local DevToolsFiberTreePicker = require("markup.dev-tools.picker.fiber-tree")
+local DevToolsNodeTreePicker = require("markup.dev-tools.picker.node-tree")
 
 ---@class markup.Renderer.props : markup.Window.props
 ---@field body markup.Element.children
@@ -32,7 +34,8 @@ function Renderer:render(element)
 		self.root = RendererFactory.create_root(self, element)
 		self.reconciler = markup.Reconciler(self)
 		self.reconciler:reconcile()
-		self.reconciler:print()
+		-- DevToolsFiberTreePicker(self.root.current)
+		DevToolsNodeTreePicker(self.root.current.state_node)
 		-- self.render_tree = RenderNodeFactory(self.root.current.state_node, "block")
 		-- self.render_tree:layout()
 		-- self.render_tree.view:layout()
