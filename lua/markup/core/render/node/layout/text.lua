@@ -13,6 +13,8 @@ function TextLayout.layout(box)
 
 	box.height = 1
 	box.width = vim.api.nvim_strwidth(str)
+
+	table.insert(_MTEMP, box)
 end
 
 return TextLayout

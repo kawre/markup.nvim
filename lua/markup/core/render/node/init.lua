@@ -1,6 +1,6 @@
 local RenderNodeFactory = require("markup.core.factory.render-node")
 local BoxStyle = require("markup.core.render.style")
-local log = require("markup.logger")
+local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 
 ---@class markup.Render.Layout
 ---@field layout fun(box: markup.Render.Node)
@@ -31,6 +31,7 @@ function RenderNode:new(node, layout_strategy)
 	instance.layout_strategy = layout_strategy
 	instance.children = {}
 	instance.node = node
+	node.render_box = instance
 	instance.dirty = true
 	instance.buf = {}
 	instance.style = BoxStyle:new(instance)
@@ -41,6 +42,17 @@ function RenderNode:build()
 	for _, child in ipairs(self.node.child_nodes) do
 		local new_render_node = self:attach(child)
 		new_render_node:build()
+	end
+end
+
+function RenderNode:flag_as_dirty()
+	if self.dirty then
+		return
+	end
+
+	self.dirty = true
+	if self.parent then
+		self.parent:flag_as_dirty()
 	end
 end
 

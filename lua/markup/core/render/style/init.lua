@@ -12,6 +12,7 @@ local defaults = require("markup.core.render.style.defaults")
 ---@field width integer
 ---@field height integer
 ---@field spacing integer
+---@field style integer
 local BoxStyle = {}
 BoxStyle.__index = BoxStyle
 

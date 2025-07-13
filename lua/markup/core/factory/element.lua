@@ -1,12 +1,12 @@
 local log = require("markup.logger") ---@diagnostic disable-line: unused-local
+local Element = require("markup.core.element")
 
 local M = {}
-local Element = {}
 
 local function normalize_props(props, style)
 	if not props then
 		return {}
-	elseif type(props) ~= "table" or getmetatable(props) then
+	elseif type(props) ~= "table" or Element.is_instance(props) then
 		return { children = props }
 	end
 
@@ -27,7 +27,7 @@ local function normalize_props(props, style)
 		end
 
 		props = new_props
-	elseif type(props.children) == "table" and not getmetatable(props.children) then
+	elseif type(props.children) == "table" and not Element.is_instance(props.children) then
 		props.children = vim.tbl_filter(function(child)
 			return not (child == nil or child == false)
 		end, props.children)
@@ -40,41 +40,6 @@ local function normalize_props(props, style)
 	return props
 end
 
----@class markup.Element
----@field type string
----@field props markup.Element.props
----@field ref? any
----@field key? any
----@field _owner? any
-
----@class markup.Element.props.normalized
----@field children? markup.Element.constructor.props
----@field style markup.Element.style
----@field display markup.Element.display
----@field padding markup.Element.padding
----@field margin markup.Element.margin
----@field align markup.Box.align
----@field spacing markup.Box.spacing
----@field vertical boolean
----@field horizontal boolean
----@field reverse boolean
----@field on_submit? fun()
----@field on_key? table<string, fun()>
-
----@class markup.Element.props
----@field children? markup.Element.constructor.props
----@field style? markup.Element.constructor.props.style
----@field display? markup.Element.display
----@field padding? markup.Element.padding
----@field margin? markup.Element.margin
----@field align? markup.Box.align
----@field spacing? markup.Box.spacing
----@field vertical? boolean
----@field horizontal? boolean
----@field reverse? boolean
----@field on_submit? fun()
----@field on_key? table<string, fun()>
-
 ---@alias markup.factory.Element.constructor.props.children
 ---| string
 ---| number
@@ -83,7 +48,7 @@ end
 ---@alias markup.factory.Element.constructor.props
 ---| markup.factory.Element.constructor.props.children
 ---| { children?: markup.factory.Element.constructor.props.children }
----| markup.Element.props
+---| markup.Node.props
 
 ---@alias markup.factory.Element.Fragment.constructor.props
 ---| markup.factory.Element.constructor.props.children
@@ -104,12 +69,7 @@ end
 
 ---@type markup.factory.Element.constructor.raw
 function M.create(type, props, style)
-	return setmetatable({
-		type = type,
-		props = normalize_props(props, style),
-		ref = nil,
-		key = nil,
-	}, Element)
+	return Element:new(type, normalize_props(props, style))
 end
 
 ---@param Component fun()

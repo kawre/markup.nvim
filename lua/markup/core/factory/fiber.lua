@@ -17,6 +17,7 @@ local NodeFactory = require("markup.core.factory.node")
 ---@field memoized_props any
 ---@field memoized_state any
 ---@field type markup.Fiber.type
+---@field element_type string
 ---@field tag markup.Fiber.tag
 ---@field state_node markup.Node
 ---@field flags integer

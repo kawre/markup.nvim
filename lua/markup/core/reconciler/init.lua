@@ -163,10 +163,10 @@ function Reconciler:complete_unit(unit)
 	complete_work(self, current, wip)
 
 	Stack.push(self.work_stack, unit.sibling)
-	-- assertor.bug(
-	-- 	FiberFlag.check(unit, FiberFlag.NONE),
-	-- 	"Fiber flags must be `NONE` after completion"
-	-- )
+	assertor.bug(
+		FiberFlag.check(unit, FiberFlag.NONE),
+		"Fiber flags must be `NONE` after completion"
+	)
 end
 
 ---@param fiber markup.Fiber
@@ -192,13 +192,8 @@ end
 
 ---@param fiber markup.Fiber
 function Reconciler:place_single_child(fiber)
-	-- assertor.bug(fiber.state_node, "`fiber.state_node` must exist during placement")
-
-	-- local node = fiber.state_node
-	-- fiber.state_node = NodeFactory.create_from_fiber(fiber)
-	-- -- local parent = self:find_element_ancestor(fiber)
-	-- -- parent.state_node:append_child(node)
-	-- FiberFlag.clear(fiber, FiberFlag.PLACEMENT)
+	fiber.state_node = NodeFactory.create_from_fiber(fiber)
+	FiberFlag.clear(fiber, FiberFlag.PLACEMENT)
 end
 
 ---@param fiber markup.Fiber
@@ -265,6 +260,10 @@ end
 function Reconciler:update_element_component(current, wip)
 	local next_props = wip.pending_props
 	local next_children = next_props and next_props.children
+
+	if not current then
+		FiberFlag.set(wip, FiberFlag.PLACEMENT)
+	end
 
 	if self:valid_text(next_children) then
 		next_children = nil
@@ -805,30 +804,30 @@ end
 ---@param current markup.Fiber
 ---@param wip markup.Fiber
 function Reconciler:complete_text_component(current, wip)
-	if current then
+	if FiberFlag.check(wip, FiberFlag.PLACEMENT) then
+		self:place_single_child(wip)
+	end
+
+	if FiberFlag.check(wip, FiberFlag.UPDATE) then
 		self:update_node_text(wip)
-	else
-		wip.state_node = NodeFactory.create_from_fiber(wip)
 	end
 end
 
 ---@param current markup.Fiber
 ---@param wip markup.Fiber
 function Reconciler:complete_element_component(current, wip)
-	-- if FiberFlag.check(wip, FiberFlag.PLACEMENT) then
-	-- 	self:place_single_child(wip)
-	-- end
-	--
-	-- if FiberFlag.check(wip, FiberFlag.DELETE) then
-	-- 	self:process_deletions(wip)
-	-- end
+	if current and wip.state_node and current.memoized_props ~= wip.pending_props then
+		FiberFlag.set(wip, FiberFlag.UPDATE)
+	end
 
-	-- TODO update node props
-	-- simple implementation for now
-	-- if wip.state_node and wip.memoized_props then
-	-- 	wip.state_node:set_props(wip.memoized_props)
-	-- end
-	wip.state_node = NodeFactory.create_from_fiber(wip)
+	if FiberFlag.check(wip, FiberFlag.PLACEMENT) then
+		self:place_single_child(wip)
+	end
+
+	if FiberFlag.check(wip, FiberFlag.DELETE) then
+		self:process_deletions(wip)
+	end
+
 	local curr, node = wip.state_node, wip.child
 	while node do
 		if not (node.tag == FiberTag.TEXT or node.tag == FiberTag.ELEMENT) then
