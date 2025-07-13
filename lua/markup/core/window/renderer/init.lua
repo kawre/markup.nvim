@@ -49,27 +49,27 @@ function Renderer:render(element)
 		self.reconciler:reconcile()
 		-- DevToolsFiberTreePicker(self.root.current)
 		-- DevToolsNodeTreePicker(self.root.current.state_node)
-		self.render_tree = RenderNodeFactory.create_root(self)
-		self.render_tree:build()
-		for _, child in ipairs(self.render_tree.children) do
-			child:layout()
-		end
-
-		local xd = {}
-		local line = (" "):rep(self.render_tree.width)
-		for i = 1, self.render_tree.height do
-			table.insert(xd, line)
-		end
-		vim.api.nvim_buf_set_lines(self.bufnr, 0, -1, false, xd)
-
-		for _, box in ipairs(_XDDD) do
-			vim.api.nvim_buf_set_extmark(self.bufnr, ns, box.y, box.x, {
-				virt_text = { { box.node.props } },
-				end_col = box.x + box.width,
-				virt_text_win_col = box.x,
-				strict = false,
-			})
-		end
+		-- self.render_tree = RenderNodeFactory.create_root(self)
+		-- self.render_tree:build()
+		-- for _, child in ipairs(self.render_tree.children) do
+		-- 	child:layout()
+		-- end
+		--
+		-- local xd = {}
+		-- local line = (" "):rep(self.render_tree.width)
+		-- for i = 1, self.render_tree.height do
+		-- 	table.insert(xd, line)
+		-- end
+		-- vim.api.nvim_buf_set_lines(self.bufnr, 0, -1, false, xd)
+		--
+		-- for _, box in ipairs(_XDDD) do
+		-- 	vim.api.nvim_buf_set_extmark(self.bufnr, ns, box.y, box.x, {
+		-- 		virt_text = { { box.node.props } },
+		-- 		end_col = box.x + box.width,
+		-- 		virt_text_win_col = box.x,
+		-- 		strict = false,
+		-- 	})
+		-- end
 		-- self.render_tree:layout()
 		-- self.render_tree.view:layout()
 		-- log.info(self.root)

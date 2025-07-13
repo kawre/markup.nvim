@@ -85,9 +85,16 @@ end
 ---| { children?: markup.factory.Element.constructor.props.children }
 ---| markup.Element.props
 
+---@alias markup.factory.Element.Fragment.constructor.props
+---| markup.factory.Element.constructor.props.children
+---| { children?: markup.factory.Element.constructor.props.children }
+
 ---@alias markup.factory.Element.constructor.style
 ---| string
 ---| vim.api.keyset.highlight
+
+---@alias markup.factory.Element.Fragment.constructor
+---| fun(props?: markup.factory.Element.Fragment.constructor.props): markup.Element
 
 ---@alias markup.factory.Element.constructor
 ---| fun(props?: markup.factory.Element.constructor.props, style?: markup.factory.Element.constructor.style): markup.Element

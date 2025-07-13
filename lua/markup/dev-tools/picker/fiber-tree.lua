@@ -21,15 +21,28 @@ return function(root)
 
 		local mark = (fiber.child or fiber.sibling) and "├╴" or "└╴"
 		local indent_marker = prefix .. (depth > 0 and mark or "")
-		local icon = fiber.tag == FiberTag.FRAGMENT and " "
-			or fiber.tag == FiberTag.FUNCTION and "󰊕 "
-			or fiber.tag == FiberTag.TEXT and " "
-			or " "
+		-- local icon = fiber.tag == FiberTag.FRAGMENT and " "
+		-- 	or fiber.tag == FiberTag.FUNCTION and "󰊕 "
+		-- 	or fiber.tag == FiberTag.TEXT and " "
+		-- 	or " "
+		local xd
+		if fiber.tag == FiberTag.FRAGMENT then
+			xd = { " " .. fiber.type, "Number" }
+		elseif fiber.tag == FiberTag.ROOT then
+			xd = { "", "Error" }
+		elseif fiber.tag == FiberTag.TEXT then
+			xd = { " " .. fiber.pending_props }
+		elseif fiber.tag == FiberTag.FUNCTION then
+			xd = { "󰊕 " .. tostring(fiber.type), "Label" }
+		else
+			xd = { " " .. tostring(fiber.type), "DiagnosticHint" }
+		end
 
 		local entries = {
 			{ indent_marker, "SignColumn" },
-			{ icon, fiber.state_node and "DiagnosticHint" or "Error" },
-			{ tostring(type_str) },
+			-- { icon, fiber.state_node and "DiagnosticHint" or "Error" },
+			-- { tostring(type_str) },
+			xd,
 			{ " " },
 			{ ("(%s)"):format(fiber.tag), "Conceal" },
 		}

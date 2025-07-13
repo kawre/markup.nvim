@@ -1,6 +1,33 @@
 local FiberTag = require("markup.core.reconciler.enum").Tag
 local NodeFactory = require("markup.core.factory.node")
 
+---@class markup.Fiber.queue
+---@field dispatch function
+---@field pending? { action: fun() }[]
+---@field last_rendered_state any
+
+---@class markup.Fiber.hook
+---@field memoized_state any
+---@field base_state any
+---@field queue markup.Fiber.queue
+---@field next? markup.Fiber.hook
+
+---@class markup.Fiber
+---@field pending_props any
+---@field memoized_props any
+---@field memoized_state any
+---@field type markup.Fiber.type
+---@field tag markup.Fiber.tag
+---@field state_node markup.Node
+---@field flags integer
+---@field key? any
+---@field hook? markup.Fiber.hook
+---@field alternate? markup.Fiber
+---@field child? markup.Fiber
+---@field sibling? markup.Fiber
+---@field index integer
+---@field deletions? markup.Fiber[]
+
 ---@param etype markup.Fiber.type
 local function tag_from_type(etype)
 	if type(etype) == "function" then
@@ -17,7 +44,7 @@ end
 ---@class markup.factory.Fiber
 local M = {}
 
----@type markup.create_fiber
+--@type markup.create_fiber
 function M.create(tag, props, key)
 	return {
 		pending_props = props,
@@ -41,14 +68,14 @@ end
 
 function M.create_from_type_and_props(_type, props, key)
 	local resolved_type = _type
-	local tag
 
-	if type(_type) == "string" then
+	local tag
+	if _type == FiberTag.FRAGMENT then
+		tag = FiberTag.FRAGMENT
+	elseif type(_type) == "string" then
 		tag = FiberTag.ELEMENT
-		resolved_type = _type
 	elseif type(_type) == "function" then
 		tag = FiberTag.FUNCTION
-		resolved_type = _type
 	end
 
 	local fiber = M.create(tag, props, key)

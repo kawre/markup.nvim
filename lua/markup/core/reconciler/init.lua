@@ -145,59 +145,21 @@ end
 function Reconciler:complete_unit(unit)
 	local current, wip = unit.alternate, unit
 
-	markup.Switch(wip.tag, {
-		[FiberTag.FUNCTION] = function()
-			-- function component placemenet is handled
-			-- during `begin_work`
-			FiberFlag.clear(wip, FiberFlag.PLACEMENT)
-		end,
-		[FiberTag.FRAGMENT] = function()
-			-- nothing to do
-		end,
-		[FiberTag.ELEMENT] = function()
-			-- if FiberFlag.check(wip, FiberFlag.PLACEMENT) then
-			-- 	self:place_single_child(wip)
-			-- end
-			--
-			-- if FiberFlag.check(wip, FiberFlag.DELETE) then
-			-- 	self:process_deletions(wip)
-			-- end
-
-			-- TODO update node props
-			-- simple implementation for now
-			-- if wip.state_node and wip.memoized_props then
-			-- 	wip.state_node:set_props(wip.memoized_props)
-			-- end
-			wip.state_node = NodeFactory.create_from_fiber(wip)
-			local node = wip.child
-			while node do
-				wip.state_node:append_child(node.state_node)
-				node = node.sibling
-			end
-		end,
-		[FiberTag.ROOT] = function()
-			-- self:place_single_child(fiber)
-			-- if FiberFlag.check(wip, FiberFlag.DELETE) then
-			-- 	self:process_deletions(wip)
-			-- end
-			local node = wip.child
-			while node do
-				wip.state_node:append_child(node.state_node)
-				node = node.sibling
-			end
-		end,
-		[FiberTag.TEXT] = function()
-			if current then
-				self:update_node_text(wip)
-			else
-				wip.state_node = NodeFactory.create_from_fiber(wip)
-			end
-		end,
-
-		["default"] = function()
-			error(("Invalid Fiber tag: %s"):format(wip.tag))
-		end,
-	})
+	local complete_work ---@type function
+	if wip.tag == FiberTag.FUNCTION then
+		complete_work = Reconciler.complete_function_component
+	elseif wip.tag == FiberTag.ELEMENT then
+		complete_work = Reconciler.complete_element_component
+	elseif wip.tag == FiberTag.TEXT then
+		complete_work = Reconciler.complete_text_component
+	elseif wip.tag == FiberTag.ROOT then
+		complete_work = Reconciler.complete_root_component
+	elseif wip.tag == FiberTag.FRAGMENT then
+		complete_work = Reconciler.complete_fragment_component
+	else
+		error(("Invalid Fiber tag: %s"):format(wip.tag))
+	end
+	complete_work(self, current, wip)
 
 	Stack.push(self.work_stack, unit.sibling)
 	-- assertor.bug(
@@ -254,7 +216,8 @@ function Reconciler:update_function_component(current, wip)
 end
 
 function Reconciler:update_fragment_component(current, wip)
-	return nil
+	wip.child = self:reconcile_children(current, wip, wip.pending_props.children)
+	return wip.child
 end
 
 ---@param current markup.Fiber
@@ -574,7 +537,7 @@ function Reconciler:reconcile_children_list(returnf, current_first_child, new_ch
 		new_index = new_index + 1
 	end
 
-	local xd = 5
+	-- local xd = 5
 
 	if new_index == #new_children + 1 then
 		self:delete_remaining_children(returnf, old_fiber)
@@ -795,6 +758,122 @@ function Reconciler:delete_remaining_children(returnf, current_first_child)
 	end
 end
 
+---@param current markup.Fiber
+---@param wip markup.Fiber
+function Reconciler:complete_root_component(current, wip)
+	-- self:place_single_child(fiber)
+	-- if FiberFlag.check(wip, FiberFlag.DELETE) then
+	-- 	self:process_deletions(wip)
+	-- end
+	local curr, node = wip.state_node, wip.child
+	while node do
+		if not (node.tag == FiberTag.TEXT or node.tag == FiberTag.ELEMENT) then
+			node.child["return"] = node
+			node = node.child
+		else
+			curr:append_child(node.state_node)
+
+			if node == wip then
+				break
+			end
+
+			while node.sibling == nil do
+				if not node["return"] or node["return"] == wip then
+					node = nil
+					break
+				end
+				node = node["return"]
+			end
+
+			if node then
+				node.sibling["return"] = node["return"]
+				node = node.sibling
+			end
+		end
+	end
+end
+
+---@param current markup.Fiber
+---@param wip markup.Fiber
+function Reconciler:complete_function_component(current, wip)
+	-- function component placemenet is handled
+	-- during `begin_work`
+	FiberFlag.clear(wip, FiberFlag.PLACEMENT)
+end
+
+---@param current markup.Fiber
+---@param wip markup.Fiber
+function Reconciler:complete_component_component(current, wip)
+	--
+end
+
+---@param current markup.Fiber
+---@param wip markup.Fiber
+function Reconciler:complete_text_component(current, wip)
+	if current then
+		self:update_node_text(wip)
+	else
+		wip.state_node = NodeFactory.create_from_fiber(wip)
+	end
+end
+
+---@param current markup.Fiber
+---@param wip markup.Fiber
+function Reconciler:complete_element_component(current, wip)
+	-- if FiberFlag.check(wip, FiberFlag.PLACEMENT) then
+	-- 	self:place_single_child(wip)
+	-- end
+	--
+	-- if FiberFlag.check(wip, FiberFlag.DELETE) then
+	-- 	self:process_deletions(wip)
+	-- end
+
+	-- TODO update node props
+	-- simple implementation for now
+	-- if wip.state_node and wip.memoized_props then
+	-- 	wip.state_node:set_props(wip.memoized_props)
+	-- end
+	wip.state_node = NodeFactory.create_from_fiber(wip)
+	local curr, node = wip.state_node, wip.child
+	while node do
+		if not (node.tag == FiberTag.TEXT or node.tag == FiberTag.ELEMENT) then
+			node.child["return"] = node
+			node = node.child
+		else
+			curr:append_child(node.state_node)
+
+			if node == wip then
+				break
+			end
+
+			while node.sibling == nil do
+				if not node["return"] or node["return"] == wip then
+					node = nil
+					break
+				end
+				node = node["return"]
+			end
+
+			if node then
+				node.sibling["return"] = node["return"]
+				node = node.sibling
+			end
+		end
+	end
+end
+
+---@param current markup.Fiber
+---@param wip markup.Fiber
+function Reconciler:complete_class_component(current, wip)
+	--
+end
+
+---@param current markup.Fiber
+---@param wip markup.Fiber
+function Reconciler:complete_fragment_component(current, wip)
+	--
+end
+
 function Reconciler:schedule_render()
 	if self.render_scheduled then
 		return
@@ -805,19 +884,6 @@ function Reconciler:schedule_render()
 		self.render_scheduled = false
 		self.renderer:rerender()
 	end)
-end
-
-function Reconciler:bubble_up_fiber(fiber)
-	-- bubble up the fiber to the root
-	local parent = fiber["return"]
-	while parent do
-		if parent.tag == FiberTag.ROOT then
-			return parent
-		end
-		parent = parent["return"]
-	end
-
-	error("Fiber is not part of a root")
 end
 
 ---@alias markup.Reconciler.constructor
