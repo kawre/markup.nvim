@@ -4,7 +4,6 @@ local log = require("markup.logger")
 
 ---@param root? markup.Render.Node
 return function(root)
-	local picker = require("snacks.picker")
 	local lines = {}
 
 	---@param node markup.Render.Node
@@ -59,29 +58,6 @@ return function(root)
 	end
 
 	print_node_tree(root, 0, "")
-
-	picker.pick({
-		items = lines,
-		layout = {
-			preset = "default",
-		},
-		win = {
-			preview = { minimal = true },
-		},
-		title = "Render Tree",
-		preview = "preview",
-		format = function(item)
-			local ret = {}
-			vim.tbl_map(function(col)
-				if type(col) == "table" then
-					ret[#ret + 1] = col
-				else
-					ret[#ret + 1] = { col }
-				end
-			end, item.item.entry)
-			return ret
-		end,
-	})
 
 	return lines
 end

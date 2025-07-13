@@ -69,6 +69,9 @@ end
 function playground.setup()
 	vim.api.nvim_create_user_command("Markup", playground.open, {})
 	vim.api.nvim_create_user_command("MarkupRun", playground.run, {})
+	vim.api.nvim_create_user_command("MarkupDev", function()
+		require("markup.dev-tools.picker")()
+	end, {})
 	vim.api.nvim_create_user_command("MarkupGenTest", playground.generate_test, {})
 end
 

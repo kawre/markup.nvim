@@ -7,13 +7,13 @@ local expect, eq = MiniTest.expect, MiniTest.expect.equality
 
 local T = new_set()
 
-T["constructor"] = new_set()
+T["factory"] = new_set()
 
-T["constructor"]["primitive"] = new_set({
+T["factory"]["primitive"] = new_set({
 	parametrize = { { 5 }, { "5" } },
 })
 
-T["constructor"]["primitive"]["creates element with single value"] = function(text)
+T["factory"]["primitive"]["creates element with single value"] = function(text)
 	local e = markup.block(text)
 	local e2 = markup.block({ children = text })
 
@@ -22,7 +22,7 @@ T["constructor"]["primitive"]["creates element with single value"] = function(te
 	eq(e.type, "block")
 end
 
-T["constructor"]["primitive"]["creates element with values array"] = function(text)
+T["factory"]["primitive"]["creates element with values array"] = function(text)
 	local e = markup.block({ text, text })
 	local e2 = markup.block({ children = { text, text } })
 
@@ -31,11 +31,11 @@ T["constructor"]["primitive"]["creates element with values array"] = function(te
 	eq(e.type, "block")
 end
 
-T["constructor"]["primitive"]["nested"] = new_set({
+T["factory"]["primitive"]["nested"] = new_set({
 	parametrize = { { markup.inline }, { markup.block } },
 })
 
-T["constructor"]["primitive"]["nested"]["creates element with single element"] = function(
+T["factory"]["primitive"]["nested"]["creates element with single element"] = function(
 	param,
 	element
 )
@@ -47,7 +47,7 @@ T["constructor"]["primitive"]["nested"]["creates element with single element"] =
 	eq(e.type, "block")
 end
 
-T["constructor"]["primitive"]["nested"]["creates element with multiple nested elements"] = function(
+T["factory"]["primitive"]["nested"]["creates element with multiple nested elements"] = function(
 	param,
 	element
 )

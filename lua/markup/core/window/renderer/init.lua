@@ -8,7 +8,15 @@ local DevToolsFiberTreePicker = require("markup.dev-tools.picker.fiber-tree")
 local DevToolsNodeTreePicker = require("markup.dev-tools.picker.node-tree")
 local DevToolsRenderTreePicker = require("markup.dev-tools.picker.render-tree")
 
-_XDDD = {}
+---@class markup.Renderer.meta.render
+---@field node_root markup.Node
+---@field fiber_root markup.Fiber
+---@field render_root markup.Render.Node
+---@field index integer
+
+---@class markup.Renderer.meta
+---@field render_count integer
+---@field renders markup.Renderer.meta.render[]
 
 ---@class markup.Renderer.props : markup.Window.props
 ---@field body markup.Element.children
@@ -20,6 +28,7 @@ _XDDD = {}
 ---@field reconciler markup.Reconciler
 ---@field render_tree markup.Render.Node
 ---@field root markup.Renderer.Root
+---@field _meta markup.Renderer.meta
 local Renderer = markup.Window:extend("MarkupRenderer") ---@diagnostic disable-line: undefined-field
 
 ---------------------------------
@@ -29,13 +38,16 @@ local Renderer = markup.Window:extend("MarkupRenderer") ---@diagnostic disable-l
 function Renderer:after_init()
 	Renderer.super.after_init(self)
 	self.body = self._.body
+	self._meta = { render_count = 0, renders = {} }
+	table.insert(_Markup.renderers, self)
 end
 
 local ns = vim.api.nvim_create_namespace("markup_renderer")
 
 ---@param element markup.Element|markup.Element[]
 function Renderer:render(element)
-	_XDDD = {}
+	self._meta = { render_count = 0, renders = {} }
+
 	-- if vim.in_fast_event() then
 	-- 	return vim.schedule(function()
 	-- 		self:render(element)
@@ -76,14 +88,31 @@ function Renderer:render(element)
 		-- self.root.current.state_node:print()
 		-- self:commit()
 	end)
+
+	self:update_meta()
 end
 
 function Renderer:rerender()
 	u.measure_time("--- re-render", function()
 		self.reconciler:reconcile()
-		self.render_tree = markup.Render.Tree(self.root)
-		self:commit()
+		-- self.render_tree = markup.Render.Tree(self.root)
+		-- self:commit()
 	end)
+
+	self:update_meta()
+end
+
+function Renderer:update_meta()
+	self._meta.render_count = self._meta.render_count + 1
+	---@type markup.Renderer.meta.render
+	local render_meta = {
+		fiber_root = self.root.current,
+		node_root = self.root.current.state_node,
+		render_root = self.render_tree,
+		index = self._meta.render_count,
+	}
+	render_meta = vim.tbl_map(vim.deepcopy, render_meta)
+	table.insert(self._meta.renders, render_meta)
 end
 
 ---@param node markup.Node

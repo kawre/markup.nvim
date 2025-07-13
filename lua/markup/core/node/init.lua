@@ -2,6 +2,7 @@ local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 
 ---@class markup.Node
 ---@field tag_name string
+---@field text_content string
 local Node = {}
 Node.__index = Node
 

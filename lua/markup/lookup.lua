@@ -27,6 +27,14 @@ M.Class = ElementFactory.create_class
 M.Fragment = ElementFactory.create_fragment
 
 -----------------------------------------------
+-- Hooks
+-----------------------------------------------
+
+M.variable = require("markup.core.reconciler.hook.state")
+M.Class = ElementFactory.create_class
+M.Fragment = ElementFactory.create_fragment
+
+-----------------------------------------------
 -- User Interface
 -----------------------------------------------
 

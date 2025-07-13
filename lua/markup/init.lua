@@ -1,6 +1,8 @@
 local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 local lookup = require("markup.lookup")
 
+_Markup = { renderers = {} }
+
 ---@class markup
 ---@field inline markup.factory.Element.constructor
 ---@field block markup.factory.Element.constructor
@@ -10,9 +12,10 @@ local lookup = require("markup.lookup")
 ---@field Component fun(...)
 ---@field Class { render: fun(...) }
 ---@field Fragment markup.factory.Element.Fragment.constructor
----@field [string] markup.factory.Element.constructor
+---@field variable markup.use_state
 ---@field Window any
 ---@field Renderer any
+---@field [string] markup.factory.Element.constructor
 local markup = {}
 setmetatable(markup, {
 	__index = function(_, k)

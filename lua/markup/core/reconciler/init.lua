@@ -116,23 +116,22 @@ function Reconciler:begin_work(current, wip)
 			and FiberFlag.check(wip, FiberFlag.NONE)
 			and not self:has_pending_updates(wip)
 		then
-			-- nothing to do,
-			-- we can reuse the current fiber
+			-- nothing to do, we can reuse the current fiber
 			return self:bailout(wip)
 		end
 	end
 
 	local next_work ---@type function
-	if wip.tag == FiberTag.FUNCTION then
-		next_work = Reconciler.update_function_component
-	elseif wip.tag == FiberTag.ELEMENT then
+	if wip.tag == FiberTag.ELEMENT then
 		next_work = Reconciler.update_element_component
+	elseif wip.tag == FiberTag.FUNCTION then
+		next_work = Reconciler.update_function_component
 	elseif wip.tag == FiberTag.TEXT then
 		next_work = Reconciler.update_text_component
-	elseif wip.tag == FiberTag.ROOT then
-		next_work = Reconciler.update_root_component
 	elseif wip.tag == FiberTag.FRAGMENT then
 		next_work = Reconciler.update_fragment_component
+	elseif wip.tag == FiberTag.ROOT then
+		next_work = Reconciler.update_root_component
 	else
 		error(("Invalid Fiber tag: %s"):format(wip.tag))
 	end
@@ -146,16 +145,18 @@ function Reconciler:complete_unit(unit)
 	local current, wip = unit.alternate, unit
 
 	local complete_work ---@type function
-	if wip.tag == FiberTag.FUNCTION then
-		complete_work = Reconciler.complete_function_component
-	elseif wip.tag == FiberTag.ELEMENT then
+	if wip.tag == FiberTag.ELEMENT then
 		complete_work = Reconciler.complete_element_component
 	elseif wip.tag == FiberTag.TEXT then
 		complete_work = Reconciler.complete_text_component
-	elseif wip.tag == FiberTag.ROOT then
-		complete_work = Reconciler.complete_root_component
+	elseif wip.tag == FiberTag.FUNCTION then
+		complete_work = Reconciler.complete_function_component
+	elseif wip.tag == FiberTag.CLASS then
+		complete_work = Reconciler.complete_class_component
 	elseif wip.tag == FiberTag.FRAGMENT then
 		complete_work = Reconciler.complete_fragment_component
+	elseif wip.tag == FiberTag.ROOT then
+		complete_work = Reconciler.complete_root_component
 	else
 		error(("Invalid Fiber tag: %s"):format(wip.tag))
 	end
@@ -265,15 +266,9 @@ function Reconciler:update_element_component(current, wip)
 	local next_props = wip.pending_props
 	local next_children = next_props and next_props.children
 
-	-- if not (current and current.state_node) then
-	-- 	self:create_instance(wip)
-	-- end
-
 	if self:valid_text(next_children) then
-		-- wip.state_node:append_child(markup.Text(next_children))
 		next_children = nil
-		-- dont return,
-		-- keep the function going to delete the remaining children
+		-- dont return, keep the function going to delete the remaining children
 	end
 
 	wip.child = self:reconcile_children(current, wip, next_children)

@@ -28,23 +28,10 @@ local NodeFactory = require("markup.core.factory.node")
 ---@field index integer
 ---@field deletions? markup.Fiber[]
 
----@param etype markup.Fiber.type
-local function tag_from_type(etype)
-	if type(etype) == "function" then
-		return FiberTag.FUNCTION
-	elseif type(etype) == "table" and type(etype.render) == "function" then
-		return FiberTag.CLASS
-	elseif type(etype) == "string" then
-		return FiberTag.ELEMENT
-	else
-		error("Unknown element type " .. vim.inspect(etype))
-	end
-end
-
 ---@class markup.factory.Fiber
 local M = {}
 
---@type markup.create_fiber
+---@param tag markup.Fiber.tag
 function M.create(tag, props, key)
 	return {
 		pending_props = props,
@@ -61,9 +48,7 @@ end
 
 ---@param element markup.Element
 function M.create_from_element(element)
-	local fiber = M.create_from_type_and_props(element.type, element.props, element.key)
-	fiber._style = element._style
-	return fiber
+	return M.create_from_type_and_props(element.type, element.props, element.key)
 end
 
 function M.create_from_type_and_props(_type, props, key)
