@@ -20,13 +20,10 @@ T["factory"]["create()"] = new_set({
 T["factory"]["create()"]["works"] = function(tag, props)
 	local f = Factory.create(tag, props)
 
-	eq(f, {
-		pending_props = props,
-		tag = tag,
-		flags = 0,
-		index = 1,
-		key = nil,
-	})
+	eq(f.pending_props, props)
+	eq(f.tag, tag)
+	eq(f.flags.flags, 0)
+	eq(f.index, 1)
 end
 
 T["factory"]["create_from_element()"] = new_set({

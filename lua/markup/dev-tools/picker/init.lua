@@ -116,7 +116,7 @@ return function()
 		items[#items + 1] = {
 			text = ("Renderer (winid: %s)"):format(renderer.id),
 			preview = {
-				text = vim.inspect(renderer),
+				text = vim.inspect(renderer, { depth = 2 }),
 				ft = "lua",
 			},
 			item = {

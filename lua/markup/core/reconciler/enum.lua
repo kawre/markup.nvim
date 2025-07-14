@@ -1,6 +1,5 @@
 local markup = require("markup.core")
 local u = require("markup.utils")
-local bit = require("bit")
 
 ---@class markup.Fiber.enum : markup.Enum
 local enum = markup.Enum()
@@ -30,24 +29,9 @@ enum.Flag = {
 	-- indicates that the Fiber's associated node
 	-- should be removed from the render tree
 	DELETE = 4,
-
-	---@param fiber markup.Fiber
-	---@param ... markup.Fiber.flag
-	set = function(fiber, ...)
-		fiber.flags = bit.bor(fiber.flags, ...) ---@diagnostic disable-line: param-type-mismatch
-	end,
-
-	---@param fiber markup.Fiber
-	---@param ... markup.Fiber.flag
-	clear = function(fiber, ...)
-		fiber.flags = bit.band(fiber.flags, bit.bnot(bit.bor(...))) ---@diagnostic disable-line: param-type-mismatch
-	end,
-
-	---@param fiber markup.Fiber
-	---@param ... markup.Fiber.flag
-	check = function(fiber, ...)
-		return fiber.flags == ... or bit.band(fiber.flags, ...) ~= 0 ---@diagnostic disable-line: param-type-mismatch
-	end,
+	MOVE = 8,
+	PLACEMENT_TEXT_CHILD = 16,
+	UPDATE_TEXT_CHILD = 32,
 }
 
 return enum

@@ -6,7 +6,7 @@ local M = {}
 
 ---@param type markup.Node.type
 ---@param name? string
----@param props? markup.Node.constructor.props
+---@param props? markup.Node.props
 function M.create(type, name, props)
 	local Node = require("markup.core.node")
 	return Node:new(type, name, props)
@@ -30,7 +30,9 @@ end
 function M.create_from_fiber(fiber)
 	local node
 	if fiber.tag == FiberTag.TEXT then
-		node = M.create_from_text(fiber.pending_props.children)
+		local props = fiber.pending_props
+		local text_content = type(props) == "table" and props.children or props
+		node = M.create_from_text(text_content)
 	elseif fiber.tag == FiberTag.ELEMENT then
 		node = M.create("element", fiber.element_type, fiber.pending_props)
 	else

@@ -60,16 +60,16 @@ function utils.is_class(class1, class2)
 	return markup.Object.is_class(class1, class2)
 end
 
-function utils.shallow_copy(original)
-	assert(type(original) == "table", "utils.shallow_copy: original must be a table")
-	local copy = {}
+function utils.shallowcopy(orig)
+	assert(type(orig) == "table", "`orig` must be a table")
 
-	if vim.islist(original) then
-		for _, value in ipairs(original) do
+	local copy = {}
+	if vim.islist(orig) then
+		for _, value in ipairs(orig) do
 			table.insert(copy, value)
 		end
 	else
-		for key, value in pairs(original) do
+		for key, value in pairs(orig) do
 			copy[key] = value
 		end
 	end

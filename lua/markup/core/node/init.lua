@@ -1,6 +1,7 @@
 local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 local _type = type
-local Factory = require("markup.core.factory.node")
+local u = require("markup.utils")
+local NodeFactory = require("markup.core.factory.node")
 
 ---@alias markup.Node.type "element" | "text"
 
@@ -27,11 +28,11 @@ local Factory = require("markup.core.factory.node")
 ---@field on_key? table<string, fun()>
 
 ---@class markup.Node
+---@field renderer markup.Renderer
 ---@field tag_name string
 ---@field text_content string
----@field renderer markup.Renderer
----@field render_box? markup.Render.Node
 ---@field child_nodes markup.Node[]
+---@field render_box? markup.Render.Node
 ---@field fiber markup.Fiber
 local Node = {}
 Node.__index = Node
@@ -40,36 +41,45 @@ Node.__index = Node
 ---@param name? string
 ---@param props? markup.Node.props
 function Node:new(type, name, props)
-	local instance = setmetatable({}, self)
-	if
-		props
-		and _type(props) == "table"
-		and (_type(props.children) == "string" or _type(props.children) == "number")
-	then
-		instance.child_nodes = { Factory.create_from_text(props.children) }
-	else
-		instance.child_nodes = {}
-	end
+	self = setmetatable({}, Node)
 
-	instance.parent = nil
-	instance.type = type
-	instance.tag_name = name
-	-- instance.props = props
+	self.child_nodes = {}
+	self.parent = nil
+	self.type = type
+	self.tag_name = name
+	self:create_props_proxy(props)
 
-	instance.props = {}
-	instance._props = vim.deepcopy(props) or {}
-	instance._props.children = nil -- not needed anymore
-	setmetatable(instance.props, {
-		__index = instance._props,
+	return self
+end
+
+---@private
+---@param props markup.Node.props
+function Node:create_props_proxy(props)
+	self.props = {}
+
+	self._props = props and u.shallowcopy(props) or {}
+	self._props.children = nil -- not needed anymore
+
+	setmetatable(self.props, {
+		__index = self._props,
 		__newindex = function(_, key, value)
-			if self.render_box then
-				self.render_box:flag_as_dirty()
-			end
-			instance._props[key] = value
+			self:flag_render_tree_as_dirty()
+			self._props[key] = value
 		end,
 	})
+end
 
-	return instance
+---@param props markup.Node.props
+function Node:replace_props(props)
+	self:create_props_proxy(props)
+	self:flag_render_tree_as_dirty()
+end
+
+---@private
+function Node:flag_render_tree_as_dirty()
+	if self.render_box then
+		self.render_box:flag_as_dirty()
+	end
 end
 
 function Node:set_text_content(content)
@@ -85,16 +95,19 @@ function Node:has_child_nodes()
 	return #self.child_nodes > 0
 end
 
+---@param child markup.Node
 function Node:append_child(child)
 	child.parent = self
 	table.insert(self.child_nodes, child)
 end
 
+---@param child markup.Node
 function Node:prepend_child(child)
 	child.parent = self
 	table.insert(self.child_nodes, 1, child)
 end
 
+---@param child markup.Node
 function Node:remove_child(child)
 	for i, node in ipairs(self.child_nodes) do
 		if node == child then
@@ -105,6 +118,8 @@ function Node:remove_child(child)
 	end
 end
 
+---@param old markup.Node
+---@param new markup.Node
 function Node:replace_child(old, new)
 	for i, node in ipairs(self.child_nodes) do
 		if node == old then
@@ -116,9 +131,9 @@ function Node:replace_child(old, new)
 	end
 end
 
----@param _type markup.Node.type
-function Node:is(_type)
-	return self.type == _type
+---@param type markup.Node.type
+function Node:is(type)
+	return self.type == type
 end
 
 return Node

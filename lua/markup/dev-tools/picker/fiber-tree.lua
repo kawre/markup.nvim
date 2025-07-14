@@ -29,7 +29,7 @@ return function(root)
 		if fiber.tag == FiberTag.FRAGMENT then
 			xd = { " " .. fiber.type, "Number" }
 		elseif fiber.tag == FiberTag.ROOT then
-			xd = { "", "Error" }
+			xd = { " fiber root", "Error" }
 		elseif fiber.tag == FiberTag.TEXT then
 			xd = { " " .. fiber.pending_props }
 		elseif fiber.tag == FiberTag.FUNCTION then

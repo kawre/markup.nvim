@@ -56,8 +56,6 @@ function Renderer:render(element)
 	self.render_tree = RenderNodeFactory.create_root(self)
 
 	self:rerender()
-
-	self:update_meta()
 end
 
 function Renderer:rerender()

@@ -1,6 +1,6 @@
 local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 local FiberTag = require("markup.core.reconciler.enum").Tag
-local FiberFlag = require("markup.core.reconciler.enum").Flag
+local Flag = require("markup.core.reconciler.enum").Flag
 local markup = require("markup.core")
 local assertor = require("markup.assertor")
 local Stack = require("markup.collection.stack")
@@ -113,7 +113,7 @@ function Reconciler:begin_work(current, wip)
 		if
 			current.type == wip.type
 			and old_props == new_props
-			and FiberFlag.check(wip, FiberFlag.NONE)
+			and wip.flags:check(Flag.NONE)
 			and not self:has_pending_updates(wip)
 		then
 			-- nothing to do, we can reuse the current fiber
@@ -163,10 +163,7 @@ function Reconciler:complete_unit(unit)
 	complete_work(self, current, wip)
 
 	Stack.push(self.work_stack, unit.sibling)
-	assertor.bug(
-		FiberFlag.check(unit, FiberFlag.NONE),
-		"Fiber flags must be `NONE` after completion"
-	)
+	assertor.bug(unit.flags:check(Flag.NONE), "Fiber flags must be `NONE` after completion")
 end
 
 ---@param fiber markup.Fiber
@@ -182,18 +179,30 @@ function Reconciler:find_element_ancestor(fiber)
 	return parent
 end
 
+---@param fiber markup.Fiber
 function Reconciler:process_deletions(fiber)
+	assertor.bug(fiber.deletions, "`fiber.deletions` must exist for processing deletions")
+
 	for _, deletion in ipairs(fiber.deletions) do
 		fiber.state_node:remove_child(deletion.state_node)
 	end
 	fiber.deletions = nil
-	FiberFlag.clear(fiber, FiberFlag.DELETE)
+	fiber.flags:clear(Flag.DELETE)
 end
 
 ---@param fiber markup.Fiber
 function Reconciler:place_single_child(fiber)
 	fiber.state_node = NodeFactory.create_from_fiber(fiber)
-	FiberFlag.clear(fiber, FiberFlag.PLACEMENT)
+	fiber.flags:clear(Flag.PLACEMENT)
+end
+
+---@param fiber markup.Fiber
+function Reconciler:place_single_text_child(fiber)
+	assert(fiber.state_node, "`fiber.state_node` must exist for text child placement")
+
+	local text_node = NodeFactory.create_from_text(fiber.pending_props.children)
+	fiber.state_node:append_child(text_node)
+	fiber.flags:clear(Flag.PLACEMENT_TEXT_CHILD)
 end
 
 ---@param fiber markup.Fiber
@@ -229,7 +238,9 @@ end
 ---@param wip markup.Fiber
 function Reconciler:update_text_component(current, wip)
 	if not current then
-		FiberFlag.set(wip, FiberFlag.PLACEMENT)
+		wip.flags:set(Flag.PLACEMENT)
+	elseif current.memoized_props ~= wip.pending_props then
+		wip.flags:set(Flag.UPDATE)
 	end
 end
 
@@ -237,7 +248,7 @@ end
 function Reconciler:create_instance(fiber)
 	assertor.bug(not fiber.state_node, "`fiber.state_node` must not exist during creation")
 
-	FiberFlag.set(fiber, FiberFlag.PLACEMENT)
+	fiber.flags:set(Flag.PLACEMENT)
 
 	-- if fiber.tag == FiberTag.FUNCTION then
 	-- 	fiber.state_node = fiber.type(fiber.pending_props)
@@ -262,12 +273,21 @@ function Reconciler:update_element_component(current, wip)
 	local next_children = next_props and next_props.children
 
 	if not current then
-		FiberFlag.set(wip, FiberFlag.PLACEMENT)
+		wip.flags:set(Flag.PLACEMENT)
+	elseif wip.state_node and current.memoized_props ~= wip.pending_props then
+		wip.flags:set(Flag.UPDATE)
 	end
 
 	if self:valid_text(next_children) then
-		next_children = nil
+		if wip.flags:check(Flag.PLACEMENT) then
+			wip.flags:set(Flag.PLACEMENT_TEXT_CHILD)
+		end
+		if wip.flags:check(Flag.UPDATE) then
+			wip.flags:set(Flag.UPDATE_TEXT_CHILD)
+		end
+
 		-- dont return, keep the function going to delete the remaining children
+		next_children = nil
 	end
 
 	wip.child = self:reconcile_children(current, wip, next_children)
@@ -306,7 +326,7 @@ function Reconciler:render_with_hooks(current, wip)
 	wip.memoized_state = wip.hook
 	wip.hook = nil
 
-	FiberFlag.clear(wip, FiberFlag.UPDATE)
+	wip.flags:clear(Flag.UPDATE)
 
 	return children
 end
@@ -314,13 +334,12 @@ end
 ---@param returnf markup.Fiber
 ---@param child markup.Fiber
 function Reconciler:delete_child(returnf, child)
-	local parent = self:find_element_ancestor(child)
-
-	if not parent.deletions then
-		parent.deletions = { child }
-		FiberFlag.set(parent, FiberFlag.DELETE)
+	-- TODO returnf is not guaranteed to be the parent fiber
+	if not returnf.deletions then
+		returnf.deletions = { child }
+		returnf.flags:set(Flag.DELETE)
 	else
-		table.insert(parent.deletions, child)
+		table.insert(returnf.deletions, child)
 	end
 end
 
@@ -467,11 +486,21 @@ end
 ---@param fiber markup.Fiber
 function Reconciler:update_node_text(fiber)
 	local old_text, new_text = fiber.alternate.pending_props, fiber.pending_props
-	local node = fiber.state_node ---@cast node markup.Text
+	local node = fiber.state_node
 
 	if old_text ~= new_text then
-		node:set(new_text)
+		node:set_text_content(new_text)
+		fiber.flags:clear(Flag.UPDATE)
 	end
+end
+
+---@param fiber markup.Fiber
+function Reconciler:update_single_text_child(fiber)
+	local text_node = fiber.state_node.child_nodes[1]
+	assert(text_node:is("text"))
+
+	text_node:set_text_content(fiber.pending_props.children)
+	fiber.flags:clear(Flag.UPDATE_TEXT_CHILD)
 end
 
 ---@param returnf markup.Fiber
@@ -515,6 +544,10 @@ function Reconciler:reconcile_children_list(returnf, current_first_child, new_ch
 				old_fiber = next_old_fiber
 			end
 			break
+		end
+
+		if old_fiber and not new_fiber.alternate then
+			self:delete_child(returnf, old_fiber)
 		end
 
 		last_placed_index = self:place_child(new_fiber, last_placed_index, new_index)
@@ -635,15 +668,15 @@ function Reconciler:place_child(new_fiber, last_placed_index, new_index)
 		local old_index = current.index
 		if old_index < last_placed_index then
 			-- this is a move
-			FiberFlag.set(new_fiber, FiberFlag.PLACEMENT)
+			new_fiber.flags:set(Flag.MOVE)
 			return last_placed_index
 		else
-			-- this is can stay in place
+			-- this can stay in place
 			return old_index
 		end
 	else
 		-- this is an insertion
-		FiberFlag.set(new_fiber, FiberFlag.PLACEMENT)
+		new_fiber.flags:set(Flag.PLACEMENT)
 		return last_placed_index
 	end
 end
@@ -704,7 +737,7 @@ function Reconciler:reconcile_single_text(returnf, current, content)
 		self:delete_remaining_children(returnf, current)
 		local fiber = FiberFactory.create_from_text(content)
 		fiber["return"] = returnf
-		FiberFlag.set(fiber, FiberFlag.PLACEMENT)
+		fiber.flags:set(Flag.PLACEMENT)
 		return fiber
 	end
 end
@@ -755,10 +788,14 @@ end
 ---@param current markup.Fiber
 ---@param wip markup.Fiber
 function Reconciler:complete_root_component(current, wip)
-	-- self:place_single_child(fiber)
-	-- if FiberFlag.check(wip, FiberFlag.DELETE) then
-	-- 	self:process_deletions(wip)
-	-- end
+	if wip.flags:check(Flag.PLACEMENT) then
+		self:populate_state_node(wip)
+		wip.flags:clear(Flag.PLACEMENT)
+	end
+end
+
+---@param wip markup.Fiber
+function Reconciler:populate_state_node(wip)
 	local curr, node = wip.state_node, wip.child
 	while node do
 		if not (node.tag == FiberTag.TEXT or node.tag == FiberTag.ELEMENT) then
@@ -792,7 +829,7 @@ end
 function Reconciler:complete_function_component(current, wip)
 	-- function component placemenet is handled
 	-- during `begin_work`
-	FiberFlag.clear(wip, FiberFlag.PLACEMENT)
+	wip.flags:clear(Flag.PLACEMENT)
 end
 
 ---@param current markup.Fiber
@@ -804,11 +841,11 @@ end
 ---@param current markup.Fiber
 ---@param wip markup.Fiber
 function Reconciler:complete_text_component(current, wip)
-	if FiberFlag.check(wip, FiberFlag.PLACEMENT) then
+	if wip.flags:check(Flag.PLACEMENT) then
 		self:place_single_child(wip)
 	end
 
-	if FiberFlag.check(wip, FiberFlag.UPDATE) then
+	if wip.flags:check(Flag.UPDATE) then
 		self:update_node_text(wip)
 	end
 end
@@ -816,43 +853,26 @@ end
 ---@param current markup.Fiber
 ---@param wip markup.Fiber
 function Reconciler:complete_element_component(current, wip)
-	if current and wip.state_node and current.memoized_props ~= wip.pending_props then
-		FiberFlag.set(wip, FiberFlag.UPDATE)
+	if wip.flags:check(Flag.UPDATE) then
+		wip.state_node:replace_props(wip.pending_props)
+		wip.flags:clear(Flag.UPDATE)
 	end
 
-	if FiberFlag.check(wip, FiberFlag.PLACEMENT) then
+	if wip.flags:check(Flag.PLACEMENT) then
 		self:place_single_child(wip)
+		self:populate_state_node(wip)
 	end
 
-	if FiberFlag.check(wip, FiberFlag.DELETE) then
+	if wip.flags:check(Flag.PLACEMENT_TEXT_CHILD) then
+		self:place_single_text_child(wip)
+	end
+
+	if wip.flags:check(Flag.UPDATE_TEXT_CHILD) then
+		self:update_single_text_child(wip)
+	end
+
+	if wip.flags:check(Flag.DELETE) then
 		self:process_deletions(wip)
-	end
-
-	local curr, node = wip.state_node, wip.child
-	while node do
-		if not (node.tag == FiberTag.TEXT or node.tag == FiberTag.ELEMENT) then
-			node.child["return"] = node
-			node = node.child
-		else
-			curr:append_child(node.state_node)
-
-			if node == wip then
-				break
-			end
-
-			while node.sibling == nil do
-				if not node["return"] or node["return"] == wip then
-					node = nil
-					break
-				end
-				node = node["return"]
-			end
-
-			if node then
-				node.sibling["return"] = node["return"]
-				node = node.sibling
-			end
-		end
 	end
 end
 

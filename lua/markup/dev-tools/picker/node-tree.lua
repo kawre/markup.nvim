@@ -22,7 +22,7 @@ return function(root)
 		if node.type == "element" then
 			xd = { " " .. node.tag_name, "DiagnosticHint" }
 		else
-			xd = { " " .. node.props }
+			xd = { "" .. node.text_content }
 		end
 
 		local entries = {
