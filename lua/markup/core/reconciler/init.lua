@@ -351,16 +351,12 @@ function Reconciler:create_child(returnf, child)
 	end
 
 	if child then
-		local el = child
-
-		-- This is a table, convert it to a Fragment
-		if not getmetatable(child) then
-			el = ElementFactory.create_fragment(child)
+		local el = self:prepare_element(child)
+		if el then
+			local fiber = FiberFactory.create_from_element(el)
+			fiber["return"] = returnf
+			return fiber
 		end
-
-		local fiber = FiberFactory.create_from_element(el)
-		fiber["return"] = returnf
-		return fiber
 	end
 
 	return nil
@@ -369,6 +365,34 @@ end
 ---@param content any
 function Reconciler:is_valid_text(content)
 	return (type(content) == "string" and content ~= "") or type(content) == "number"
+end
+
+function Reconciler:should_be_fragment(content)
+	return type(content) == "table" and not getmetatable(content) and not vim.tbl_isempty(content)
+end
+
+---@param element markup.Element
+function Reconciler:is_host_element(element)
+	if not getmetatable(element) then
+		return false
+	end ---@cast element markup.Element
+	return type(element.type) == "string"
+end
+
+---@param content any
+function Reconciler:is_valid_element(content)
+	if not getmetatable(content) then
+		return false
+	end ---@cast content markup.Element
+
+	if self:is_host_element(content) then
+		local children = content.props.children
+		if not children or (type(children) == "table" and vim.tbl_isempty(children)) then
+			return false
+		end
+	end
+
+	return true
 end
 
 ---@param returnf markup.Fiber
@@ -382,15 +406,14 @@ function Reconciler:update_slot(returnf, old_fiber, new_child)
 			return nil
 		end
 
-		---@diagnostic disable-next-line: param-type-mismatch
 		return self:update_text_node(returnf, old_fiber, new_child)
 	end
 
 	if new_child and new_child.key == key then
-		if not getmetatable(new_child) then -- handle fragments
-			new_child = ElementFactory.create_fragment(new_child)
+		local el = self:prepare_element(new_child)
+		if el then
+			return self:update_element_node(returnf, old_fiber, el)
 		end
-		return self:update_element_node(returnf, old_fiber, new_child)
 	end
 
 	return nil
@@ -448,8 +471,22 @@ function Reconciler:create_wip(current, props)
 	wip.hook = current.hook
 	wip.sibling = current.sibling
 	wip.index = current.index
+	wip.__id = current.__id
 
 	return wip
+end
+
+function Reconciler:prepare_element(element)
+	if not element then
+		return nil
+	end
+
+	local el = element
+	if self:should_be_fragment(el) then
+		el = ElementFactory.create_fragment(el)
+	end
+
+	return self:is_valid_element(el) and el
 end
 
 ---@param existing table<any, markup.Fiber>
@@ -458,13 +495,16 @@ end
 ---@param new_child markup.Element
 function Reconciler:update_from_map(existing, returnf, new_index, new_child)
 	if self:is_valid_text(new_child) then
-		-- local matched = existing[new_index]
-		-- return self:update_text_node(returnf, matched, new_child)
+		local matched = existing[new_index]
+		return self:update_text_node(returnf, matched, new_child)
 	end
 
-	if new_child.type then
-		-- local matched = existing[new_child.key or new_index]
-		-- return self:update_element_node(returnf, matched, new_child)
+	if new_child then
+		local el = self:prepare_element(new_child)
+		if el then
+			local matched = existing[el.key or new_index]
+			return self:update_element_node(returnf, matched, el)
+		end
 	end
 
 	return nil
@@ -472,7 +512,7 @@ end
 
 ---@param returnf markup.Fiber
 ---@param current? markup.Fiber
----@param content string
+---@param content any
 function Reconciler:update_text_node(returnf, current, content)
 	if current and current.tag == FiberTag.TEXT then
 		-- If the existing fiber is a text node, update it
@@ -572,11 +612,15 @@ function Reconciler:reconcile_children_list(returnf, current_first_child, new_ch
 	end
 
 	if new_index == #new_children + 1 then
+		-- all of the new fibers have been processed,
+		-- we can safely delete the remaining old fibers
 		self:delete_remaining_children(returnf, old_fiber)
 		return result_first_child
 	end
 
 	if not old_fiber then
+		-- we still have some new fibers to process no existing children,
+		-- so we can just insert them all
 		while new_index <= #new_children do
 			local new_fiber = self:create_child(returnf, new_children[new_index])
 
@@ -651,7 +695,7 @@ function Reconciler:reconcile_child_fibers(returnf, current_first_child, new_chi
 				return self:reconcile_children_list(returnf, current_first_child, new_child)
 			end
 		else -- should be element object
-			if not (type(new_child.type) == "string" and not new_child.props.children) then
+			if not (new_child.typeof == "element" and not new_child.props.children) then
 				return self:reconcile_single_element(returnf, current_first_child, new_child)
 			end
 		end

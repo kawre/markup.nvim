@@ -1,5 +1,15 @@
+local _type = type
+
+---@alias markup.Element.typeof
+---| "function"
+---| "class"
+---| "fragment"
+---| "element"
+---| "root"
+
 ---@class markup.Element
----@field type string
+---@field type string basically a tag name or a function/class
+---@field typeof markup.Element.typeof more specific type of the element
 ---@field props markup.Node.props
 ---@field ref? any
 ---@field key? any
@@ -7,15 +17,39 @@
 local Element = {}
 Element.__index = Element
 
-function Element:new(type, props)
-	local instance = setmetatable({
-		type = type,
-		props = props,
-		ref = nil,
-		key = nil,
-	}, self)
+---@return markup.Element.typeof
+local function typeof_from_type(type)
+	if _type(type) == "function" then
+		return "function"
+	elseif _type(type) == "string" then
+		if type == "fragment" then
+			return "fragment"
+		elseif type == "root" then
+			return "root"
+		else
+			return "element"
+		end
+	elseif _type(type) == "table" and getmetatable(type) then
+		return "class"
+	end
 
-	return instance
+	error("Invalid type: " .. tostring(type))
+end
+
+function Element:new(type, props)
+	self = setmetatable({}, Element)
+
+	self.type = type
+	self.typeof = typeof_from_type(type)
+	self.props = props
+	self.ref = nil
+
+	if props.key then
+		self.key = props.key
+		props.key = nil
+	end
+
+	return self
 end
 
 return Element

@@ -6,9 +6,8 @@ local Reconciler = require("markup.core.reconciler")
 local new_set = MiniTest.new_set
 local expect, eq = MiniTest.expect, MiniTest.expect.equality
 local Factory = require("markup.core.factory.fiber")
-local RendererFactory = require("markup.core.factory.renderer")
 local fiber_tree = require("markup.dev-tools.picker.fiber-tree")
-local log = require("markup.logger")
+_Markup.is_dev = false
 
 local function mock_renderer(el)
 	local renderer = {
@@ -21,33 +20,6 @@ local function mock_renderer(el)
 	}
 	return renderer
 end
-
-local function mock_reconcile(el)
-	local renderer = mock_renderer(el)
-	local reconciler = Reconciler(renderer)
-	reconciler:reconcile()
-	return renderer.root.current
-end
-
----@return markup.Reconciler
-local function mock_reconciler(el)
-	local renderer = mock_renderer(el)
-	local reconciler = Reconciler(renderer)
-	return reconciler
-end
-
--- Assert fiber properties
--- local function assert_fiber(fiber, expected, message_prefix)
--- 	message_prefix = message_prefix or "Fiber property"
--- 	for key, value in pairs(expected) do
--- 		MiniTest.expect.equality(fiber[key], value, message_prefix .. " " .. key .. " mismatch")
--- 	end
--- end
-local assert_fiber = MiniTest.new_expectation("fiber", function(f)
-	--
-end, function()
-	--
-end)
 
 local T = new_set()
 
@@ -123,6 +95,82 @@ T["structure"] = new_set({
 			"text",
 			"removes raw empty values like `nil` and `false`",
 		},
+		{
+			{
+				markup.inline(5),
+				markup.inline(),
+				markup.inline(6),
+			},
+			{},
+			"handles empty elements",
+		},
+		{
+			{
+				markup.inline(5),
+			},
+			{
+				markup.inline(5),
+				{},
+			},
+			"skips empty fragments",
+		},
+		{
+			{
+				markup.inline({ "A", key = "A" }),
+				"123",
+				markup.inline({ "B", key = "B" }),
+				markup.inline({ "C", key = "C" }),
+			},
+			{
+				markup.inline({ "B", key = "B" }),
+				markup.inline({ "A", key = "A" }),
+				"123",
+				markup.inline({ "C", key = "C" }),
+			},
+			"uses keys to reorder elements",
+		},
+		{
+			{
+				markup.inline(),
+				markup.inline(5),
+				markup.inline(),
+				markup.inline(5),
+				markup.inline(),
+			},
+			{
+				markup.inline(),
+				markup.inline(5),
+				markup.inline(),
+				markup.inline(5),
+				markup.inline(),
+				"test",
+				markup.block("block"),
+				{
+					markup.block("block"),
+				},
+				markup.block("block"),
+			},
+			"keeps the not valid elements hidden after re-render",
+		},
+		{
+			{
+				markup.inline(5),
+				markup.inline(),
+				"test",
+				markup.block("block"),
+			},
+			{
+				markup.inline(5),
+				markup.inline(),
+				"test",
+				markup.block("block"),
+				{
+					markup.block("block"),
+				},
+				markup.block("block"),
+			},
+			"table within table",
+		},
 	},
 })
 
@@ -161,5 +209,12 @@ T["structure"]["works"] = function(before, after, name)
 		renderer.root.current.child.flags:set(2)
 	end
 end
+
+-- T["re-use fiber"] = new_set()
+
+-- T["re-use fiber"]["works"] = function()
+-- 	-- local frame1 =
+-- 	print("123")
+-- end
 
 return T

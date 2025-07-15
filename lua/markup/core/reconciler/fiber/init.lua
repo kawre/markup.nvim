@@ -28,6 +28,22 @@ local FiberFlags = require("markup.core.reconciler.fiber.flags")
 ---@field deletions? markup.Fiber[]
 local Fiber = {}
 
+math.randomseed(os.time())
+local id_cache = {}
+
+local function short_id()
+	local n = vim.loop.hrtime() + math.random(1e5, 1e6 - 1)
+	local id = ("%x"):format(n % 0xFFFFFFF)
+
+	if id_cache[id] then
+		return short_id()
+	else
+		id_cache[id] = true
+	end
+
+	return id
+end
+
 ---@param tag markup.Fiber.tag
 ---@param props? table
 ---@param key? any
@@ -39,6 +55,10 @@ function Fiber:new(tag, props, key)
 	self.tag = tag
 	self.flags = FiberFlags:new()
 	self.index = 1
+
+	if _Markup.is_dev then
+		self.__id = short_id()
+	end
 
 	return self
 end

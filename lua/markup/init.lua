@@ -1,7 +1,7 @@
 local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 local lookup = require("markup.lookup")
 
-_Markup = { renderers = {} }
+_Markup = { renderers = {}, is_dev = false }
 
 ---@class markup
 ---@field inline markup.factory.Element.constructor
@@ -30,6 +30,7 @@ function markup.setup(opts)
 	local config = require("markup.config")
 	config.user = vim.tbl_deep_extend("force", config, opts)
 	config.debug = opts.debug or config.debug
+	_Markup.is_dev = config.user.dev
 end
 
 require("markup-playground").setup()

@@ -1,0 +1,8 @@
+ fiber root (root)
+├╴󰊕 Component (function)
+│ ├╴ inline  5 (element)
+│ ├╴ test (text)
+│ ├╴ block  block (element)
+│ ├╴ fragment (fragment)
+│ │ └╴ block  block (element)
+│ └╴ block  block (element)

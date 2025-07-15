@@ -15,9 +15,9 @@ return function(root)
 		depth = depth or 0
 		prefix = prefix or ""
 
-		local type_str = fiber.tag == FiberTag.ROOT and "ROOT"
-			or fiber.tag == FiberTag.TEXT and "'" .. fiber.pending_props .. "'"
-			or fiber.type
+		-- local type_str = fiber.tag == FiberTag.ROOT and "ROOT"
+		-- 	or fiber.tag == FiberTag.TEXT and "'" .. fiber.state_node.text_content .. "'"
+		-- 	or fiber.type
 
 		local mark = (fiber.child or fiber.sibling) and "├╴" or "└╴"
 		local indent_marker = prefix .. (depth > 0 and mark or "")
@@ -31,15 +31,16 @@ return function(root)
 		elseif fiber.tag == FiberTag.ROOT then
 			xd = { { " fiber root", "Error" } }
 		elseif fiber.tag == FiberTag.TEXT then
-			xd = { { " " .. fiber.pending_props } }
+			xd = { { " " .. fiber.state_node.text_content } }
 		elseif fiber.tag == FiberTag.FUNCTION then
 			xd = { { "󰊕 " .. tostring("Component"), "Label" } }
 		else
 			xd = { { " " .. tostring(fiber.type), "DiagnosticHint" } }
 
+			local children = fiber.memoized_props.children
 			if
-				type(fiber.pending_props.children) == "string"
-				or type(fiber.pending_props.children) == "number"
+				1
+				and ((type(children) == "string" and children ~= "") or type(children) == "number")
 			then
 				table.insert(xd, 1, { "  " .. tostring(fiber.pending_props.children) })
 			end
@@ -48,10 +49,15 @@ return function(root)
 		local entries = {
 			{ indent_marker, "SignColumn" },
 			{ " " },
+			{ fiber.key and ("(key = %s) "):format(fiber.key) or "", "Statement" },
 			{ ("(%s)"):format(fiber.tag), "Conceal" },
 		}
 		for _, value in ipairs(xd) do
 			table.insert(entries, 2, value)
+		end
+		if _Markup.is_dev then
+			table.insert(entries, { " " })
+			table.insert(entries, { ("  %s "):format(fiber.__id), "LspInlayHint" })
 		end
 		table.insert(
 			lines2,
