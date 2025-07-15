@@ -27,6 +27,14 @@ M.Class = ElementFactory.create_class
 M.Fragment = ElementFactory.create_fragment
 
 -----------------------------------------------
+-- Utility Functions
+-----------------------------------------------
+
+M.For = function(items, fn)
+	return vim.tbl_map(fn, items)
+end
+
+-----------------------------------------------
 -- Hooks
 -----------------------------------------------
 

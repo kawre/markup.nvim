@@ -2,6 +2,7 @@ local Tag = require("markup.core.reconciler.enum").Tag
 local Flag = require("markup.core.reconciler.enum").Flag
 local NodeFactory = require("markup.core.factory.node")
 local Fiber = require("markup.core.reconciler.fiber.init")
+local typeof = type
 
 ---@class markup.factory.Fiber
 local M = {}
@@ -22,20 +23,22 @@ function M.create_from_element(element)
 	return M.create_from_type_and_props(element.type, element.props, element.key)
 end
 
-function M.create_from_type_and_props(_type, props, key)
-	local resolved_type = _type
+function M.create_from_type_and_props(type, props, key)
+	local resolved_type = type
 
-	local tag
-	if _type == Tag.FRAGMENT then
+	-- default to element type
+	local tag = Tag.ELEMENT
+
+	if type == Tag.FRAGMENT then
 		tag = Tag.FRAGMENT
-	elseif type(_type) == "string" then
-		tag = Tag.ELEMENT
-	elseif type(_type) == "function" then
+	elseif typeof(type) == "function" then
 		tag = Tag.FUNCTION
+	elseif typeof(type) == "table" and not getmetatable(type) then
+		tag = Tag.FRAGMENT
 	end
 
 	local fiber = M.create(tag, props, key)
-	fiber.element_type = _type
+	fiber.element_type = type
 	fiber.type = resolved_type
 	return fiber
 end

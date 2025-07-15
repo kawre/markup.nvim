@@ -6,7 +6,7 @@ local M = {}
 local function normalize_props(props, style)
 	if not props then
 		return {}
-	elseif type(props) ~= "table" or Element.is_instance(props) then
+	elseif type(props) ~= "table" or getmetatable(props) then
 		return { children = props }
 	end
 
@@ -15,22 +15,16 @@ local function normalize_props(props, style)
 
 		for key, value in pairs(props) do
 			if type(key) == "number" then
-				if value then
-					if not new_props.children then
-						new_props.children = {}
-					end
-					table.insert(new_props.children, value)
+				if not new_props.children then
+					new_props.children = {}
 				end
+				table.insert(new_props.children, value)
 			else
 				new_props[key] = value
 			end
 		end
 
 		props = new_props
-	elseif type(props.children) == "table" and not Element.is_instance(props.children) then
-		props.children = vim.tbl_filter(function(child)
-			return not (child == nil or child == false)
-		end, props.children)
 	end
 
 	if type(props.children) == "table" and #props.children == 1 then

@@ -48,11 +48,10 @@ local ns = vim.api.nvim_create_namespace("markup_renderer")
 
 ---@param element markup.Element|markup.Element[]
 function Renderer:render(element)
-	_MTEMP = {}
 	self._meta = { render_count = 0, renders = {} }
 
 	self.root = RendererFactory.create_root(self, element)
-	self.reconciler = markup.Reconciler(self)
+	self.reconciler = markup.Reconciler()
 	self.render_tree = RenderNodeFactory.create_root(self)
 
 	self:rerender()
@@ -60,31 +59,48 @@ end
 
 function Renderer:rerender()
 	vim.api.nvim_buf_clear_namespace(self.bufnr, ns, 0, -1)
-	-- u.measure_time("--- re-render", function()
-	-- 	self.reconciler:reconcile()
-	-- end)
-	self.reconciler:reconcile()
+	self.reconciler:reconcile(self.root)
 	self.render_tree:build()
+	_MTEMP = {}
 	for _, child in ipairs(self.render_tree.children) do
 		child:layout()
 	end
 
-	local xd = {}
-	local line = (" "):rep(self.render_tree.width)
-	for i = 1, self.render_tree.height do
-		table.insert(xd, line)
-	end
-	vim.api.nvim_buf_set_lines(self.bufnr, 0, -1, false, xd)
+	local width = self.render_tree.width
+	local height = self.render_tree.height
+	local grid = {}
 
-	---@param box markup.Render.Node
-	for _, box in ipairs(_MTEMP) do
-		vim.api.nvim_buf_set_extmark(self.bufnr, ns, box.y, box.x, {
-			virt_text = { { tostring(box.node.text_content) } },
-			end_col = box.x + box.width,
-			virt_text_win_col = box.x,
-			strict = false,
-		})
-	end
+	self:_render_fiber_tree()
+	-- -- fill grid with spaces
+	-- local empty = " "
+	-- for y = 1, height do
+	-- 	grid[y] = {}
+	-- 	for x = 1, width do
+	-- 		grid[y][x] = empty
+	-- 	end
+	-- end
+	--
+	-- ---@param box markup.Render.Node
+	-- for _, box in ipairs(_MTEMP) do
+	-- 	local x, y, word = box.x + 1, box.y + 1, tostring(box.node.text_content)
+	-- 	for i = 1, #word do
+	-- 		if not grid[y] then
+	-- 			grid[y] = {}
+	-- 			for k = 1, width do
+	-- 				grid[y][k] = empty
+	-- 			end
+	-- 		end
+	-- 		grid[y][x + i - 1] = word:sub(i, i)
+	-- 	end
+	-- end
+	--
+	-- local lines = {}
+	-- for y = 1, height do
+	-- 	lines[y] = table.concat(grid[y])
+	-- end
+	--
+	-- vim.api.nvim_buf_set_lines(self.bufnr, 0, -1, false, lines)
+
 	-- self.render_tree:layout()
 	-- self.render_tree.view:layout()
 	-- log.info(self.root)
@@ -92,6 +108,32 @@ function Renderer:rerender()
 	-- self:commit()
 
 	self:update_meta()
+end
+
+function Renderer:_render_fiber_tree()
+	local items = DevToolsFiberTreePicker(self.root.current)
+	local lines = vim.tbl_map(function(i)
+		return i.item.entry
+	end, items)
+
+	local width = self.render_tree.width
+	local height = self.render_tree.height
+	local _lines = {}
+	for i = 1, height do
+		_lines[i] = (" "):rep(width)
+	end
+	vim.api.nvim_buf_set_lines(self.bufnr, 0, -1, false, _lines)
+
+	for i, line in ipairs(lines) do
+		local x = 0
+		for _, chunk in ipairs(line) do
+			vim.api.nvim_buf_set_extmark(self.bufnr, ns, i - 1, x, {
+				virt_text = { chunk },
+				virt_text_pos = "overlay",
+			})
+			x = x + vim.api.nvim_strwidth(chunk[1])
+		end
+	end
 end
 
 function Renderer:update_meta()

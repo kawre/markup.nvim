@@ -12,6 +12,7 @@ _Markup = { renderers = {} }
 ---@field Component fun(...)
 ---@field Class { render: fun(...) }
 ---@field Fragment markup.factory.Element.Fragment.constructor
+---@field For fun(items, fn): table
 ---@field variable markup.use_state
 ---@field Window any
 ---@field Renderer any

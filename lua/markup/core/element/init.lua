@@ -18,8 +18,4 @@ function Element:new(type, props)
 	return instance
 end
 
-function Element.is_instance(tbl)
-	return getmetatable(tbl) == Element
-end
-
 return Element

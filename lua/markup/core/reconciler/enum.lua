@@ -30,8 +30,6 @@ enum.Flag = {
 	-- should be removed from the render tree
 	DELETE = 4,
 	MOVE = 8,
-	PLACEMENT_TEXT_CHILD = 16,
-	UPDATE_TEXT_CHILD = 32,
 }
 
 return enum

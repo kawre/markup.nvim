@@ -3,8 +3,8 @@ local FiberFlag = require("markup.core.reconciler.enum").Flag
 
 ---@param root markup.Fiber
 return function(root)
-	local picker = require("snacks.picker")
 	local lines = {}
+	local lines2 = {}
 
 	---@param fiber markup.Fiber
 	local function print_fiber_tree(fiber, depth, prefix)
@@ -27,25 +27,38 @@ return function(root)
 		-- 	or " "
 		local xd
 		if fiber.tag == FiberTag.FRAGMENT then
-			xd = { " " .. fiber.type, "Number" }
+			xd = { { " " .. fiber.type, "Number" } }
 		elseif fiber.tag == FiberTag.ROOT then
-			xd = { " fiber root", "Error" }
+			xd = { { " fiber root", "Error" } }
 		elseif fiber.tag == FiberTag.TEXT then
-			xd = { " " .. fiber.pending_props }
+			xd = { { " " .. fiber.pending_props } }
 		elseif fiber.tag == FiberTag.FUNCTION then
-			xd = { "󰊕 " .. tostring(fiber.type), "Label" }
+			xd = { { "󰊕 " .. tostring("Component"), "Label" } }
 		else
-			xd = { " " .. tostring(fiber.type), "DiagnosticHint" }
+			xd = { { " " .. tostring(fiber.type), "DiagnosticHint" } }
+
+			if
+				type(fiber.pending_props.children) == "string"
+				or type(fiber.pending_props.children) == "number"
+			then
+				table.insert(xd, 1, { "  " .. tostring(fiber.pending_props.children) })
+			end
 		end
 
 		local entries = {
 			{ indent_marker, "SignColumn" },
-			-- { icon, fiber.state_node and "DiagnosticHint" or "Error" },
-			-- { tostring(type_str) },
-			xd,
 			{ " " },
 			{ ("(%s)"):format(fiber.tag), "Conceal" },
 		}
+		for _, value in ipairs(xd) do
+			table.insert(entries, 2, value)
+		end
+		table.insert(
+			lines2,
+			table.concat(vim.tbl_map(function(v)
+				return v[1]
+			end, entries))
+		)
 		local text_mapped = vim.tbl_map(function(e)
 			return e[1]
 		end, entries)
@@ -73,5 +86,5 @@ return function(root)
 
 	print_fiber_tree(root, 0, "")
 
-	return lines
+	return lines, lines2
 end
