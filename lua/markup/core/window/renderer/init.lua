@@ -60,6 +60,7 @@ end
 function Renderer:rerender()
 	vim.api.nvim_buf_clear_namespace(self.bufnr, ns, 0, -1)
 	self.reconciler:reconcile(self.root)
+	self.reconciler:commit(self.root.current)
 	self.render_tree:build()
 	_MTEMP = {}
 	for _, child in ipairs(self.render_tree.children) do

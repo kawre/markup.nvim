@@ -27,6 +27,7 @@ local u = require("markup.utils")
 ---@field sibling? markup.Fiber
 ---@field index integer
 ---@field deletions? markup.Fiber[]
+---@field hostf markup.Fiber
 local Fiber = {}
 
 ---@param tag markup.Fiber.tag
