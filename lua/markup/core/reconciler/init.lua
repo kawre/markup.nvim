@@ -56,7 +56,7 @@ function Reconciler:reconcile(root)
 	self:work_loop(root)
 	Reconciler.static.currently_working_reconciler = nil
 
-	-- self:commit(root.current)
+	self:commit(root.current)
 end
 
 ---@param root markup.Renderer.Root
@@ -208,6 +208,7 @@ function Reconciler:process_deletions(fiber)
 		end
 	end
 	fiber.deletions = nil
+	fiber.flags:clear(Flag.CHILD_DELETE)
 end
 
 ---@param wip markup.Fiber
@@ -366,7 +367,7 @@ function Reconciler:render_with_hooks(current, wip)
 	wip.memoized_state = wip.hook
 	wip.hook = nil
 
-	-- wip.flags:clear(Flag.UPDATE)
+	wip.flags:clear(Flag.UPDATE)
 
 	return children
 end
@@ -611,7 +612,7 @@ end
 function Reconciler:reconcile_children_list(returnf, current_first_child, new_children)
 	local new_index, last_placed_index = 1, 1
 
-	new_children = vim.tbl_filter(function(i)
+	new_children = vim.tbl_filter(function(i) -- TODO this should be done in the while loop
 		return i and i -- filter `false` and `nil` out
 	end, new_children)
 
@@ -684,13 +685,17 @@ function Reconciler:reconcile_children_list(returnf, current_first_child, new_ch
 		return result_first_child
 	end
 
-	local existing_children = self:map_remaining_children(returnf, old_fiber)
+	local existing_children = self:map_remaining_children(old_fiber)
 
 	while new_index <= #new_children do
 		local new_fiber =
 			self:update_from_map(existing_children, returnf, new_index, new_children[new_index])
 
 		if new_fiber then
+			if new_fiber.alternate then
+				existing_children[new_fiber.key and new_fiber.key or new_index] = nil
+			end
+
 			last_placed_index = self:place_child(new_fiber, last_placed_index, new_index)
 
 			if prev_new_fiber then
@@ -703,6 +708,11 @@ function Reconciler:reconcile_children_list(returnf, current_first_child, new_ch
 		end
 
 		new_index = new_index + 1
+	end
+
+	for _, child in pairs(existing_children) do
+		-- delete the remaining children that are not in the new children list
+		self:delete_child(returnf, child)
 	end
 
 	return result_first_child
@@ -750,10 +760,9 @@ function Reconciler:reconcile_child_fibers(returnf, current_first_child, new_chi
 	return self:delete_remaining_children(returnf, current_first_child)
 end
 
----@param returnf markup.Fiber
 ---@param current_first_child? markup.Fiber
 ---@return table<any, markup.Fiber>
-function Reconciler:map_remaining_children(returnf, current_first_child)
+function Reconciler:map_remaining_children(current_first_child)
 	local existing = {}
 
 	local child = current_first_child
@@ -779,7 +788,7 @@ function Reconciler:place_child(new_fiber, last_placed_index, new_index)
 	if current then
 		local old_index = current.index
 		if old_index < last_placed_index then
-			-- this is a move
+			-- TODO this is a move
 			new_fiber.flags:set(Flag.PLACEMENT)
 			return last_placed_index
 		else
@@ -947,6 +956,7 @@ function Reconciler:complete_function_component(current, wip)
 	-- function component placemenet is handled
 	-- during `begin_work`
 	wip.flags:clear(Flag.PLACEMENT)
+	wip.flags:clear(Flag.UPDATE)
 
 	-- if wip.flags:check(Flag.CHILD_DELETE) then
 	-- 	self:process_deletions(wip)
@@ -1017,6 +1027,12 @@ function Reconciler:traverse_and_commit(hostf, finishedf)
 		if finishedf.flags:check(Flag.PLACEMENT) then
 			self:commit_placement(finishedf, hostf)
 		end
+
+		if finishedf.flags:check(Flag.UPDATE) then
+			self:commit_update(finishedf, hostf)
+		end
+	else
+		finishedf.flags:reset()
 	end
 
 	local child = finishedf.child
@@ -1025,6 +1041,11 @@ function Reconciler:traverse_and_commit(hostf, finishedf)
 		self:traverse_and_commit(hostf, child)
 		child = child.sibling
 	end
+
+	assertor.bug(
+		finishedf.flags:check(Flag.NONE),
+		"Fiber flags must be `NONE` after commit: " .. tostring(finishedf.flags)
+	)
 end
 
 ---@param fiber markup.Fiber
@@ -1095,6 +1116,29 @@ function Reconciler:commit_placement(finishedf, parentf)
 	else
 		parent_node:append_child(finishedf.state_node)
 	end
+
+	finishedf.flags:clear(Flag.PLACEMENT)
+end
+
+---@param finishedf markup.Fiber
+---@param parentf markup.Fiber
+function Reconciler:commit_update(finishedf, parentf)
+	assert(parentf, "`parentf` must exist for placement")
+
+	if finishedf.tag == "element" then
+		if self:is_valid_text(finishedf.pending_props.children) then
+			-- handle single text child elements
+			if self:is_valid_text(finishedf.alternate.memoized_props.children) then
+				self:update_single_text_child(finishedf)
+			else
+				self:place_single_text_child(finishedf)
+			end
+		else
+			finishedf.state_node:replace_props(finishedf.pending_props)
+		end
+	end
+
+	finishedf.flags:clear(Flag.UPDATE)
 end
 
 function Reconciler:schedule_render()

@@ -1,7 +1,6 @@
 local log = require("markup.logger") ---@diagnostic disable-line: unused-local
-local _type = type
 local u = require("markup.utils")
-local NodeFactory = require("markup.core.factory.node")
+local _type = type
 
 ---@alias markup.Node.type "element" | "text"
 
@@ -100,10 +99,24 @@ function Node:has_child_nodes()
 	return #self.child_nodes > 0
 end
 
+---@private
+---@param child markup.Node
+function Node:_insert(child, pos)
+	if child.parent then
+		child.parent:remove_child(child)
+	end
+
+	if pos then
+		table.insert(self.child_nodes, pos, child)
+	else
+		table.insert(self.child_nodes, child)
+	end
+	child.parent = self
+end
+
 ---@param child markup.Node
 function Node:append_child(child)
-	child.parent = self
-	table.insert(self.child_nodes, child)
+	self:_insert(child)
 end
 
 ---@param child markup.Node
@@ -115,14 +128,13 @@ function Node:insert_before(child)
 			break
 		end
 	end
-	child.parent = self.parent
-	table.insert(self.parent.child_nodes, index, child)
+
+	self.parent:_insert(child, index)
 end
 
 ---@param child markup.Node
 function Node:prepend_child(child)
-	child.parent = self
-	table.insert(self.child_nodes, 1, child)
+	self:_insert(child, 1)
 end
 
 ---@param child markup.Node

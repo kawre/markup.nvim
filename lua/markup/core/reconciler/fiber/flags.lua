@@ -28,4 +28,18 @@ function FiberFlags:check(...)
 	return self.flags == ... or bit.band(self.flags, ...) ~= 0 ---@diagnostic disable-line: param-type-mismatch
 end
 
+function FiberFlags:reset()
+	self.flags = Flag.NONE
+end
+
+function FiberFlags:__tostring()
+	local flags = {}
+	for name, flag in pairs(Flag) do
+		if self:check(flag) then
+			table.insert(flags, name)
+		end
+	end
+	return "FiberFlags(" .. table.concat(flags, ", ") .. ")"
+end
+
 return FiberFlags

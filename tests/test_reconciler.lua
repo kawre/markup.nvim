@@ -38,7 +38,6 @@ local function mock_renderer()
 	renderer.frame = function(element)
 		frame = element
 		reconciler:reconcile(renderer.root)
-		reconciler:commit(renderer.root.current)
 		renderer.root.current.child.flags:set(2)
 	end
 
