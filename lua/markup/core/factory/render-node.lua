@@ -2,23 +2,23 @@
 
 local M = {}
 
+local strategies = {
+	["flex"] = require("markup.core.render.node.layout.flex"),
+	["block"] = require("markup.core.render.node.layout.block"),
+	["root"] = require("markup.core.render.node.layout.block"),
+	["inline"] = require("markup.core.render.node.layout.inline"),
+	["text"] = require("markup.core.render.node.layout.text"),
+}
+
 ---@param node markup.Node
 ---@return markup.Render.Node
 function M.create(node)
 	local RenderNode = require("markup.core.render.node")
 	-- local layout_type = type(node.props) == "table" and node.props.layout or "text"
 	local layout_type = node.type == "text" and "text" or node.tag_name
-	local layout_strategy
+	local layout_strategy = strategies[layout_type]
 
-	if layout_type == "flex" then
-		layout_strategy = require("markup.core.render.node.layout.flex")
-	elseif layout_type == "block" or layout_type == "root" then
-		layout_strategy = require("markup.core.render.node.layout.block")
-	elseif layout_type == "inline" then
-		layout_strategy = require("markup.core.render.node.layout.inline")
-	elseif layout_type == "text" then
-		layout_strategy = require("markup.core.render.node.layout.text")
-	else
+	if not layout_strategy then
 		error("Unknown layout type: " .. tostring(layout_type))
 	end
 

@@ -107,6 +107,19 @@ function Node:append_child(child)
 end
 
 ---@param child markup.Node
+function Node:insert_before(child)
+	local index = 1
+	for i, node in ipairs(self.parent.child_nodes) do
+		if node == self then
+			index = i
+			break
+		end
+	end
+	child.parent = self.parent
+	table.insert(self.parent.child_nodes, index, child)
+end
+
+---@param child markup.Node
 function Node:prepend_child(child)
 	child.parent = self
 	table.insert(self.child_nodes, 1, child)
@@ -139,6 +152,7 @@ end
 function Node:destroy()
 	assert(self.parent, "Cannot destroy a node without a parent")
 	self.parent:remove_child(self)
+	self = nil
 end
 
 ---@param type markup.Node.type

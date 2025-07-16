@@ -1,6 +1,12 @@
 ---@module 'mini.test'
 ---@module 'markup'
 
+for name, _ in pairs(package.loaded) do
+	if name:match("^markup") then
+		package.loaded[name] = nil
+	end
+end
+
 local markup = require("markup")
 local Reconciler = require("markup.core.reconciler")
 local new_set = MiniTest.new_set
@@ -9,17 +15,33 @@ local Factory = require("markup.core.factory.fiber")
 local fiber_tree = require("markup.dev-tools.picker.fiber-tree")
 local node_tree = require("markup.dev-tools.picker.node-tree")
 local log = require("markup.logger")
+local child = MiniTest.new_child_neovim()
 _Markup.is_dev = false
 
-local function mock_renderer(el)
-	local renderer = {
-		rerender = function() end,
-		render = function() end,
-	}
+local function mock_renderer()
+	local renderer = {}
+
+	local frame
+	local App = markup.Component(function()
+		return frame
+	end)
+
+	renderer.render = function() end
+	renderer.rerender = function() end
 	renderer.root = {
 		owner = renderer,
-		current = Factory.create_root(el),
+		current = Factory.create_root(App()),
 	}
+
+	local reconciler = Reconciler()
+
+	renderer.frame = function(element)
+		frame = element
+		reconciler:reconcile(renderer.root)
+		reconciler:commit(renderer.root.current)
+		renderer.root.current.child.flags:set(2)
+	end
+
 	return renderer
 end
 
@@ -202,24 +224,19 @@ local function expect_fiber_tree(renderer, name, index)
 end
 
 T["structure"]["works"] = function(before, after, name)
-	local reconciler = Reconciler()
-	local renderer
 	before = before ~= vim.NIL and before
 	after = after ~= vim.NIL and after
 
-	local render_index = 0
-	local App = markup.Component(function()
-		render_index = render_index + 1
+	local renderer = mock_renderer()
 
-		return render_index % 2 == 1 and after or before
-	end)
+	renderer.frame(after)
+	expect_fiber_tree(renderer, name, 1)
 
-	renderer = mock_renderer(App())
-	for i = 1, 3 do
-		reconciler:reconcile(renderer.root)
-		expect_fiber_tree(renderer, name, i)
-		renderer.root.current.child.flags:set(2)
-	end
+	renderer.frame(before)
+	expect_fiber_tree(renderer, name, 2)
+
+	renderer.frame(after)
+	expect_fiber_tree(renderer, name, 3)
 end
 
 T["node tree"] = new_set({
@@ -253,25 +270,19 @@ local function expect_node_tree(renderer, name, index)
 end
 
 T["node tree"]["works"] = function(before, after, name)
-	local reconciler = Reconciler()
-	local renderer
 	before = before ~= vim.NIL and before
 	after = after ~= vim.NIL and after
 
-	local render_index = 0
-	local App = markup.Component(function()
-		render_index = render_index + 1
+	local renderer = mock_renderer()
 
-		-- log.info(render_index % 2 == 0 and after or before)
-		return render_index % 2 == 0 and after or before
-	end)
+	renderer.frame(before)
+	expect_node_tree(renderer, name, 1)
 
-	renderer = mock_renderer(App())
-	for i = 1, 3 do
-		reconciler:reconcile(renderer.root)
-		expect_node_tree(renderer, name, i)
-		renderer.root.current.child.flags:set(2)
-	end
+	renderer.frame(after)
+	expect_node_tree(renderer, name, 2)
+
+	renderer.frame(before)
+	expect_node_tree(renderer, name, 3)
 end
 
 return T

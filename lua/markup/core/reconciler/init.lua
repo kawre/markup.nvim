@@ -55,6 +55,8 @@ function Reconciler:reconcile(root)
 	Reconciler.static.currently_working_reconciler = self
 	self:work_loop(root)
 	Reconciler.static.currently_working_reconciler = nil
+
+	-- self:commit(root.current)
 end
 
 ---@param root markup.Renderer.Root
@@ -159,7 +161,7 @@ function Reconciler:complete_unit(unit)
 	else
 		error(("Invalid Fiber tag: %s"):format(wip.tag))
 	end
-	-- complete_work(self, current, wip)
+	complete_work(self, current, wip)
 
 	Stack.push(self.work_stack, unit.sibling)
 	-- assertor.bug(unit.flags:check(Flag.NONE), "Fiber flags must be `NONE` after completion")
@@ -178,51 +180,45 @@ function Reconciler:find_element_ancestor(fiber)
 	return parent
 end
 
----@param fiber markup.Fiber
-function Reconciler:traverse_deletions(fiber)
-	local bfs = Stack.new()
-	Stack.push(bfs, fiber)
-
-	while bfs.len > 0 do
-		local node = Stack.pop(bfs)
-
-		if node.state_node then
-			node.state_node:destroy()
-		else
-			local child = node.child
-			while child do
-				Stack.push(bfs, child)
-				child = child.sibling
-			end
-		end
-	end
-end
+-- ---@param fiber markup.Fiber
+-- function Reconciler:traverse_deletion(fiber)
+-- 	local bfs = Stack.new()
+-- 	Stack.push(bfs, fiber)
+--
+-- 	while bfs.len > 0 do
+-- 		local node = Stack.pop(bfs)
+--
+-- 		if node.state_node then
+-- 			node.state_node:destroy()
+-- 		else
+-- 			local child = node.child
+-- 			while child do
+-- 				Stack.push(bfs, child)
+-- 				child = child.sibling
+-- 			end
+-- 		end
+-- 	end
+-- end
 
 ---@param fiber markup.Fiber
 function Reconciler:process_deletions(fiber)
-	if not fiber.deletions then
-		return
-	end
-	assertor.bug(fiber.deletions, "`fiber.deletions` must exist for processing deletions")
-
 	for _, deletion in ipairs(fiber.deletions) do
-		self:traverse_deletions(deletion)
+		if deletion.state_node then
+			deletion.state_node:destroy()
+		end
 	end
-
 	fiber.deletions = nil
-	fiber.flags:clear(Flag.CHILD_DELETE)
 end
 
 ---@param wip markup.Fiber
 function Reconciler:place_single_node(wip)
 	wip.state_node = NodeFactory.create_from_fiber(wip)
 
-	if self:is_valid_text(wip.pending_props.children) then
+	if type(wip.pending_props) == "table" and self:is_valid_text(wip.pending_props.children) then
+		-- handle single text child elements
 		self:place_single_text_child(wip)
 	end
-
-	wip.hostf.state_node:append_child(wip.state_node)
-	wip.flags:clear(Flag.PLACEMENT)
+	wip.flags:set(Flag.PLACEMENT)
 end
 
 ---@param wip markup.Fiber
@@ -230,18 +226,22 @@ function Reconciler:update_single_node(wip)
 	local current = wip.alternate
 	assert(current, "`current` must exist for updating a single node")
 
-	if self:is_valid_text(wip.pending_props.children) then
-		-- handle single text child elements
-		if self:is_valid_text(current.memoized_props.children) then
-			self:update_single_text_child(wip)
-		else
-			self:place_single_text_child(wip)
-		end
-	else
-		wip.state_node:replace_props(wip.pending_props)
+	if current.memoized_props ~= wip.pending_props then
+		wip.flags:set(Flag.UPDATE)
 	end
 
-	wip.flags:clear(Flag.UPDATE)
+	-- if self:is_valid_text(wip.pending_props.children) then
+	-- 	-- handle single text child elements
+	-- 	if self:is_valid_text(current.memoized_props.children) then
+	-- 		self:update_single_text_child(wip)
+	-- 	else
+	-- 		self:place_single_text_child(wip)
+	-- 	end
+	-- else
+	-- 	wip.state_node:replace_props(wip.pending_props)
+	-- end
+	--
+	-- wip.flags:clear(Flag.UPDATE)
 end
 
 ---@param fiber markup.Fiber
@@ -366,7 +366,7 @@ function Reconciler:render_with_hooks(current, wip)
 	wip.memoized_state = wip.hook
 	wip.hook = nil
 
-	wip.flags:clear(Flag.UPDATE)
+	-- wip.flags:clear(Flag.UPDATE)
 
 	return children
 end
@@ -374,10 +374,6 @@ end
 ---@param returnf markup.Fiber
 ---@param child markup.Fiber
 function Reconciler:delete_child(returnf, child)
-	-- if not child.state_node then
-	-- 	return
-	-- end
-
 	if not returnf.deletions then
 		returnf.deletions = { child }
 		returnf.flags:set(Flag.CHILD_DELETE)
@@ -580,7 +576,7 @@ function Reconciler:update_node_text(fiber)
 
 	if old_text ~= new_text then
 		node:set_text_content(new_text)
-		fiber.flags:clear(Flag.UPDATE)
+		-- fiber.flags:clear(Flag.UPDATE)
 	end
 end
 
@@ -923,6 +919,7 @@ function Reconciler:populate_state_node(wip)
 			node = node.child
 		else
 			curr:append_child(node.state_node)
+			node.flags:clear(Flag.PLACEMENT)
 
 			if node == wip then
 				break
@@ -965,29 +962,26 @@ end
 ---@param current markup.Fiber
 ---@param wip markup.Fiber
 function Reconciler:complete_text_component(current, wip)
-	if wip.flags:check(Flag.PLACEMENT) then
+	if current and wip.state_node then
+		self:update_node_text(wip)
+	else
 		self:place_single_node(wip)
 	end
-
-	if wip.flags:check(Flag.UPDATE) then
-		self:update_node_text(wip)
-	end
+	-- if wip.flags:check(Flag.PLACEMENT) then
+	-- end
+	--
+	-- if wip.flags:check(Flag.UPDATE) then
+	-- end
 end
 
 ---@param current markup.Fiber
 ---@param wip markup.Fiber
 function Reconciler:complete_element_component(current, wip)
-	if wip.flags:check(Flag.CHILD_DELETE) then
-		self:process_deletions(wip)
-	end
-
-	if wip.flags:check(Flag.PLACEMENT) then
-		self:place_single_node(wip)
-		-- self:populate_state_node(wip)
-	end
-
-	if wip.flags:check(Flag.UPDATE) then
+	if current and wip.state_node then
 		self:update_single_node(wip)
+	else
+		self:place_single_node(wip)
+		self:populate_state_node(wip)
 	end
 end
 
@@ -1009,40 +1003,97 @@ function Reconciler:commit(rootf)
 end
 
 ---@param hostf markup.Fiber
----@param fiber markup.Fiber
-function Reconciler:traverse_and_commit(hostf, fiber)
-	if not fiber then
+---@param finishedf markup.Fiber
+function Reconciler:traverse_and_commit(hostf, finishedf)
+	if not finishedf then
 		return
 	end
-	-- handle fiber with `state_node`
 
-	fiber.hostf = hostf
-	local complete_work ---@type function
-	if fiber.tag == FiberTag.ELEMENT then
-		complete_work = Reconciler.complete_element_component
-	elseif fiber.tag == FiberTag.TEXT then
-		complete_work = Reconciler.complete_text_component
-	elseif fiber.tag == FiberTag.FUNCTION then
-		complete_work = Reconciler.complete_function_component
-	elseif fiber.tag == FiberTag.CLASS then
-		complete_work = Reconciler.complete_class_component
-	elseif fiber.tag == FiberTag.FRAGMENT then
-		complete_work = Reconciler.complete_fragment_component
-	elseif fiber.tag == FiberTag.ROOT then
-		complete_work = Reconciler.complete_root_component
-	else
-		error(("Invalid Fiber tag: %s"):format(fiber.tag))
+	if finishedf.deletions then
+		self:process_deletions(finishedf)
 	end
-	complete_work(self, fiber.alternate, fiber)
 
-	self:process_deletions(fiber)
+	if finishedf.tag == "text" or finishedf.tag == "element" then
+		if finishedf.flags:check(Flag.PLACEMENT) then
+			self:commit_placement(finishedf, hostf)
+		end
+	end
 
-	hostf = fiber.state_node and fiber or hostf
-
-	local child = fiber.child
+	local child = finishedf.child
+	hostf = finishedf.state_node and finishedf or hostf
 	while child do
 		self:traverse_and_commit(hostf, child)
 		child = child.sibling
+	end
+end
+
+---@param fiber markup.Fiber
+function Reconciler:is_host_parent(fiber)
+	return fiber.tag == FiberTag.ELEMENT or fiber.tag == FiberTag.ROOT
+end
+
+---@param fiber markup.Fiber
+function Reconciler:host_sibling(fiber)
+	local node = fiber
+	assert(node)
+
+	while true do
+		-- Move up if there’s no sibling
+		while not node.sibling do
+			if node["return"] == nil or self:is_host_parent(node["return"]) then
+				return nil
+			end
+			node = node["return"]
+		end
+
+		node.sibling["return"] = node["return"]
+		node = node.sibling
+
+		local found = false
+
+		while node.tag ~= FiberTag.ELEMENT and node.tag ~= FiberTag.TEXT do
+			-- if supportsSingletons and node.tag == HostSingleton and isSingletonScope(node.type) then
+			-- 	-- simulate `continue siblings` by breaking inner loop so outer loop repeats
+			-- 	found = true
+			-- 	break
+			-- end
+
+			if node.flags:check(Flag.PLACEMENT) then
+				found = true
+				break
+			end
+
+			if node.child == nil then
+				found = true
+				break
+			else
+				node.child["return"] = node
+				node = node.child
+			end
+		end
+
+		if found then
+		-- inner loop was broken to simulate `continue`
+		else
+			if not node.flags:check(Flag.PLACEMENT) then
+				return node.stateNode
+			end
+		end
+	end
+end
+
+---@param finishedf markup.Fiber
+---@param parentf markup.Fiber
+function Reconciler:commit_placement(finishedf, parentf)
+	assert(parentf, "`parentf` must exist for placement")
+
+	local parent_node = parentf.state_node
+	local before = self:host_sibling(finishedf)
+
+	if before then
+		before.state_node:insert_before(finishedf.state_node)
+	else
+		parent_node:append_child(finishedf.state_node)
 	end
 end
 

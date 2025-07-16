@@ -4,6 +4,7 @@ local log = require("markup.logger")
 ---@class markup.Renderer.Root
 ---@field owner markup.Renderer
 ---@field current markup.Fiber
+---@field deletions markup.Fiber[]
 
 ---@alias markup.create_renderer_root
 ---| fun(renderer: markup.Renderer, element: markup.Element): markup.Renderer.Root

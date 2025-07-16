@@ -23,4 +23,8 @@ function Stack:pop()
 	return value
 end
 
+function Stack:peek()
+	return self[self.len]
+end
+
 return Stack

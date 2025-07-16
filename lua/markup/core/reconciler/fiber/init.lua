@@ -19,6 +19,7 @@ local u = require("markup.utils")
 ---@field type markup.Fiber.type
 ---@field element_type string
 ---@field tag markup.Fiber.tag
+---@field return? markup.Fiber
 ---@field state_node markup.Node
 ---@field key? any
 ---@field hook? markup.Fiber.hook

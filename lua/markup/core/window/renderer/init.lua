@@ -58,14 +58,18 @@ function Renderer:render(element)
 end
 
 function Renderer:rerender()
+	-- u.measure_time("re-render", function()
 	vim.api.nvim_buf_clear_namespace(self.bufnr, ns, 0, -1)
 	self.reconciler:reconcile(self.root)
 	self.reconciler:commit(self.root.current)
-	self.render_tree:build()
+	-- Snacks.profiler.start()
+	-- self.render_tree:build()
+	-- Snacks.profiler.stop()
+
 	_MTEMP = {}
-	for _, child in ipairs(self.render_tree.children) do
-		child:layout()
-	end
+	-- for _, child in ipairs(self.render_tree.children) do
+	-- 	child:layout()
+	-- end
 
 	local width = self.render_tree.width
 	local height = self.render_tree.height
@@ -112,6 +116,7 @@ function Renderer:rerender()
 	-- self:update_meta()
 	self:_render_fiber_tree(self.bufnr)
 	self:_render_node_tree(self.sbuf)
+	-- end)
 end
 
 function Renderer:_render_picker(items, bufnr)
@@ -122,8 +127,9 @@ function Renderer:_render_picker(items, bufnr)
 	local width = self.render_tree.width
 	local height = self.render_tree.height
 	local _lines = {}
+	local _line = (" "):rep(width)
 	for i = 1, math.max(height, #lines) do
-		_lines[i] = (" "):rep(width)
+		_lines[i] = _line
 	end
 	vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, _lines)
 
@@ -141,6 +147,7 @@ end
 
 function Renderer:_render_fiber_tree(bufnr)
 	local items = DevToolsFiberTreePicker(self.root.current)
+
 	self:_render_picker(items, bufnr)
 end
 
