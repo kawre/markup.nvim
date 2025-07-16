@@ -70,7 +70,8 @@ function Renderer:rerender()
 	local height = self.render_tree.height
 	local grid = {}
 
-	self:_render_fiber_tree()
+	-- self:_render_fiber_tree()
+	-- self:_render_node_tree()
 	-- -- fill grid with spaces
 	-- local empty = " "
 	-- for y = 1, height do
@@ -107,11 +108,12 @@ function Renderer:rerender()
 	-- self.root.current.state_node:print()
 	-- self:commit()
 
-	self:update_meta()
+	-- self:update_meta()
+	self:_render_fiber_tree(self.bufnr)
+	self:_render_node_tree(self.sbuf)
 end
 
-function Renderer:_render_fiber_tree()
-	local items = DevToolsFiberTreePicker(self.root.current)
+function Renderer:_render_picker(items, bufnr)
 	local lines = vim.tbl_map(function(i)
 		return i.item.entry
 	end, items)
@@ -119,21 +121,31 @@ function Renderer:_render_fiber_tree()
 	local width = self.render_tree.width
 	local height = self.render_tree.height
 	local _lines = {}
-	for i = 1, height do
+	for i = 1, math.max(height, #lines) do
 		_lines[i] = (" "):rep(width)
 	end
-	vim.api.nvim_buf_set_lines(self.bufnr, 0, -1, false, _lines)
+	vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, _lines)
 
 	for i, line in ipairs(lines) do
 		local x = 0
 		for _, chunk in ipairs(line) do
-			vim.api.nvim_buf_set_extmark(self.bufnr, ns, i - 1, x, {
+			vim.api.nvim_buf_set_extmark(bufnr, ns, i - 1, x, {
 				virt_text = { chunk },
 				virt_text_pos = "overlay",
 			})
 			x = x + vim.api.nvim_strwidth(chunk[1])
 		end
 	end
+end
+
+function Renderer:_render_fiber_tree(bufnr)
+	local items = DevToolsFiberTreePicker(self.root.current)
+	self:_render_picker(items, bufnr)
+end
+
+function Renderer:_render_node_tree(bufnr)
+	local items = DevToolsNodeTreePicker(self.root.current.state_node)
+	self:_render_picker(items, bufnr)
 end
 
 function Renderer:update_meta()

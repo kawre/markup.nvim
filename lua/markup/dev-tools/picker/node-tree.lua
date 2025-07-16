@@ -5,6 +5,7 @@ local log = require("markup.logger")
 ---@param root? markup.Node
 return function(root)
 	local lines = {}
+	local lines2 = {}
 
 	---@param node markup.Node
 	local function print_node_tree(node, depth, prefix, is_last)
@@ -22,7 +23,7 @@ return function(root)
 		if node.type == "element" then
 			xd = { " " .. node.tag_name, "DiagnosticHint" }
 		else
-			xd = { "" .. node.text_content }
+			xd = { " " .. node.text_content }
 		end
 
 		local entries = {
@@ -34,6 +35,18 @@ return function(root)
 		local text_mapped = vim.tbl_map(function(e)
 			return e[1]
 		end, entries)
+
+		table.insert(
+			lines2,
+			table.concat(vim.tbl_map(function(v)
+				return v[1]
+			end, entries))
+		)
+
+		if node.__id then
+			table.insert(entries, { " " })
+			table.insert(entries, { ("  %s "):format(node.__id), "LspInlayHint" })
+		end
 
 		table.insert(lines, {
 			text = table.concat(text_mapped, " "),
@@ -59,5 +72,5 @@ return function(root)
 
 	print_node_tree(root, 0, "")
 
-	return lines
+	return lines, lines2
 end

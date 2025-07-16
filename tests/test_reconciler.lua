@@ -7,6 +7,8 @@ local new_set = MiniTest.new_set
 local expect, eq = MiniTest.expect, MiniTest.expect.equality
 local Factory = require("markup.core.factory.fiber")
 local fiber_tree = require("markup.dev-tools.picker.fiber-tree")
+local node_tree = require("markup.dev-tools.picker.node-tree")
+local log = require("markup.logger")
 _Markup.is_dev = false
 
 local function mock_renderer(el)
@@ -171,6 +173,16 @@ T["structure"] = new_set({
 			},
 			"table within table",
 		},
+		{
+			markup.Fragment(5),
+			markup.Fragment(markup.inline("100")),
+			"remove wrapping fragments",
+		},
+		{
+			markup.Fragment({ 5, key = "A" }),
+			markup.Fragment({ markup.inline("100"), key = "A" }),
+			"keep wrapping fragments with key",
+		},
 	},
 })
 
@@ -210,11 +222,56 @@ T["structure"]["works"] = function(before, after, name)
 	end
 end
 
--- T["re-use fiber"] = new_set()
+T["node tree"] = new_set({
+	parametrize = {
+		{
+			{ 5 },
+			{ "1000" },
+			"updates text node inplace",
+		},
+		{
+			{ 5 },
+			{},
+			"deletes empty node",
+		},
+	},
+})
 
--- T["re-use fiber"]["works"] = function()
--- 	-- local frame1 =
--- 	print("123")
--- end
+local function expect_node_tree(renderer, name, index)
+	local _, tree = node_tree(renderer.root.current.state_node)
+
+	local dir = "tests/screenshots/"
+	local fname = ("expect_node_tree---%s(%s)"):format(name, index)
+	local path = dir .. fname
+
+	if vim.fn.filereadable(path) == 0 then
+		vim.fn.mkdir(dir, "p")
+		vim.fn.writefile(tree, path)
+	end
+
+	eq(vim.fn.readfile(path), tree)
+end
+
+T["node tree"]["works"] = function(before, after, name)
+	local reconciler = Reconciler()
+	local renderer
+	before = before ~= vim.NIL and before
+	after = after ~= vim.NIL and after
+
+	local render_index = 0
+	local App = markup.Component(function()
+		render_index = render_index + 1
+
+		-- log.info(render_index % 2 == 0 and after or before)
+		return render_index % 2 == 0 and after or before
+	end)
+
+	renderer = mock_renderer(App())
+	for i = 1, 3 do
+		reconciler:reconcile(renderer.root)
+		expect_node_tree(renderer, name, i)
+		renderer.root.current.child.flags:set(2)
+	end
+end
 
 return T

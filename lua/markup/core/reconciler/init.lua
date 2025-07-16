@@ -182,16 +182,40 @@ function Reconciler:process_deletions(fiber)
 	assertor.bug(fiber.deletions, "`fiber.deletions` must exist for processing deletions")
 
 	for _, deletion in ipairs(fiber.deletions) do
-		fiber.state_node:remove_child(deletion.state_node)
+		deletion.state_node:destroy()
 	end
 	fiber.deletions = nil
-	fiber.flags:clear(Flag.DELETE)
+	fiber.flags:clear(Flag.CHILD_DELETE)
 end
 
----@param fiber markup.Fiber
-function Reconciler:place_single_child(fiber)
-	fiber.state_node = NodeFactory.create_from_fiber(fiber)
-	fiber.flags:clear(Flag.PLACEMENT)
+---@param wip markup.Fiber
+function Reconciler:place_single_node(wip)
+	wip.state_node = NodeFactory.create_from_fiber(wip)
+
+	if self:is_valid_text(wip.pending_props.children) then
+		self:place_single_text_child(wip)
+	end
+
+	wip.flags:clear(Flag.PLACEMENT)
+end
+
+---@param wip markup.Fiber
+function Reconciler:update_single_node(wip)
+	local current = wip.alternate
+	assert(current, "`current` must exist for updating a single node")
+
+	if self:is_valid_text(wip.pending_props.children) then
+		-- handle single text child elements
+		if self:is_valid_text(current.memoized_props.children) then
+			self:update_single_text_child(wip)
+		else
+			self:place_single_text_child(wip)
+		end
+	else
+		wip.state_node:replace_props(wip.pending_props)
+	end
+
+	wip.flags:clear(Flag.UPDATE)
 end
 
 ---@param fiber markup.Fiber
@@ -277,13 +301,6 @@ function Reconciler:update_element_component(current, wip)
 	end
 
 	if self:is_valid_text(next_children) then
-		-- if wip.flags:check(Flag.PLACEMENT) then
-		-- 	wip.flags:set(Flag.PLACEMENT_TEXT_CHILD)
-		-- end
-		-- if wip.flags:check(Flag.UPDATE) then
-		-- 	wip.flags:set(Flag.UPDATE_TEXT_CHILD)
-		-- end
-		--
 		-- dont return, keep the function going to delete the remaining children
 		next_children = nil
 	end
@@ -332,10 +349,9 @@ end
 ---@param returnf markup.Fiber
 ---@param child markup.Fiber
 function Reconciler:delete_child(returnf, child)
-	-- TODO returnf is not guaranteed to be the parent fiber
 	if not returnf.deletions then
 		returnf.deletions = { child }
-		returnf.flags:set(Flag.DELETE)
+		returnf.flags:set(Flag.CHILD_DELETE)
 	else
 		table.insert(returnf.deletions, child)
 	end
@@ -367,6 +383,7 @@ function Reconciler:is_valid_text(content)
 	return (type(content) == "string" and content ~= "") or type(content) == "number"
 end
 
+---@param content any
 function Reconciler:should_be_fragment(content)
 	return type(content) == "table" and not getmetatable(content) and not vim.tbl_isempty(content)
 end
@@ -666,6 +683,16 @@ function Reconciler:reconcile_children_list(returnf, current_first_child, new_ch
 	return result_first_child
 end
 
+function Reconciler:prepare_new_child(new_child)
+	local child = new_child
+
+	while getmetatable(child) and child.typeof == "fragment" and not child.key do
+		child = child.props.children
+	end
+
+	return child
+end
+
 ---@param current? markup.Fiber
 ---@param wip markup.Fiber
 ---@param next_children markup.Element
@@ -677,29 +704,22 @@ end
 ---@param current_first_child? markup.Fiber
 ---@param new_child markup.Element
 function Reconciler:reconcile_child_fibers(returnf, current_first_child, new_child)
+	new_child = self:prepare_new_child(new_child)
+
 	if self:is_valid_text(new_child) then
 		---@diagnostic disable-next-line: param-type-mismatch
 		return self:reconcile_single_text(returnf, current_first_child, new_child)
-	end
-
-	-- if vim.islist(new_child) then
-	-- 	return self:reconcile_children_list(returnf, current_first_child, new_child)
-	-- elseif type(new_child) == "table" then
-	-- 	return self:reconcile_single_element(returnf, current_first_child, new_child)
-	-- end
-	if new_child then
-		local is_instance = getmetatable(new_child) ~= nil
-
-		if not is_instance then -- this is a list
-			if not vim.tbl_isempty(new_child) then
-				return self:reconcile_children_list(returnf, current_first_child, new_child)
-			end
-		else -- should be element object
-			if not (new_child.typeof == "element" and not new_child.props.children) then
-				return self:reconcile_single_element(returnf, current_first_child, new_child)
+	elseif new_child then
+		if not getmetatable(new_child) then
+			-- this is an array list
+			return self:reconcile_children_list(returnf, current_first_child, new_child)
+		else
+			-- this is an element object
+			local el = self:prepare_element(new_child)
+			if el then
+				return self:reconcile_single_element(returnf, current_first_child, el)
 			end
 		end
-		-- end
 	end
 
 	return self:delete_remaining_children(returnf, current_first_child)
@@ -735,7 +755,7 @@ function Reconciler:place_child(new_fiber, last_placed_index, new_index)
 		local old_index = current.index
 		if old_index < last_placed_index then
 			-- this is a move
-			new_fiber.flags:set(Flag.MOVE)
+			new_fiber.flags:set(Flag.PLACEMENT)
 			return last_placed_index
 		else
 			-- this item can stay in place
@@ -901,6 +921,10 @@ function Reconciler:complete_function_component(current, wip)
 	-- function component placemenet is handled
 	-- during `begin_work`
 	wip.flags:clear(Flag.PLACEMENT)
+
+	if wip.flags:check(Flag.CHILD_DELETE) then
+		self:process_deletions(wip)
+	end
 end
 
 ---@param current markup.Fiber
@@ -913,7 +937,7 @@ end
 ---@param wip markup.Fiber
 function Reconciler:complete_text_component(current, wip)
 	if wip.flags:check(Flag.PLACEMENT) then
-		self:place_single_child(wip)
+		self:place_single_node(wip)
 	end
 
 	if wip.flags:check(Flag.UPDATE) then
@@ -924,28 +948,17 @@ end
 ---@param current markup.Fiber
 ---@param wip markup.Fiber
 function Reconciler:complete_element_component(current, wip)
-	if wip.flags:check(Flag.DELETE) then
+	if wip.flags:check(Flag.CHILD_DELETE) then
 		self:process_deletions(wip)
 	end
 
 	if wip.flags:check(Flag.PLACEMENT) then
-		self:place_single_child(wip)
+		self:place_single_node(wip)
+		self:populate_state_node(wip)
 	end
-	self:populate_state_node(wip)
 
 	if wip.flags:check(Flag.UPDATE) then
-		-- handle when fiber is only a text node wrapper
-		if self:is_valid_text(wip.pending_props) then
-			if self:is_valid_text(current.memoized_props) then
-				self:update_single_text_child(wip)
-			else
-				self:place_single_text_child(wip)
-			end
-		else
-			wip.state_node:replace_props(wip.pending_props)
-		end
-
-		wip.flags:clear(Flag.UPDATE)
+		self:update_single_node(wip)
 	end
 
 	-- if wip.flags:check(Flag.PLACEMENT_TEXT_CHILD) then

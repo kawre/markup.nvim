@@ -123,4 +123,20 @@ function utils.call_if_callable(value, ...)
 	end
 end
 
+math.randomseed(os.time())
+local id_cache = {}
+
+function utils.short_id()
+	local n = vim.loop.hrtime() + math.random(1e5, 1e6 - 1)
+	local id = ("%x"):format(n % 0xFFFFFFF)
+
+	if id_cache[id] then
+		return utils.short_id()
+	else
+		id_cache[id] = true
+	end
+
+	return id
+end
+
 return utils

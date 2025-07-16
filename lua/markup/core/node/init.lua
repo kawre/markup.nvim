@@ -31,6 +31,7 @@ local NodeFactory = require("markup.core.factory.node")
 ---@field renderer markup.Renderer
 ---@field tag_name string
 ---@field text_content string
+---@field parent markup.Node
 ---@field child_nodes markup.Node[]
 ---@field render_box? markup.Render.Node
 ---@field fiber markup.Fiber
@@ -48,6 +49,10 @@ function Node:new(type, name, props)
 	self.type = type
 	self.tag_name = name
 	self:create_props_proxy(props)
+
+	if _Markup.is_dev then
+		self.__id = u.short_id()
+	end
 
 	return self
 end
@@ -129,6 +134,11 @@ function Node:replace_child(old, new)
 			break
 		end
 	end
+end
+
+function Node:destroy()
+	assert(self.parent, "Cannot destroy a node without a parent")
+	self.parent:remove_child(self)
 end
 
 ---@param type markup.Node.type

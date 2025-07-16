@@ -32,6 +32,39 @@ function playground.open()
 			width = 0.5,
 		},
 	})
+	vim.api.nvim_buf_call(playground.preview.bufnr, function()
+		vim.cmd("split | enew | setlocal buftype=nofile bufhidden=hide noswapfile")
+		playground.preview.sid = vim.api.nvim_get_current_win()
+		playground.preview.sbuf = vim.api.nvim_get_current_buf()
+		playground.preview.set_opts(
+			{
+				id = playground.preview.sid,
+				buf = playground.preview.sbuf,
+			},
+			nil,
+			{
+				winhighlight = "Normal:MarkupNormal,NormalNC:MarkupNormalNC,WinBar:MarkupWinBar,WinBarNC:MarkupWinBarNC",
+				cursorcolumn = false,
+				cursorline = false,
+				cursorlineopt = "both",
+				fillchars = "eob: ,lastline:…",
+				list = false,
+				listchars = "extends:…,tab:  ",
+				number = false,
+				relativenumber = false,
+				signcolumn = "no",
+				spell = false,
+				winbar = "",
+				statuscolumn = "",
+				wrap = false,
+				sidescrolloff = 0,
+				foldenable = false,
+				foldcolumn = "0",
+				colorcolumn = "",
+				winfixbuf = true,
+			}
+		)
+	end)
 
 	vim.api.nvim_create_autocmd("BufWritePost", {
 		callback = function()
