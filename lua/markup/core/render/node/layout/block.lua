@@ -10,9 +10,16 @@ function BlockLayout.layout(box)
 	local parent = box.parent
 	box.width = parent.width
 
+	local prev
 	for _, child in ipairs(box.children) do
+		if child:is("block") or (prev and prev:is("block")) then
+			box.cy = box.cy + 1
+			box.cx = box.x
+		end
+
 		child:layout()
-		box.cy = box.cy + child.height
+		box.cx = box.cx + child.width
+		prev = child
 	end
 
 	box.height = box.cy - box.y

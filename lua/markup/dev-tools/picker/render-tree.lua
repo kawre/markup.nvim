@@ -5,6 +5,7 @@ local log = require("markup.logger")
 ---@param root? markup.Render.Node
 return function(root)
 	local lines = {}
+	local lines2 = {}
 
 	---@param node markup.Render.Node
 	local function print_node_tree(node, depth, prefix, is_last)
@@ -28,12 +29,21 @@ return function(root)
 		local entries = {
 			{ indent_marker, "SignColumn" },
 			{ node:name() },
-			{ " " },
+			{ node.dirty and "  " or " ", "Number" },
+			{ ("(%s) "):format(node.node.tag_name), "Conceal" },
+			{ ("  %s "):format(node.__id), "LspInlayHint" },
 			-- { ("(%s)"):format(node.type), "Conceal" },
 		}
 		local text_mapped = vim.tbl_map(function(e)
 			return e[1]
 		end, entries)
+
+		table.insert(
+			lines2,
+			table.concat(vim.tbl_map(function(v)
+				return v[1]
+			end, entries))
+		)
 
 		table.insert(lines, {
 			text = table.concat(text_mapped, " "),
@@ -59,5 +69,5 @@ return function(root)
 
 	print_node_tree(root, 0, "")
 
-	return lines
+	return lines, lines2
 end

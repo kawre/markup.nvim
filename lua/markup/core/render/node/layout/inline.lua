@@ -12,7 +12,6 @@ function InlineLayout.layout(box)
 	for _, child in ipairs(box.children) do
 		assert(child:is("inline"), "Inline layout can only be used for inline nodes")
 		child:layout()
-		box.cx = box.cx + child.width
 	end
 
 	box.width = box.cx - box.x

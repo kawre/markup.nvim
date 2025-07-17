@@ -104,39 +104,24 @@ function utils.lookup(tbl, key, fn)
 	end
 end
 
--- function utils.is_callable(value)
--- 	if type(value) == "function" then
--- 		return true
--- 	end
---
--- 	local mt = getmetatable(value)
--- 	return mt and type(mt.__call) == "function"
--- end
-
 ---@param value any
 ---@param ...any function arguments
 function utils.call_if_callable(value, ...)
-	if type(value) == "function" then
-		return value(...)
-	else
-		return value
-	end
+	return vim.is_callable(value) and value(...) or value
 end
 
 math.randomseed(os.time())
 local id_cache = {}
 
-function utils.short_id()
+function utils.gen_id()
 	local n = vim.loop.hrtime() + math.random(1e5, 1e6 - 1)
 	local id = ("%x"):format(n % 0xFFFFFFF)
-
 	if id_cache[id] then
-		return utils.short_id()
+		return utils.gen_id()
 	else
 		id_cache[id] = true
+		return id
 	end
-
-	return id
 end
 
 return utils

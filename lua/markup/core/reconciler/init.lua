@@ -180,33 +180,29 @@ function Reconciler:find_element_ancestor(fiber)
 	return parent
 end
 
--- ---@param fiber markup.Fiber
--- function Reconciler:traverse_deletion(fiber)
--- 	local bfs = Stack.new()
--- 	Stack.push(bfs, fiber)
---
--- 	while bfs.len > 0 do
--- 		local node = Stack.pop(bfs)
---
--- 		if node.state_node then
--- 			node.state_node:destroy()
--- 		else
--- 			local child = node.child
--- 			while child do
--- 				Stack.push(bfs, child)
--- 				child = child.sibling
--- 			end
--- 		end
--- 	end
--- end
-
 ---@param fiber markup.Fiber
-function Reconciler:process_deletions(fiber)
+function Reconciler:commit_deletions(fiber)
+	assert(fiber.deletions, "`fiber.deletions` must exist for commit deletions")
+
+	local bfs = Stack.new()
 	for _, deletion in ipairs(fiber.deletions) do
-		if deletion.state_node then
-			deletion.state_node:destroy()
+		Stack.push(bfs, deletion)
+	end
+
+	while bfs.len > 0 do
+		local node = Stack.pop(bfs)
+
+		if node.state_node then
+			node.state_node:destroy()
+		else
+			local child = node.child
+			while child do
+				Stack.push(bfs, child)
+				child = child.sibling
+			end
 		end
 	end
+
 	fiber.deletions = nil
 	fiber.flags:clear(Flag.CHILD_DELETE)
 end
@@ -416,10 +412,7 @@ end
 
 ---@param element markup.Element
 function Reconciler:is_host_element(element)
-	if not getmetatable(element) then
-		return false
-	end ---@cast element markup.Element
-	return type(element.type) == "string"
+	return element.typeof == "root" or element.typeof == "element"
 end
 
 ---@param content any
@@ -428,7 +421,7 @@ function Reconciler:is_valid_element(content)
 		return false
 	end ---@cast content markup.Element
 
-	if self:is_host_element(content) then
+	if type(content.type) == "string" then
 		local children = content.props.children
 		if not children or (type(children) == "table" and vim.tbl_isempty(children)) then
 			return false
@@ -718,6 +711,7 @@ function Reconciler:reconcile_children_list(returnf, current_first_child, new_ch
 	return result_first_child
 end
 
+---@param new_child markup.Element
 function Reconciler:prepare_new_child(new_child)
 	local child = new_child
 
@@ -815,6 +809,7 @@ function Reconciler:reconcile_single_element(returnf, current_first_child, eleme
 		if child.key == key then
 			-- if the key matches, update the existing child
 			if child.type == element.type then
+				self:delete_remaining_children(returnf, child.sibling)
 				local existing = self:use_fiber(child, element.props)
 				existing["return"] = returnf
 				return existing
@@ -1019,8 +1014,8 @@ function Reconciler:traverse_and_commit(hostf, finishedf)
 		return
 	end
 
-	if finishedf.deletions then
-		self:process_deletions(finishedf)
+	if finishedf.flags:check(Flag.CHILD_DELETE) then
+		self:commit_deletions(finishedf)
 	end
 
 	if finishedf.tag == "text" or finishedf.tag == "element" then
@@ -1054,17 +1049,19 @@ function Reconciler:is_host_parent(fiber)
 end
 
 ---@param fiber markup.Fiber
+---@return markup.Node?
 function Reconciler:host_sibling(fiber)
+	---@type markup.Fiber
 	local node = fiber
-	assert(node)
 
 	while true do
 		-- Move up if there’s no sibling
 		while not node.sibling do
-			if node["return"] == nil or self:is_host_parent(node["return"]) then
+			local parent = node["return"]
+			if not parent or self:is_host_parent(parent) then
 				return nil
 			end
-			node = node["return"]
+			node = parent
 		end
 
 		node.sibling["return"] = node["return"]
@@ -1072,13 +1069,7 @@ function Reconciler:host_sibling(fiber)
 
 		local found = false
 
-		while node.tag ~= FiberTag.ELEMENT and node.tag ~= FiberTag.TEXT do
-			-- if supportsSingletons and node.tag == HostSingleton and isSingletonScope(node.type) then
-			-- 	-- simulate `continue siblings` by breaking inner loop so outer loop repeats
-			-- 	found = true
-			-- 	break
-			-- end
-
+		while node and node.tag ~= FiberTag.ELEMENT and node.tag ~= FiberTag.TEXT do
 			if node.flags:check(Flag.PLACEMENT) then
 				found = true
 				break
@@ -1087,18 +1078,14 @@ function Reconciler:host_sibling(fiber)
 			if node.child == nil then
 				found = true
 				break
-			else
-				node.child["return"] = node
-				node = node.child
 			end
+
+			node.child["return"] = node
+			node = node.child
 		end
 
-		if found then
-		-- inner loop was broken to simulate `continue`
-		else
-			if not node.flags:check(Flag.PLACEMENT) then
-				return node.stateNode
-			end
+		if not found and node and not node.flags:check(Flag.PLACEMENT) then
+			return node.state_node
 		end
 	end
 end
@@ -1112,7 +1099,7 @@ function Reconciler:commit_placement(finishedf, parentf)
 	local before = self:host_sibling(finishedf)
 
 	if before then
-		before.state_node:insert_before(finishedf.state_node)
+		before:insert_before(finishedf.state_node)
 	else
 		parent_node:append_child(finishedf.state_node)
 	end

@@ -44,7 +44,7 @@ function Fiber:new(tag, props, key)
 	self.index = 1
 
 	if _Markup.is_dev then
-		self.__id = u.short_id()
+		self.__id = u.gen_id()
 	end
 
 	return self

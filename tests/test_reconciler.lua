@@ -250,6 +250,43 @@ T["node tree"] = new_set({
 			{},
 			"deletes empty node",
 		},
+		{
+			{
+				markup.inline({ "A", key = "A" }),
+				"123",
+				markup.inline({ "B", key = "B" }),
+				markup.inline({ "C", key = "C" }),
+			},
+			{
+				markup.inline({ "B", key = "B" }),
+				markup.inline({ "A", key = "A" }),
+				"123",
+				markup.inline({ "C", key = "C" }),
+			},
+			"reorders nodes by keys",
+		},
+		{
+			markup.block({
+				markup.inline(500),
+				markup.block(501),
+			}),
+			markup.block({
+				markup.inline(500),
+			}),
+			"removes child nodes",
+		},
+		{
+			markup.block({
+				markup.inline({ "im count: " .. 4 }),
+				"i'm overriding",
+			}),
+			markup.block({
+				markup.inline({ "im count: " .. 5 }),
+				{ markup.inline(10000), "2" },
+				"i'm overriding",
+			}),
+			"handles insertion|deletion mid as fragment",
+		},
 	},
 })
 

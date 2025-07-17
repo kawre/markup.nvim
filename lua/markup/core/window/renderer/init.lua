@@ -3,12 +3,11 @@ local markup = require("markup.core")
 local u = require("markup.utils") ---@diagnostic disable-line: unused-local
 local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 local RenderNodeFactory = require("markup.core.factory.render-node")
+local RenderTree = require("markup.core.render.tree")
 local RendererFactory = require("markup.core.factory.renderer")
 local DevToolsFiberTreePicker = require("markup.dev-tools.picker.fiber-tree")
 local DevToolsNodeTreePicker = require("markup.dev-tools.picker.node-tree")
 local DevToolsRenderTreePicker = require("markup.dev-tools.picker.render-tree")
-
-_MTEMP = {}
 
 ---@class markup.Renderer.meta.render
 ---@field node_root markup.Node
@@ -28,7 +27,7 @@ _MTEMP = {}
 ---@field protected super markup.Window
 ---@field protected _ markup.Renderer.props
 ---@field reconciler markup.Reconciler
----@field render_tree markup.Render.Node
+---@field render_tree markup.Render.Tree
 ---@field root markup.Renderer.Root
 ---@field _meta markup.Renderer.meta
 local Renderer = markup.Window:extend("MarkupRenderer") ---@diagnostic disable-line: undefined-field
@@ -41,10 +40,9 @@ function Renderer:after_init()
 	Renderer.super.after_init(self)
 	self.body = self._.body
 	self._meta = { render_count = 0, renders = {} }
+	self.ns = vim.api.nvim_create_namespace("renderer")
 	table.insert(_Markup.renderers, self)
 end
-
-local ns = vim.api.nvim_create_namespace("markup_renderer")
 
 ---@param element markup.Element|markup.Element[]
 function Renderer:render(element)
@@ -52,70 +50,24 @@ function Renderer:render(element)
 
 	self.root = RendererFactory.create_root(self, element)
 	self.reconciler = markup.Reconciler()
-	self.render_tree = RenderNodeFactory.create_root(self)
+	self.render_tree = RenderTree:new(self)
 
 	self:rerender()
 end
 
 function Renderer:rerender()
-	-- u.measure_time("re-render", function()
-	vim.api.nvim_buf_clear_namespace(self.bufnr, ns, 0, -1)
-	self.reconciler:reconcile(self.root)
-	-- Snacks.profiler.start()
-	-- self.render_tree:build()
-	-- Snacks.profiler.stop()
-
+	vim.api.nvim_buf_clear_namespace(self.bufnr, self.ns, 0, -1)
 	_MTEMP = {}
-	-- for _, child in ipairs(self.render_tree.children) do
-	-- 	child:layout()
-	-- end
+	self.reconciler:reconcile(self.root)
+	self.render_tree:build()
+	self.render_tree:layout()
+	self.render_tree:paint()
+end
 
-	local width = self.render_tree.width
-	local height = self.render_tree.height
-	local grid = {}
-
-	-- self:_render_fiber_tree()
-	-- self:_render_node_tree()
-	-- -- fill grid with spaces
-	-- local empty = " "
-	-- for y = 1, height do
-	-- 	grid[y] = {}
-	-- 	for x = 1, width do
-	-- 		grid[y][x] = empty
-	-- 	end
-	-- end
-	--
-	-- ---@param box markup.Render.Node
-	-- for _, box in ipairs(_MTEMP) do
-	-- 	local x, y, word = box.x + 1, box.y + 1, tostring(box.node.text_content)
-	-- 	for i = 1, #word do
-	-- 		if not grid[y] then
-	-- 			grid[y] = {}
-	-- 			for k = 1, width do
-	-- 				grid[y][k] = empty
-	-- 			end
-	-- 		end
-	-- 		grid[y][x + i - 1] = word:sub(i, i)
-	-- 	end
-	-- end
-	--
-	-- local lines = {}
-	-- for y = 1, height do
-	-- 	lines[y] = table.concat(grid[y])
-	-- end
-	--
-	-- vim.api.nvim_buf_set_lines(self.bufnr, 0, -1, false, lines)
-
-	-- self.render_tree:layout()
-	-- self.render_tree.view:layout()
-	-- log.info(self.root)
-	-- self.root.current.state_node:print()
-	-- self:commit()
-
-	-- self:update_meta()
-	self:_render_fiber_tree(self.bufnr)
-	self:_render_node_tree(self.sbuf)
-	-- end)
+function Renderer:_render_()
+	-- vim.api.nvim_buf_clear_namespace(self.bufnr, ns, 0, -1)
+	-- self:_render_node_tree(self.bufnr)
+	-- self:_render_render_tree(self.sbuf)
 end
 
 function Renderer:_render_picker(items, bufnr)
@@ -135,7 +87,7 @@ function Renderer:_render_picker(items, bufnr)
 	for i, line in ipairs(lines) do
 		local x = 0
 		for _, chunk in ipairs(line) do
-			vim.api.nvim_buf_set_extmark(bufnr, ns, i - 1, x, {
+			vim.api.nvim_buf_set_extmark(bufnr, self.ns, i - 1, x, {
 				virt_text = { chunk },
 				virt_text_pos = "overlay",
 			})
@@ -146,7 +98,11 @@ end
 
 function Renderer:_render_fiber_tree(bufnr)
 	local items = DevToolsFiberTreePicker(self.root.current)
+	self:_render_picker(items, bufnr)
+end
 
+function Renderer:_render_render_tree(bufnr)
+	local items = DevToolsRenderTreePicker(self.root.current.state_node.render_box)
 	self:_render_picker(items, bufnr)
 end
 

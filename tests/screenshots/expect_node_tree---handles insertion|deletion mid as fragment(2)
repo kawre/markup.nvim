@@ -1,0 +1,8 @@
+ root (element)
+├╴ block (element)
+│ ├╴ inline (element)
+│ │ └╴ im count: 5 (text)
+│ ├╴ inline (element)
+│ │ └╴ 10000 (text)
+│ ├╴ 2 (text)
+│ └╴ i'm overriding (text)

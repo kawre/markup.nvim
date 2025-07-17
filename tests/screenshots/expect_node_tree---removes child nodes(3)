@@ -1,0 +1,6 @@
+ root (element)
+├╴ block (element)
+│ ├╴ inline (element)
+│ │ └╴ 500 (text)
+│ ├╴ block (element)
+│ │ └╴ 501 (text)

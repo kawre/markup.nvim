@@ -1,6 +1,7 @@
 local RenderNodeFactory = require("markup.core.factory.render-node")
 local BoxStyle = require("markup.core.render.style")
 local log = require("markup.logger") ---@diagnostic disable-line: unused-local
+local u = require("markup.utils") ---@diagnostic disable-line: unused-local
 
 ---@class markup.Render.Layout
 ---@field layout fun(box: markup.Render.Node)
@@ -27,21 +28,31 @@ RenderNode.__index = RenderNode
 ---@param node markup.Node
 ---@param layout_strategy markup.Render.Layout
 function RenderNode:new(node, layout_strategy)
-	local instance = setmetatable({}, self)
-	instance.layout_strategy = layout_strategy
-	instance.children = {}
-	instance.node = node
-	node.render_box = instance
-	instance.dirty = true
-	instance.buf = {}
-	instance.style = BoxStyle:new(instance)
-	return instance
+	self = setmetatable({}, RenderNode)
+
+	self.layout_strategy = layout_strategy
+	self.children = {}
+	self.node = node
+	node.render_box = self
+	self.dirty = true
+	self.buf = {}
+	self.style = BoxStyle:new(self)
+	self.__id = u.gen_id()
+
+	return self
 end
 
 function RenderNode:build()
 	for _, child in ipairs(self.node.child_nodes) do
 		local new_render_node = self:attach(child)
 		new_render_node:build()
+	end
+	-- self.dirty = false
+end
+
+function RenderNode:reflow()
+	for _, child in ipairs(self.children) do
+		child:reflow()
 	end
 end
 
@@ -117,6 +128,17 @@ end
 ---@param layout_type markup.Render.LayoutType
 function RenderNode:is(layout_type)
 	return self.layout_strategy.__type[layout_type]
+end
+
+function RenderNode:destroy()
+	local index
+	for i, child in ipairs(self.parent.children) do
+		if child == self then
+			index = i
+			break
+		end
+	end
+	table.remove(self.parent.children, index)
 end
 
 return RenderNode
