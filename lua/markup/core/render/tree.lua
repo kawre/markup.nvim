@@ -45,12 +45,11 @@ function RenderTree:_paint_extmarks()
 	vim.api.nvim_buf_set_lines(self.renderer.bufnr, 0, -1, false, lines)
 
 	for _, box in ipairs(_MTEMP) do
-		local x, y, word = box.x, box.y, tostring(box.node.text_content)
+		local x, y, word = box.mx, box.my, tostring(box.node.text_content)
 		local extmark_id =
 			vim.api.nvim_buf_set_extmark(self.renderer.bufnr, self.renderer.ns, y, x, {
 				virt_text = { { word } },
 				virt_text_pos = "overlay",
-				-- hl_mode = "combine",
 			})
 		box.extmark_id = extmark_id
 	end

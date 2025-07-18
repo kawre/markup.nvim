@@ -1,5 +1,6 @@
 local RenderNodeFactory = require("markup.core.factory.render-node")
 local BoxStyle = require("markup.core.render.style")
+local BoxProps = require("markup.core.render.props")
 local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 local u = require("markup.utils") ---@diagnostic disable-line: unused-local
 
@@ -21,7 +22,7 @@ local u = require("markup.utils") ---@diagnostic disable-line: unused-local
 ---@field cy? integer
 ---@field width integer
 ---@field height integer
----@field style any
+---@field props markup.Render.props
 local RenderNode = {}
 RenderNode.__index = RenderNode
 
@@ -36,7 +37,7 @@ function RenderNode:new(node, layout_strategy)
 	node.render_box = self
 	self.dirty = true
 	self.buf = {}
-	self.style = BoxStyle:new(self)
+	-- self.props = BoxProps:new(self)
 	self.__id = u.gen_id()
 
 	return self
@@ -77,23 +78,33 @@ function RenderNode:attach(child)
 	return render_node
 end
 
----@param style markup.Element.style
-function RenderNode:layout(style)
+---@param style markup.Render.Style
+function RenderNode:layout(_style)
 	assert(self.layout_strategy, "Layout strategy is not set")
 
 	if self.dirty == false then
 		return
 	end
 
-	self.x = self.parent.cx
-	self.y = self.parent.cy
+	local style = self.node.props
 
-	self.cx = self.x
-	self.cy = self.y
-	-- local xd = vim.tbl_deep_extend("keep", )
+	-- margin box
+	self.mx = self.parent.x
+	self.my = self.parent.y
+
+	-- padding box
+	self.px = self.mx + (style.margin_left or 0)
+	self.py = self.my + (style.margin_top or 0)
+
+	-- content box
+	self.cx = self.px + (style.padding_left or 0)
+	self.cy = self.py + (style.padding_top or 0)
+
+	-- offset
+	self.x = self.cx
+	self.y = self.cy
+
 	self.layout_strategy.layout(self)
-	self.cx = nil
-	self.cy = nil
 
 	self.dirty = false
 end
@@ -140,10 +151,6 @@ function RenderNode:destroy()
 		end
 	end
 	table.remove(self.parent.children, index)
-end
-
-function RenderNode:__tostring()
-	return self.layout_strategy.__name
 end
 
 return RenderNode

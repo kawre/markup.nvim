@@ -60,9 +60,10 @@ function Renderer:rerender()
 	vim.api.nvim_buf_clear_namespace(self.bufnr, self.ns, 0, -1)
 	_MTEMP = {}
 	self.reconciler:reconcile(self.root)
-	self.render_tree:build()
-	self.render_tree:layout()
-	self.render_tree:paint()
+	-- self.render_tree:build()
+	-- self.render_tree:layout()
+	-- self.render_tree:paint()
+	self:_render_node_tree(self.sbuf)
 end
 
 -- function Renderer:rerender_async()
@@ -82,7 +83,6 @@ end
 
 function Renderer:_render_()
 	-- vim.api.nvim_buf_clear_namespace(self.bufnr, ns, 0, -1)
-	-- self:_render_node_tree(self.bufnr)
 	-- self:_render_render_tree(self.sbuf)
 end
 
@@ -91,8 +91,9 @@ function Renderer:_render_picker(items, bufnr)
 		return i.item.entry
 	end, items)
 
-	local width = self.render_tree.width
-	local height = self.render_tree.height
+	-- log.info(lines)
+	local width = self.render_tree.root.width
+	local height = self.render_tree.root.height
 	local _lines = {}
 	local _line = (" "):rep(width)
 	for i = 1, math.max(height, #lines) do

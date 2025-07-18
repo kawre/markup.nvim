@@ -21,7 +21,16 @@ local T = new_set({
 				__index = function(_, key)
 					return function(args)
 						if type(args) == "table" then
-							args = ("{ %s }"):format(table.concat(args, ", "))
+							local parts = {}
+							for _, v in ipairs(args) do
+								table.insert(parts, v)
+							end
+							for k, v in pairs(args) do
+								if type(k) ~= "number" then
+									table.insert(parts, ("%s = %s"):format(k, v))
+								end
+							end
+							args = ("{ %s }"):format(table.concat(parts, ", "))
 						else
 							args = ("\"%s\""):format(args)
 						end
@@ -46,9 +55,11 @@ local T = new_set({
 
 T["render()"] = new_set({})
 
-local function render_helper(element)
+local function render_and_expect_screenshot(element)
 	child.lua("renderer = markup.Renderer()")
 	child.lua(("renderer:render(%s)"):format(element))
+
+	expect.reference_screenshot(child.get_screenshot())
 end
 
 T["render()"]["handles block|inline logic"] = function()
@@ -61,8 +72,7 @@ T["render()"]["handles block|inline logic"] = function()
 		markup.inline(" also inline"),
 	})
 
-	render_helper(app)
-	expect.reference_screenshot(child.get_screenshot())
+	render_and_expect_screenshot(app)
 end
 
 T["render()"]["inline"] = function()
@@ -72,8 +82,7 @@ T["render()"]["inline"] = function()
 		markup.inline("inline3"),
 	})
 
-	render_helper(app)
-	expect.reference_screenshot(child.get_screenshot())
+	render_and_expect_screenshot(app)
 end
 
 T["render()"]["disallow block elements in an inline element"] = function()
@@ -84,7 +93,7 @@ T["render()"]["disallow block elements in an inline element"] = function()
 	})
 
 	expect.error(function()
-		render_helper(app)
+		render_and_expect_screenshot(app)
 	end)
 end
 
@@ -95,8 +104,40 @@ T["render()"]["block elements table"] = function()
 		markup.block("3"),
 	})
 
-	render_helper(app)
-	expect.reference_screenshot(child.get_screenshot())
+	render_and_expect_screenshot(app)
+end
+
+T["render()"]["nested block elements"] = function()
+	local app = markup.block({
+		markup.inline("inline"),
+		markup.block({
+			markup.block("block2"),
+			margin_left = 3,
+		}),
+		markup.inline("inline"),
+	})
+
+	render_and_expect_screenshot(app)
+end
+
+T["render()"]["block element spacing"] = function()
+	local app = markup.block({
+		markup.inline("inline"),
+		markup.block({
+			markup.block("block"),
+			markup.block("block"),
+			markup.block("block"),
+			markup.inline("text "),
+			markup.inline("text "),
+			markup.inline("text"),
+			markup.block("block"),
+			spacing = 1,
+			margin_left = 2,
+		}),
+		markup.inline("inline"),
+	})
+
+	render_and_expect_screenshot(app)
 end
 
 return T

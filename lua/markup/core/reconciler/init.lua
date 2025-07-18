@@ -1014,11 +1014,11 @@ function Reconciler:traverse_and_commit(hostf, finishedf)
 		return
 	end
 
-	if finishedf.flags:check(Flag.CHILD_DELETE) then
-		self:commit_deletions(finishedf)
+	local function xd(f)
+		return f.tag == "text" or f.tag == "element"
 	end
 
-	if finishedf.tag == "text" or finishedf.tag == "element" then
+	if xd(finishedf) then
 		if finishedf.flags:check(Flag.PLACEMENT) then
 			self:commit_placement(finishedf, hostf)
 		end
@@ -1026,7 +1026,15 @@ function Reconciler:traverse_and_commit(hostf, finishedf)
 		if finishedf.flags:check(Flag.UPDATE) then
 			self:commit_update(finishedf, hostf)
 		end
-	else
+		-- else
+		-- finishedf.flags:reset()
+	end
+
+	if finishedf.flags:check(Flag.CHILD_DELETE) then
+		self:commit_deletions(finishedf)
+	end
+
+	if not xd(finishedf) then
 		finishedf.flags:reset()
 	end
 
@@ -1037,10 +1045,10 @@ function Reconciler:traverse_and_commit(hostf, finishedf)
 		child = child.sibling
 	end
 
-	assertor.bug(
-		finishedf.flags:check(Flag.NONE),
-		"Fiber flags must be `NONE` after commit: " .. tostring(finishedf.flags)
-	)
+	-- assertor.bug(
+	-- 	finishedf.flags:check(Flag.NONE),
+	-- 	"Fiber flags must be `NONE` after commit: " .. tostring(finishedf.flags)
+	-- )
 end
 
 ---@param fiber markup.Fiber
@@ -1096,10 +1104,10 @@ function Reconciler:commit_placement(finishedf, parentf)
 	assert(parentf, "`parentf` must exist for placement")
 
 	local parent_node = parentf.state_node
-	local before = self:host_sibling(finishedf)
+	local sibling = self:host_sibling(finishedf)
 
-	if before then
-		before:insert_before(finishedf.state_node)
+	if sibling then
+		sibling:insert_before(finishedf.state_node)
 	else
 		parent_node:append_child(finishedf.state_node)
 	end

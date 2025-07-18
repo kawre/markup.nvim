@@ -82,14 +82,13 @@ end
 ---@private
 function Node:flag_render_tree_as_dirty()
 	if self.render_box then
-		self.render_box.dirty = true
+		self.render_box:flag_as_dirty()
 	end
 end
 
 function Node:set_text_content(content)
 	assert(self:is("text"), "Cannot set text content on a non-text node")
 	self.text_content = content
-	self:flag_render_tree_as_dirty()
 end
 
 function Node:clone()
@@ -103,18 +102,16 @@ end
 ---@private
 ---@param child markup.Node
 function Node:_insert(child, pos)
+	if child.parent then
+		child.parent:remove_child(child)
+	end
+
 	if pos then
 		table.insert(self.child_nodes, pos, child)
 	else
 		table.insert(self.child_nodes, child)
 	end
-
-	if child.parent then
-		child.parent:remove_child(child)
-	end
-
 	child.parent = self
-	self:flag_render_tree_as_dirty()
 end
 
 ---@param child markup.Node
@@ -144,9 +141,8 @@ end
 function Node:remove_child(child)
 	for i, node in ipairs(self.child_nodes) do
 		if node == child then
-			-- child.render_box:destroy()
+			child.parent = nil
 			table.remove(self.child_nodes, i)
-			child:destroy()
 			break
 		end
 	end
@@ -168,27 +164,12 @@ end
 function Node:destroy()
 	assert(self.parent, "Cannot destroy a node without a parent")
 	self.parent:remove_child(self)
-	self:flag_render_tree_as_dirty()
-	-- self.render_box:destroy()
-	self = nil
-end
-
-function Node:detach_from_render_tree()
-	assert(self.parent, "Cannot destroy a node without a parent")
-
-	self.parent:remove_child(self)
-	self:flag_render_tree_as_dirty()
-	-- self.render_box:destroy()
 	self = nil
 end
 
 ---@param type markup.Node.type
 function Node:is(type)
 	return self.type == type
-end
-
-function Node:__tostring()
-	return ("Node: (%s)"):format(self.type)
 end
 
 return Node

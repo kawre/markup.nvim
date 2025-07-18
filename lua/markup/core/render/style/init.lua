@@ -1,6 +1,6 @@
 local defaults = require("markup.core.render.style.defaults")
 
----@class markup.Render.Node.Style
+---@class markup.Render.Style
 ---@field margin_top integer
 ---@field margin_right integer
 ---@field margin_bottom integer
