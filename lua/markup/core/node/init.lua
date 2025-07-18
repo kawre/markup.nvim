@@ -102,14 +102,13 @@ end
 ---@private
 ---@param child markup.Node
 function Node:_insert(child, pos)
-	if child.parent then
-		child.parent:remove_child(child)
-	end
-
 	if pos then
 		table.insert(self.child_nodes, pos, child)
 	else
 		table.insert(self.child_nodes, child)
+	end
+	if child.parent then
+		child.parent:remove_child(child)
 	end
 	child.parent = self
 end

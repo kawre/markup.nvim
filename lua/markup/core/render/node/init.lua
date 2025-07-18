@@ -37,7 +37,7 @@ function RenderNode:new(node, layout_strategy)
 	node.render_box = self
 	self.dirty = true
 	self.buf = {}
-	-- self.props = BoxProps:new(self)
+	self.props = BoxProps:new(self)
 	self.__id = u.gen_id()
 
 	return self

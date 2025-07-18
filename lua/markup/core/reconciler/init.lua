@@ -1014,11 +1014,11 @@ function Reconciler:traverse_and_commit(hostf, finishedf)
 		return
 	end
 
-	local function xd(f)
-		return f.tag == "text" or f.tag == "element"
+	if finishedf.flags:check(Flag.CHILD_DELETE) then
+		self:commit_deletions(finishedf)
 	end
 
-	if xd(finishedf) then
+	if finishedf.tag == "text" or finishedf.tag == "element" then
 		if finishedf.flags:check(Flag.PLACEMENT) then
 			self:commit_placement(finishedf, hostf)
 		end
@@ -1026,15 +1026,7 @@ function Reconciler:traverse_and_commit(hostf, finishedf)
 		if finishedf.flags:check(Flag.UPDATE) then
 			self:commit_update(finishedf, hostf)
 		end
-		-- else
-		-- finishedf.flags:reset()
-	end
-
-	if finishedf.flags:check(Flag.CHILD_DELETE) then
-		self:commit_deletions(finishedf)
-	end
-
-	if not xd(finishedf) then
+	else
 		finishedf.flags:reset()
 	end
 
@@ -1045,10 +1037,10 @@ function Reconciler:traverse_and_commit(hostf, finishedf)
 		child = child.sibling
 	end
 
-	-- assertor.bug(
-	-- 	finishedf.flags:check(Flag.NONE),
-	-- 	"Fiber flags must be `NONE` after commit: " .. tostring(finishedf.flags)
-	-- )
+	assertor.bug(
+		finishedf.flags:check(Flag.NONE),
+		"Fiber flags must be `NONE` after commit: " .. tostring(finishedf.flags)
+	)
 end
 
 ---@param fiber markup.Fiber
