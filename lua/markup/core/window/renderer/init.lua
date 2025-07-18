@@ -1,6 +1,7 @@
 local markup = require("markup.core")
 
 local u = require("markup.utils") ---@diagnostic disable-line: unused-local
+local uv = vim.uv or vim.loop
 local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 local RenderNodeFactory = require("markup.core.factory.render-node")
 local RenderTree = require("markup.core.render.tree")
@@ -63,6 +64,21 @@ function Renderer:rerender()
 	self.render_tree:layout()
 	self.render_tree:paint()
 end
+
+-- function Renderer:rerender_async()
+-- 	local async
+-- 	async = uv.new_async(function()
+-- 		if vim.in_fast_event() then
+-- 			vim.schedule(function()
+-- 				self:rerender()
+-- 			end)
+-- 		else
+-- 			self:rerender()
+-- 		end
+-- 		async:close()
+-- 	end)
+-- 	async:send()
+-- end
 
 function Renderer:_render_()
 	-- vim.api.nvim_buf_clear_namespace(self.bufnr, ns, 0, -1)

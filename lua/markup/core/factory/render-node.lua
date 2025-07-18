@@ -27,12 +27,6 @@ end
 
 ---@param renderer markup.Renderer
 function M.create_root(renderer)
-	-- local RenderNode = require("markup.core.render.node")
-	-- local root_node = RenderNode:new(nil, nil)
-	-- root_node.renderer = renderer
-	-- root_node.layout_strategy = require("markup.core.render.node.layout.flex")
-	-- root_node.dirty = true
-	-- root_node:build()
 	local root = M.create(renderer.root.current.state_node)
 	root.x = 0
 	root.y = 0

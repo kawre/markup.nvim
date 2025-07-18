@@ -52,4 +52,8 @@ function Element:new(type, props)
 	return self
 end
 
+function Element:__tostring()
+	return ("Element (%s) [%s]"):format(self.type, self.typeof)
+end
+
 return Element

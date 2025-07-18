@@ -144,7 +144,7 @@ end
 function Node:remove_child(child)
 	for i, node in ipairs(self.child_nodes) do
 		if node == child then
-			child.render_box:destroy()
+			-- child.render_box:destroy()
 			table.remove(self.child_nodes, i)
 			child:destroy()
 			break
@@ -169,7 +169,7 @@ function Node:destroy()
 	assert(self.parent, "Cannot destroy a node without a parent")
 	self.parent:remove_child(self)
 	self:flag_render_tree_as_dirty()
-	self.render_box:destroy()
+	-- self.render_box:destroy()
 	self = nil
 end
 
@@ -178,13 +178,17 @@ function Node:detach_from_render_tree()
 
 	self.parent:remove_child(self)
 	self:flag_render_tree_as_dirty()
-	self.render_box:destroy()
+	-- self.render_box:destroy()
 	self = nil
 end
 
 ---@param type markup.Node.type
 function Node:is(type)
 	return self.type == type
+end
+
+function Node:__tostring()
+	return ("Node: (%s)"):format(self.type)
 end
 
 return Node

@@ -11,8 +11,6 @@ function TextLayout.layout(box)
 
 	box.height = 1
 	box.width = vim.api.nvim_strwidth(str)
-	-- box.parent.cx = box.parent.cx + box.width
-	-- box.cx = box.cx + box.width
 
 	table.insert(_MTEMP, box)
 end

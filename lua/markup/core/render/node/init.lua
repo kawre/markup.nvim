@@ -77,8 +77,8 @@ function RenderNode:attach(child)
 	return render_node
 end
 
----@param parent? markup.Render.Node
-function RenderNode:layout()
+---@param style markup.Element.style
+function RenderNode:layout(style)
 	assert(self.layout_strategy, "Layout strategy is not set")
 
 	if self.dirty == false then
@@ -90,6 +90,7 @@ function RenderNode:layout()
 
 	self.cx = self.x
 	self.cy = self.y
+	-- local xd = vim.tbl_deep_extend("keep", )
 	self.layout_strategy.layout(self)
 	self.cx = nil
 	self.cy = nil
@@ -139,6 +140,10 @@ function RenderNode:destroy()
 		end
 	end
 	table.remove(self.parent.children, index)
+end
+
+function RenderNode:__tostring()
+	return self.layout_strategy.__name
 end
 
 return RenderNode

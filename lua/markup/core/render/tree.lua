@@ -20,6 +20,7 @@ function RenderTree:build()
 end
 
 function RenderTree:layout()
+	-- self.root:layout()
 	for _, child in ipairs(self.root.children) do
 		child:layout()
 	end
@@ -37,8 +38,8 @@ function RenderTree:_paint_extmarks()
 	local height = self.root.height
 
 	local lines = {}
-	local fill = (" "):rep(width)
-	for i = 1, math.min(height, height) do
+	local fill = (" "):rep(1000)
+	for i = 1, math.max(height, 1000) do
 		lines[i] = fill
 	end
 	vim.api.nvim_buf_set_lines(self.renderer.bufnr, 0, -1, false, lines)

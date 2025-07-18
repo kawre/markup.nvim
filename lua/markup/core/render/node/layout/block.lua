@@ -12,7 +12,7 @@ function BlockLayout.layout(box)
 
 	local prev
 	for _, child in ipairs(box.children) do
-		if child:is("block") or (prev and prev:is("block")) then
+		if prev and (child:is("block") or prev:is("block")) then
 			box.cy = box.cy + 1
 			box.cx = box.x
 		end
