@@ -23,6 +23,7 @@ local u = require("markup.utils") ---@diagnostic disable-line: unused-local
 ---@field width integer
 ---@field height integer
 ---@field props markup.Render.props
+---@field extmarks table
 local RenderNode = {}
 RenderNode.__index = RenderNode
 

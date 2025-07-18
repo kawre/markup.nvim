@@ -1,7 +1,7 @@
 local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 local lookup = require("markup.lookup")
 
-_Markup = { renderers = {}, is_dev = false }
+_Markup = { renderers = {}, is_dev = false, debug_mode = false }
 
 ---@class markup
 ---@field inline markup.factory.Element.constructor

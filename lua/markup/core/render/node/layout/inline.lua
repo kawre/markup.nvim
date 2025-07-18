@@ -8,12 +8,12 @@ InlineLayout.__type = { inline = true }
 ---@param box markup.Render.Node
 function InlineLayout.layout(box)
 	local props = box.props
-	box.height = 1
 
+	box.height = 1
 	for _, child in ipairs(box.children) do
 		assert(child:is("inline"), "Inline layout can only be used for inline nodes")
 		child:layout()
-		box.x = box.x + child.width
+		box.x = box.x + child.width + props.spacing
 	end
 
 	box.width = box.x - box.mx + props.margin_right + props.padding_right
