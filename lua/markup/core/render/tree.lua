@@ -45,7 +45,7 @@ end
 ---@param box markup.Render.Box
 function RenderTree:traverse_and_paint(x, y, box)
 	if box:is("text") then
-		self:_paint_extmarks(x, y, box)
+		box:paint(self.renderer, x, y)
 		return
 	end
 
@@ -60,26 +60,7 @@ function RenderTree:traverse_and_paint(x, y, box)
 	end
 
 	if props.style.bg then
-		local pbox = box:padding_box_size()
-		local pox = x + props.margin_left
-		local poy = y + props.margin_top
-
-		for line = 0, pbox.height - 1 do
-			vim.api.nvim_buf_set_extmark(
-				--
-				self.renderer.bufnr,
-				self.renderer.ns,
-				poy + line,
-				pox,
-				{
-					end_col = pox + pbox.width,
-					-- hl_mode = "blend",
-					hl_eol = true,
-					hl_group = box.props.style.bg,
-					hl_mode = "combine",
-				}
-			)
-		end
+		box:paint(self.renderer, cox, coy)
 	end
 end
 

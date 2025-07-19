@@ -1,5 +1,4 @@
 local RenderNodeFactory = require("markup.core.factory.render-box")
--- local BoxStyle = require("markup.core.render.style")
 local assertor = require("markup.assertor")
 local BoxProps = require("markup.core.render.props")
 local log = require("markup.logger") ---@diagnostic disable-line: unused-local
@@ -230,8 +229,34 @@ function RenderBox:destroy()
 	table.remove(self.parent.children, index)
 end
 
--- function RenderNode:paint()
---
--- end
+---@param renderer markup.Renderer
+---@param x integer
+---@param y integer
+function RenderBox:paint(renderer, x, y)
+	local bufnr = renderer.bufnr
+	local ns = renderer.ns
+	local props = self.props
+
+	if self:is("text") then
+		-- only leaf nodes can output text on the screen
+		local word = tostring(self.node.text_content)
+		vim.api.nvim_buf_set_text(bufnr, y, x, y, x + #word, { word })
+	else
+		-- everything else can only output style
+		local pbox = self:padding_box_size()
+		local pox = x + props.margin_left
+		local poy = y + props.margin_top
+
+		for line = 0, pbox.height - 1 do
+			vim.api.nvim_buf_set_extmark(bufnr, ns, poy + line, pox, {
+				end_col = pox + pbox.width,
+				-- hl_mode = "blend",
+				hl_eol = true,
+				hl_group = props.style.bg,
+				hl_mode = "combine",
+			})
+		end
+	end
+end
 
 return RenderBox
