@@ -22,10 +22,10 @@ local T = new_set({
 			-- child.restart({ "-u", "scripts/minimal_init.lua" })
 			child.start({ "-u", "scripts/minimal_init.lua" })
 			child.lua([[markup = require('markup')]])
+		end,
+		pre_case = function()
 			child.o.lines, child.o.columns = 15, 60
 		end,
-		-- pre_case = function()
-		-- end,
 		post_once = function()
 			child.stop()
 			markup = require("markup")
@@ -304,6 +304,37 @@ T["render()"]["hflex"]["renders flex with justify-between"] = function()
 		markup.block("block"),
 		markup.block("block"),
 		markup.block("block"),
+	})
+
+	render_and_expect_screenshot(app)
+end
+
+T["render()"]["hflex"]["renders other nested flex elements, shrinking them if they have no size provided"] = function()
+	local app = markup.block({
+		markup.flex({
+			justify = "between",
+			markup.block("hello"),
+			markup.block({
+				markup.block("block"),
+				markup.block("bl"),
+				style = { bg = "Cursor" },
+			}),
+			markup.inline("123"),
+			markup.flex({
+				style = { bg = "Cursor" },
+				spacing = 1,
+				markup.block("hello"),
+				markup.block({
+					markup.block("block"),
+					markup.block("aaaa"),
+					markup.block("2"),
+					markup.block("3"),
+				}),
+				markup.block("123"),
+			}),
+			markup.block("123"),
+		}),
+		markup.inline("inline"),
 	})
 
 	render_and_expect_screenshot(app)

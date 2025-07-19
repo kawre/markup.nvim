@@ -6,7 +6,6 @@ local BlockLayout = Layout.new("RenderBlock", { "block" })
 
 ---@param box markup.Render.Box
 function BlockLayout.layout(box)
-	local parent = box.parent
 	local props = box.props
 	local parent_cbox = box.parent:content_box_size()
 
@@ -48,7 +47,10 @@ end
 ---@param parent_cbox markup.Element.size
 function BlockLayout.compute_final_size(box, parent_cbox)
 	local height = box.props.height
-	box:set_content_box_size(math.max(box.width, box.content_width), math.max(box.height, height))
+	box:set_content_box_size(
+		math.max(box.width, box.content_width or 0),
+		math.max(box.height, height)
+	)
 end
 
 return BlockLayout

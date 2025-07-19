@@ -7,7 +7,7 @@ local FlexLayout = Layout.new("RenderFlex", { "flex", "block" })
 ---@param box markup.Render.Box
 function FlexLayout.layout(box)
 	local parent_cbox = box.parent:content_box_size()
-	FlexLayout.compute_initial_width(box, parent_cbox)
+	-- FlexLayout.compute_initial_width(box, parent_cbox)
 
 	if box.props.vertical then
 		FlexLayout.layout_vertical(box)
@@ -21,7 +21,6 @@ end
 
 ---@param box markup.Render.Box
 function FlexLayout.layout_horizontal(box)
-	local parent = box.parent
 	local props = box.props
 
 	local max_width, max_height = 0, 0
@@ -31,29 +30,34 @@ function FlexLayout.layout_horizontal(box)
 		child:layout()
 
 		box.x = box.x + child.width + (i ~= len and props.spacing or 0)
+		max_width = math.max(max_width, box.x)
 		max_height = math.max(max_height, child.height)
 	end
 
-	box.width = box.x
+	box.width = max_width
 	box.height = max_height
 end
 
 ---@param box markup.Render.Box
-function FlexLayout.layout_vertical(box) end
+function FlexLayout.layout_vertical(box)
+	--
+end
 
 ---@param box markup.Render.Box
 ---@param parent_cbox markup.Element.size
 function FlexLayout.compute_initial_width(box, parent_cbox)
-	local width = box.props.width
-	local new_width = box:normalize_size(width, parent_cbox.width)
-	box:set_content_box_size(new_width)
+	-- log.info(parent_cbox)
+	-- local new_width = box:normalize_size(width, parent_cbox.width)
+	-- box:set_content_box_size(new_width)
 end
 
 ---@param box markup.Render.Box
 ---@param parent_cbox markup.Element.size
 function FlexLayout.compute_final_size(box, parent_cbox)
 	local height = box.props.height
-	box:set_content_box_size(math.max(box.width, box.content_width), math.max(box.height, height))
+	local width = box.props.width
+	local new_width = box:normalize_size(width, parent_cbox.width)
+	box:set_content_box_size(math.max(box.width, new_width or 0), math.max(box.height, height or 0))
 end
 
 ---@param box markup.Render.Box

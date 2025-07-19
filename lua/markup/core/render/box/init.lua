@@ -203,7 +203,7 @@ function RenderBox:set_content_box_size(width, height)
 				- (props.padding_left + props.padding_right)
 				- (props.margin_left + props.margin_right)
 		end
-		self.content_width = width
+		self.content_width = math.max(self.width or 0, width)
 	end
 
 	if height then
@@ -215,7 +215,7 @@ function RenderBox:set_content_box_size(width, height)
 					- (props.padding_top + props.padding_bottom)
 					- (props.margin_top + props.margin_bottom)
 			end
-			self.content_height = height
+			self.content_height = math.max(self.height or 0, height)
 		end
 	end
 end
