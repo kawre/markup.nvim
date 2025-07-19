@@ -1,17 +1,17 @@
 local log = require("markup.logger") ---@diagnostic disable-line: unused-local
+local Layout = require("markup.core.render.node.layout")
 
 ---@class markup.Render.Layout.Flex : markup.Render.Layout
-local FlexLayout = {}
-FlexLayout.__name = "RenderFlex"
-FlexLayout.__type = { flex = true, block = true }
+local FlexLayout = Layout.new("RenderFlex", { "flex", "block" })
 
 ---@param box markup.Render.Node
 function FlexLayout.layout(box)
-	-- if box.props.vertical then
-	-- 	FlexLayout.layout_vertical(box)
-	-- else
-	FlexLayout.layout_horizontal(box)
-	-- end
+	if box.props.vertical then
+		FlexLayout.layout_vertical(box)
+	else
+		FlexLayout.layout_horizontal(box)
+	end
+
 	FlexLayout.justify(box)
 end
 

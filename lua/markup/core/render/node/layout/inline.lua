@@ -1,9 +1,8 @@
 local log = require("markup.logger")
+local Layout = require("markup.core.render.node.layout")
 
 ---@class markup.Render.Layout.Inline : markup.Render.Layout
-local InlineLayout = {}
-InlineLayout.__name = "RenderInline"
-InlineLayout.__type = { inline = true }
+local InlineLayout = Layout.new("RenderInline", { "inline" })
 
 ---@param box markup.Render.Node
 function InlineLayout.layout(box)

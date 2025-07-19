@@ -59,13 +59,21 @@ function RenderTree:traverse_and_paint(x, y, box)
 	if box.props.style.bg then
 		-- local hl = "MarkupDynamic" .. box.__id
 		-- vim.api.nvim_set_hl(self.renderer.ns, hl, box.props.style)
-		vim.api.nvim_buf_set_extmark(self.renderer.bufnr, self.renderer.ns, y, x, {
-			end_line = y + box.height - 1,
-			end_col = x + box.width,
-			-- hl_mode = "blend",
-			hl_group = box.props.style.bg,
-			hl_mode = "combine",
-		})
+		-- log.info({
+		-- 	x = x,
+		-- 	y = y,
+		-- 	end_x = x + box.width,
+		-- 	end_y = y + box.height,
+		-- })
+		for line = 0, box.height - 1 do
+			vim.api.nvim_buf_set_extmark(self.renderer.bufnr, self.renderer.ns, y + line, x, {
+				end_col = x + box.available_width,
+				-- hl_mode = "blend",
+				hl_eol = true,
+				hl_group = box.props.style.bg,
+				hl_mode = "combine",
+			})
+		end
 	end
 end
 

@@ -1,14 +1,9 @@
 local RenderNodeFactory = require("markup.core.factory.render-node")
-local BoxStyle = require("markup.core.render.style")
+-- local BoxStyle = require("markup.core.render.style")
 local assertor = require("markup.assertor")
 local BoxProps = require("markup.core.render.props")
 local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 local u = require("markup.utils") ---@diagnostic disable-line: unused-local
-
----@class markup.Render.Layout
----@field layout fun(box: markup.Render.Node)
----@field __name string
----@field __type table<markup.Render.LayoutType, boolean>
 
 ---@class markup.Render.Node
 ---@field layout_strategy markup.Render.Layout
