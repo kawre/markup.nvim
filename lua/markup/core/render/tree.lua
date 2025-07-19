@@ -49,7 +49,7 @@ function RenderTree:traverse_and_paint(x, y, box)
 		return
 	end
 
-	for _, child in ipairs(box.children) do
+	for _, child in box:iter_children() do
 		local props = child.props
 		local new_x = x + props.margin_left + props.padding_left + child.ox
 		local new_y = y + props.margin_top + props.padding_top + child.oy

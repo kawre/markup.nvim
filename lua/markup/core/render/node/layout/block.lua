@@ -15,7 +15,7 @@ function BlockLayout.layout(box)
 	local max_x, max_y = 0, 0
 	local prev ---@type markup.Render.Node
 
-	for _, child in ipairs(box.children) do
+	for _, child in box:iter_children() do
 		if prev and (child:is("block") or prev:is("block")) then
 			box.y = box.y + prev.height + props.spacing
 			box.x = 0

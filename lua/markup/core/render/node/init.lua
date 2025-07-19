@@ -85,6 +85,23 @@ function RenderNode:attach(child)
 	return render_node
 end
 
+function RenderNode:iter_children()
+	local children = self.children
+	local reverse = self.props.reverse
+	local sign = reverse and -1 or 1
+	local i = reverse and #children + 1 or 0
+
+	return function()
+		i = i + (1 * sign)
+
+		if i < 1 or i > #children then
+			return nil
+		end
+
+		return i, children[i]
+	end
+end
+
 ---@param style markup.Render.Style
 function RenderNode:layout(_style)
 	assert(self.layout_strategy, "Layout strategy is not set")

@@ -20,6 +20,8 @@ function H.mock_markup()
 			return tostring(props)
 		elseif type(props) == "string" then
 			return props:match("^markup%.[^%.%(%)%s]+%b()$") and props or ("\"%s\""):format(props)
+		elseif type(props) == "boolean" then
+			return tostring(props)
 		else
 			error(("Unsupported type: %s"):format(type(props)))
 		end

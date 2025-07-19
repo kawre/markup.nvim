@@ -25,7 +25,7 @@ function FlexLayout.layout_horizontal(box)
 	local max_width, max_height = 0, 0
 	local len = #box.children
 
-	for i, child in ipairs(box.children) do
+	for i, child in box:iter_children() do
 		child:layout()
 
 		child.available_height = child.height
@@ -56,13 +56,13 @@ function FlexLayout.justify(box)
 
 		if n > 1 then
 			local total_children_width = 0
-			for _, child in ipairs(box.children) do
+			for _, child in box:iter_children() do
 				total_children_width = total_children_width + child.width
 			end
 
 			local space = math.floor((box.available_width - total_children_width) / (n - 1))
 			local current_x = 0
-			for _, child in ipairs(box.children) do
+			for _, child in box:iter_children() do
 				child.ox = current_x
 				current_x = current_x + child.width + space
 			end

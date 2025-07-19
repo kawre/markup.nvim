@@ -76,6 +76,17 @@ T["render()"]["inline"]["renders multiple inline elements"] = function()
 	render_and_expect_screenshot(app)
 end
 
+T["render()"]["inline"]["renders elements in reversed order"] = function()
+	local app = markup.inline({
+		reverse = true,
+		"1",
+		markup.inline("2"),
+		"3",
+	})
+
+	render_and_expect_screenshot(app)
+end
+
 T["render()"]["block"] = new_set()
 
 T["render()"]["block"]["renders mixed inline and block elements"] = function()
@@ -86,6 +97,17 @@ T["render()"]["block"]["renders mixed inline and block elements"] = function()
 		markup.block("i'm on a new line!"),
 		markup.inline("inline"),
 		markup.inline(" also inline"),
+	})
+
+	render_and_expect_screenshot(app)
+end
+
+T["render()"]["block"]["renders elements in reversed order"] = function()
+	local app = markup.block({
+		reverse = true,
+		markup.block("1"),
+		markup.block("2"),
+		markup.block("3"),
 	})
 
 	render_and_expect_screenshot(app)

@@ -11,7 +11,7 @@ function InlineLayout.layout(box)
 	box.height = 1
 
 	local len = #box.children
-	for i, child in ipairs(box.children) do
+	for i, child in box:iter_children() do
 		assert(child:is("inline"), "Inline layout can only be used for inline nodes")
 
 		child:layout()

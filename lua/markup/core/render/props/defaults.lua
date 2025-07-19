@@ -16,7 +16,7 @@ M.default = {
 	justify = "start",
 	align = "start",
 	vertical = false,
-	reversed = false,
+	reverse = false,
 	style = {},
 }
 
