@@ -16,7 +16,7 @@ local defaults = require("markup.core.render.style.defaults")
 local BoxStyle = {}
 BoxStyle.__index = BoxStyle
 
----@param box markup.Render.Node
+---@param box markup.Render.Box
 function BoxStyle:new(box)
 	return setmetatable({}, {
 		__index = function(_, key)

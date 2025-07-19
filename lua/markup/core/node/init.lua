@@ -33,7 +33,7 @@ local _type = type
 ---@field text_content string
 ---@field parent markup.Node
 ---@field child_nodes markup.Node[]
----@field render_box? markup.Render.Node
+---@field render_box? markup.Render.Box
 ---@field fiber markup.Fiber
 local Node = {}
 Node.__index = Node

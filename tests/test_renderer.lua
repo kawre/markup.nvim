@@ -60,8 +60,19 @@ end
 
 T["render()"]["inline"]["renders inline with highlight"] = function()
 	local app = markup.inline({
-		markup.inline({ "i'm highlighted", style = { bg = "Number" } }),
+		markup.inline({ "i'm highlighted", style = { bg = "Cursor" } }),
 		markup.inline({ " i'm not" }),
+	})
+
+	render_and_expect_screenshot(app)
+end
+
+T["render()"]["inline"]["renders inline with highlight respecting margin and padding"] = function()
+	local app = markup.inline({
+		style = { bg = "Cursor" },
+		padding_left = 3,
+		margin_left = 2,
+		markup.inline("inline"),
 	})
 
 	render_and_expect_screenshot(app)
@@ -83,6 +94,20 @@ T["render()"]["inline"]["renders elements in reversed order"] = function()
 		"1",
 		markup.inline("2"),
 		"3",
+	})
+
+	render_and_expect_screenshot(app)
+end
+
+T["render()"]["inline"]["renders inline elements respecing margin and padding"] = function()
+	local app = markup.inline({
+		markup.inline("inline"),
+		markup.inline({
+			"inline",
+			margin_left = 3,
+			margin_right = 3,
+		}),
+		markup.inline("inline"),
 	})
 
 	render_and_expect_screenshot(app)

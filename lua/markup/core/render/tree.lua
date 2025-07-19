@@ -1,4 +1,4 @@
-local RenderNodeFactory = require("markup.core.factory.render-node")
+local RenderNodeFactory = require("markup.core.factory.render-box")
 local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 
 ---@class markup.Render.Tree
@@ -42,7 +42,7 @@ end
 ---(x, y) are the coordinates of the parent margin box
 ---@param x integer
 ---@param y integer
----@param box markup.Render.Node
+---@param box markup.Render.Box
 function RenderTree:traverse_and_paint(x, y, box)
 	if box:is("text") then
 		self:_paint_extmarks(x, y, box)
@@ -109,7 +109,7 @@ function RenderTree:_paint_grid()
 		end
 	end
 
-	---@param box markup.Render.Node
+	---@param box markup.Render.Box
 	for _, box in ipairs(_MTEMP) do
 		local x, y, word = box.x + 1, box.y + 1, tostring(box.node.text_content)
 		for i = 1, #word do

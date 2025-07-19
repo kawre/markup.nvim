@@ -17,6 +17,8 @@ M.default = {
 	align = "start",
 	vertical = false,
 	reverse = false,
+	sizing = "outer",
+	-- sizing = "padding",
 	style = {},
 }
 

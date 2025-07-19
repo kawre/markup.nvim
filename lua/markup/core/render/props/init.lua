@@ -17,11 +17,12 @@ local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 ---@field justify string
 ---@field align string
 ---@field vertical string
+---@field sizing string
 ---@field reverse boolean
 local BoxProps = {}
 BoxProps.__index = BoxProps
 
----@param box markup.Render.Node
+---@param box markup.Render.Box
 function BoxProps:new(box)
 	return setmetatable({}, {
 		__index = function(_, key)

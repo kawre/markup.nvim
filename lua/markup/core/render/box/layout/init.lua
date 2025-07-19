@@ -17,12 +17,12 @@ function Layout.new(name, type)
 	}
 end
 
----@param box markup.Render.Node
+---@param box markup.Render.Box
 function Layout.layout(box) ---@diagnostic disable-line: unused-local
 	error("Layout.layout must be implemented by subclasses")
 end
 
----@param box markup.Render.Node
+---@param box markup.Render.Box
 function Layout.apply_size_constraints(box) ---@diagnostic disable-line: unused-local
 	local width = box.props.width
 	local parent_cbox = box.parent:content_box_size()

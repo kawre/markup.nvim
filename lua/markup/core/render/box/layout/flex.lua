@@ -1,10 +1,10 @@
 local log = require("markup.logger") ---@diagnostic disable-line: unused-local
-local Layout = require("markup.core.render.node.layout")
+local Layout = require("markup.core.render.box.layout")
 
 ---@class markup.Render.Layout.Flex : markup.Render.Layout
 local FlexLayout = Layout.new("RenderFlex", { "flex", "block" })
 
----@param box markup.Render.Node
+---@param box markup.Render.Box
 function FlexLayout.layout(box)
 	if box.props.vertical then
 		FlexLayout.layout_vertical(box)
@@ -15,7 +15,7 @@ function FlexLayout.layout(box)
 	FlexLayout.justify(box)
 end
 
----@param box markup.Render.Node
+---@param box markup.Render.Box
 function FlexLayout.layout_horizontal(box)
 	local parent = box.parent
 	local props = box.props
@@ -28,8 +28,8 @@ function FlexLayout.layout_horizontal(box)
 	for i, child in box:iter_children() do
 		child:layout()
 
-		child.available_height = child.height
-		child.available_width = child.width
+		-- child.available_height = child.height
+		-- child.available_width = child.width
 
 		box.x = box.x + child.width + (i ~= len and props.spacing or 0)
 		max_height = math.max(max_height, child.height)
@@ -39,10 +39,10 @@ function FlexLayout.layout_horizontal(box)
 	box.height = max_height
 end
 
----@param box markup.Render.Node
+---@param box markup.Render.Box
 function FlexLayout.layout_vertical(box) end
 
----@param box markup.Render.Node
+---@param box markup.Render.Box
 function FlexLayout.justify(box)
 	local props = box.props
 	local cbox = box:content_box_size()

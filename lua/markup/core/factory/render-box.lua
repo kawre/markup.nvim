@@ -3,17 +3,17 @@
 local M = {}
 
 local strategies = {
-	["flex"] = require("markup.core.render.node.layout.flex"),
-	["block"] = require("markup.core.render.node.layout.block"),
-	["root"] = require("markup.core.render.node.layout.block"),
-	["inline"] = require("markup.core.render.node.layout.inline"),
-	["text"] = require("markup.core.render.node.layout.text"),
+	["flex"] = require("markup.core.render.box.layout.flex"),
+	["block"] = require("markup.core.render.box.layout.block"),
+	["root"] = require("markup.core.render.box.layout.block"),
+	["inline"] = require("markup.core.render.box.layout.inline"),
+	["text"] = require("markup.core.render.box.layout.text"),
 }
 
 ---@param node markup.Node
----@return markup.Render.Node
+---@return markup.Render.Box
 function M.create(node)
-	local RenderNode = require("markup.core.render.node")
+	local RenderNode = require("markup.core.render.box")
 	-- local layout_type = type(node.props) == "table" and node.props.layout or "text"
 	local layout_type = node.type == "text" and "text" or node.tag_name
 	local layout_strategy = strategies[layout_type]

@@ -1,10 +1,10 @@
 local log = require("markup.logger") ---@diagnostic disable-line: unused-local
-local Layout = require("markup.core.render.node.layout")
+local Layout = require("markup.core.render.box.layout")
 
 ---@class markup.Render.Layout.Block : markup.Render.Layout
 local BlockLayout = Layout.new("RenderBlock", { "block" })
 
----@param box markup.Render.Node
+---@param box markup.Render.Box
 function BlockLayout.layout(box)
 	local parent = box.parent
 	local props = box.props
@@ -12,7 +12,7 @@ function BlockLayout.layout(box)
 	Layout.apply_size_constraints(box)
 
 	local max_x, max_y = 0, 0
-	local prev ---@type markup.Render.Node
+	local prev ---@type markup.Render.Box
 
 	for _, child in box:iter_children() do
 		if prev and (child:is("block") or prev:is("block")) then
