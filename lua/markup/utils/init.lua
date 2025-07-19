@@ -4,6 +4,46 @@ local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 ---@class markup.Utils
 local utils = {}
 
+local hl_groups = {} ---@type table<string, vim.api.keyset.highlight>
+vim.api.nvim_create_autocmd("ColorScheme", {
+	group = vim.api.nvim_create_augroup("markup.util.hl", { clear = true }),
+	callback = function()
+		for hl_group, hl in pairs(hl_groups) do
+			vim.api.nvim_set_hl(0, hl_group, hl)
+		end
+	end,
+})
+
+--- Ensures the hl groups are always set, even after a colorscheme change.
+---@param groups snacks.util.hl
+---@param opts? { prefix?:string, default?:boolean, managed?:boolean }
+function utils.set_hl(groups, opts)
+	opts = opts or {}
+	for hl_group, hl in pairs(groups) do
+		hl_group = opts.prefix and opts.prefix .. hl_group or hl_group
+		hl = type(hl) == "string" and { link = hl } or hl --[[@as vim.api.keyset.highlight]]
+		hl.default = opts.default
+		if opts.managed ~= false then
+			hl_groups[hl_group] = hl
+		end
+		vim.api.nvim_set_hl(0, hl_group, hl)
+	end
+end
+
+---@param group string|string[] hl group to get color from
+---@param prop? string property to get. Defaults to "fg"
+function utils.color(group, prop)
+	prop = prop or "fg"
+	group = type(group) == "table" and group or { group }
+	---@cast group string[]
+	for _, g in ipairs(group) do
+		local hl = vim.api.nvim_get_hl(0, { name = g, link = false })
+		if hl[prop] then
+			return string.format("#%06x", hl[prop])
+		end
+	end
+end
+
 function utils.set_option_value(name, value, opts)
 	local ok, err = pcall(vim.api.nvim_set_option_value, name, value, opts)
 	if not ok then

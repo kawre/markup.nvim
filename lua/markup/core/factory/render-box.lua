@@ -4,6 +4,8 @@ local M = {}
 
 local strategies = {
 	["flex"] = require("markup.core.render.box.layout.flex"),
+	["hflex"] = require("markup.core.render.box.layout.flex"),
+	["vflex"] = require("markup.core.render.box.layout.flex"),
 	["block"] = require("markup.core.render.box.layout.block"),
 	["root"] = require("markup.core.render.box.layout.block"),
 	["inline"] = require("markup.core.render.box.layout.inline"),

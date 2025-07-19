@@ -56,7 +56,7 @@ function RenderTree:traverse_and_paint(x, y, box)
 		self:traverse_and_paint(cx + child.ox, cy + child.oy, child)
 	end
 
-	if props.style.bg then
+	if type(props.style) == "string" or not vim.tbl_isempty(props.style) then
 		box:paint(self.renderer, x, y)
 	end
 end

@@ -60,7 +60,7 @@ end
 
 T["render()"]["inline"]["renders inline with highlight"] = function()
 	local app = markup.inline({
-		markup.inline({ "i'm highlighted", style = { bg = "Cursor" } }),
+		markup.inline({ "i'm highlighted", style = "Cursor" }),
 		markup.inline({ " i'm not" }),
 	})
 
@@ -69,7 +69,7 @@ end
 
 T["render()"]["inline"]["renders inline with highlight respecting margin and padding"] = function()
 	local app = markup.inline({
-		style = { bg = "Cursor" },
+		style = "Cursor",
 		padding_left = 3,
 		margin_left = 2,
 		markup.inline("inline"),
@@ -82,7 +82,7 @@ T["render()"]["inline"]["renders inline with highlight respecting padding left a
 	local app = markup.inline({
 		markup.inline("inline"),
 		markup.inline({
-			style = { bg = "Cursor" },
+			style = "Cursor",
 			padding_left = 2,
 			padding_right = 2,
 			"inline",
@@ -218,7 +218,7 @@ end
 T["render()"]["block"]["renders block elements with height and width"] = function()
 	local app = markup.block({
 		width = 15,
-		style = { bg = "Cursor" },
+		style = "Cursor",
 		spacing = 2,
 		height = 10,
 		markup.inline("inline"),
@@ -317,11 +317,11 @@ T["render()"]["hflex"]["renders other nested flex elements, shrinking them if th
 			markup.block({
 				markup.block("block"),
 				markup.block("bl"),
-				style = { bg = "Cursor" },
+				style = "Cursor",
 			}),
 			markup.inline("123"),
 			markup.flex({
-				style = { bg = "Cursor" },
+				style = "Cursor",
 				spacing = 1,
 				markup.block("hello"),
 				markup.block({

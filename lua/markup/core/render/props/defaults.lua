@@ -31,7 +31,12 @@ M.flex = {
 
 M.hflex = {
 	display = "flex",
-	horizontal = true,
+	vertical = false,
+}
+
+M.vflex = {
+	display = "flex",
+	vertical = true,
 }
 
 M.block = {

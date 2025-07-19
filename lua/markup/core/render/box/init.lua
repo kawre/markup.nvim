@@ -256,12 +256,13 @@ function RenderBox:paint(renderer, x, y)
 		local pox = x + props.margin_left
 		local poy = y + props.margin_top
 
+		u.set_hl({ [self.__id] = self.props.style }, { managed = true, prefix = "MarkupDynamic" })
+
 		for line = 0, pbox.height - 1 do
 			vim.api.nvim_buf_set_extmark(bufnr, ns, poy + line, pox, {
 				end_col = pox + pbox.width,
-				-- hl_mode = "blend",
 				hl_eol = true,
-				hl_group = props.style.bg,
+				hl_group = "MarkupDynamic" .. self.__id,
 				hl_mode = "combine",
 			})
 		end
