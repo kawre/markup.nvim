@@ -15,6 +15,7 @@ function FlexLayout.layout(box)
 	FlexLayout.justify(box)
 end
 
+---@param box markup.Render.Node
 function FlexLayout.layout_horizontal(box)
 	local parent = box.parent
 	local props = box.props
@@ -36,16 +37,12 @@ function FlexLayout.layout_horizontal(box)
 
 	box.width = box.x
 	box.height = max_height
-
-	if props.justify == "center" then
-		box.ox = math.floor((box.available_width - box.width) / 2)
-	elseif props.justify == "end" then
-		box.ox = box.available_width - box.width
-	end
 end
 
+---@param box markup.Render.Node
 function FlexLayout.layout_vertical(box) end
 
+---@param box markup.Render.Node
 function FlexLayout.justify(box)
 	local props = box.props
 
@@ -53,6 +50,27 @@ function FlexLayout.justify(box)
 		box.ox = math.floor((box.available_width - box.width) / 2)
 	elseif props.justify == "end" then
 		box.ox = box.available_width - box.width
+	elseif props.justify == "between" then
+		local n = #box.children
+		local last = box.children[n]
+
+		if n > 1 then
+			local total_children_width = 0
+			for _, child in ipairs(box.children) do
+				total_children_width = total_children_width + child.width
+			end
+
+			local space = math.floor((box.available_width - total_children_width) / (n - 1))
+			local current_x = 0
+			for _, child in ipairs(box.children) do
+				child.ox = current_x
+				current_x = current_x + child.width + space
+			end
+
+			last.ox = box.available_width - last.width
+		else
+			box.children[1].ox = 0
+		end
 	end
 end
 

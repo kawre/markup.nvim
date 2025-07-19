@@ -18,6 +18,7 @@ local _type = type
 ---@field margin_right? integer
 ---@field margin_bottom? integer
 ---@field margin_left? integer
+---@field justify? markup.Box.justify
 ---@field align? markup.Box.align
 ---@field spacing? markup.Box.spacing
 ---@field vertical? boolean

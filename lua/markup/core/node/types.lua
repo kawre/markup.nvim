@@ -44,4 +44,5 @@
 ---------------------------------
 
 ---@alias markup.Box.align "start"|"center"|"end"
+---@alias markup.Box.justify "start"|"center"|"end"|"between"
 ---@alias markup.Box.spacing integer

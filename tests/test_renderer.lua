@@ -114,6 +114,24 @@ T["render()"]["block"]["renders nested block with inline"] = function()
 	render_and_expect_screenshot(app)
 end
 
+T["render()"]["block"]["renders only inline elements ignoring spacing"] = function()
+	local app = markup.block({
+		spacing = 2,
+		markup.inline("inline"),
+		markup.inline("inline"),
+		markup.inline("inline"),
+		markup.inline("inline"),
+	})
+
+	MiniTest.add_note([[
+	This is done to avoid weirdy behavior.
+	Ideally render tree should wrap contigious style-less inline/text elements into one,
+	which would fix this while also improving performance.
+	]])
+
+	render_and_expect_screenshot(app)
+end
+
 T["render()"]["block"]["renders complex nested block"] = function()
 	local app = markup.block({
 		markup.inline("inline"),
@@ -197,6 +215,17 @@ T["render()"]["hflex"]["renders flex with inline and justify-end"] = function()
 		markup.inline("inline"),
 		markup.inline("inline"),
 		markup.inline("inline"),
+	})
+
+	render_and_expect_screenshot(app)
+end
+
+T["render()"]["hflex"]["renders flex with justify-between"] = function()
+	local app = markup.flex({
+		justify = "between",
+		markup.block("block"),
+		markup.block("block"),
+		markup.block("block"),
 	})
 
 	render_and_expect_screenshot(app)
