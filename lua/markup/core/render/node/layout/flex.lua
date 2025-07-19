@@ -20,7 +20,7 @@ function FlexLayout.layout_horizontal(box)
 	local parent = box.parent
 	local props = box.props
 
-	box.available_width = box.parent.available_width
+	Layout.apply_size_constraints(box)
 
 	local max_width, max_height = 0, 0
 	local len = #box.children
@@ -45,11 +45,12 @@ function FlexLayout.layout_vertical(box) end
 ---@param box markup.Render.Node
 function FlexLayout.justify(box)
 	local props = box.props
+	local cbox = box:content_box_size()
 
 	if props.justify == "center" then
-		box.ox = math.floor((box.available_width - box.width) / 2)
+		box.ox = math.floor((cbox.width - box.width) / 2)
 	elseif props.justify == "end" then
-		box.ox = box.available_width - box.width
+		box.ox = cbox.width - box.width
 	elseif props.justify == "between" then
 		local n = #box.children
 		local last = box.children[n]
@@ -60,14 +61,14 @@ function FlexLayout.justify(box)
 				total_children_width = total_children_width + child.width
 			end
 
-			local space = math.floor((box.available_width - total_children_width) / (n - 1))
+			local space = math.floor((cbox.width - total_children_width) / (n - 1))
 			local current_x = 0
 			for _, child in box:iter_children() do
 				child.ox = current_x
 				current_x = current_x + child.width + space
 			end
 
-			last.ox = box.available_width - last.width
+			last.ox = cbox.width - last.width
 		else
 			box.children[1].ox = 0
 		end

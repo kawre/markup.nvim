@@ -105,9 +105,6 @@ function RenderNode:layout(_style)
 		return
 	end
 
-	-- local style = self.node.props
-	local props = self.props
-
 	-- offset
 	self.ox = self.parent.x
 	self.oy = self.parent.y
@@ -159,47 +156,59 @@ function RenderNode:is(layout_type)
 	return self.layout_strategy.__type[layout_type]
 end
 
-function RenderNode:set_content_area_width(width)
+-- function RenderNode:set_constraints(width, height)
+-- 	if width then
+-- 		self.width = width
+-- 	end
+-- 	if height then
+-- 		self.height = height
+-- 	end
+-- end
+
+function RenderNode:margin_box_size()
 	local props = self.props
+	local pbox = self:padding_box_size()
 
-	self.content_width = width
-		- (props.margin_left + props.margin_right)
-		- (props.padding_left + props.padding_right)
-end
-
-function RenderNode:set_content_area_height(height)
-	local props = self.props
-
-	self.content_height = height
-		- (props.margin_top + props.margin_bottom)
-		- (props.padding_top + props.padding_bottom)
-end
-
-function RenderNode:set_available_area(width, height)
-	self.available_width = width
-	self.available_height = height
-end
-
-function RenderNode:available_area() end
-
-function RenderNode:content_size()
 	return {
-		width = self.ecx - self.cx,
-		height = self.ecy - self.cy,
+		width = pbox.width and pbox.width + (props.margin_left + props.margin_right),
+		height = pbox.height and pbox.height + (props.margin_top + props.margin_bottom),
 	}
 end
 
-function RenderNode:size()
-	local size = self:content_size()
+function RenderNode:padding_box_size()
 	local props = self.props
+	local cbox = self:content_box_size()
 
 	return {
-		width = size.width
-			+ (props.margin_left + props.margin_right)
-			+ (props.padding_left + props.padding_right),
-		height = size.height
-			+ (props.margin_top + props.margin_bottom)
-			+ (props.padding_top + props.padding_bottom),
+		width = cbox.width and cbox.width + (props.padding_left + props.padding_right),
+		height = cbox.height and cbox.height + (props.padding_top + props.padding_bottom),
+	}
+end
+
+---@param width? integer
+---@param height? integer
+function RenderNode:set_content_box_size(width, height)
+	local props = self.props
+	if width then
+		self.content_width = width
+			- (props.padding_left + props.padding_right)
+			- (props.margin_left + props.margin_right)
+	end
+	if height then
+		if self:is("inline") then
+			self.content_height = 1
+		else
+			self.content_height = height
+				- (props.padding_top + props.padding_bottom)
+				- (props.margin_top + props.margin_bottom)
+		end
+	end
+end
+
+function RenderNode:content_box_size()
+	return {
+		width = self.content_width,
+		height = self.content_height,
 	}
 end
 
@@ -213,5 +222,9 @@ function RenderNode:destroy()
 	end
 	table.remove(self.parent.children, index)
 end
+
+-- function RenderNode:paint()
+--
+-- end
 
 return RenderNode

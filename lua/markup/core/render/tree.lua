@@ -27,12 +27,11 @@ function RenderTree:layout()
 end
 
 function RenderTree:paint()
-	local width = self.root.available_width
-	local height = self.root.available_height
+	local mbox = self.root:margin_box_size()
 
 	local lines = {}
 	local fill = (" "):rep(1000)
-	for i = 1, math.max(height, 1000) do
+	for i = 1, math.max(mbox.height, 1000) do
 		lines[i] = fill
 	end
 	vim.api.nvim_buf_set_lines(self.renderer.bufnr, 0, -1, false, lines)
@@ -40,6 +39,7 @@ function RenderTree:paint()
 	self:traverse_and_paint(0, 0, self.root)
 end
 
+---(x, y) are the coordinates of the parent margin box
 ---@param x integer
 ---@param y integer
 ---@param box markup.Render.Node
@@ -49,30 +49,36 @@ function RenderTree:traverse_and_paint(x, y, box)
 		return
 	end
 
+	local props = box.props
+	local cox = x + props.margin_left + props.padding_left
+	local coy = y + props.margin_top + props.padding_top
+
 	for _, child in box:iter_children() do
-		local props = child.props
-		local new_x = x + props.margin_left + props.padding_left + child.ox
-		local new_y = y + props.margin_top + props.padding_top + child.oy
-		self:traverse_and_paint(new_x, new_y, child)
+		local nx = cox + child.ox
+		local ny = coy + child.oy
+		self:traverse_and_paint(nx, ny, child)
 	end
 
-	if box.props.style.bg then
-		-- local hl = "MarkupDynamic" .. box.__id
-		-- vim.api.nvim_set_hl(self.renderer.ns, hl, box.props.style)
-		-- log.info({
-		-- 	x = x,
-		-- 	y = y,
-		-- 	end_x = x + box.width,
-		-- 	end_y = y + box.height,
-		-- })
-		for line = 0, box.height - 1 do
-			vim.api.nvim_buf_set_extmark(self.renderer.bufnr, self.renderer.ns, y + line, x, {
-				end_col = x + box.available_width,
-				-- hl_mode = "blend",
-				hl_eol = true,
-				hl_group = box.props.style.bg,
-				hl_mode = "combine",
-			})
+	if props.style.bg then
+		local pbox = box:padding_box_size()
+		local pox = x + props.margin_left
+		local poy = y + props.margin_top
+
+		for line = 0, pbox.height - 1 do
+			vim.api.nvim_buf_set_extmark(
+				--
+				self.renderer.bufnr,
+				self.renderer.ns,
+				poy + line,
+				pox,
+				{
+					end_col = pox + pbox.width,
+					-- hl_mode = "blend",
+					hl_eol = true,
+					hl_group = box.props.style.bg,
+					hl_mode = "combine",
+				}
+			)
 		end
 	end
 end

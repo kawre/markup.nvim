@@ -9,15 +9,7 @@ function BlockLayout.layout(box)
 	local parent = box.parent
 	local props = box.props
 
-	if props.width > 0 then
-		if props.width < 1 then
-			box.available_width = math.ceil(parent.available_width * props.width)
-		else
-			box.available_width = props.width
-		end
-	else
-		box.available_width = parent.available_width
-	end
+	Layout.apply_size_constraints(box)
 
 	local max_x, max_y = 0, 0
 	local prev ---@type markup.Render.Node

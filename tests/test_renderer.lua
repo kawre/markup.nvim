@@ -19,12 +19,13 @@ local T = new_set({
 	hooks = {
 		pre_once = function()
 			markup = helpers.mock_markup()
-		end,
-		pre_case = function()
-			child.restart({ "-u", "scripts/minimal_init.lua" })
+			-- child.restart({ "-u", "scripts/minimal_init.lua" })
+			child.start({ "-u", "scripts/minimal_init.lua" })
 			child.lua([[markup = require('markup')]])
 			child.o.lines, child.o.columns = 15, 60
 		end,
+		-- pre_case = function()
+		-- end,
 		post_once = function()
 			child.stop()
 			markup = require("markup")

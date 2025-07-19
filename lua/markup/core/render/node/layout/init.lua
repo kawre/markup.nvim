@@ -11,15 +11,34 @@ function Layout.new(name, type)
 		type_lookup[t] = true
 	end
 
-	return setmetatable({
+	return {
 		__name = name,
 		__type = type_lookup,
-	}, Layout)
+	}
 end
 
 ---@param box markup.Render.Node
 function Layout.layout(box) ---@diagnostic disable-line: unused-local
 	error("Layout.layout must be implemented by subclasses")
+end
+
+---@param box markup.Render.Node
+function Layout.apply_size_constraints(box) ---@diagnostic disable-line: unused-local
+	local width = box.props.width
+	local parent_cbox = box.parent:content_box_size()
+
+	local new_width = 0
+	if width > 0 then
+		if width < 1 then
+			new_width = math.ceil(parent_cbox.width * width)
+		else
+			new_width = width
+		end
+	else
+		new_width = parent_cbox.width
+	end
+
+	box:set_content_box_size(new_width, parent_cbox.height)
 end
 
 return Layout
