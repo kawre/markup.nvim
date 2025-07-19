@@ -82,16 +82,13 @@ end
 function RenderBox:iter_children()
 	local children = self.children
 	local reverse = self.props.reverse
-	local sign = reverse and -1 or 1
 	local i = reverse and #children + 1 or 0
 
 	return function()
-		i = i + (1 * sign)
-
+		i = i + (reverse and -1 or 1)
 		if i < 1 or i > #children then
 			return nil
 		end
-
 		return i, children[i]
 	end
 end
@@ -110,14 +107,14 @@ function RenderBox:layout(_style)
 
 	self.x = 0
 	self.y = 0
-
 	self.layout_strategy.layout(self)
-
 	self.x = nil
 	self.y = nil
 
 	assertor.bug(self.width, "Width must be resolved by layout strategy.")
 	assertor.bug(self.height, "Height must be resolved by layout strategy.")
+	assertor.bug(self.content_width, "Content width must be resolved by layout strategy.")
+	assertor.bug(self.content_height, "Content height must be resolved by layout strategy.")
 
 	self.dirty = false
 end
@@ -184,6 +181,17 @@ function RenderBox:padding_box_size()
 	}
 end
 
+---@param size integer
+---@param ref integer
+---@return integer
+function RenderBox:normalize_size(size, ref)
+	if size > 0 then
+		return size < 1 and math.ceil(ref * size) or size
+	else
+		return ref
+	end
+end
+
 ---@param width? integer
 ---@param height? integer
 function RenderBox:set_content_box_size(width, height)
@@ -197,6 +205,7 @@ function RenderBox:set_content_box_size(width, height)
 		end
 		self.content_width = width
 	end
+
 	if height then
 		if self:is("inline") then
 			self.content_height = 1

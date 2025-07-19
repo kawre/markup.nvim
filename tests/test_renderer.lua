@@ -78,6 +78,21 @@ T["render()"]["inline"]["renders inline with highlight respecting margin and pad
 	render_and_expect_screenshot(app)
 end
 
+T["render()"]["inline"]["renders inline with highlight respecting padding left and right"] = function()
+	local app = markup.inline({
+		markup.inline("inline"),
+		markup.inline({
+			style = { bg = "Cursor" },
+			padding_left = 2,
+			padding_right = 2,
+			"inline",
+		}),
+		markup.inline("inline"),
+	})
+
+	render_and_expect_screenshot(app)
+end
+
 T["render()"]["inline"]["renders multiple inline elements"] = function()
 	local app = markup.inline({
 		markup.inline("inline1 "),

@@ -23,6 +23,7 @@ local _type = type
 ---@field spacing? markup.Box.spacing
 ---@field vertical? boolean
 ---@field horizontal? boolean
+---@field sizing? "outer"|"inner"
 ---@field reverse? boolean
 ---@field on_confirm? fun()
 ---@field on_key? table<string, fun()>

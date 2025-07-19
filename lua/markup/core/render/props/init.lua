@@ -13,12 +13,12 @@ local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 ---@field width integer
 ---@field height integer
 ---@field spacing integer
----@field style integer
 ---@field justify string
 ---@field align string
 ---@field vertical string
 ---@field sizing string
 ---@field reverse boolean
+---@field style markup.Element.style
 local BoxProps = {}
 BoxProps.__index = BoxProps
 

@@ -28,9 +28,6 @@ function FlexLayout.layout_horizontal(box)
 	for i, child in box:iter_children() do
 		child:layout()
 
-		-- child.available_height = child.height
-		-- child.available_width = child.width
-
 		box.x = box.x + child.width + (i ~= len and props.spacing or 0)
 		max_height = math.max(max_height, child.height)
 	end
