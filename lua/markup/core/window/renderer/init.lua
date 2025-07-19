@@ -58,7 +58,6 @@ end
 
 function Renderer:rerender()
 	vim.api.nvim_buf_clear_namespace(self.bufnr, self.ns, 0, -1)
-	_MTEMP = {}
 	self.reconciler:reconcile(self.root)
 
 	if _Markup.debug_mode then

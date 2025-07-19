@@ -8,26 +8,29 @@ BlockLayout.__type = { block = true }
 ---@param box markup.Render.Node
 function BlockLayout.layout(box)
 	local parent = box.parent
-	box.width = parent.width
-	local style = box.node.props
+	local props = box.props
 
-	local prev
+	box.available_width = parent.available_width
+
+	local max_x, max_y = 0, 0
+	local prev ---@type markup.Render.Node
+
 	for _, child in ipairs(box.children) do
 		if prev and (child:is("block") or prev:is("block")) then
-			box.y = box.y + prev.height + (style.spacing or 0)
-			box.x = box.cx
+			box.y = box.y + prev.height + props.spacing
+			box.x = 0
 		end
 
 		child:layout()
 		box.x = box.x + child.width
+
+		max_x = math.max(box.x, max_x)
+		max_y = math.max(box.y, max_y)
 		prev = child
 	end
 
-	if prev then
-		box.y = box.y + prev.height
-	end
-
-	box.height = box.y - box.my + (style.margin_bottom or 0) + (style.padding_bottom or 0)
+	box.height = math.max(box.y + prev.height, max_y)
+	box.width = max_x
 end
 
 return BlockLayout

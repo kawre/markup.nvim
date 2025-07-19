@@ -1,5 +1,6 @@
 local RenderNodeFactory = require("markup.core.factory.render-node")
 local BoxStyle = require("markup.core.render.style")
+local assertor = require("markup.assertor")
 local BoxProps = require("markup.core.render.props")
 local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 local u = require("markup.utils") ---@diagnostic disable-line: unused-local
@@ -18,10 +19,14 @@ local u = require("markup.utils") ---@diagnostic disable-line: unused-local
 ---@field buf table
 ---@field x integer
 ---@field y integer
----@field cx? integer
----@field cy? integer
+---@field ox integer offset x
+---@field oy integer offset y
 ---@field width integer
 ---@field height integer
+---@field content_width integer
+---@field content_height integer
+---@field available_width integer
+---@field available_height integer
 ---@field props markup.Render.props
 ---@field extmarks table
 local RenderNode = {}
@@ -39,6 +44,7 @@ function RenderNode:new(node, layout_strategy)
 	self.dirty = true
 	self.buf = {}
 	self.props = BoxProps:new(self)
+	self.extmarks = {}
 	self.__id = u.gen_id()
 
 	return self
@@ -87,25 +93,23 @@ function RenderNode:layout(_style)
 		return
 	end
 
-	local style = self.node.props
-
-	-- margin box
-	self.mx = self.parent.x
-	self.my = self.parent.y
-
-	-- padding box
-	self.px = self.mx + (style.margin_left or 0)
-	self.py = self.my + (style.margin_top or 0)
-
-	-- content box
-	self.cx = self.px + (style.padding_left or 0)
-	self.cy = self.py + (style.padding_top or 0)
+	-- local style = self.node.props
+	local props = self.props
 
 	-- offset
-	self.x = self.cx
-	self.y = self.cy
+	self.ox = self.parent.x
+	self.oy = self.parent.y
+
+	self.x = 0
+	self.y = 0
 
 	self.layout_strategy.layout(self)
+
+	self.x = nil
+	self.y = nil
+
+	assertor.bug(self.width, "Width must be resolved by layout strategy.")
+	assertor.bug(self.height, "Height must be resolved by layout strategy.")
 
 	self.dirty = false
 end
@@ -141,6 +145,50 @@ end
 ---@param layout_type markup.Render.LayoutType
 function RenderNode:is(layout_type)
 	return self.layout_strategy.__type[layout_type]
+end
+
+function RenderNode:set_content_area_width(width)
+	local props = self.props
+
+	self.content_width = width
+		- (props.margin_left + props.margin_right)
+		- (props.padding_left + props.padding_right)
+end
+
+function RenderNode:set_content_area_height(height)
+	local props = self.props
+
+	self.content_height = height
+		- (props.margin_top + props.margin_bottom)
+		- (props.padding_top + props.padding_bottom)
+end
+
+function RenderNode:set_available_area(width, height)
+	self.available_width = width
+	self.available_height = height
+end
+
+function RenderNode:available_area() end
+
+function RenderNode:content_size()
+	return {
+		width = self.ecx - self.cx,
+		height = self.ecy - self.cy,
+	}
+end
+
+function RenderNode:size()
+	local size = self:content_size()
+	local props = self.props
+
+	return {
+		width = size.width
+			+ (props.margin_left + props.margin_right)
+			+ (props.padding_left + props.padding_right),
+		height = size.height
+			+ (props.margin_top + props.margin_bottom)
+			+ (props.padding_top + props.padding_bottom),
+	}
 end
 
 function RenderNode:destroy()

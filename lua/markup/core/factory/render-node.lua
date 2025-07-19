@@ -30,10 +30,8 @@ function M.create_root(renderer)
 	local root = M.create(renderer.root.current.state_node)
 	root.x = 0
 	root.y = 0
-	root.cy = 0
-	root.cx = 0
-	root.width = vim.api.nvim_win_get_width(renderer.id)
-	root.height = vim.api.nvim_win_get_height(renderer.id)
+	root.available_width = vim.api.nvim_win_get_width(renderer.id)
+	root.available_height = vim.api.nvim_win_get_height(renderer.id)
 	return root
 end
 

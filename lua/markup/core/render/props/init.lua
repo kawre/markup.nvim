@@ -13,6 +13,10 @@ local defaults = require("markup.core.render.props.defaults")
 ---@field height integer
 ---@field spacing integer
 ---@field style integer
+---@field justify string
+---@field align string
+---@field vertical string
+---@field reversed boolean
 local BoxProps = {}
 BoxProps.__index = BoxProps
 
@@ -22,9 +26,10 @@ function BoxProps:new(box)
 		__index = function(_, key)
 			local props = box.node.props
 			local tag = box.node.tag_name
+			local def = defaults[tag]
 
 			return props[key]
-				or (defaults[tag] and defaults[tag][key])
+				or (def and def[key])
 				or defaults.default[key]
 				or error(string.format("Property '%s' not found for tag '%s'", key, tag))
 		end,

@@ -1,18 +1,17 @@
 local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 
----@class markup.Render.Layout.Text: markup.Render.Layout
+---@class markup.Render.Layout.Text : markup.Render.Layout
 local TextLayout = {}
 TextLayout.__name = "RenderText"
-TextLayout.__type = { inline = true }
+TextLayout.__type = { inline = true, text = true }
 
 ---@param box markup.Render.Node
 function TextLayout.layout(box)
 	local str = tostring(box.node.text_content)
+	assert(str ~= "", "text nodes should not be empty")
 
-	box.height = 1
 	box.width = vim.api.nvim_strwidth(str)
-
-	table.insert(_MTEMP, box)
+	box.height = 1
 end
 
 return TextLayout

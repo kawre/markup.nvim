@@ -26,16 +26,9 @@ function RenderTree:layout()
 	end
 end
 
-_MTEMP = {}
 function RenderTree:paint()
-	-- _MTEMP = {}
-	-- self:_paint_grid()
-	self:_paint_extmarks()
-end
-
-function RenderTree:_paint_extmarks()
-	local width = self.root.width
-	local height = self.root.height
+	local width = self.root.available_width
+	local height = self.root.available_height
 
 	local lines = {}
 	local fill = (" "):rep(1000)
@@ -44,15 +37,48 @@ function RenderTree:_paint_extmarks()
 	end
 	vim.api.nvim_buf_set_lines(self.renderer.bufnr, 0, -1, false, lines)
 
-	for _, box in ipairs(_MTEMP) do
-		local x, y, word = box.mx, box.my, tostring(box.node.text_content)
-		local extmark_id =
-			vim.api.nvim_buf_set_extmark(self.renderer.bufnr, self.renderer.ns, y, x, {
-				virt_text = { { word } },
-				virt_text_pos = "overlay",
-			})
-		box.extmark_id = extmark_id
+	self:traverse_and_paint(0, 0, self.root)
+end
+
+---@param x integer
+---@param y integer
+---@param box markup.Render.Node
+function RenderTree:traverse_and_paint(x, y, box)
+	if box:is("text") then
+		self:_paint_extmarks(x, y, box)
+		return
 	end
+
+	for _, child in ipairs(box.children) do
+		local props = child.props
+		local new_x = x + props.margin_left + props.padding_left + child.ox
+		local new_y = y + props.margin_top + props.padding_top + child.oy
+		self:traverse_and_paint(new_x, new_y, child)
+	end
+
+	if box.props.style.bg then
+		-- local hl = "MarkupDynamic" .. box.__id
+		-- vim.api.nvim_set_hl(self.renderer.ns, hl, box.props.style)
+		vim.api.nvim_buf_set_extmark(self.renderer.bufnr, self.renderer.ns, y, x, {
+			end_line = y + box.height - 1,
+			end_col = x + box.width,
+			-- hl_mode = "blend",
+			hl_group = box.props.style.bg,
+			hl_mode = "combine",
+		})
+	end
+end
+
+function RenderTree:_paint_extmarks(x, y, box)
+	local word = tostring(box.node.text_content)
+
+	vim.api.nvim_buf_set_text(self.renderer.bufnr, y, x, y, x + #word, { word })
+	-- local extmark_id = vim.api.nvim_buf_set_extmark(self.renderer.bufnr, self.renderer.ns, y, x, {
+	-- 	virt_text = { { word } },
+	-- 	virt_text_pos = "overlay",
+	-- })
+
+	-- table.insert(box.extmarks, extmark_id)
 end
 
 function RenderTree:_paint_grid()

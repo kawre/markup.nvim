@@ -7,6 +7,7 @@ for name, _ in pairs(package.loaded) do
 	end
 end
 
+local helpers = dofile("tests/helpers.lua")
 local markup = require("markup")
 local new_set = MiniTest.new_set
 local expect, eq = MiniTest.expect, MiniTest.expect.equality
@@ -17,28 +18,7 @@ _Markup.is_dev = false
 local T = new_set({
 	hooks = {
 		pre_once = function()
-			setmetatable(markup, {
-				__index = function(_, key)
-					return function(args)
-						if type(args) == "table" then
-							local parts = {}
-							for _, v in ipairs(args) do
-								table.insert(parts, v)
-							end
-							for k, v in pairs(args) do
-								if type(k) ~= "number" then
-									table.insert(parts, ("%s = %s"):format(k, v))
-								end
-							end
-							args = ("{ %s }"):format(table.concat(parts, ", "))
-						else
-							args = ("\"%s\""):format(args)
-						end
-
-						return ("markup.%s(%s)"):format(key, args)
-					end
-				end,
-			})
+			markup = helpers.mock_markup()
 		end,
 		pre_case = function()
 			child.restart({ "-u", "scripts/minimal_init.lua" })
@@ -47,22 +27,58 @@ local T = new_set({
 		end,
 		post_once = function()
 			child.stop()
-			package.loaded["markup"] = nil
 			markup = require("markup")
 		end,
 	},
 })
 
-T["render()"] = new_set({})
-
-local function render_and_expect_screenshot(element)
+---@param element markup.Element
+---@param force? boolean
+local function render_and_expect_screenshot(element, force)
 	child.lua("renderer = markup.Renderer()")
 	child.lua(("renderer:render(%s)"):format(element))
 
 	expect.reference_screenshot(child.get_screenshot())
 end
 
-T["render()"]["handles block|inline logic"] = function()
+T["render()"] = new_set()
+
+T["render()"]["inline"] = new_set()
+
+T["render()"]["inline"]["throws when inline element contains block element"] = function()
+	local app = markup.inline({
+		markup.inline("inline1 "),
+		markup.block("i shouldn't be here"),
+		markup.inline("inline3"),
+	})
+
+	expect.error(function()
+		render_and_expect_screenshot(app)
+	end)
+end
+
+T["render()"]["inline"]["renders inline with highlight"] = function()
+	local app = markup.inline({
+		markup.inline({ "i'm highlighted", style = { bg = "Number" } }),
+		markup.inline({ " i'm not" }),
+	})
+
+	render_and_expect_screenshot(app)
+end
+
+T["render()"]["inline"]["renders multiple inline elements"] = function()
+	local app = markup.inline({
+		markup.inline("inline1 "),
+		markup.inline("inline2 "),
+		markup.inline("inline3"),
+	})
+
+	render_and_expect_screenshot(app)
+end
+
+T["render()"]["block"] = new_set()
+
+T["render()"]["block"]["renders mixed inline and block elements"] = function()
 	local app = markup.block({
 		markup.inline("inline"),
 		markup.inline("inline"),
@@ -75,29 +91,7 @@ T["render()"]["handles block|inline logic"] = function()
 	render_and_expect_screenshot(app)
 end
 
-T["render()"]["inline"] = function()
-	local app = markup.inline({
-		markup.inline("inline1 "),
-		markup.inline("inline2 "),
-		markup.inline("inline3"),
-	})
-
-	render_and_expect_screenshot(app)
-end
-
-T["render()"]["disallow block elements in an inline element"] = function()
-	local app = markup.inline({
-		markup.inline("inline1 "),
-		markup.block("i shouldn't be here"),
-		markup.inline("inline3"),
-	})
-
-	expect.error(function()
-		render_and_expect_screenshot(app)
-	end)
-end
-
-T["render()"]["block elements table"] = function()
+T["render()"]["block"]["renders multiple block elements"] = function()
 	local app = markup.block({
 		markup.block("1"),
 		markup.block("2"),
@@ -107,7 +101,7 @@ T["render()"]["block elements table"] = function()
 	render_and_expect_screenshot(app)
 end
 
-T["render()"]["nested block elements"] = function()
+T["render()"]["block"]["renders nested block with inline"] = function()
 	local app = markup.block({
 		markup.inline("inline"),
 		markup.block({
@@ -120,7 +114,7 @@ T["render()"]["nested block elements"] = function()
 	render_and_expect_screenshot(app)
 end
 
-T["render()"]["block element spacing"] = function()
+T["render()"]["block"]["renders complex nested block"] = function()
 	local app = markup.block({
 		markup.inline("inline"),
 		markup.block({
@@ -134,6 +128,74 @@ T["render()"]["block element spacing"] = function()
 			spacing = 1,
 			margin_left = 2,
 		}),
+		markup.inline("inline"),
+	})
+
+	render_and_expect_screenshot(app)
+end
+
+T["render()"]["hflex"] = new_set()
+
+T["render()"]["hflex"]["renders flex with nested blocks"] = function()
+	local app = markup.block({
+		markup.flex({
+			markup.block("hello  ->  "),
+			markup.block({
+				markup.block("block"),
+				markup.block("aaaaaaaaaaaaaaaaaa"),
+				markup.block("1"),
+				markup.block("2"),
+				markup.block("3"),
+			}),
+			markup.block("123"),
+		}),
+		markup.inline("inline"),
+	})
+
+	render_and_expect_screenshot(app)
+end
+
+T["render()"]["hflex"]["renders flex with inline and text"] = function()
+	local app = markup.flex({
+		"123",
+		"123",
+		markup.inline("|inline|"),
+		"123",
+	})
+
+	render_and_expect_screenshot(app)
+end
+
+T["render()"]["hflex"]["renders flex with inline and text and spacing"] = function()
+	local app = markup.flex({
+		spacing = 2,
+		"123",
+		"123",
+		markup.inline("|inline|"),
+		"123",
+	})
+
+	render_and_expect_screenshot(app)
+end
+
+T["render()"]["hflex"]["renders flex with inline and justify-center"] = function()
+	local app = markup.flex({
+		justify = "center",
+		spacing = 1,
+		markup.inline("inline"),
+		markup.inline("inline"),
+		markup.inline("inline"),
+	})
+
+	render_and_expect_screenshot(app)
+end
+
+T["render()"]["hflex"]["renders flex with inline and justify-end"] = function()
+	local app = markup.flex({
+		justify = "end",
+		spacing = 1,
+		markup.inline("inline"),
+		markup.inline("inline"),
 		markup.inline("inline"),
 	})
 
