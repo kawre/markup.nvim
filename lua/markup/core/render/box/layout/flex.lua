@@ -6,12 +6,16 @@ local FlexLayout = Layout.new("RenderFlex", { "flex", "block" })
 
 ---@param box markup.Render.Box
 function FlexLayout.layout(box)
+	local parent_cbox = box.parent:content_box_size()
+	FlexLayout.compute_initial_width(box, parent_cbox)
+
 	if box.props.vertical then
 		FlexLayout.layout_vertical(box)
 	else
 		FlexLayout.layout_horizontal(box)
 	end
 
+	FlexLayout.compute_final_size(box, parent_cbox)
 	FlexLayout.justify(box)
 end
 
@@ -19,8 +23,6 @@ end
 function FlexLayout.layout_horizontal(box)
 	local parent = box.parent
 	local props = box.props
-
-	Layout.apply_size_constraints(box)
 
 	local max_width, max_height = 0, 0
 	local len = #box.children
@@ -38,6 +40,21 @@ end
 
 ---@param box markup.Render.Box
 function FlexLayout.layout_vertical(box) end
+
+---@param box markup.Render.Box
+---@param parent_cbox markup.Element.size
+function FlexLayout.compute_initial_width(box, parent_cbox)
+	local width = box.props.width
+	local new_width = box:normalize_size(width, parent_cbox.width)
+	box:set_content_box_size(new_width)
+end
+
+---@param box markup.Render.Box
+---@param parent_cbox markup.Element.size
+function FlexLayout.compute_final_size(box, parent_cbox)
+	local height = box.props.height
+	box:set_content_box_size(math.max(box.width, box.content_width), math.max(box.height, height))
+end
 
 ---@param box markup.Render.Box
 function FlexLayout.justify(box)

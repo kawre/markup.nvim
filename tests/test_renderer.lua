@@ -215,6 +215,21 @@ T["render()"]["block"]["renders complex nested block"] = function()
 	render_and_expect_screenshot(app)
 end
 
+T["render()"]["block"]["renders block elements with height and width"] = function()
+	local app = markup.block({
+		width = 15,
+		style = { bg = "Cursor" },
+		spacing = 2,
+		height = 10,
+		markup.inline("inline"),
+		markup.inline("inline"),
+		markup.block("block"),
+		markup.block("block"),
+	})
+
+	render_and_expect_screenshot(app)
+end
+
 T["render()"]["hflex"] = new_set()
 
 T["render()"]["hflex"]["renders flex with nested blocks"] = function()
