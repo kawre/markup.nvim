@@ -11,7 +11,7 @@ local helpers = dofile("tests/helpers.lua")
 local markup = require("markup")
 local new_set = MiniTest.new_set
 local expect, eq = MiniTest.expect, MiniTest.expect.equality
-local log = require("markup.logger")
+local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 local child = MiniTest.new_child_neovim()
 _Markup.is_dev = false
 
@@ -39,7 +39,7 @@ local function render_and_expect_screenshot(element, force)
 	child.lua("renderer = markup.Renderer()")
 	child.lua(("renderer:render(%s)"):format(element))
 
-	expect.reference_screenshot(child.get_screenshot())
+	expect.reference_screenshot(child.get_screenshot(), nil, { force = force })
 end
 
 T["render()"] = new_set()

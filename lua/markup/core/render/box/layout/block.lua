@@ -7,9 +7,8 @@ local BlockLayout = Layout.new("RenderBlock", { "block" })
 ---@param box markup.Render.Box
 function BlockLayout.layout(box)
 	local props = box.props
-	local parent_cbox = box.parent:content_box_size()
 
-	BlockLayout.compute_initial_width(box, parent_cbox)
+	BlockLayout.compute_initial_width(box)
 
 	local max_x, max_y = 0, 0
 	local prev_mheight, prev_is_block = 0, false
@@ -34,20 +33,21 @@ function BlockLayout.layout(box)
 	box.height = math.max(box.y + prev_mheight, max_y)
 	box.width = max_x
 
-	BlockLayout.compute_final_size(box, parent_cbox)
+	BlockLayout.compute_final_size(box)
 end
 
 ---@param box markup.Render.Box
----@param parent_cbox markup.Element.size
-function BlockLayout.compute_initial_width(box, parent_cbox)
-	local width = box.props.width
-	local new_width = box:normalize_size(width, parent_cbox.width)
-	box:set_content_box_size(new_width)
+function BlockLayout.compute_initial_width(box)
+	if box.parent then
+		local width = box.props.width
+		local parent_cbox = box.parent:content_box_size()
+		width = box:inherit_size(width, parent_cbox.width)
+		box:set_content_box_size(width)
+	end
 end
 
 ---@param box markup.Render.Box
----@param parent_cbox markup.Element.size
-function BlockLayout.compute_final_size(box, parent_cbox)
+function BlockLayout.compute_final_size(box)
 	local height = box.props.height
 	box:set_content_box_size(
 		math.max(box.width, box.content_width or 0),

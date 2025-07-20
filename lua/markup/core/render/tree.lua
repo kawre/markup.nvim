@@ -20,21 +20,18 @@ function RenderTree:build()
 end
 
 function RenderTree:layout()
-	-- self.root:layout()
-	for _, child in ipairs(self.root.children) do
-		child:layout()
-	end
+	self.root:layout()
 end
 
 function RenderTree:paint()
 	local mbox = self.root:margin_box_size()
 
 	local lines = {}
-	local fill = (" "):rep(1000)
-	for i = 1, math.max(mbox.height, 1000) do
+	local fill = (" "):rep(mbox.width)
+	for i = 1, mbox.height do
 		lines[i] = fill
 	end
-	vim.api.nvim_buf_set_lines(self.renderer.bufnr, 0, -1, false, lines)
+	vim.api.nvim_buf_set_lines(0, 0, -1, false, lines)
 
 	self:traverse_and_paint(0, 0, self.root)
 end

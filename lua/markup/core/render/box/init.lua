@@ -102,8 +102,9 @@ function RenderBox:layout(_style)
 	end
 
 	-- offset
-	self.ox = self.parent.x
-	self.oy = self.parent.y
+	local parent = self.parent
+	self.ox = parent and parent.x or 0
+	self.oy = parent and parent.y or 0
 
 	self.x = 0
 	self.y = 0
@@ -184,7 +185,7 @@ end
 ---@param size integer
 ---@param ref integer
 ---@return integer
-function RenderBox:normalize_size(size, ref)
+function RenderBox:inherit_size(size, ref)
 	if size > 0 then
 		return size < 1 and math.ceil(ref * size) or size
 	else
@@ -249,7 +250,7 @@ function RenderBox:paint(renderer, x, y)
 	if self:is("text") then
 		-- only leaf nodes (text) can output text on the screen
 		local word = tostring(self.node.text_content)
-		vim.api.nvim_buf_set_text(bufnr, y, x, y, x + vim.fn.strlen(word), { word })
+		vim.api.nvim_buf_set_text(bufnr, y, x, y, x + self.width, { word })
 	else
 		-- everything else only outputs style
 		local pbox = self:padding_box_size()
@@ -259,7 +260,7 @@ function RenderBox:paint(renderer, x, y)
 		u.set_hl({ [self.__id] = self.props.style }, { managed = true, prefix = "MarkupDynamic" })
 
 		for line = 0, pbox.height - 1 do
-			local extmark_id = vim.api.nvim_buf_set_extmark(bufnr, ns, poy + line, pox, {
+			local extmark_id = vim.api.nvim_buf_set_extmark(0, ns, poy + line, pox, {
 				end_col = pox + pbox.width,
 				hl_eol = true,
 				hl_group = "MarkupDynamic" .. self.__id,

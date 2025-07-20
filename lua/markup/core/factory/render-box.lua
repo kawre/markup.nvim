@@ -30,8 +30,6 @@ end
 ---@param renderer markup.Renderer
 function M.create_root(renderer)
 	local root = M.create(renderer.root.current.state_node)
-	root.x = 0
-	root.y = 0
 	root:set_content_box_size(
 		vim.api.nvim_win_get_width(renderer.id),
 		vim.api.nvim_win_get_height(renderer.id)

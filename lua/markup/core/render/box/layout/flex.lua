@@ -6,16 +6,13 @@ local FlexLayout = Layout.new("RenderFlex", { "flex", "block" })
 
 ---@param box markup.Render.Box
 function FlexLayout.layout(box)
-	local parent_cbox = box.parent:content_box_size()
-	-- FlexLayout.compute_initial_width(box, parent_cbox)
-
 	if box.props.vertical then
 		FlexLayout.layout_vertical(box)
 	else
 		FlexLayout.layout_horizontal(box)
 	end
 
-	FlexLayout.compute_final_size(box, parent_cbox)
+	FlexLayout.compute_final_size(box)
 	FlexLayout.justify(box)
 	FlexLayout.align(box)
 end
@@ -48,31 +45,32 @@ function FlexLayout.layout_vertical(box)
 
 	for i, child in box:iter_children() do
 		child:layout()
+		local child_mbox = child:margin_box_size()
 
-		box.y = box.y + child.height + (i ~= len and props.spacing or 0)
+		box.y = box.y + child_mbox.height + (i ~= len and props.spacing or 0)
 		max_width = math.max(max_width, box.x)
-		max_height = math.max(max_height, child.height)
 	end
 
 	box.width = max_width
-	box.height = max_height
+	box.height = box.y
 end
 
 ---@param box markup.Render.Box
----@param parent_cbox markup.Element.size
-function FlexLayout.compute_initial_width(box, parent_cbox)
+function FlexLayout.compute_initial_width(box)
 	-- log.info(parent_cbox)
 	-- local new_width = box:normalize_size(width, parent_cbox.width)
 	-- box:set_content_box_size(new_width)
 end
 
 ---@param box markup.Render.Box
----@param parent_cbox markup.Element.size
-function FlexLayout.compute_final_size(box, parent_cbox)
-	local height = box.props.height
-	local width = box.props.width
-	local new_width = box:normalize_size(width, parent_cbox.width)
-	box:set_content_box_size(math.max(box.width, new_width or 0), math.max(box.height, height or 0))
+function FlexLayout.compute_final_size(box)
+	if box.parent then
+		local height = box.props.height
+		local width = box.props.width
+		local parent_cbox = box.parent:content_box_size()
+		width = box:inherit_size(width, parent_cbox.width)
+		box:set_content_box_size(math.max(box.width, width or 0), math.max(box.height, height or 0))
+	end
 end
 
 ---@param box markup.Render.Box
