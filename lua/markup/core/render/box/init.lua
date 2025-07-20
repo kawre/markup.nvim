@@ -81,15 +81,15 @@ end
 
 function RenderBox:iter_children()
 	local children = self.children
+	local i, n = 0, #children
 	local reverse = self.props.reverse
-	local i = reverse and #children + 1 or 0
 
 	return function()
-		i = i + (reverse and -1 or 1)
-		if i < 1 or i > #children then
+		i = i + 1
+		if i > n then
 			return nil
 		end
-		return i, children[i]
+		return i, children[reverse and (n + 1 - i) or i]
 	end
 end
 
@@ -300,7 +300,7 @@ function RenderBox:debug_paint_margin(renderer, x, y)
 			hl_mode = "combine",
 		})
 	end
-	for line = mbys, mbye do
+	for line = mbys, mbye - 1 do
 		vim.api.nvim_buf_set_extmark(bufnr, ns, line, mlxs, {
 			end_col = mrxs + props.margin_right,
 			hl_eol = true,
@@ -308,7 +308,7 @@ function RenderBox:debug_paint_margin(renderer, x, y)
 			hl_mode = "combine",
 		})
 	end
-	for line = mtye, mbys do
+	for line = mtye, mbys - 1 do
 		vim.api.nvim_buf_set_extmark(bufnr, ns, line, mlxs, {
 			end_col = mlxs + props.margin_left,
 			hl_eol = true,
@@ -349,7 +349,7 @@ function RenderBox:debug_paint_padding(renderer, x, y)
 			hl_mode = "combine",
 		})
 	end
-	for line = pbys, pbye do
+	for line = pbys, pbye - 1 do
 		vim.api.nvim_buf_set_extmark(bufnr, ns, line, plxs, {
 			end_col = prxs + props.padding_right,
 			hl_eol = true,
@@ -357,7 +357,7 @@ function RenderBox:debug_paint_padding(renderer, x, y)
 			hl_mode = "combine",
 		})
 	end
-	for line = ptye, pbys do
+	for line = ptye, pbys - 1 do
 		vim.api.nvim_buf_set_extmark(bufnr, ns, line, plxs, {
 			end_col = plxs + props.padding_left,
 			hl_eol = true,

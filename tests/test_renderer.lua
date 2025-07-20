@@ -164,6 +164,42 @@ T["render()"]["block"]["renders multiple block elements"] = function()
 	render_and_expect_screenshot(app)
 end
 
+T["render()"]["block"]["respects other block elements margin and padding box size"] = function()
+	local app = markup.block({
+		markup.block({
+			padding_top = 1,
+			padding_bottom = 1,
+			markup.inline("inline"),
+		}),
+		markup.block({
+			margin_top = 1,
+			margin_bottom = 1,
+			markup.inline("inline"),
+		}),
+		markup.block("block"),
+	})
+
+	render_and_expect_screenshot(app)
+end
+
+T["render()"]["block"]["single block with padding bottom"] = function()
+	local app = markup.block({
+		width = 20,
+		padding_bottom = 1,
+		style = "Search",
+		markup.block({
+			height = 5,
+			markup.block("block"),
+			markup.block("block"),
+			markup.block("block"),
+			padding_left = 3,
+			padding_bottom = 3,
+		}),
+	})
+
+	render_and_expect_screenshot(app)
+end
+
 T["render()"]["block"]["renders nested block with inline"] = function()
 	local app = markup.block({
 		markup.inline("inline"),
