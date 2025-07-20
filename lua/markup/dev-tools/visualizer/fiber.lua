@@ -46,7 +46,7 @@ return function(root, opts)
 		end
 
 		if fiber.key then
-			table.insert(entries, { (" (key = %s)"):format(fiber.key), "Statement" })
+			table.insert(entries, { (" [key = %s]"):format(fiber.key), "Statement" })
 		end
 		table.insert(entries, { (" (%s)"):format(fiber.tag), "Conceal" })
 

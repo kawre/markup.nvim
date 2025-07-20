@@ -10,6 +10,7 @@ local buf
 local ns = vim.api.nvim_create_namespace("markup_inspector")
 ---@type markup.Renderer
 local renderer
+local page
 
 function M.open(_renderer)
 	renderer = _renderer
@@ -27,16 +28,22 @@ function M.open(_renderer)
 
 	vim.keymap.set("n", "1", function()
 		M.draw("fiber")
-	end, { buffer = buf, desc = "Close Markup Inspector" })
+	end)
 	vim.keymap.set("n", "2", function()
 		M.draw("node")
-	end, { buffer = buf, desc = "Close Markup Inspector" })
+	end)
 	vim.keymap.set("n", "3", function()
 		M.draw("render")
-	end, { buffer = buf, desc = "Close Markup Inspector" })
+	end)
+	vim.keymap.set("n", "4", function()
+		Markup.debug_mode = not Markup.debug_mode
+		M.draw()
+	end)
 end
 
-function M.draw(page, opts)
+function M.draw(_page, opts)
+	page = _page or (page or "fiber")
+
 	local lines
 	if page == "node" then
 		lines = visualizer[page](renderer.root.current.state_node, opts)
@@ -51,6 +58,7 @@ function M.draw(page, opts)
 		{ "Fiber Tree", page == "fiber" and "IncSearch" or "Conceal" },
 		{ "Node Tree", page == "node" and "IncSearch" or "Conceal" },
 		{ "Render Tree", page == "render" and "IncSearch" or "Conceal" },
+		{ "Toggle debug mode", Markup.debug_mode and "Search" or "Conceal" },
 	}
 
 	local nav_width = 0
@@ -59,7 +67,7 @@ function M.draw(page, opts)
 		nav_width = nav_width + vim.fn.strdisplaywidth(item[1])
 	end
 
-	table.insert(nav, 1, { (" "):rep(math.floor(width - nav_width) / 2) })
+	-- table.insert(nav, 1, { (" "):rep(math.floor(width - nav_width) / 2) })
 	table.insert(lines, 1, {})
 	table.insert(lines, 1, nav)
 
