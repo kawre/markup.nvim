@@ -93,8 +93,7 @@ function RenderBox:iter_children()
 	end
 end
 
----@param style markup.Render.Style
-function RenderBox:layout(_style)
+function RenderBox:layout()
 	assert(self.layout_strategy, "Layout strategy is not set")
 
 	if self.dirty == false then
@@ -102,9 +101,8 @@ function RenderBox:layout(_style)
 	end
 
 	-- offset
-	local parent = self.parent
-	self.ox = parent and parent.x or 0
-	self.oy = parent and parent.y or 0
+	self.ox = self.parent.x
+	self.oy = self.parent.y
 
 	self.x = 0
 	self.y = 0

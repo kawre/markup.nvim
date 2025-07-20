@@ -30,10 +30,21 @@ end
 ---@param renderer markup.Renderer
 function M.create_root(renderer)
 	local root = M.create(renderer.root.current.state_node)
-	root:set_content_box_size(
-		vim.api.nvim_win_get_width(renderer.id),
-		vim.api.nvim_win_get_height(renderer.id)
-	)
+
+	local width = vim.api.nvim_win_get_width(renderer.id)
+	local height = vim.api.nvim_win_get_height(renderer.id)
+
+	---@diagnostic disable-next-line: missing-fields
+	root.parent = { -- mock parent
+		x = 0,
+		y = 0,
+		width = width,
+		height = height,
+		content_box_size = function()
+			return { width = width, height = height }
+		end,
+	}
+
 	return root
 end
 

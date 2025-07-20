@@ -62,7 +62,7 @@ end
 function FlexLayout.compute_initial_size(box)
 	local props = box.props
 	local width, height = props.width, props.height
-	local parent_cbox = box.parent and box.parent:content_box_size()
+	local parent_cbox = box.parent:content_box_size()
 
 	if parent_cbox and not vim.tbl_isempty(parent_cbox) then
 		width = box:inherit_size(width, parent_cbox.width)

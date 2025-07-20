@@ -38,12 +38,10 @@ end
 
 ---@param box markup.Render.Box
 function BlockLayout.compute_initial_width(box)
-	if box.parent then
-		local width = box.props.width
-		local parent_cbox = box.parent:content_box_size()
-		width = box:inherit_size(width, parent_cbox.width)
-		box:set_content_box_size(width)
-	end
+	local width = box.props.width
+	local parent_cbox = box.parent:content_box_size()
+	width = box:inherit_size(width, parent_cbox.width)
+	box:set_content_box_size(width)
 end
 
 ---@param box markup.Render.Box
