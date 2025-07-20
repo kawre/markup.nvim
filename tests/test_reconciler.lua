@@ -16,7 +16,7 @@ local fiber_tree = require("markup.dev-tools.picker.fiber-tree")
 local node_tree = require("markup.dev-tools.picker.node-tree")
 local log = require("markup.logger")
 local child = MiniTest.new_child_neovim()
-_Markup.is_dev = false
+Markup.is_dev = false
 
 local function mock_renderer()
 	local renderer = {}

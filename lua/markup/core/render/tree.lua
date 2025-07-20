@@ -53,7 +53,7 @@ function RenderTree:traverse_and_paint(x, y, box)
 		self:traverse_and_paint(cx + child.ox, cy + child.oy, child)
 	end
 
-	if _Markup.debug_mode then
+	if Markup.debug_mode then
 		box:debug_paint_margin(self.renderer, x, y)
 		box:debug_paint_padding(self.renderer, x, y)
 	end

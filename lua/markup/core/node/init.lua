@@ -52,7 +52,7 @@ function Node:new(type, name, props)
 	self.tag_name = name
 	self:create_props_proxy(props)
 
-	if _Markup.is_dev then
+	if Markup.is_dev then
 		self.__id = u.gen_id()
 	end
 

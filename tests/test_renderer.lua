@@ -13,7 +13,7 @@ local new_set = MiniTest.new_set
 local expect, eq = MiniTest.expect, MiniTest.expect.equality
 local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 local child = MiniTest.new_child_neovim()
-_Markup.is_dev = false
+Markup.is_dev = false
 
 local T = new_set({
 	hooks = {

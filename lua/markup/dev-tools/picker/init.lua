@@ -112,7 +112,7 @@ return function()
 	local items = {}
 
 	---@param renderer markup.Renderer
-	for _, renderer in ipairs(_Markup.renderers) do
+	for _, renderer in ipairs(Markup.renderers) do
 		items[#items + 1] = {
 			text = ("Renderer (winid: %s)"):format(renderer.id),
 			preview = {

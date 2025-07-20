@@ -43,7 +43,7 @@ function Fiber:new(tag, props, key)
 	self.flags = FiberFlags:new()
 	self.index = 1
 
-	if _Markup.is_dev then
+	if Markup.is_dev then
 		self.__id = u.gen_id()
 	end
 

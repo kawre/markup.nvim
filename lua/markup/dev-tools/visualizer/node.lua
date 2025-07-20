@@ -1,3 +1,5 @@
+local log = require("markup.logger") ---@diagnostic disable-line: unused-local
+
 ---@param root? markup.Node
 ---@param opts? table
 return function(root, opts)
@@ -38,7 +40,9 @@ return function(root, opts)
 			)
 		end
 
-		for i, child in ipairs(node.child_nodes or {}) do
+		table.insert(lines, entries)
+
+		for i, child in ipairs(node.child_nodes) do
 			traverse(
 				child,
 				depth + 1,

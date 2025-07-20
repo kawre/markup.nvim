@@ -42,7 +42,7 @@ function Renderer:after_init()
 	self.body = self._.body
 	self._meta = { render_count = 0, renders = {} }
 	self.ns = vim.api.nvim_create_namespace("renderer")
-	table.insert(_Markup.renderers, self)
+	Markup.renderers[self.id] = self
 end
 
 ---@param element markup.Element|markup.Element[]

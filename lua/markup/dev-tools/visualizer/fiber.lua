@@ -4,7 +4,7 @@ local FiberFlag = require("markup.core.reconciler.enum").Flag
 ---@param root markup.Fiber
 ---@param opts? table
 return function(root, opts)
-	opts = vim.tbl_deep_extend("keep", opts, {
+	opts = vim.tbl_deep_extend("keep", opts or {}, {
 		exclude_ids = false,
 		hl = true,
 	})
@@ -25,7 +25,6 @@ return function(root, opts)
 
 		local entries = {
 			{ indent, "SignColumn" },
-			{ " " },
 		}
 
 		if fiber.tag == FiberTag.FRAGMENT then
@@ -37,21 +36,22 @@ return function(root, opts)
 		elseif fiber.tag == FiberTag.FUNCTION then
 			table.insert(entries, { "󰊕 Component", "Label" })
 		else
+			table.insert(entries, { " " .. tostring(fiber.type), "DiagnosticHint" })
 			if fiber.memoized_props and fiber.memoized_props.children then
 				local children = fiber.memoized_props.children
 				if type(children) == "string" or type(children) == "number" then
 					table.insert(entries, { "  " .. tostring(fiber.pending_props.children) })
 				end
 			end
-			table.insert(entries, { " " .. tostring(fiber.type), "DiagnosticHint" })
 		end
 
 		if fiber.key then
-			table.insert(entries, { ("(key = %s) "):format(fiber.key), "Statement" })
+			table.insert(entries, { (" (key = %s)"):format(fiber.key), "Statement" })
 		end
-		table.insert(entries, { ("(%s)"):format(fiber.tag), "Conceal" })
+		table.insert(entries, { (" (%s)"):format(fiber.tag), "Conceal" })
 
 		if not opts.exclude_ids then
+			table.insert(entries, { " " })
 			table.insert(entries, { ("  %s "):format(fiber.__id), "LspInlayHint" })
 		end
 

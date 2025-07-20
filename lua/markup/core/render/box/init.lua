@@ -277,7 +277,7 @@ function RenderBox:paint(renderer, x, y)
 end
 
 function RenderBox:debug_paint_margin(renderer, x, y)
-	assert(_Markup.debug_mode, "Debug mode is not enabled.")
+	assert(Markup.debug_mode, "Debug mode is not enabled.")
 	local props = self.props
 
 	local bufnr = renderer.bufnr
@@ -331,7 +331,7 @@ function RenderBox:debug_paint_margin(renderer, x, y)
 end
 
 function RenderBox:debug_paint_padding(renderer, x, y)
-	assert(_Markup.debug_mode, "Debug mode is not enabled.")
+	assert(Markup.debug_mode, "Debug mode is not enabled.")
 	local props = self.props
 
 	local bufnr = renderer.bufnr
