@@ -376,4 +376,24 @@ T["render()"]["hflex"]["renders other nested flex elements, shrinking them if th
 	render_and_expect_screenshot(app)
 end
 
+T["render()"]["hflex"]["elements respect each other padding and margin boxes"] = function()
+	local app = markup.flex({
+		markup.inline({ "i'm highlighted", style = "Cursor" }),
+		markup.inline({ " i'm not" }),
+		markup.vflex({
+			style = "Search",
+			margin_top = 1,
+			margin_left = 5,
+			padding_right = 1,
+			markup.block({
+				markup.inline({ "inline" }),
+				markup.block("inline"),
+			}),
+		}),
+		markup.inline({ "i'm not" }),
+	})
+
+	render_and_expect_screenshot(app)
+end
+
 return T

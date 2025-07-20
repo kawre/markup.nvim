@@ -6,39 +6,22 @@ local FlexLayout = Layout.new("RenderFlex", { "flex", "block" })
 
 ---@param box markup.Render.Box
 function FlexLayout.layout(box)
+	local w, h = FlexLayout.compute_initial_size(box)
 	if box.props.vertical then
-		FlexLayout.layout_vertical(box)
+		FlexLayout.layout_vertical(box, w, h)
 	else
-		FlexLayout.layout_horizontal(box)
+		FlexLayout.layout_horizontal(box, w, h)
 	end
+	FlexLayout.compute_final_size(box, w, h)
 
-	FlexLayout.compute_final_size(box)
 	FlexLayout.justify(box)
 	FlexLayout.align(box)
 end
 
 ---@param box markup.Render.Box
-function FlexLayout.layout_horizontal(box)
+function FlexLayout.layout_horizontal(box, w, h)
 	local props = box.props
-
-	local max_width, max_height = 0, 0
-	local len = #box.children
-
-	for i, child in box:iter_children() do
-		child:layout()
-
-		box.x = box.x + child.width + (i ~= len and props.spacing or 0)
-		max_width = math.max(max_width, box.x)
-		max_height = math.max(max_height, child.height)
-	end
-
-	box.width = max_width
-	box.height = max_height
-end
-
----@param box markup.Render.Box
-function FlexLayout.layout_vertical(box)
-	local props = box.props
+	local gw = w and math.ceil(w / #box.children)
 
 	local max_width, max_height = 0, 0
 	local len = #box.children
@@ -47,8 +30,28 @@ function FlexLayout.layout_vertical(box)
 		child:layout()
 		local child_mbox = child:margin_box_size()
 
-		box.y = box.y + child_mbox.height + (i ~= len and props.spacing or 0)
+		box.x = box.x + child_mbox.width + (i ~= len and props.spacing or 0)
 		max_width = math.max(max_width, box.x)
+		max_height = math.max(max_height, child_mbox.height)
+	end
+
+	box.width = max_width
+	box.height = max_height
+end
+
+---@param box markup.Render.Box
+function FlexLayout.layout_vertical(box, w, h)
+	local props = box.props
+
+	local max_width = 0
+	local len = #box.children
+
+	for i, child in box:iter_children() do
+		child:layout()
+		local child_mbox = child:margin_box_size()
+
+		box.y = box.y + child_mbox.height + (i ~= len and props.spacing or 0)
+		max_width = math.max(max_width, child_mbox.width)
 	end
 
 	box.width = max_width
@@ -56,21 +59,37 @@ function FlexLayout.layout_vertical(box)
 end
 
 ---@param box markup.Render.Box
-function FlexLayout.compute_initial_width(box)
-	-- log.info(parent_cbox)
-	-- local new_width = box:normalize_size(width, parent_cbox.width)
-	-- box:set_content_box_size(new_width)
+function FlexLayout.compute_initial_size(box)
+	local props = box.props
+	local width, height = props.width, props.height
+	local parent_cbox = box.parent and box.parent:content_box_size()
+
+	if parent_cbox and not vim.tbl_isempty(parent_cbox) then
+		width = box:inherit_size(width, parent_cbox.width)
+		height = box:inherit_size(height, parent_cbox.height)
+	else
+		-- relative numbers [0,1) will not working when we don't know the parent size
+		width = width >= 1 and height or nil
+		height = height >= 1 and height or nil
+	end
+
+	return width, height
 end
 
 ---@param box markup.Render.Box
-function FlexLayout.compute_final_size(box)
-	if box.parent then
-		local height = box.props.height
-		local width = box.props.width
-		local parent_cbox = box.parent:content_box_size()
-		width = box:inherit_size(width, parent_cbox.width)
-		box:set_content_box_size(math.max(box.width, width or 0), math.max(box.height, height or 0))
+function FlexLayout.compute_final_size(box, w, h)
+	local vertical = box.props.vertical
+
+	local width, height
+	if vertical then
+		width = w and math.min(w, box.width) or box.width
+		height = h and math.max(h, box.height) or box.height
+	else
+		width = w and math.max(w, box.width) or box.width
+		height = h and math.min(h, box.height) or box.height
 	end
+
+	box:set_content_box_size(width, height)
 end
 
 ---@param box markup.Render.Box

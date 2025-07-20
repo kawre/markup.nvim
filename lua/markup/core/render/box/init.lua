@@ -186,7 +186,7 @@ end
 ---@param ref integer
 ---@return integer
 function RenderBox:inherit_size(size, ref)
-	if size > 0 then
+	if size and size > 0 then
 		return size < 1 and math.ceil(ref * size) or size
 	else
 		return ref

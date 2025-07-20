@@ -69,7 +69,7 @@ function playground.open()
 	vim.api.nvim_create_autocmd("BufWritePost", {
 		callback = function()
 			vim.schedule(function()
-				local ok, err = pcall(vim.cmd.luafile, file)
+				local ok, err = pcall(playground.run)
 				if not ok then
 					log.error(err)
 				end
@@ -81,6 +81,7 @@ end
 function playground.run()
 	-- ---@module 'snacks'
 	-- Snacks.profiler.start()
+	-- vim.cmd("Lazy reload markup.nvim")
 	vim.cmd("luafile " .. file)
 	-- Snacks.profiler.stop()
 end
