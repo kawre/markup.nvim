@@ -1,52 +1,88 @@
 local log = require("markup.logger") ---@diagnostic disable-line: unused-local
+local utils = require("markup.utils")
 
 ---@class markup.Node.Normalizer
 local M = {}
 
-function M.type(_type)
-	if not _type or type(_type) == "string" then
-		_type = markup[_type or "inline"]
-	end
-
-	return _type
-end
-
----@param style markup.Element.style.props
-function M.style(props_style, style)
-	if not style then
-		return props_style
-	end
-
-	if type(style) == "string" then
-		return { link = style }
-	elseif props_style then
-		return vim.tbl_extend("force", props_style, style)
-	else
-		return style
-	end
-end
-
----@param props? markup.create_element.props
----@param style? markup.Element.style.props
-function M.props(props, style)
+---@param props markup.Node.props
+function M.props(props)
 	if not props then
-		return nil
+		return {}
 	end
+	props = utils.shallowcopy(props)
+	props.children = nil
 
-	if type(props) ~= "table" then
-		return { children = props, style = M.style(nil, style) }
-	end
-	props.style = M.style(props.style, style)
+	if props.margin then
+		local m = props.margin
 
-	local new_props = {}
-
-	for key, value in pairs(props) do
-		if type(key) ~= "number" or key == "children" then
-			new_props[key] = value
+		if type(m) == "table" then
+			local n = #m
+			if n == 1 then
+				props.margin_left = m[1]
+				props.margin_right = m[1]
+				props.margin_top = m[1]
+				props.margin_bottom = m[1]
+			elseif n == 2 then
+				props.margin_left = m[1]
+				props.margin_right = m[2]
+				props.margin_top = m[1]
+				props.margin_bottom = m[2]
+			elseif n == 3 then
+				props.margin_left = m[1]
+				props.margin_right = m[2]
+				props.margin_top = m[1]
+				props.margin_bottom = m[3]
+			elseif n ~= 0 then
+				props.margin_left = m[1]
+				props.margin_right = m[2]
+				props.margin_top = m[3]
+				props.margin_bottom = m[4]
+			end
+		elseif type(m) == "number" then
+			props.margin_left = m
+			props.margin_right = m
+			props.margin_top = m
+			props.margin_bottom = m
 		end
+
+		props.margin = nil
 	end
 
-	props = new_props
+	if props.padding then
+		local p = props.padding
+
+		if type(p) == "table" then
+			local n = #p
+			if n == 1 then
+				props.padding_left = p[1]
+				props.padding_right = p[1]
+				props.padding_top = p[1]
+				props.padding_bottom = p[1]
+			elseif n == 2 then
+				props.padding_left = p[1]
+				props.padding_right = p[2]
+				props.padding_top = p[1]
+				props.padding_bottom = p[2]
+			elseif n == 3 then
+				props.padding_left = p[1]
+				props.padding_right = p[2]
+				props.padding_top = p[1]
+				props.padding_bottom = p[3]
+			elseif n ~= 0 then
+				props.padding_left = p[1]
+				props.padding_right = p[2]
+				props.padding_top = p[3]
+				props.padding_bottom = p[4]
+			end
+		elseif type(p) == "number" then
+			props.padding_left = p
+			props.padding_right = p
+			props.padding_top = p
+			props.padding_bottom = p
+		end
+
+		props.padding = nil
+	end
 
 	return props
 end

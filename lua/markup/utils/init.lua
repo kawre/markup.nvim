@@ -104,15 +104,15 @@ function utils.shallowcopy(orig)
 	assert(type(orig) == "table", "`orig` must be a table")
 
 	local copy = {}
-	if vim.islist(orig) then
-		for _, value in ipairs(orig) do
-			table.insert(copy, value)
-		end
-	else
-		for key, value in pairs(orig) do
-			copy[key] = value
-		end
+	-- if vim.islist(orig) then
+	-- for _, value in ipairs(orig) do
+	-- 	table.insert(copy, value)
+	-- end
+	-- else
+	for key, value in pairs(orig) do
+		copy[key] = value
 	end
+	-- end
 
 	return copy
 end

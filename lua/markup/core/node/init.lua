@@ -1,5 +1,6 @@
 local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 local u = require("markup.utils")
+local normalizer = require("markup.core.node.normalizer")
 local _type = type
 
 ---@alias markup.Node.type "element" | "text"
@@ -61,16 +62,11 @@ end
 ---@private
 ---@param props markup.Node.props
 function Node:create_props_proxy(props)
-	self.props = {}
-
-	self._props = props and u.shallowcopy(props) or {}
-	self._props.children = nil -- not needed anymore
-
+	self.props = normalizer.props(props)
 	setmetatable(self.props, {
-		__index = self._props,
-		__newindex = function(_, key, value)
+		__newindex = function(tbl, key, value)
 			self:flag_render_tree_as_dirty()
-			self._props[key] = value
+			rawset(tbl, key, value)
 		end,
 	})
 end
