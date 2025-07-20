@@ -46,7 +46,7 @@ M.Fragment = ElementFactory.create_fragment
 -- User Interface
 -----------------------------------------------
 
-M.Renderer = require("markup.core.window.renderer")
+M.Renderer = require("markup.core.renderer")
 M.Window = require("markup.core.window")
 M.Tabpage = require("markup.core.tabpage")
 
