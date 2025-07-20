@@ -69,7 +69,7 @@ function FlexLayout.compute_initial_size(box)
 		height = box:inherit_size(height, parent_cbox.height)
 	else
 		-- relative numbers [0,1) will not working when we don't know the parent size
-		width = width >= 1 and height or nil
+		width = width >= 1 and width or nil
 		height = height >= 1 and height or nil
 	end
 
@@ -82,7 +82,7 @@ function FlexLayout.compute_final_size(box, w, h)
 
 	local width, height
 	if vertical then
-		width = w and math.min(w, box.width) or box.width
+		width = w and math.max(w, box.width) or box.width
 		height = h and math.max(h, box.height) or box.height
 	else
 		width = w and math.max(w, box.width) or box.width

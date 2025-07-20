@@ -396,4 +396,24 @@ T["render()"]["hflex"]["elements respect each other padding and margin boxes"] =
 	render_and_expect_screenshot(app)
 end
 
+T["render()"]["hflex"]["lays out its children respecting their width"] = function()
+	local app = markup.flex({
+		markup.block("block"),
+		markup.flex({
+			style = "Search",
+			width = 20,
+			padding_right = 1,
+			markup.block({
+				markup.inline({ "inline" }),
+				markup.block("block"),
+				markup.block("block"),
+				markup.block("block"),
+			}),
+		}),
+		markup.inline("inline"),
+	})
+
+	render_and_expect_screenshot(app)
+end
+
 return T
