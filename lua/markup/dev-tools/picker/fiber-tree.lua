@@ -2,7 +2,8 @@ local FiberTag = require("markup.core.reconciler.enum").Tag
 local FiberFlag = require("markup.core.reconciler.enum").Flag
 
 ---@param root markup.Fiber
-return function(root)
+---@param exclude_ids? boolean
+return function(root, exclude_ids)
 	local lines = {}
 	local lines2 = {}
 
@@ -55,7 +56,7 @@ return function(root)
 		for _, value in ipairs(xd) do
 			table.insert(entries, 2, value)
 		end
-		if _Markup.is_dev then
+		if not exclude_ids then
 			table.insert(entries, { " " })
 			table.insert(entries, { ("  %s "):format(fiber.__id), "LspInlayHint" })
 		end

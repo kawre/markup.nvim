@@ -60,14 +60,14 @@ function Renderer:rerender()
 	vim.api.nvim_buf_clear_namespace(self.bufnr, self.ns, 0, -1)
 	self.reconciler:reconcile(self.root)
 
-	if _Markup.debug_mode then
-		self:_render_fiber_tree(self.bufnr)
-		self:_render_node_tree(self.sbuf)
-	else
-		self.render_tree:build()
-		self.render_tree:layout()
-		self.render_tree:paint()
-	end
+	-- if _Markup.debug_mode then
+	-- 	self:_render_fiber_tree(self.bufnr)
+	-- 	self:_render_node_tree(self.sbuf)
+	-- else
+	self.render_tree:build()
+	self.render_tree:layout()
+	self.render_tree:paint()
+	-- end
 end
 
 -- function Renderer:rerender_async()

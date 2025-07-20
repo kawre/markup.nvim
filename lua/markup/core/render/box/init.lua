@@ -247,11 +247,11 @@ function RenderBox:paint(renderer, x, y)
 	local props = self.props
 
 	if self:is("text") then
-		-- only leaf nodes can output text on the screen
+		-- only leaf nodes (text) can output text on the screen
 		local word = tostring(self.node.text_content)
-		vim.api.nvim_buf_set_text(bufnr, y, x, y, x + #word, { word })
+		vim.api.nvim_buf_set_text(bufnr, y, x, y, x + vim.fn.strlen(word), { word })
 	else
-		-- everything else can only output style
+		-- everything else only outputs style
 		local pbox = self:padding_box_size()
 		local pox = x + props.margin_left
 		local poy = y + props.margin_top
@@ -259,13 +259,117 @@ function RenderBox:paint(renderer, x, y)
 		u.set_hl({ [self.__id] = self.props.style }, { managed = true, prefix = "MarkupDynamic" })
 
 		for line = 0, pbox.height - 1 do
-			vim.api.nvim_buf_set_extmark(bufnr, ns, poy + line, pox, {
+			local extmark_id = vim.api.nvim_buf_set_extmark(bufnr, ns, poy + line, pox, {
 				end_col = pox + pbox.width,
 				hl_eol = true,
 				hl_group = "MarkupDynamic" .. self.__id,
 				hl_mode = "combine",
 			})
+			table.insert(self.extmarks, extmark_id)
 		end
+	end
+end
+
+function RenderBox:debug_paint_margin(renderer, x, y)
+	assert(_Markup.debug_mode, "Debug mode is not enabled.")
+	local props = self.props
+
+	local bufnr = renderer.bufnr
+	local ns = renderer.ns
+	local hl = "CurSearch"
+
+	-- u.set_hl({ [self.__id] = "MarkupDebugPadding" }, { managed = true, prefix = "MarkupDynamic" })
+
+	local mlxs = x
+	local mrxs = mlxs
+		+ props.margin_left
+		+ props.padding_left
+		+ self.content_width
+		+ props.padding_right
+
+	local mtys = y
+	local mtye = mtys + props.margin_top
+	local mbys = mtye + props.padding_top + self.content_height + props.padding_bottom
+	local mbye = mbys + props.margin_bottom
+
+	for line = mtys, mtye - 1 do
+		vim.api.nvim_buf_set_extmark(bufnr, ns, line, mlxs, {
+			end_col = mrxs + props.margin_right,
+			hl_eol = true,
+			hl_group = hl,
+			hl_mode = "combine",
+		})
+	end
+	for line = mbys, mbye do
+		vim.api.nvim_buf_set_extmark(bufnr, ns, line, mlxs, {
+			end_col = mrxs + props.margin_right,
+			hl_eol = true,
+			hl_group = hl,
+			hl_mode = "combine",
+		})
+	end
+	for line = mtye, mbys do
+		vim.api.nvim_buf_set_extmark(bufnr, ns, line, mlxs, {
+			end_col = mlxs + props.margin_left,
+			hl_eol = true,
+			hl_group = hl,
+			hl_mode = "combine",
+		})
+		vim.api.nvim_buf_set_extmark(bufnr, ns, line, mrxs, {
+			end_col = mrxs + props.margin_right,
+			hl_eol = true,
+			hl_group = hl,
+			hl_mode = "combine",
+		})
+	end
+end
+
+function RenderBox:debug_paint_padding(renderer, x, y)
+	assert(_Markup.debug_mode, "Debug mode is not enabled.")
+	local props = self.props
+
+	local bufnr = renderer.bufnr
+	local ns = renderer.ns
+
+	-- u.set_hl({ [self.__id] = "MarkupDebugPadding" }, { managed = true, prefix = "MarkupDynamic" })
+
+	local plxs = x + props.margin_left
+	local prxs = plxs + props.padding_left + self.content_width
+
+	local ptys = y + props.margin_top
+	local ptye = ptys + props.padding_top
+	local pbys = ptye + self.content_height
+	local pbye = pbys + props.padding_bottom
+
+	for line = ptys, ptye - 1 do
+		vim.api.nvim_buf_set_extmark(bufnr, ns, line, plxs, {
+			end_col = prxs + props.padding_right,
+			hl_eol = true,
+			hl_group = "Search",
+			hl_mode = "combine",
+		})
+	end
+	for line = pbys, pbye do
+		vim.api.nvim_buf_set_extmark(bufnr, ns, line, plxs, {
+			end_col = prxs + props.padding_right,
+			hl_eol = true,
+			hl_group = "Search",
+			hl_mode = "combine",
+		})
+	end
+	for line = ptye, pbys do
+		vim.api.nvim_buf_set_extmark(bufnr, ns, line, plxs, {
+			end_col = plxs + props.padding_left,
+			hl_eol = true,
+			hl_group = "Search",
+			hl_mode = "combine",
+		})
+		vim.api.nvim_buf_set_extmark(bufnr, ns, line, prxs, {
+			end_col = prxs + props.padding_right,
+			hl_eol = true,
+			hl_group = "Search",
+			hl_mode = "combine",
+		})
 	end
 end
 

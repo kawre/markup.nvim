@@ -3,7 +3,8 @@ local FiberFlag = require("markup.core.reconciler.enum").Flag
 local log = require("markup.logger")
 
 ---@param root? markup.Node
-return function(root)
+---@param exclude_ids? boolean
+return function(root, exclude_ids)
 	local lines = {}
 	local lines2 = {}
 
@@ -43,7 +44,7 @@ return function(root)
 			end, entries))
 		)
 
-		if node.__id then
+		if not exclude_ids then
 			table.insert(entries, { " " })
 			table.insert(entries, { ("  %s "):format(node.__id), "LspInlayHint" })
 		end

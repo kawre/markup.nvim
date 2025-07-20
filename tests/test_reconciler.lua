@@ -208,7 +208,7 @@ T["structure"] = new_set({
 })
 
 local function expect_fiber_tree(renderer, name, index)
-	local _, tree = fiber_tree(renderer.root.current)
+	local _, tree = fiber_tree(renderer.root.current, true)
 
 	local dir = "tests/screenshots/"
 	local fname = ("expect_fiber_tree---%s(%s)"):format(name, index)
@@ -291,7 +291,7 @@ T["node tree"] = new_set({
 })
 
 local function expect_node_tree(renderer, name, index)
-	local _, tree = node_tree(renderer.root.current.state_node)
+	local _, tree = node_tree(renderer.root.current.state_node, true)
 
 	local dir = "tests/screenshots/"
 	local fname = ("expect_node_tree---%s(%s)"):format(name, index)

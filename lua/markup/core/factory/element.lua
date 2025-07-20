@@ -4,31 +4,36 @@ local Element = require("markup.core.element")
 local M = {}
 
 local function normalize_props(props, style)
-	if not props then
-		return {}
-	elseif type(props) ~= "table" or getmetatable(props) then
-		return { children = props }
-	end
+	if type(props) ~= "table" or getmetatable(props) then
+		-- single child or no props
+		props = { children = props }
+	else
+		if not props.children then
+			local new_props = {}
 
-	if not props.children then
-		local new_props = {}
-
-		for key, value in pairs(props) do
-			if type(key) == "number" then
-				if not new_props.children then
-					new_props.children = {}
+			for key, value in pairs(props) do
+				if type(key) == "number" then
+					if not new_props.children then
+						new_props.children = {}
+					end
+					table.insert(new_props.children, value)
+				else
+					new_props[key] = value
 				end
-				table.insert(new_props.children, value)
-			else
-				new_props[key] = value
 			end
+
+			props = new_props
 		end
 
-		props = new_props
+		if type(props.children) == "table" and #props.children == 1 then
+			-- if children is a table with a single element, unwrap it
+			props.children = props.children[1]
+		end
 	end
 
-	if type(props.children) == "table" and #props.children == 1 then
-		props.children = props.children[1]
+	if style then
+		-- second style takes priority over props.style
+		props.style = style
 	end
 
 	return props

@@ -3,7 +3,8 @@ local FiberFlag = require("markup.core.reconciler.enum").Flag
 local log = require("markup.logger")
 
 ---@param root? markup.Render.Box
-return function(root)
+---@param exclude_ids? boolean
+return function(root, exclude_ids)
 	local lines = {}
 	local lines2 = {}
 
@@ -30,13 +31,17 @@ return function(root)
 			{ indent_marker, "SignColumn" },
 			{ node:name() },
 			{ node.dirty and "  " or " ", "Number" },
-			{ ("(%s) "):format(node.node.tag_name), "Conceal" },
-			{ ("  %s "):format(node.__id), "LspInlayHint" },
+			{ ("(%s)"):format(node.node.tag_name), "Conceal" },
 			-- { ("(%s)"):format(node.type), "Conceal" },
 		}
 		local text_mapped = vim.tbl_map(function(e)
 			return e[1]
 		end, entries)
+
+		if not exclude_ids then
+			table.insert(entries, { " " })
+			table.insert(entries, { ("  %s "):format(node.__id), "LspInlayHint" })
+		end
 
 		table.insert(
 			lines2,
