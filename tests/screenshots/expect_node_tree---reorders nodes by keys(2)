@@ -1,8 +1,0 @@
- root (element)
-├╴ inline (element)
-│ └╴ B (text)
-├╴ inline (element)
-│ └╴ A (text)
-├╴ 123 (text)
-├╴ inline (element)
-│ └╴ C (text)

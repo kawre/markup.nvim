@@ -1,8 +1,8 @@
 local normalizer = require("markup.node.normalizer")
 
----@alias markup.Node.type "element" | "text"
+---@alias markup.node.type "element" | "text"
 
----@class markup.Node.props
+---@class markup.node.props
 ---@field children? markup.factory.Element.constructor.props
 ---@field style? markup.factory.Element.constructor.style
 ---@field display? markup.Element.display
@@ -23,8 +23,8 @@ local normalizer = require("markup.node.normalizer")
 ---@field horizontal? boolean
 ---@field sizing? "outer"|"inner"
 ---@field reverse? boolean
----@field on_confirm? fun()
----@field on_key? table<string, fun()>
+---@field on_confirm? function
+---@field on_key? table<string, function>
 
 ---@class markup.node
 ---@field renderer markup.renderer
@@ -32,26 +32,47 @@ local normalizer = require("markup.node.normalizer")
 ---@field text_content string
 ---@field parent markup.node
 ---@field child_nodes markup.node[]
----@field render_box? markup.Render.Box
+---@field box? markup.Render.Box
 ---@field fiber markup.fiber
+---@field props markup.node.props
+---@field container markup.renderer
+---@overload fun(type: markup.node.type, name?: string, props?: markup.node.props): markup.node
 local Node = Markup.object()
 
----@param type markup.Node.type
+---@param type markup.node.type
 ---@param name? string
----@param props? markup.Node.props
+---@param props? markup.node.props
 function Node:new(type, name, props)
 	self.child_nodes = {}
 	self.parent = nil
 	self.type = type
+	local reconciler = Markup.reconciler.static.get()
+	self.container = reconciler and reconciler.renderer
 	self.tag_name = name
 	self:create_props_proxy(props)
 	self.__id = Markup.util.gen_id()
 end
 
 ---@private
----@param props markup.Node.props
+---@param props markup.node.props
 function Node:create_props_proxy(props)
 	self.props = normalizer.props(props)
+
+	if self.props.on_confirm then
+		self.container:subscribe("confirm", self, self.props.on_confirm)
+	elseif self.props.on_key then
+		for key, cb in pairs(self.props.on_key) do
+			vim.keymap.set("n", Markup.util.normkey(key), function()
+				cb(self.container)
+			end)
+			-- self.container:subscribe("key", self, function(ev)
+			-- 	if ev.key == key then
+			-- 		cb(ev)
+			-- 	end
+			-- end)
+		end
+	end
+
 	setmetatable(self.props, {
 		__newindex = function(tbl, key, value)
 			self:flag_render_tree_as_dirty()
@@ -60,7 +81,7 @@ function Node:create_props_proxy(props)
 	})
 end
 
----@param props markup.Node.props
+---@param props markup.node.props
 function Node:replace_props(props)
 	self:create_props_proxy(props)
 	self:flag_render_tree_as_dirty()
@@ -68,8 +89,8 @@ end
 
 ---@private
 function Node:flag_render_tree_as_dirty()
-	if self.render_box then
-		self.render_box:flag_as_dirty()
+	if self.box then
+		self.box:flag_as_dirty()
 	end
 end
 
@@ -153,7 +174,14 @@ function Node:destroy()
 	self = nil
 end
 
----@param type markup.Node.type
+---@param event string
+---@param cb function
+function Node:on(event, cb)
+	assert(self.container, "Node must have a container to register event handlers")
+	self.container:subscribe(event, self, cb)
+end
+
+---@param type markup.node.type
 function Node:is(type)
 	return self.type == type
 end

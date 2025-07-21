@@ -7,7 +7,7 @@ M.default = {
 	position = "float",
 	minimal = true,
 	wo = {
-		winhighlight = "Normal:SnacksNormal,NormalNC:SnacksNormalNC,WinBar:SnacksWinBar,WinBarNC:SnacksWinBarNC",
+		winhighlight = "Normal:MarkupNormal,NormalNC:MarkupNormalNC,WinBar:MarkupWinBar,WinBarNC:MarkupWinBarNC",
 	},
 	bo = {},
 	keys = {

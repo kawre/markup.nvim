@@ -52,7 +52,7 @@ end
 ---@alias markup.factory.Element.constructor.props
 ---| markup.factory.Element.constructor.props.children
 ---| { children?: markup.factory.Element.constructor.props.children }
----| markup.Node.props
+---| markup.node.props
 
 ---@alias markup.factory.Element.Fragment.constructor.props
 ---| markup.factory.Element.constructor.props.children

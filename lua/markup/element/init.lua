@@ -10,7 +10,7 @@ local _type = type
 ---@class markup.element
 ---@field type string basically a tag name or a function/class
 ---@field typeof markup.Element.typeof more specific type of the element
----@field props markup.Node.props
+---@field props markup.node.props
 ---@field ref? any
 ---@field key? any
 ---@field _owner? any
@@ -46,7 +46,7 @@ function M.new(type, props)
 
 	if props.key then
 		self.key = props.key
-		props.key = nil
+		-- props.key = nil
 	end
 
 	return self

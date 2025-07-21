@@ -5,10 +5,12 @@
 ---@field grid markup.factory.Element.constructor
 ---@field element markup.factory.Element.constructor.raw
 ---@field variable markup.use_state
+---@field private setup any
 ---@field [string] markup.factory.Element.constructor
 local M = {}
 
 ---@class markup.global
+---@field core markup
 ---@field collection markup.collection
 ---@field assert markup.assert
 ---@field log markup.logger
@@ -16,19 +18,14 @@ local M = {}
 ---@field devkit markup.devkit
 ---@field config markup.config
 ---@field playground markup.playground
----@field core markup.core
+---@field node markup.node
 ---@field cmd markup.cmd
 ---@field factory markup.factory
 ---@field window markup.window
 ---@field renderer markup.renderer
 ---@field reconciler markup.reconciler
 ---@field object markup.object
-_G.Markup = setmetatable({
-	core = M,
-	debug = function(...)
-		return Markup.log.debug(...)
-	end,
-}, {
+_G.Markup = setmetatable({ core = M }, {
 	__index = function(t, k)
 		t[k] = require("markup." .. k)
 		return rawget(t, k)
@@ -39,10 +36,7 @@ M.Component = Markup.factory.element.component
 M.Class = Markup.factory.element.class
 M.Fragment = Markup.factory.element.fragment
 M.variable = require("markup.reconciler.hook.state")
--- M.For = function(items, fn)
--- 	Markup.log.info(items)
--- 	return vim.tbl_map(fn, items)
--- end
+
 setmetatable(M, {
 	__call = function(_, ...)
 		return Markup.factory.element(...)

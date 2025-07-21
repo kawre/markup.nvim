@@ -11,6 +11,8 @@ local BoxProps = require("markup.renderer.box.props")
 ---@field y integer
 ---@field ox integer offset x
 ---@field oy integer offset y
+---@field wx integer final window x
+---@field wy integer final window y
 ---@field width integer
 ---@field height integer
 ---@field content_width integer
@@ -27,7 +29,7 @@ function RenderBox:new(node, layout_strategy)
 	self.layout_strategy = layout_strategy
 	self.children = {}
 	self.node = node
-	node.render_box = self
+	node.box = self
 	self.dirty = true
 	self.buf = {}
 	self.props = BoxProps:new(self)
@@ -54,10 +56,10 @@ function RenderBox:flag_as_dirty()
 		return
 	end
 
-	self.dirty = true
-	if self.parent then
-		self.parent:flag_as_dirty()
-	end
+	-- self.dirty = true
+	-- if self.parent then
+	-- 	self.parent:flag_as_dirty()
+	-- end
 end
 
 ---@param child markup.node
@@ -364,6 +366,88 @@ function RenderBox:debug_paint_padding(x, y)
 			hl_mode = "combine",
 		})
 	end
+end
+
+function RenderBox:margin_box_range()
+	local props = self.props
+
+	local top = self.wy
+	local bottom = top
+		+ props.margin_top
+		+ props.padding_top
+		+ self.content_height
+		+ props.padding_bottom
+		+ props.margin_bottom
+	local left = self.wx
+	local right = left
+		+ props.margin_left
+		+ props.padding_left
+		+ self.content_width
+		+ props.padding_right
+		+ props.margin_right
+
+	return {
+		top = top,
+		bottom = bottom,
+		right = right,
+		left = left,
+	}
+end
+
+function RenderBox:padding_box_range()
+	local props = self.props
+
+	local top = self.wy + props.margin_top
+	local bottom = props.padding_top + top + self.content_height + props.padding_bottom
+	local left = self.wx + props.margin_left
+	local right = left + props.padding_left + self.content_width + props.padding_right
+
+	return {
+		top = top,
+		bottom = bottom,
+		right = right,
+		left = left,
+	}
+end
+
+function RenderBox:content_box_range()
+	local props = self.props
+
+	local top = self.wy + props.margin_top + props.padding_top
+	local bottom = top + self.content_height
+	local left = self.wx + props.margin_left + props.padding_left
+	local right = left + self.content_width
+
+	return {
+		top = top,
+		bottom = bottom,
+		right = right,
+		left = left,
+	}
+end
+
+-- function RenderBox:box_range()
+-- 	local props = self.props
+--
+-- 	local top = self.wy + props.margin_top + props.padding_top
+-- 	local bottom = top + self.content_height
+-- 	local left = self.wx + props.margin_left + props.padding_left
+-- 	local right = left + self.content_width
+--
+-- 	return {
+-- 		top = top,
+-- 		bottom = bottom,
+-- 		right = right,
+-- 		left = left,
+-- 	}
+-- end
+
+function RenderBox:in_range(x, y, range)
+	if not range then
+		range = self:padding_box_range()
+	end
+
+	return x >= range.left and x < range.right and y >= range.top and y < range.bottom
 end
 
 return RenderBox

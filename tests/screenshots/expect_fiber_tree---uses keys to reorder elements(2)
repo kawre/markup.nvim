@@ -1,6 +1,0 @@
- fiber root (root)
-├╴󰊕 Component (function)
-│ ├╴ inline  A (key = A) (element)
-│ ├╴ 123 (text)
-│ ├╴ inline  B (key = B) (element)
-│ └╴ inline  C (key = C) (element)

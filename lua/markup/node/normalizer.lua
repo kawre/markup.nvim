@@ -1,7 +1,7 @@
 ---@class markup.Node.Normalizer
 local M = {}
 
----@param props markup.Node.props
+---@param props markup.node.props
 function M.props(props)
 	if not props then
 		return {}

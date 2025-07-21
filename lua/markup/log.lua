@@ -29,14 +29,19 @@ function M.log(lvl, ...)
 		return v ~= nil
 	end, { ... })
 	local msg = table.concat(vim.tbl_map(normalize, args), " ")
-	vim.notify(msg, lvl, {
-		title = Markup.config.name,
-		on_open = function(win)
-			local buf = vim.api.nvim_win_get_buf(win)
-			vim.api.nvim_set_option_value("filetype", "markdown", { buf = buf })
-			vim.api.nvim_set_option_value("spell", false, { win = win })
-		end,
-	})
+
+	local function notif()
+		vim.notify(msg, lvl, {
+			title = Markup.config.name,
+			on_open = function(win)
+				local buf = vim.api.nvim_win_get_buf(win)
+				vim.api.nvim_set_option_value("filetype", "markdown", { buf = buf })
+				vim.api.nvim_set_option_value("spell", false, { win = win })
+			end,
+		})
+	end
+
+	(vim.in_fast_event() and vim.schedule_wrap(notif) or notif)()
 end
 
 function M.inspect(...)
@@ -44,6 +49,9 @@ function M.inspect(...)
 end
 
 return setmetatable(M, {
+	__call = function(...)
+		return M.log(...)
+	end,
 	__index = function(_, key)
 		local lvl = lvls[key:upper()]
 

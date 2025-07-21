@@ -7,132 +7,75 @@ local styles = require("markup.window.styles")
 ---@field win? number
 ---@field opts markup.window.config
 ---@field augroup? number
----@field backdrop? snacks.win
----@field keys snacks.win.Keys[]
----@field events (snacks.win.Event|{event:string|string[]})[]
+---@field backdrop? markup.window
+---@field keys markup.window.Keys[]
+---@field events (markup.window.Event|{event:string|string[]})[]
 ---@field meta table<string, any>
 ---@field closed? boolean
 ---@overload fun(opts?: markup.window.config|{}): markup.window
 local M = Markup.object()
 
----@class snacks.win.Keys: vim.api.keyset.keymap
+---@class markup.window.Keys: vim.api.keyset.keymap
 ---@field [1]? string
----@field [2]? string|string[]|fun(self: snacks.win): string?
+---@field [2]? string|string[]|fun(self: markup.window): string?
 ---@field mode? string|string[]
 
----@class snacks.win.Event: vim.api.keyset.create_autocmd
+---@class markup.window.Event: vim.api.keyset.create_autocmd
 ---@field buf? true
 ---@field win? true
----@field callback? fun(self: snacks.win, ev:vim.api.keyset.create_autocmd.callback_args):boolean?
+---@field callback? fun(self: markup.window, ev:vim.api.keyset.create_autocmd.callback_args):boolean?
 
----@class snacks.win.Backdrop
+---@class markup.window.Backdrop
 ---@field bg? string
 ---@field blend? number
 ---@field transparent? boolean defaults to true
----@field win? snacks.win.Config overrides the backdrop window config
+---@field win? markup.window.config overrides the backdrop window config
 
----@class snacks.win.Dim
+---@class markup.window.Dim
 ---@field width number width of the window, without borders
 ---@field height number height of the window, without borders
 ---@field row number row of the window (0-indexed)
 ---@field col number column of the window (0-indexed)
 ---@field border? boolean whether the window has a border
 
----@alias snacks.win.Action.fn fun(self: snacks.win):(boolean|string?)
----@alias snacks.win.Action.spec snacks.win.Action|snacks.win.Action.fn
----@class snacks.win.Action
----@field action snacks.win.Action.fn
+---@alias markup.window.Action.fn fun(self: markup.window):(boolean|string?)
+---@alias markup.window.Action.spec markup.window.Action|markup.window.Action.fn
+---@class markup.window.Action
+---@field action markup.window.Action.fn
 ---@field desc? string
 
 ---@class markup.window.config: vim.api.keyset.win_config
 ---@field style? string merges with config from `Snacks.config.styles[style]`
 ---@field show? boolean Show the window immediately (default: true)
----@field height? number|fun(self:snacks.win):number Height of the window. Use <1 for relative height. 0 means full height. (default: 0.9)
----@field width? number|fun(self:snacks.win):number Width of the window. Use <1 for relative width. 0 means full width. (default: 0.9)
+---@field height? number|fun(self:markup.window):number Height of the window. Use <1 for relative height. 0 means full height. (default: 0.9)
+---@field width? number|fun(self:markup.window):number Width of the window. Use <1 for relative width. 0 means full width. (default: 0.9)
 ---@field min_height? number Minimum height of the window
 ---@field max_height? number Maximum height of the window
 ---@field min_width? number Minimum width of the window
 ---@field max_width? number Maximum width of the window
----@field col? number|fun(self:snacks.win):number Column of the window. Use <1 for relative column. (default: center)
----@field row? number|fun(self:snacks.win):number Row of the window. Use <1 for relative row. (default: center)
+---@field col? number|fun(self:markup.window):number Column of the window. Use <1 for relative column. (default: center)
+---@field row? number|fun(self:markup.window):number Row of the window. Use <1 for relative row. (default: center)
 ---@field minimal? boolean Disable a bunch of options to make the window minimal (default: true)
 ---@field position? "float"|"bottom"|"top"|"left"|"right"
 ---@field border? "none"|"top"|"right"|"bottom"|"left"|"hpad"|"vpad"|"rounded"|"single"|"double"|"solid"|"shadow"|string[]|false
 ---@field buf? number If set, use this buffer instead of creating a new one
 ---@field file? string If set, use this file instead of creating a new buffer
 ---@field enter? boolean Enter the window after opening (default: false)
----@field backdrop? number|false|snacks.win.Backdrop Opacity of the backdrop (default: 60)
+---@field backdrop? number|false|markup.window.Backdrop Opacity of the backdrop (default: 60)
 ---@field wo? vim.wo|{} window options
 ---@field bo? vim.bo|{} buffer options
 ---@field b? table<string, any> buffer local variables
 ---@field w? table<string, any> window local variables
 ---@field ft? string filetype to use for treesitter/syntax highlighting. Won't override existing filetype
 ---@field scratch_ft? string filetype to use for scratch buffers
----@field keys? table<string, false|string|fun(self: snacks.win)|snacks.win.Keys> Key mappings
----@field on_buf? fun(self: snacks.win) Callback after opening the buffer
----@field on_win? fun(self: snacks.win) Callback after opening the window
----@field on_close? fun(self: snacks.win) Callback after closing the window
+---@field keys? table<string, false|string|fun(self: markup.window)|markup.window.Keys> Key mappings
+---@field on_buf? fun(self: markup.window) Callback after opening the buffer
+---@field on_win? fun(self: markup.window) Callback after opening the window
+---@field on_close? fun(self: markup.window) Callback after closing the window
 ---@field fixbuf? boolean don't allow other buffers to be opened in this window
 ---@field text? string|string[]|fun():(string[]|string) Initial lines to set in the buffer
----@field actions? table<string, snacks.win.Action.spec> Actions that can be used in key mappings
+---@field actions? table<string, markup.window.Action.spec> Actions that can be used in key mappings
 ---@field resize? boolean Automatically resize the window when the editor is resized
--- local defaults = {
--- 	show = true,
--- 	fixbuf = true,
--- 	relative = "editor",
--- 	position = "float",
--- 	minimal = true,
--- 	wo = {
--- 		winhighlight = "Normal:SnacksNormal,NormalNC:SnacksNormalNC,WinBar:SnacksWinBar,WinBarNC:SnacksWinBarNC",
--- 	},
--- 	bo = {},
--- 	keys = {
--- 		q = "close",
--- 	},
--- }
-
--- Snacks.config.style("float", {
--- 	position = "float",
--- 	backdrop = 60,
--- 	height = 0.9,
--- 	width = 0.9,
--- 	zindex = 50,
--- })
---
--- Snacks.config.style("help", {
--- 	position = "float",
--- 	backdrop = false,
--- 	border = "top",
--- 	row = -1,
--- 	width = 0,
--- 	height = 0.3,
--- })
---
--- Snacks.config.style("split", {
--- 	position = "bottom",
--- 	height = 0.4,
--- 	width = 0.4,
--- })
---
--- Snacks.config.style("minimal", {
--- 	wo = {
--- 		cursorcolumn = false,
--- 		cursorline = false,
--- 		cursorlineopt = "both",
--- 		colorcolumn = "",
--- 		fillchars = "eob: ,lastline:…",
--- 		list = false,
--- 		listchars = "extends:…,tab:  ",
--- 		number = false,
--- 		relativenumber = false,
--- 		signcolumn = "no",
--- 		spell = false,
--- 		winbar = "",
--- 		statuscolumn = "",
--- 		wrap = false,
--- 		sidescrolloff = 0,
--- 	},
--- })
 
 local SCROLL_UP, SCROLL_DOWN = Markup.util.keycode("<c-u>"), Markup.util.keycode("<c-d>")
 
@@ -189,7 +132,7 @@ Markup.util.set_hl({
 	Normal = "NormalFloat",
 	NormalNC = "NormalFloat",
 	WinBar = "Title",
-	WinBarNC = "SnacksWinBar",
+	WinBarNC = "MarkupWinBar",
 	WinKey = "Keyword",
 	WinKeySep = "NonText",
 	WinKeyDesc = "Function",
@@ -199,23 +142,22 @@ local id = 0
 local event_stack = {} ---@type string[]
 
 --@private
----@param ...? snacks.win.Config|string|{}
----@return snacks.win.Config
+---@param ...? markup.window.config|string|{}
+---@return markup.window.config
 function M.resolve(...)
 	local done = {} ---@type table<string, boolean>
-	local merge = {} ---@type snacks.win.Config[]
+	local merge = {} ---@type markup.window.config[]
 	local stack = {}
 	for i = 1, select("#", ...) do
-		local next = select(i, ...) ---@type snacks.win.Config|string?
+		local next = select(i, ...) ---@type markup.window.config|string?
 		if next then
 			table.insert(stack, next)
 		end
 	end
 	while #stack > 0 do
 		local next = table.remove(stack)
-		-- next = type(next) == "string" and Markup.config.styles[next] or next
-		-- next = next
-		---@cast next snacks.win.Config?
+		next = type(next) == "string" and styles[next] or next
+		---@cast next markup.window.config?
 		if next and type(next) == "table" then
 			table.insert(merge, 1, next)
 			if next.style and not done[next.style] then
@@ -254,7 +196,7 @@ function M:new(opts)
 
 	self.keys = {}
 	self.events = {}
-	local done = {} ---@type table<string, snacks.win.Keys>
+	local done = {} ---@type table<string, markup.window.Keys>
 	for key, spec in pairs(opts.keys) do
 		if spec then
 			if type(spec) == "string" then
@@ -265,7 +207,7 @@ function M:new(opts)
 				spec = vim.deepcopy(spec) -- deepcopy just in case
 				spec[1], spec[2] = key, spec[1]
 			end
-			---@cast spec snacks.win.Keys
+			---@cast spec markup.window.Keys
 			local lhs = Markup.util.normkey(spec[1] or "")
 			local mode = type(spec.mode) == "table" and spec.mode or { spec.mode or "n" }
 			---@cast mode string[]
@@ -293,7 +235,7 @@ function M:new(opts)
 	-- update window size when resizing
 	self:on("VimResized", self.on_resize)
 
-	---@cast opts snacks.win.Config
+	---@cast opts markup.window.config
 	self.opts = opts
 	if opts.show ~= false then
 		self:show()
@@ -345,8 +287,8 @@ function M:action(actions)
 end
 
 ---@param event string|string[]
----@param cb fun(self: snacks.win, ev:vim.api.keyset.create_autocmd.callback_args):boolean?
----@param opts? snacks.win.Event
+---@param cb fun(self: markup.window, ev:vim.api.keyset.create_autocmd.callback_args):boolean?
+---@param opts? markup.window.Event
 function M:on(event, cb, opts)
 	opts = opts or {}
 	opts.callback = cb
@@ -357,7 +299,7 @@ function M:on(event, cb, opts)
 end
 
 ---@param event string|string[]
----@param opts snacks.win.Event
+---@param opts markup.window.Event
 function M:_on(event, opts)
 	local event_opts = {} ---@type vim.api.keyset.create_autocmd
 	local skip = { "buf", "win", "event" }
@@ -851,7 +793,7 @@ function M:map()
 			end
 		end
 		spec.desc = spec.desc or opts.desc
-		---@cast spec snacks.win.Keys
+		---@cast spec markup.window.Keys
 		vim.keymap.set(spec.mode or "n", spec[1], rhs, opts)
 	end
 end
@@ -905,7 +847,7 @@ function M:drop()
 	backdrop = type(backdrop) == "number" and { blend = backdrop } or backdrop
 	backdrop = backdrop == true and {} or backdrop
 	backdrop = vim.tbl_extend("force", { bg = "#000000", blend = 60, transparent = true }, backdrop)
-	---@cast backdrop snacks.win.Backdrop
+	---@cast backdrop markup.window.Backdrop
 
 	if
 		(Markup.util.is_transparent() and backdrop.transparent)
@@ -1097,10 +1039,10 @@ function M:valid()
 	return self:win_valid() and self:buf_valid() and vim.api.nvim_win_get_buf(self.win) == self.buf
 end
 
----@param parent? snacks.win.Dim
+---@param parent? markup.window.Dim
 function M:dim(parent)
 	parent = parent or self:parent_size()
-	---@type snacks.win.Dim
+	---@type markup.window.Dim
 	local ret = {
 		height = 0,
 		width = 0,
@@ -1109,7 +1051,7 @@ function M:dim(parent)
 		border = self:has_border(),
 	}
 
-	---@param s? number|fun(win:snacks.win):number? size
+	---@param s? number|fun(win:markup.window):number? size
 	---@param ps number parent size
 	local function size(s, ps, border_offset)
 		s = type(s) == "function" and s(self) or s or 0
@@ -1122,7 +1064,7 @@ function M:dim(parent)
 		return s
 	end
 
-	---@param p? number|fun(win:snacks.win):number? pos
+	---@param p? number|fun(win:markup.window):number? pos
 	---@param s number size
 	---@param ps number parent size
 	local function pos(p, s, ps, border_from, border_to)

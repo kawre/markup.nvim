@@ -143,6 +143,7 @@ function M.call_if_callable(value, ...)
 	return vim.is_callable(value) and value(...) or value
 end
 
+-- Essential for unit tests to ensure random IDs are consistent.
 math.randomseed(Markup.config.randomseed)
 local ids = {}
 

@@ -1,8 +1,0 @@
- fiber root (root)
-├╴󰊕 Component (function)
-│ ├╴ block (element)
-│ │ ├╴ inline  im count: 3 (element)
-│ │ ├╴ fragment (fragment)
-│ │ │ ├╴ 10 (text)
-│ │ │ └╴ 10 (text)
-│ │ └╴ i'm overriding (text)

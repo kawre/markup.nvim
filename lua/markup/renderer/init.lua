@@ -1,11 +1,14 @@
 ---@class markup.renderer.opts
 ---@field index integer
 
----@class markup.renderer: markup.window
+---@alias markup.renderer.event "confirm" | "key"
+
+---@class markup.renderer
 ---@field protected opts markup.renderer.opts
 ---@field reconciler markup.reconciler
 ---@field root any
 ---@field win markup.window
+---@field private observers table<string, table>
 ---@overload fun(opts?: markup.window.config): markup.renderer
 local M = Markup.object()
 
@@ -13,21 +16,41 @@ local M = Markup.object()
 function M:new(opts)
 	self.win = Markup.window(opts)
 	self.ns = vim.api.nvim_create_namespace("markup_renderer_" .. self.win.id)
-
+	self.observers = {}
 	self.reconciler = Markup.reconciler(self)
 
-	self.win:on("WinResized", function()
-		if self.root then
-			self.root.width = vim.api.nvim_win_get_width(self.win.win)
-			self.root.height = vim.api.nvim_win_get_height(self.win.win)
-		end
+	self.win:on({ "WinResized", "VimResized" }, function()
+		Markup.log("resized")
+		-- if self.root then
+		-- 	self.root.width = vim.api.nvim_win_get_width(self.win.win)
+		-- 	self.root.height = vim.api.nvim_win_get_height(self.win.win)
+		-- end
+		self:render()
+	end)
+	self.win:on({ "BufAdd", "BufWinEnter" }, function()
+		Markup.log("bufadd")
+		self:render()
+	end)
+	self.win:on("BufEnter", function()
+		-- Markup.log("bufenter")
+		vim.keymap.set("n", "<CR>", function()
+			if self.observers.confirm then
+				for node, cb in pairs(self.observers.confirm) do ---@cast node markup.node
+					local box = node.box
+					local c = vim.api.nvim_win_get_cursor(self.win.win)
+					if box:in_range(c[2], c[1] - 1) then
+						cb()
+					end
+				end
+			end
+		end, { buffer = self.win.buf, silent = true })
 	end)
 end
 
 ---@param element any
 function M:bind(element)
 	element = Markup.util.call_if_callable(element)
-	self.rootf = Markup.factory.fiber.root(element)
+	self.rootf = Markup.factory.fiber.root(self, element)
 	self.root = Markup.factory.box.root(self)
 end
 
@@ -52,7 +75,12 @@ function M:rerender()
 end
 
 function M:build()
-	self:render_root():build()
+	local root = self:render_root()
+	if root.dirty then
+		root:build()
+	else
+		root:reflow()
+	end
 end
 
 function M:layout()
@@ -77,6 +105,9 @@ end
 ---@param y integer
 ---@param box markup.Render.Box
 function M:traverse_and_paint(x, y, box)
+	box.wx = x
+	box.wy = y
+
 	if box:is("text") then
 		box:paint(self, x, y)
 		return
@@ -109,9 +140,24 @@ function M:node_root()
 	return self:fiber_root().state_node
 end
 
+---@param event markup.renderer.event
+---@param spec any
+---@param cb function
+function M:subscribe(event, spec, cb)
+	if not self.observers[event] then
+		self.observers[event] = {}
+	end
+
+	if event == "confirm" then
+		self.observers[event][spec] = cb
+	elseif event == "key" then
+		self.observers[event][spec] = cb
+	end
+end
+
 ---@return markup.Render.Box
 function M:render_root()
-	return self:node_root().render_box
+	return self:node_root().box
 end
 
 return M

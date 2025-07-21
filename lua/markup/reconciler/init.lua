@@ -8,7 +8,6 @@ local Dispatcher = require("markup.reconciler.dispatcher")
 ---@field renderer? markup.renderer
 ---@field dispatcher markup.dispatcher
 ---@field render_scheduled boolean
----@field renderer_root markup.Renderer.Root
 ---@overload fun(renderer: markup.renderer): markup.reconciler
 local M = Markup.object()
 
@@ -1130,7 +1129,7 @@ function M:schedule_render()
 	self.render_scheduled = true
 	vim.schedule(function()
 		self.render_scheduled = false
-		self.renderer_root.owner:rerender()
+		self.renderer:rerender()
 	end)
 end
 

@@ -33,6 +33,7 @@ local M = {}
 ---@param tag markup.Fiber.tag
 ---@param props? table
 ---@param key? any
+---@return markup.fiber
 function M.new(tag, props, key)
 	local self = setmetatable({}, M)
 

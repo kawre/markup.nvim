@@ -9,9 +9,9 @@ local M = setmetatable({}, {
 	end,
 })
 
----@param type markup.Node.type
+---@param type markup.node.type
 ---@param name? string
----@param props? markup.Node.props
+---@param props? markup.node.props
 function M.new(type, name, props)
 	return Node(type, name, props)
 end
