@@ -5,6 +5,7 @@ local M = {
 	},
 	name = "markup.nvim",
 	debug = false,
+	randomseed = 1753102604,
 }
 
 ---@param opts? table

@@ -9,7 +9,7 @@ local Dispatcher = require("markup.reconciler.dispatcher")
 ---@field dispatcher markup.dispatcher
 ---@field render_scheduled boolean
 ---@field renderer_root markup.Renderer.Root
----@overload fun(): markup.reconciler
+---@overload fun(renderer: markup.renderer): markup.reconciler
 local M = Markup.object()
 
 ---@class markup.Reconciler.static

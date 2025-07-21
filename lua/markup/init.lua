@@ -26,7 +26,7 @@ local M = {}
 _G.Markup = setmetatable({
 	core = M,
 	debug = function(...)
-		return Snacks.debug(...)
+		return Markup.log.debug(...)
 	end,
 }, {
 	__index = function(t, k)
@@ -39,6 +39,10 @@ M.Component = Markup.factory.element.component
 M.Class = Markup.factory.element.class
 M.Fragment = Markup.factory.element.fragment
 M.variable = require("markup.reconciler.hook.state")
+-- M.For = function(items, fn)
+-- 	Markup.log.info(items)
+-- 	return vim.tbl_map(fn, items)
+-- end
 setmetatable(M, {
 	__call = function(_, ...)
 		return Markup.factory.element(...)

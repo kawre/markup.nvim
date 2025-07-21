@@ -1,7 +1,11 @@
 ---@class markup.util
 local M = {}
 
+local uv = vim.uv or vim.loop
+local key_cache = {} ---@type table<string, string>
+local langs = {} ---@type table<string, boolean>
 local hl_groups = {} ---@type table<string, vim.api.keyset.highlight>
+
 vim.api.nvim_create_autocmd("ColorScheme", {
 	group = vim.api.nvim_create_augroup("markup.util.hl", { clear = true }),
 	callback = function()
@@ -139,17 +143,116 @@ function M.call_if_callable(value, ...)
 	return vim.is_callable(value) and value(...) or value
 end
 
--- math.randomseed(os.time())
-local id_cache = {}
+math.randomseed(Markup.config.randomseed)
+local ids = {}
+
 function M.gen_id()
-	local n = vim.loop.hrtime() + math.random(1e5, 1e6 - 1)
+	local n = math.random(1e5, 1e6 - 1)
 	local id = ("%x"):format(n % 0xFFFFFFF)
-	if id_cache[id] then
+	if ids[id] then
 		return M.gen_id()
 	else
-		id_cache[id] = true
+		ids[id] = true
 		return id
 	end
+end
+
+---@param str string
+function M.keycode(str)
+	return vim.api.nvim_replace_termcodes(str, true, true, true)
+end
+
+---@param key string
+function M.normkey(key)
+	if key_cache[key] then
+		return key_cache[key]
+	end
+	local function norm(v)
+		local l = v:lower()
+		if l == "leader" then
+			return M.normkey("<leader>")
+		elseif l == "localleader" then
+			return M.normkey("<localleader>")
+		end
+		return vim.fn.keytrans(M.keycode(("<%s>"):format(v)))
+	end
+	local orig = key
+	key = key:gsub("<lt>", "<")
+	local lower = key:lower()
+	if lower == "<leader>" then
+		key = vim.g.mapleader
+		key = vim.fn.keytrans((not key or key == "") and "\\" or key)
+	elseif lower == "<localleader>" then
+		key = vim.g.maplocalleader
+		key = vim.fn.keytrans((not key or key == "") and "\\" or key)
+	else
+		local extracted = {} ---@type string[]
+		local function extract(v)
+			v = v:sub(2, -2)
+			if v:sub(2, 2) == "-" and v:sub(1, 1):find("[aAmMcCsS]") then
+				local m = v:sub(1, 1):upper()
+				m = m == "A" and "M" or m
+				local k = v:sub(3)
+				if #k > 1 then
+					return norm(v)
+				end
+				if m == "C" then
+					k = k:upper()
+				elseif m == "S" then
+					return k:upper()
+				end
+				return ("<%s-%s>"):format(m, k)
+			end
+			return norm(v)
+		end
+		local placeholder = "_#_"
+		---@param v string
+		key = key:gsub("(%b<>)", function(v)
+			table.insert(extracted, extract(v))
+			return placeholder
+		end)
+		key = vim.fn.keytrans(key):gsub("<lt>", "<")
+
+		-- Restore extracted %b<> sequences
+		local i = 0
+		key = key:gsub(placeholder, function()
+			i = i + 1
+			return extracted[i] or ""
+		end)
+	end
+	key_cache[orig] = key
+	key_cache[key] = key
+	return key
+end
+
+local transparent ---@type boolean?
+--- Check if the colorscheme is transparent.
+function M.is_transparent()
+	if transparent == nil then
+		transparent = M.color("Normal", "bg") == nil
+		vim.api.nvim_create_autocmd("ColorScheme", {
+			group = vim.api.nvim_create_augroup("snacks_util_transparent", { clear = true }),
+			callback = function()
+				transparent = nil
+			end,
+		})
+	end
+	return transparent
+end
+
+---@param fg string foreground color
+---@param bg string background color
+---@param alpha number number between 0 and 1. 0 results in bg, 1 results in fg
+function M.blend(fg, bg, alpha)
+	local bg_rgb =
+		{ tonumber(bg:sub(2, 3), 16), tonumber(bg:sub(4, 5), 16), tonumber(bg:sub(6, 7), 16) }
+	local fg_rgb =
+		{ tonumber(fg:sub(2, 3), 16), tonumber(fg:sub(4, 5), 16), tonumber(fg:sub(6, 7), 16) }
+	local blend = function(i)
+		local ret = (alpha * fg_rgb[i] + ((1 - alpha) * bg_rgb[i]))
+		return math.floor(math.min(math.max(0, ret), 255) + 0.5)
+	end
+	return string.format("#%02x%02x%02x", blend(1), blend(2), blend(3))
 end
 
 return M

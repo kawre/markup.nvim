@@ -3,6 +3,18 @@ local FiberTag = require("markup.reconciler.enum").Tag
 ---@class markup.devkit.visualizer
 local M = {}
 
+local function remove_hl(tbl)
+	return vim.tbl_map(function(t)
+		return table.concat(vim.tbl_map(function(chunk)
+			if type(chunk) == "table" then
+				return chunk[1]
+			else
+				return chunk
+			end
+		end, t))
+	end, tbl)
+end
+
 ---@param root markup.fiber
 ---@param opts? table
 function M.fiber(root, opts)
@@ -70,7 +82,7 @@ function M.fiber(root, opts)
 
 	print_fiber_tree(root, 0, "")
 
-	return lines
+	return opts.hl and lines or remove_hl(lines)
 end
 
 ---@param root? markup.node
@@ -95,22 +107,18 @@ function M.node(root, opts)
 		local mark = (has_children or not is_last) and "├╴" or "└╴"
 		local indent = prefix .. (depth > 0 and mark or "")
 
-		local label = node.type == "element"
-				and { " " .. node.tag_name, opts.hl and "DiagnosticHint" or nil }
+		local label = node.type == "element" and { " " .. node.tag_name, "DiagnosticHint" }
 			or { " " .. node.text_content }
 
 		local entries = {
-			{ indent, opts.hl and "SignColumn" or nil },
+			{ indent, "SignColumn" },
 			label,
 			{ " " },
-			{ ("(%s)"):format(node.type), opts.hl and "Conceal" or nil },
+			{ ("(%s)"):format(node.type), "Conceal" },
 		}
 
 		if not opts.exclude_ids then
-			table.insert(
-				entries,
-				{ ("  %s "):format(node.__id), opts.hl and "LspInlayHint" or nil }
-			)
+			table.insert(entries, { ("  %s "):format(node.__id), "LspInlayHint" })
 		end
 
 		table.insert(lines, entries)
@@ -127,7 +135,7 @@ function M.node(root, opts)
 
 	traverse(root)
 
-	return lines
+	return opts.hl and lines or remove_hl(lines)
 end
 
 ---@param root? markup.Render.Box
@@ -152,17 +160,14 @@ function M.render(root, opts)
 		local indent = prefix .. (depth > 0 and mark or "")
 
 		local entries = {
-			{ indent, opts.hl and "SignColumn" or nil },
+			{ indent, "SignColumn" },
 			{ node:name() },
-			{ node.dirty and "  " or " ", opts.hl and "Number" or nil },
-			{ ("(%s)"):format(node.node.tag_name), opts.hl and "Conceal" or nil },
+			{ node.dirty and "  " or " ", "Number" },
+			{ ("(%s)"):format(node.node.tag_name), "Conceal" },
 		}
 
 		if not opts.exclude_ids then
-			table.insert(
-				entries,
-				{ ("  %s "):format(node.__id), opts.hl and "LspInlayHint" or nil }
-			)
+			table.insert(entries, { ("  %s "):format(node.__id), "LspInlayHint" })
 		end
 
 		table.insert(lines, entries)
@@ -179,7 +184,7 @@ function M.render(root, opts)
 
 	print_node_tree(root)
 
-	return lines
+	return opts.hl and lines or remove_hl(lines)
 end
 
 return M

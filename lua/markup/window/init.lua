@@ -1,3 +1,5 @@
+local styles = require("markup.window.styles")
+
 ---@class markup.window
 ---@field id number
 ---@field buf? number
@@ -11,16 +13,7 @@
 ---@field meta table<string, any>
 ---@field closed? boolean
 ---@overload fun(opts?: markup.window.config|{}): markup.window
-local M = setmetatable({}, {
-	__call = function(t, ...)
-		return t.new(...)
-	end,
-})
-M.__index = M
-
-M.meta = {
-	desc = "Create and manage floating windows or splits",
-}
+local M = Markup.object()
 
 ---@class snacks.win.Keys: vim.api.keyset.keymap
 ---@field [1]? string
@@ -83,65 +76,65 @@ M.meta = {
 ---@field text? string|string[]|fun():(string[]|string) Initial lines to set in the buffer
 ---@field actions? table<string, snacks.win.Action.spec> Actions that can be used in key mappings
 ---@field resize? boolean Automatically resize the window when the editor is resized
-local defaults = {
-	show = true,
-	fixbuf = true,
-	relative = "editor",
-	position = "float",
-	minimal = true,
-	wo = {
-		winhighlight = "Normal:SnacksNormal,NormalNC:SnacksNormalNC,WinBar:SnacksWinBar,WinBarNC:SnacksWinBarNC",
-	},
-	bo = {},
-	keys = {
-		q = "close",
-	},
-}
+-- local defaults = {
+-- 	show = true,
+-- 	fixbuf = true,
+-- 	relative = "editor",
+-- 	position = "float",
+-- 	minimal = true,
+-- 	wo = {
+-- 		winhighlight = "Normal:SnacksNormal,NormalNC:SnacksNormalNC,WinBar:SnacksWinBar,WinBarNC:SnacksWinBarNC",
+-- 	},
+-- 	bo = {},
+-- 	keys = {
+-- 		q = "close",
+-- 	},
+-- }
 
-Snacks.config.style("float", {
-	position = "float",
-	backdrop = 60,
-	height = 0.9,
-	width = 0.9,
-	zindex = 50,
-})
+-- Snacks.config.style("float", {
+-- 	position = "float",
+-- 	backdrop = 60,
+-- 	height = 0.9,
+-- 	width = 0.9,
+-- 	zindex = 50,
+-- })
+--
+-- Snacks.config.style("help", {
+-- 	position = "float",
+-- 	backdrop = false,
+-- 	border = "top",
+-- 	row = -1,
+-- 	width = 0,
+-- 	height = 0.3,
+-- })
+--
+-- Snacks.config.style("split", {
+-- 	position = "bottom",
+-- 	height = 0.4,
+-- 	width = 0.4,
+-- })
+--
+-- Snacks.config.style("minimal", {
+-- 	wo = {
+-- 		cursorcolumn = false,
+-- 		cursorline = false,
+-- 		cursorlineopt = "both",
+-- 		colorcolumn = "",
+-- 		fillchars = "eob: ,lastline:…",
+-- 		list = false,
+-- 		listchars = "extends:…,tab:  ",
+-- 		number = false,
+-- 		relativenumber = false,
+-- 		signcolumn = "no",
+-- 		spell = false,
+-- 		winbar = "",
+-- 		statuscolumn = "",
+-- 		wrap = false,
+-- 		sidescrolloff = 0,
+-- 	},
+-- })
 
-Snacks.config.style("help", {
-	position = "float",
-	backdrop = false,
-	border = "top",
-	row = -1,
-	width = 0,
-	height = 0.3,
-})
-
-Snacks.config.style("split", {
-	position = "bottom",
-	height = 0.4,
-	width = 0.4,
-})
-
-Snacks.config.style("minimal", {
-	wo = {
-		cursorcolumn = false,
-		cursorline = false,
-		cursorlineopt = "both",
-		colorcolumn = "",
-		fillchars = "eob: ,lastline:…",
-		list = false,
-		listchars = "extends:…,tab:  ",
-		number = false,
-		relativenumber = false,
-		signcolumn = "no",
-		spell = false,
-		winbar = "",
-		statuscolumn = "",
-		wrap = false,
-		sidescrolloff = 0,
-	},
-})
-
-local SCROLL_UP, SCROLL_DOWN = Snacks.util.keycode("<c-u>"), Snacks.util.keycode("<c-d>")
+local SCROLL_UP, SCROLL_DOWN = Markup.util.keycode("<c-u>"), Markup.util.keycode("<c-d>")
 
 local split_commands = {
 	editor = {
@@ -191,7 +184,7 @@ local borders = {
 	vpad = { "", " ", "", "", "", " ", "", "" },
 }
 
-Snacks.util.set_hl({
+Markup.util.set_hl({
 	Backdrop = { bg = "#000000" },
 	Normal = "NormalFloat",
 	NormalNC = "NormalFloat",
@@ -200,7 +193,7 @@ Snacks.util.set_hl({
 	WinKey = "Keyword",
 	WinKeySep = "NonText",
 	WinKeyDesc = "Function",
-}, { prefix = "Snacks", default = true })
+}, { prefix = "Markup", default = true })
 
 local id = 0
 local event_stack = {} ---@type string[]
@@ -220,7 +213,8 @@ function M.resolve(...)
 	end
 	while #stack > 0 do
 		local next = table.remove(stack)
-		next = type(next) == "string" and Snacks.config.styles[next] or next
+		-- next = type(next) == "string" and Markup.config.styles[next] or next
+		-- next = next
 		---@cast next snacks.win.Config?
 		if next and type(next) == "table" then
 			table.insert(merge, 1, next)
@@ -237,14 +231,12 @@ function M.resolve(...)
 	return ret
 end
 
----@param opts? snacks.win.Config|{}
----@return snacks.win
-function M.new(opts)
-	local self = setmetatable({}, M)
+---@param opts? markup.window.config|{}
+function M:new(opts)
 	id = id + 1
 	self.id = id
 	self.meta = {}
-	opts = M.resolve(Snacks.config.get("win", defaults), opts)
+	opts = M.resolve(styles.default, opts)
 	if opts.minimal then
 		opts = M.resolve("minimal", opts)
 	end
@@ -274,14 +266,14 @@ function M.new(opts)
 				spec[1], spec[2] = key, spec[1]
 			end
 			---@cast spec snacks.win.Keys
-			local lhs = Snacks.util.normkey(spec[1] or "")
+			local lhs = Markup.util.normkey(spec[1] or "")
 			local mode = type(spec.mode) == "table" and spec.mode or { spec.mode or "n" }
 			---@cast mode string[]
 			mode = #mode == 0 and { "n" } or mode
 			for _, m in ipairs(mode) do
 				local k = m .. ":" .. lhs
 				if done[k] then
-					Snacks.notify.warn(
+					Markup.log.warn(
 						("# Duplicate key mapping for `%s` mode=%s (check case):\n```lua\n%s\n```\n```lua\n%s\n```"):format(
 							lhs,
 							m,
@@ -306,7 +298,6 @@ function M.new(opts)
 	if opts.show ~= false then
 		self:show()
 	end
-	return self
 end
 
 function M:on_resize()
@@ -351,94 +342,6 @@ function M:action(actions)
 		end
 	end,
 		table.concat(desc, ", ")
-end
-
----@param opts? {col_width?: number, key_width?: number, win?: snacks.win.Config}
-function M:toggle_help(opts)
-	opts = opts or {}
-	local col_width, key_width = opts.col_width or 30, opts.key_width or 10
-	for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
-		local buf = vim.api.nvim_win_get_buf(win)
-		if vim.bo[buf].filetype == "snacks_win_help" then
-			vim.api.nvim_win_close(win, true)
-			return
-		end
-	end
-	local ns = vim.api.nvim_create_namespace("snacks.win.help")
-	local win = M.new(M.resolve({ style = "help" }, opts.win or {}, {
-		show = false,
-		focusable = false,
-		zindex = self.opts.zindex + 1,
-		bo = { filetype = "snacks_win_help" },
-	}))
-	self:on("WinClosed", function()
-		win:close()
-	end, { win = true })
-	self:on("BufLeave", function()
-		win:close()
-	end, { buf = true })
-	local dim = win:dim()
-
-	-- NOTE: we use the actual buffer keymaps instead of self.keys,
-	-- since we want to show all keymaps, not just the ones we've defined on the window
-	local keys = {} ---@type vim.api.keyset.get_keymap[]
-	vim.list_extend(keys, vim.api.nvim_buf_get_keymap(self.buf, "n"))
-	vim.list_extend(keys, vim.api.nvim_buf_get_keymap(self.buf, "i"))
-	table.sort(keys, function(a, b)
-		return (a.desc or a.lhs or "") < (b.desc or b.lhs or "")
-	end)
-
-	local done = {} ---@type table<string, boolean>
-	keys = vim.tbl_filter(function(keymap)
-		local key = Snacks.util.normkey(keymap.lhs or "")
-		if done[key] or (keymap.desc and keymap.desc:find("which%-key")) then
-			return false
-		end
-		done[key] = true
-		return true
-	end, keys)
-
-	local cols = math.floor((dim.width - 1) / col_width)
-	local rows = math.ceil(#keys / cols)
-	win.opts.height = rows
-	local help = {} ---@type {[1]:string, [2]:string}[][]
-	local row, col = 0, 1
-
-	---@param str string
-	---@param len number
-	---@param align? "left"|"right"
-	local function trunc(str, len, align)
-		local w = vim.api.nvim_strwidth(str)
-		if w > len then
-			return vim.fn.strcharpart(str, 0, len - 1) .. "…"
-		end
-		return align == "right" and (string.rep(" ", len - w) .. str)
-			or (str .. string.rep(" ", len - w))
-	end
-
-	for _, keymap in ipairs(keys) do
-		local key = Snacks.util.normkey(keymap.lhs or "")
-		row = row + 1
-		if row > rows then
-			row, col = 1, col + 1
-		end
-		help[row] = help[row] or {}
-		vim.list_extend(help[row], {
-			{ trunc(key, key_width, "right"), "SnacksWinKey" },
-			{ " " },
-			{ "➜", "SnacksWinKeySep" },
-			{ " " },
-			{ trunc(keymap.desc or "", col_width - key_width - 3), "SnacksWinKeyDesc" },
-		})
-	end
-	win:show()
-	for l, line in ipairs(help) do
-		vim.api.nvim_buf_set_lines(win.buf, l - 1, l, false, { "" })
-		vim.api.nvim_buf_set_extmark(win.buf, ns, l - 1, 0, {
-			virt_text = line,
-			virt_text_pos = "overlay",
-		})
-	end
 end
 
 ---@param event string|string[]
@@ -576,7 +479,7 @@ function M:close(opts)
 		end
 
 		if not ok then
-			Snacks.notify.error("Failed to close window: " .. err)
+			Markup.log.error("Failed to close window: " .. err)
 		end
 	end
 	-- HACK: WinClosed is not recursive, so we need to schedule it
@@ -767,8 +670,8 @@ end
 
 function M:update()
 	if self:valid() then
-		Snacks.util.bo(self.buf, self.opts.bo)
-		Snacks.util.wo(self.win, self.opts.wo)
+		Markup.util.bo(self.buf, self.opts.bo)
+		Markup.util.wo(self.win, self.opts.wo)
 		if self:is_floating() then
 			local opts = self:win_opts()
 			opts.noautocmd = nil
@@ -799,7 +702,7 @@ function M:show()
 	-- OPTIM: prevent treesitter or syntax highlighting to attach on FileType if it's not already enabled
 	local optim_hl = not vim.b[self.buf].ts_highlight and vim.bo[self.buf].syntax == ""
 	vim.b[self.buf].ts_highlight = optim_hl or vim.b[self.buf].ts_highlight
-	Snacks.util.bo(self.buf, self.opts.bo)
+	Markup.util.bo(self.buf, self.opts.bo)
 	vim.b[self.buf].ts_highlight = not optim_hl and vim.b[self.buf].ts_highlight or nil
 
 	if self.opts.on_buf then
@@ -812,10 +715,10 @@ function M:show()
 	for k, v in pairs(self.opts.w or {}) do
 		vim.w[self.win][k] = v
 	end
-	if Snacks.util.is_transparent() then
+	if Markup.util.is_transparent() then
 		self.opts.wo.winblend = 0
 	end
-	Snacks.util.wo(self.win, self.opts.wo)
+	Markup.util.wo(self.win, self.opts.wo)
 	if self.opts.on_win then
 		self.opts.on_win(self)
 	end
@@ -874,7 +777,7 @@ function M:fixbuf()
 	if self.opts.fixbuf == false then
 		self.buf = buf
 		-- update window options
-		Snacks.util.wo(self.win, self.opts.wo)
+		Markup.util.wo(self.win, self.opts.wo)
 		return
 	end
 
@@ -919,7 +822,7 @@ function M:set_buf(buf)
 	assert(self:valid(), "Window is not valid")
 	self.buf = buf
 	vim.api.nvim_win_set_buf(self.win, buf)
-	Snacks.util.wo(self.win, self.opts.wo)
+	Markup.util.wo(self.win, self.opts.wo)
 end
 
 function M:map()
@@ -1005,7 +908,7 @@ function M:drop()
 	---@cast backdrop snacks.win.Backdrop
 
 	if
-		(Snacks.util.is_transparent() and backdrop.transparent)
+		(Markup.util.is_transparent() and backdrop.transparent)
 		or not vim.o.termguicolors
 		or backdrop.blend == 100
 		or not self:is_floating()
@@ -1015,10 +918,10 @@ function M:drop()
 
 	local bg, winblend = backdrop.bg or "#000000", backdrop.blend
 	if not backdrop.transparent then
-		if Snacks.util.is_transparent() then
+		if Markup.util.is_transparent() then
 			bg = nil
 		else
-			bg = Snacks.util.blend(Snacks.util.color("Normal", "bg"), bg, winblend / 100)
+			bg = Markup.util.blend(Markup.util.color("Normal", "bg"), bg, winblend / 100)
 		end
 		winblend = 0
 	end
@@ -1026,7 +929,7 @@ function M:drop()
 	local group = ("SnacksBackdrop_%s"):format(bg and bg:sub(2) or "T")
 	vim.api.nvim_set_hl(0, group, { bg = bg })
 
-	self.backdrop = M.new(M.resolve({
+	self.backdrop = Markup.window(M.resolve({
 		enter = false,
 		backdrop = false,
 		relative = "editor",
