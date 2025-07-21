@@ -58,20 +58,20 @@ end
 function Node:create_props_proxy(props)
 	self.props = normalizer.props(props)
 
-	if self.props.on_confirm then
-		self.container:subscribe("confirm", self, self.props.on_confirm)
-	elseif self.props.on_key then
-		for key, cb in pairs(self.props.on_key) do
-			vim.keymap.set("n", Markup.util.normkey(key), function()
-				cb(self.container)
-			end)
-			-- self.container:subscribe("key", self, function(ev)
-			-- 	if ev.key == key then
-			-- 		cb(ev)
-			-- 	end
-			-- end)
-		end
-	end
+	-- if self.props.on_confirm then
+	-- 	self.container:subscribe("confirm", self, self.props.on_confirm)
+	-- elseif self.props.on_key then
+	-- 	for key, cb in pairs(self.props.on_key) do
+	-- 		vim.keymap.set("n", Markup.util.normkey(key), function()
+	-- 			cb(self.container)
+	-- 		end)
+	-- 		-- self.container:subscribe("key", self, function(ev)
+	-- 		-- 	if ev.key == key then
+	-- 		-- 		cb(ev)
+	-- 		-- 	end
+	-- 		-- end)
+	-- 	end
+	-- end
 
 	setmetatable(self.props, {
 		__newindex = function(tbl, key, value)

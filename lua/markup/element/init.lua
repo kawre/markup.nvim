@@ -46,7 +46,7 @@ function M.new(type, props)
 
 	if props.key then
 		self.key = props.key
-		-- props.key = nil
+		props.key = nil
 	end
 
 	return self

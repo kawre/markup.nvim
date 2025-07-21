@@ -36,13 +36,16 @@ end
 function M.root(renderer)
 	local root = M.new(renderer.rootf.state_node)
 
-	-- local width = vim.api.nvim_win_get_width(renderer.win.win)
-	-- local height = vim.api.nvim_win_get_height(renderer.win.win)
+	local id = renderer.win.win
+	local width = id and vim.api.nvim_win_get_width(id)
+	local height = id and vim.api.nvim_win_get_height(id)
 
 	---@diagnostic disable-next-line: missing-fields
 	root.parent = { -- mock parent
 		x = 0,
 		y = 0,
+		width = width,
+		height = height,
 		flag_as_dirty = function() end,
 	}
 

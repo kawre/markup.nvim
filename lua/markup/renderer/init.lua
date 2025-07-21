@@ -16,21 +16,19 @@ local M = Markup.object()
 function M:new(opts)
 	self.win = Markup.window(opts)
 	self.ns = vim.api.nvim_create_namespace("markup_renderer_" .. self.win.id)
-	self.observers = {}
 	self.reconciler = Markup.reconciler(self)
+	self.observers = {}
 
-	self.win:on({ "WinResized", "VimResized" }, function()
-		Markup.log("resized")
-		-- if self.root then
-		-- 	self.root.width = vim.api.nvim_win_get_width(self.win.win)
-		-- 	self.root.height = vim.api.nvim_win_get_height(self.win.win)
-		-- end
-		self:render()
-	end)
-	self.win:on({ "BufAdd", "BufWinEnter" }, function()
-		Markup.log("bufadd")
-		self:render()
-	end)
+	-- self.win:on({ "WinResized", "VimResized" }, function()
+	-- 	if self.root then
+	-- 		self.root.width = vim.api.nvim_win_get_width(self.win.win)
+	-- 		self.root.height = vim.api.nvim_win_get_height(self.win.win)
+	-- 	end
+	-- 	self:render()
+	-- end)
+	-- self.win:on({ "BufAdd", "BufWinEnter" }, function()
+	-- 	self:render()
+	-- end)
 	self.win:on("BufEnter", function()
 		-- Markup.log("bufenter")
 		vim.keymap.set("n", "<CR>", function()
@@ -50,7 +48,7 @@ end
 ---@param element any
 function M:bind(element)
 	element = Markup.util.call_if_callable(element)
-	self.rootf = Markup.factory.fiber.root(self, element)
+	self.rootf = Markup.factory.fiber.root(element)
 	self.root = Markup.factory.box.root(self)
 end
 
