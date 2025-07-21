@@ -1,5 +1,4 @@
-local log = require("markup.logger") ---@diagnostic disable-line: unused-local
-
+---@class markup.cmd
 local cmd = {}
 
 ---@param tbl table
@@ -104,7 +103,7 @@ function cmd.exec(args)
 	if cmds and type(cmds[1]) == "function" then
 		cmds[1](options) ---@diagnostic disable-line
 	else
-		log.error(("Invalid command: `%s %s`"):format(args.name, args.args))
+		Markup.log.error(("Invalid command: `%s %s`"):format(args.name, args.args))
 	end
 end
 
@@ -121,15 +120,15 @@ end
 cmd.commands = {
 	inspect = {
 		function()
-			require("markup.dev-tools.inspect").open()
+			require("markup.devkit.inspect").open()
 		end,
 	},
 	playground = {
 		function()
-			require("markup-playground").open()
+			Markup.playground.open()
 		end,
 		run = function()
-			require("markup-playground").run()
+			Markup.playground.run()
 		end,
 	},
 }

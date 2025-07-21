@@ -1,4 +1,3 @@
-local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 local default = require("markup.theme.default")
 
 ---@class markup.Theme

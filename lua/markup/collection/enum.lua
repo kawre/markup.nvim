@@ -1,5 +1,3 @@
-local log = require("markup.logger") ---@diagnostic disable-line: unused-local
-
 local function flatten(tbl)
 	local res = {}
 

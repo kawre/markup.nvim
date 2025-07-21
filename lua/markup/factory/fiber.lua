@@ -1,0 +1,58 @@
+local Tag = require("markup.reconciler.enum").Tag
+local Flag = require("markup.reconciler.enum").Flag
+local Fiber = require("markup.reconciler.fiber")
+local typeof = type
+
+---@class markup.factory.fiber
+local M = setmetatable({}, {
+	__call = function(t, ...)
+		return t.new(...)
+	end,
+})
+
+---@param tag markup.Fiber.tag
+---@param props? table
+---@param key? any
+function M.new(tag, props, key)
+	return Fiber.new(tag, props, key)
+end
+
+function M.from_text(content)
+	return M.new(Tag.TEXT, content)
+end
+
+---@param element markup.element
+function M.from_element(element)
+	return M.from_type_and_props(element.type, element.props, element.key)
+end
+
+function M.from_type_and_props(type, props, key)
+	local resolved_type = type
+
+	-- default to element type
+	local tag = Tag.ELEMENT
+
+	if type == Tag.FRAGMENT then
+		tag = Tag.FRAGMENT
+	elseif typeof(type) == "function" then
+		tag = Tag.FUNCTION
+	elseif typeof(type) == "table" and not getmetatable(type) then
+		tag = Tag.FRAGMENT
+	end
+
+	local fiber = M.new(tag, props, key)
+	fiber.element_type = type
+	fiber.type = resolved_type
+	return fiber
+end
+
+---@param element markup.element
+function M.root(element)
+	local fiber = M.new(Tag.ROOT)
+	fiber.pending_props = { children = element }
+	fiber.state_node = Markup.factory.node("element", "root")
+	fiber.flags:set(Flag.PLACEMENT)
+	return fiber
+end
+
+return M

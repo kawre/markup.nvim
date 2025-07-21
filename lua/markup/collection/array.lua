@@ -1,41 +1,45 @@
-local log = require("markup.logger") ---@diagnostic disable-line: unused-local
-local BasicObject = require("markup.core.object.basic")
--- local Collection = require("markup.core.enum").Collection
+---@class markup.array : tablelib
+---@overload fun(tbl?: table): markup.array
+local M = {}
+M.__index = M
 
----@class markup.Array : tablelib
-local Array = BasicObject()
+setmetatable(M, {
+	__call = function(_, tbl)
+		return M.new(tbl)
+	end,
+	__index = function(_, k)
+		return table[k]
+	end,
+})
 
-Array.__index = function(_, key)
-	return Array[key] or table[key]
+function M.new(tbl)
+	return setmetatable(tbl or {}, M)
 end
 
-function Array:init()
-	self.len = 0
+function M:map(apply)
+	return M(vim.tbl_map(apply, self))
 end
 
-function Array:map(apply)
-	return Array(vim.tbl_map(apply, self))
+function M:filter(fn)
+	return M(vim.tbl_filter(fn, self))
 end
 
-function Array:filter(fn)
-	return Array(vim.tbl_filter(fn, self))
-end
-
-function Array:isempty()
+function M:isempty()
 	return vim.tbl_isempty(self)
 end
 
-function Array:contains(value)
-	return vim.tbl_contains(self, value)
+function M:contains(value)
+	return vim.list_contains(self, value)
 end
 
-function Array:foreach(fn)
+function M:extend(src, start, finish)
+	return vim.list_extend(self, src, start, finish)
+end
+
+function M:foreach(fn)
 	for i, v in ipairs(self) do
 		self[i] = fn(v, i)
 	end
 end
 
----@alias markup.Array.constructor fun(init?: table): markup.Array
-
----@type markup.Array.constructor
-return Array
+return M

@@ -4,7 +4,6 @@
 local markup = require("markup")
 local new_set = MiniTest.new_set
 local expect, eq = MiniTest.expect, MiniTest.expect.equality
-local Factory = require("markup.core.factory.fiber")
 
 local T = new_set()
 
@@ -18,7 +17,7 @@ T["factory"]["create()"] = new_set({
 })
 
 T["factory"]["create()"]["works"] = function(tag, props)
-	local f = Factory.create(tag, props)
+	local f = Markup.factory.fiber(tag, props)
 
 	eq(f.pending_props, props)
 	eq(f.tag, tag)
@@ -37,7 +36,7 @@ T["factory"]["create_from_element()"] = new_set({
 })
 
 T["factory"]["create_from_element()"]["works"] = function(element, expected)
-	local f = Factory.create_from_element(element)
+	local f = Markup.factory.fiber.from_element(element)
 
 	eq(f.tag, expected)
 end
@@ -53,7 +52,7 @@ T["factory"]["create_from_type_and_props()"] = new_set({
 })
 
 T["factory"]["create_from_type_and_props()"]["works"] = function(type, props, expected)
-	local f = Factory.create_from_type_and_props(type, props)
+	local f = Markup.factory.fiber.from_type_and_props(type, props)
 
 	eq(f.tag, expected)
 end

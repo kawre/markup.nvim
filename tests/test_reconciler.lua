@@ -8,15 +8,9 @@ for name, _ in pairs(package.loaded) do
 end
 
 local markup = require("markup")
-local Reconciler = require("markup.core.reconciler")
 local new_set = MiniTest.new_set
 local expect, eq = MiniTest.expect, MiniTest.expect.equality
-local Factory = require("markup.core.factory.fiber")
-local fiber_tree = require("markup.dev-tools.picker.fiber-tree")
-local node_tree = require("markup.dev-tools.picker.node-tree")
-local log = require("markup.logger")
 local child = MiniTest.new_child_neovim()
-Markup.is_dev = false
 
 local function mock_renderer()
 	local renderer = {}
@@ -30,10 +24,10 @@ local function mock_renderer()
 	renderer.rerender = function() end
 	renderer.root = {
 		owner = renderer,
-		current = Factory.create_root(App()),
+		current = Markup.factory.fiber.root(App()),
 	}
 
-	local reconciler = Reconciler()
+	local reconciler = Markup.reconciler()
 
 	renderer.frame = function(element)
 		frame = element

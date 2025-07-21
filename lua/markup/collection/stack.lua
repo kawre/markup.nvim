@@ -1,13 +1,19 @@
----@class markup.collection.Stack
+---@class markup.stack
 ---@field len integer
-local Stack = {}
+---@overload fun(): markup.stack
+local M = setmetatable({}, {
+	__call = function(t)
+		return t.new()
+	end,
+})
+M.__index = M
 
----@return markup.collection.Stack
-function Stack.new()
-	return { len = 0 }
+---@return markup.stack
+function M.new()
+	return setmetatable({ len = 0 }, M)
 end
 
-function Stack:push(value)
+function M:push(value)
 	if value == nil then
 		return
 	end
@@ -15,7 +21,7 @@ function Stack:push(value)
 	self[self.len] = value
 end
 
-function Stack:pop()
+function M:pop()
 	assert(self.len > 0, "stack is empty")
 	local value = self[self.len]
 	self[self.len] = nil
@@ -23,8 +29,8 @@ function Stack:pop()
 	return value
 end
 
-function Stack:peek()
+function M:peek()
 	return self[self.len]
 end
 
-return Stack
+return M

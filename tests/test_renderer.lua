@@ -11,9 +11,7 @@ local helpers = dofile("tests/helpers.lua")
 local markup = require("markup")
 local new_set = MiniTest.new_set
 local expect, eq = MiniTest.expect, MiniTest.expect.equality
-local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 local child = MiniTest.new_child_neovim()
-Markup.is_dev = false
 
 local T = new_set({
 	hooks = {
@@ -33,7 +31,7 @@ local T = new_set({
 	},
 })
 
----@param element markup.Element
+---@param element markup.element
 ---@param force? boolean
 local function render_and_expect_screenshot(element, force)
 	child.lua("renderer = markup.Renderer()")
