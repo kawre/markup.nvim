@@ -1,9 +1,8 @@
 local markup = require("markup.core")
 
-local u = require("markup.utils") ---@diagnostic disable-line: unused-local
 local uv = vim.uv or vim.loop
-local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 local RenderNodeFactory = require("markup.core.factory.render-box")
+local log = require("markup.logger") ---@diagnostic disable-line: unused-local
 local RenderTree = require("markup.core.render.tree")
 local RendererFactory = require("markup.core.factory.renderer")
 local DevToolsFiberTreePicker = require("markup.dev-tools.picker.fiber-tree")
@@ -24,7 +23,7 @@ local DevToolsRenderTreePicker = require("markup.dev-tools.picker.render-tree")
 ---@field body markup.Element.children
 ---@field buttons markup.Element[]
 
----@class markup.Renderer : markup.Window
+---@class markup.Renderer2 : markup.Window
 ---@field protected super markup.Window
 ---@field protected _ markup.Renderer.props
 ---@field reconciler markup.Reconciler

@@ -15,18 +15,18 @@ local ElementFactory = require("markup.core.factory.element")
 ---@field dispatcher markup.Dispatcher
 ---@field render_scheduled boolean
 ---@field renderer_root markup.Renderer.Root
-local Reconciler = markup.Object("markup.reconciler")
+local M = markup.Object("markup.reconciler")
 
 ---@class markup.Reconciler.static
 ---@field currently_working_reconciler markup.Reconciler?
-Reconciler.static = Reconciler.static
+M.static = M.static
 
 ---@type markup.Reconciler?
-Reconciler.static.currently_working_reconciler = nil
+M.static.currently_working_reconciler = nil
 
 ---@param assert_? boolean
-function Reconciler.static.get(assert_)
-	local reconciler = Reconciler.static.currently_working_reconciler
+function M.static.get(assert_)
+	local reconciler = M.static.currently_working_reconciler
 	if assert_ then
 		assertor.bug(reconciler, "`reconciler` must be set")
 	end
@@ -34,8 +34,8 @@ function Reconciler.static.get(assert_)
 end
 
 ---@param assert_? boolean
-function Reconciler.static.get_currently_rendering_fiber(assert_)
-	local reconciler = Reconciler.static.get(assert_)
+function M.static.get_currently_rendering_fiber(assert_)
+	local reconciler = M.static.get(assert_)
 	local fiber = reconciler and reconciler.currently_rendering_fiber
 
 	if assert_ then
@@ -45,22 +45,22 @@ function Reconciler.static.get_currently_rendering_fiber(assert_)
 	return fiber, reconciler
 end
 
-function Reconciler:init()
+function M:init()
 	self.currently_rendering_fiber = nil
 	self.dispatcher = markup.Dispatcher(self)
 end
 
 ---@param root markup.Renderer.Root
-function Reconciler:reconcile(root)
-	Reconciler.static.currently_working_reconciler = self
+function M:reconcile(root)
+	M.static.currently_working_reconciler = self
 	self:work_loop(root)
-	Reconciler.static.currently_working_reconciler = nil
+	M.static.currently_working_reconciler = nil
 
 	self:commit(root.current)
 end
 
 ---@param root markup.Renderer.Root
-function Reconciler:fresh_stack(root)
+function M:fresh_stack(root)
 	local wip = self:create_wip(root.current, root.current.pending_props)
 
 	self.work_stack = Stack:new()
@@ -72,7 +72,7 @@ end
 
 ---dfs reconciliation
 ---@param root markup.Renderer.Root
-function Reconciler:work_loop(root)
+function M:work_loop(root)
 	self.work_stack = self:fresh_stack(root)
 
 	local unit
@@ -87,7 +87,7 @@ end
 
 ---@param unit markup.Fiber
 ---@return markup.Fiber?
-function Reconciler:process_unit(unit)
+function M:process_unit(unit)
 	if self.work_stack_visited[unit] then
 		return self:complete_unit(unit)
 		-- return
@@ -107,7 +107,7 @@ end
 ---@param current? markup.Fiber
 ---@param wip markup.Fiber
 ---@return markup.Fiber
-function Reconciler:begin_work(current, wip)
+function M:begin_work(current, wip)
 	-- first check if the fiber can be reused
 	if current then
 		local old_props, new_props = current.memoized_props, wip.pending_props
@@ -124,15 +124,15 @@ function Reconciler:begin_work(current, wip)
 
 	local next_work ---@type function
 	if wip.tag == FiberTag.ELEMENT then
-		next_work = Reconciler.update_element_component
+		next_work = M.update_element_component
 	elseif wip.tag == FiberTag.FUNCTION then
-		next_work = Reconciler.update_function_component
+		next_work = M.update_function_component
 	elseif wip.tag == FiberTag.TEXT then
-		next_work = Reconciler.update_text_component
+		next_work = M.update_text_component
 	elseif wip.tag == FiberTag.FRAGMENT then
-		next_work = Reconciler.update_fragment_component
+		next_work = M.update_fragment_component
 	elseif wip.tag == FiberTag.ROOT then
-		next_work = Reconciler.update_root_component
+		next_work = M.update_root_component
 	else
 		error(("Invalid Fiber tag: %s"):format(wip.tag))
 	end
@@ -142,22 +142,22 @@ function Reconciler:begin_work(current, wip)
 end
 
 ---@param unit markup.Fiber
-function Reconciler:complete_unit(unit)
+function M:complete_unit(unit)
 	local current, wip = unit.alternate, unit
 
 	local complete_work ---@type function
 	if wip.tag == FiberTag.ELEMENT then
-		complete_work = Reconciler.complete_element_component
+		complete_work = M.complete_element_component
 	elseif wip.tag == FiberTag.TEXT then
-		complete_work = Reconciler.complete_text_component
+		complete_work = M.complete_text_component
 	elseif wip.tag == FiberTag.FUNCTION then
-		complete_work = Reconciler.complete_function_component
+		complete_work = M.complete_function_component
 	elseif wip.tag == FiberTag.CLASS then
-		complete_work = Reconciler.complete_class_component
+		complete_work = M.complete_class_component
 	elseif wip.tag == FiberTag.FRAGMENT then
-		complete_work = Reconciler.complete_fragment_component
+		complete_work = M.complete_fragment_component
 	elseif wip.tag == FiberTag.ROOT then
-		complete_work = Reconciler.complete_root_component
+		complete_work = M.complete_root_component
 	else
 		error(("Invalid Fiber tag: %s"):format(wip.tag))
 	end
@@ -169,7 +169,7 @@ end
 
 ---@param fiber markup.Fiber
 ---@return markup.Fiber
-function Reconciler:find_element_ancestor(fiber)
+function M:find_element_ancestor(fiber)
 	local parent = fiber and fiber["return"]
 
 	while parent and not parent.state_node do
@@ -181,7 +181,7 @@ function Reconciler:find_element_ancestor(fiber)
 end
 
 ---@param fiber markup.Fiber
-function Reconciler:commit_deletions(fiber)
+function M:commit_deletions(fiber)
 	assert(fiber.deletions, "`fiber.deletions` must exist for commit deletions")
 
 	local bfs = Stack.new()
@@ -208,7 +208,7 @@ function Reconciler:commit_deletions(fiber)
 end
 
 ---@param wip markup.Fiber
-function Reconciler:place_single_node(wip)
+function M:place_single_node(wip)
 	wip.state_node = NodeFactory.create_from_fiber(wip)
 
 	if type(wip.pending_props) == "table" and self:is_valid_text(wip.pending_props.children) then
@@ -219,7 +219,7 @@ function Reconciler:place_single_node(wip)
 end
 
 ---@param wip markup.Fiber
-function Reconciler:update_single_node(wip)
+function M:update_single_node(wip)
 	local current = wip.alternate
 	assert(current, "`current` must exist for updating a single node")
 
@@ -242,7 +242,7 @@ function Reconciler:update_single_node(wip)
 end
 
 ---@param fiber markup.Fiber
-function Reconciler:place_single_text_child(fiber)
+function M:place_single_text_child(fiber)
 	assert(fiber.state_node, "`fiber.state_node` must exist for text child placement")
 
 	local text_node = NodeFactory.create_from_text(fiber.pending_props.children)
@@ -250,28 +250,28 @@ function Reconciler:place_single_text_child(fiber)
 end
 
 ---@param fiber markup.Fiber
-function Reconciler:bailout(fiber)
+function M:bailout(fiber)
 	self:clone_child_fibers(fiber)
 	return fiber.child
 end
 
 ---@param current? markup.Fiber
 ---@param wip markup.Fiber
-function Reconciler:update_function_component(current, wip)
+function M:update_function_component(current, wip)
 	local next_children = self:render_with_hooks(current, wip)
 
 	wip.child = self:reconcile_children(current, wip, next_children)
 	return wip.child
 end
 
-function Reconciler:update_fragment_component(current, wip)
+function M:update_fragment_component(current, wip)
 	wip.child = self:reconcile_children(current, wip, wip.pending_props.children)
 	return wip.child
 end
 
 ---@param current markup.Fiber
 ---@param wip markup.Fiber
-function Reconciler:update_root_component(current, wip)
+function M:update_root_component(current, wip)
 	assertor.bug(current, "Root must always have an alternate fiber")
 
 	wip.child = self:reconcile_children(current, wip, wip.pending_props.children)
@@ -280,7 +280,7 @@ end
 
 ---@param current? markup.Fiber
 ---@param wip markup.Fiber
-function Reconciler:update_text_component(current, wip)
+function M:update_text_component(current, wip)
 	if not current then
 		wip.flags:set(Flag.PLACEMENT)
 	elseif current.memoized_props ~= wip.pending_props then
@@ -289,7 +289,7 @@ function Reconciler:update_text_component(current, wip)
 end
 
 ---@param fiber markup.Fiber
-function Reconciler:create_instance(fiber)
+function M:create_instance(fiber)
 	assertor.bug(not fiber.state_node, "`fiber.state_node` must not exist during creation")
 
 	fiber.flags:set(Flag.PLACEMENT)
@@ -305,14 +305,14 @@ function Reconciler:create_instance(fiber)
 	return fiber
 end
 
-function Reconciler:is_direct_text_child(fiber)
+function M:is_direct_text_child(fiber)
 	local parent = fiber["return"]
 	return parent and parent.tag == FiberTag.ELEMENT
 end
 
 ---@param current? markup.Fiber
 ---@param wip markup.Fiber
-function Reconciler:update_element_component(current, wip)
+function M:update_element_component(current, wip)
 	local next_props = wip.pending_props
 	local next_children = next_props and next_props.children
 
@@ -332,7 +332,7 @@ function Reconciler:update_element_component(current, wip)
 end
 
 ---@param fiber markup.Fiber
-function Reconciler:has_pending_updates(fiber)
+function M:has_pending_updates(fiber)
 	if fiber.tag ~= "function" then
 		return false
 	end
@@ -349,7 +349,7 @@ end
 
 ---@param current? markup.Fiber
 ---@param wip markup.Fiber
-function Reconciler:render_with_hooks(current, wip)
+function M:render_with_hooks(current, wip)
 	-- clear the hooks to make space for the next hooks
 	self.wip_hook = nil
 
@@ -370,7 +370,7 @@ end
 
 ---@param returnf markup.Fiber
 ---@param child markup.Fiber
-function Reconciler:delete_child(returnf, child)
+function M:delete_child(returnf, child)
 	if not returnf.deletions then
 		returnf.deletions = { child }
 		returnf.flags:set(Flag.CHILD_DELETE)
@@ -381,7 +381,7 @@ end
 
 ---@param returnf markup.Fiber
 ---@param child markup.Element
-function Reconciler:create_child(returnf, child)
+function M:create_child(returnf, child)
 	if self:is_valid_text(child) then
 		local fiber = FiberFactory.create_from_text(child) ---@diagnostic disable-line: param-type-mismatch
 		fiber["return"] = returnf
@@ -401,22 +401,22 @@ function Reconciler:create_child(returnf, child)
 end
 
 ---@param content any
-function Reconciler:is_valid_text(content)
+function M:is_valid_text(content)
 	return (type(content) == "string" and content ~= "") or type(content) == "number"
 end
 
 ---@param content any
-function Reconciler:should_be_fragment(content)
+function M:should_be_fragment(content)
 	return type(content) == "table" and not getmetatable(content) and not vim.tbl_isempty(content)
 end
 
 ---@param element markup.Element
-function Reconciler:is_host_element(element)
+function M:is_host_element(element)
 	return element.typeof == "root" or element.typeof == "element"
 end
 
 ---@param content any
-function Reconciler:is_valid_element(content)
+function M:is_valid_element(content)
 	if not getmetatable(content) then
 		return false
 	end ---@cast content markup.Element
@@ -434,7 +434,7 @@ end
 ---@param returnf markup.Fiber
 ---@param old_fiber? markup.Fiber
 ---@param new_child markup.Element
-function Reconciler:update_slot(returnf, old_fiber, new_child)
+function M:update_slot(returnf, old_fiber, new_child)
 	local key = old_fiber and old_fiber.key
 
 	if self:is_valid_text(new_child) then
@@ -456,7 +456,7 @@ function Reconciler:update_slot(returnf, old_fiber, new_child)
 end
 
 ---@param fiber markup.Fiber
-function Reconciler:clone_child_fibers(fiber)
+function M:clone_child_fibers(fiber)
 	if not fiber.child then
 		return nil
 	end
@@ -482,7 +482,7 @@ end
 
 ---@param current markup.Fiber
 ---@param props any
-function Reconciler:create_wip(current, props)
+function M:create_wip(current, props)
 	local wip = current.alternate
 
 	if not wip then
@@ -512,7 +512,7 @@ function Reconciler:create_wip(current, props)
 	return wip
 end
 
-function Reconciler:prepare_element(element)
+function M:prepare_element(element)
 	if not element then
 		return nil
 	end
@@ -529,7 +529,7 @@ end
 ---@param returnf markup.Fiber
 ---@param new_index integer
 ---@param new_child markup.Element
-function Reconciler:update_from_map(existing, returnf, new_index, new_child)
+function M:update_from_map(existing, returnf, new_index, new_child)
 	if self:is_valid_text(new_child) then
 		local matched = existing[new_index]
 		return self:update_text_node(returnf, matched, new_child)
@@ -549,7 +549,7 @@ end
 ---@param returnf markup.Fiber
 ---@param current? markup.Fiber
 ---@param content any
-function Reconciler:update_text_node(returnf, current, content)
+function M:update_text_node(returnf, current, content)
 	if current and current.tag == FiberTag.TEXT then
 		-- If the existing fiber is a text node, update it
 		local existing = self:use_fiber(current, content)
@@ -564,7 +564,7 @@ function Reconciler:update_text_node(returnf, current, content)
 end
 
 ---@param fiber markup.Fiber
-function Reconciler:update_node_text(fiber)
+function M:update_node_text(fiber)
 	local old_text, new_text = fiber.alternate.pending_props, fiber.pending_props
 	local node = fiber.state_node
 
@@ -575,7 +575,7 @@ function Reconciler:update_node_text(fiber)
 end
 
 ---@param fiber markup.Fiber
-function Reconciler:update_single_text_child(fiber)
+function M:update_single_text_child(fiber)
 	local text_node = fiber.state_node.child_nodes[1]
 	assert(text_node:is("text"))
 
@@ -585,7 +585,7 @@ end
 ---@param returnf markup.Fiber
 ---@param current? markup.Fiber
 ---@param element markup.Element
-function Reconciler:update_element_node(returnf, current, element)
+function M:update_element_node(returnf, current, element)
 	if current and current.type == element.type then
 		-- If the existing fiber is not an element node, create a new one
 		local existing = self:use_fiber(current, element.props)
@@ -602,7 +602,7 @@ end
 ---@param returnf markup.Fiber
 ---@param current_first_child? markup.Fiber
 ---@param new_children markup.Element[]
-function Reconciler:reconcile_children_list(returnf, current_first_child, new_children)
+function M:reconcile_children_list(returnf, current_first_child, new_children)
 	local new_index, last_placed_index = 1, 1
 
 	new_children = vim.tbl_filter(function(i) -- TODO this should be done in the while loop
@@ -712,7 +712,7 @@ function Reconciler:reconcile_children_list(returnf, current_first_child, new_ch
 end
 
 ---@param new_child markup.Element
-function Reconciler:prepare_new_child(new_child)
+function M:prepare_new_child(new_child)
 	local child = new_child
 
 	while getmetatable(child) and child.typeof == "fragment" and not child.key do
@@ -725,14 +725,14 @@ end
 ---@param current? markup.Fiber
 ---@param wip markup.Fiber
 ---@param next_children markup.Element
-function Reconciler:reconcile_children(current, wip, next_children)
+function M:reconcile_children(current, wip, next_children)
 	return self:reconcile_child_fibers(wip, current and current.child, next_children)
 end
 
 ---@param returnf markup.Fiber
 ---@param current_first_child? markup.Fiber
 ---@param new_child markup.Element
-function Reconciler:reconcile_child_fibers(returnf, current_first_child, new_child)
+function M:reconcile_child_fibers(returnf, current_first_child, new_child)
 	new_child = self:prepare_new_child(new_child)
 
 	if self:is_valid_text(new_child) then
@@ -756,7 +756,7 @@ end
 
 ---@param current_first_child? markup.Fiber
 ---@return table<any, markup.Fiber>
-function Reconciler:map_remaining_children(current_first_child)
+function M:map_remaining_children(current_first_child)
 	local existing = {}
 
 	local child = current_first_child
@@ -768,14 +768,14 @@ function Reconciler:map_remaining_children(current_first_child)
 	return existing
 end
 
-function Reconciler:is_node_kind(fiber)
+function M:is_node_kind(fiber)
 	return fiber.tag == FiberTag.ELEMENT or fiber.tag == FiberTag.TEXT
 end
 
 ---@param new_fiber markup.Fiber
 ---@param last_placed_index integer
 ---@param new_index integer
-function Reconciler:place_child(new_fiber, last_placed_index, new_index)
+function M:place_child(new_fiber, last_placed_index, new_index)
 	new_fiber.index = new_index
 	local current = new_fiber.alternate
 
@@ -800,7 +800,7 @@ end
 ---@param current_first_child? markup.Fiber
 ---@param element markup.Element
 ---@return markup.Fiber?
-function Reconciler:reconcile_single_element(returnf, current_first_child, element)
+function M:reconcile_single_element(returnf, current_first_child, element)
 	local key = element.key
 	local child = current_first_child
 
@@ -831,7 +831,7 @@ end
 
 ---@param fiber markup.Fiber
 ---@param props any
-function Reconciler:use_fiber(fiber, props)
+function M:use_fiber(fiber, props)
 	local clone = self:create_wip(fiber, props)
 	clone.sibling = nil
 	clone.index = 1
@@ -841,7 +841,7 @@ end
 ---@param returnf markup.Fiber
 ---@param current? markup.Fiber
 ---@param content string|number
-function Reconciler:reconcile_single_text(returnf, current, content)
+function M:reconcile_single_text(returnf, current, content)
 	if current and current.tag == FiberTag.TEXT then
 		-- update existing text node and delete remaining children
 		self:delete_remaining_children(returnf, current.sibling)
@@ -860,7 +860,7 @@ end
 
 ---@param payload? table
 ---@return markup.Fiber.hook
-function Reconciler:mount_wip_hook(payload)
+function M:mount_wip_hook(payload)
 	local hook = payload or {}
 
 	if not self.wip_hook then
@@ -876,7 +876,7 @@ function Reconciler:mount_wip_hook(payload)
 end
 
 ---@return markup.Fiber.hook
-function Reconciler:update_wip_hook()
+function M:update_wip_hook()
 	if not self.wip_hook then
 		-- first hook to be updated
 		self.wip_hook = self.currently_rendering_fiber.memoized_state
@@ -892,7 +892,7 @@ end
 
 ---@param returnf markup.Fiber
 ---@param current_first_child? markup.Fiber
-function Reconciler:delete_remaining_children(returnf, current_first_child)
+function M:delete_remaining_children(returnf, current_first_child)
 	local child = current_first_child
 
 	while child do
@@ -903,7 +903,7 @@ end
 
 ---@param current markup.Fiber
 ---@param wip markup.Fiber
-function Reconciler:complete_root_component(current, wip)
+function M:complete_root_component(current, wip)
 	if wip.flags:check(Flag.PLACEMENT) then
 		self:populate_state_node(wip)
 		wip.flags:clear(Flag.PLACEMENT)
@@ -911,7 +911,7 @@ function Reconciler:complete_root_component(current, wip)
 end
 
 ---@param wip markup.Fiber
-function Reconciler:populate_state_node(wip)
+function M:populate_state_node(wip)
 	local curr, node = wip.state_node, wip.child
 	while node do
 		if not (node.tag == FiberTag.TEXT or node.tag == FiberTag.ELEMENT) then
@@ -947,7 +947,7 @@ end
 
 ---@param current markup.Fiber
 ---@param wip markup.Fiber
-function Reconciler:complete_function_component(current, wip)
+function M:complete_function_component(current, wip)
 	-- function component placemenet is handled
 	-- during `begin_work`
 	wip.flags:clear(Flag.PLACEMENT)
@@ -960,13 +960,13 @@ end
 
 ---@param current markup.Fiber
 ---@param wip markup.Fiber
-function Reconciler:complete_component_component(current, wip)
+function M:complete_component_component(current, wip)
 	--
 end
 
 ---@param current markup.Fiber
 ---@param wip markup.Fiber
-function Reconciler:complete_text_component(current, wip)
+function M:complete_text_component(current, wip)
 	if current and wip.state_node then
 		self:update_node_text(wip)
 	else
@@ -981,7 +981,7 @@ end
 
 ---@param current markup.Fiber
 ---@param wip markup.Fiber
-function Reconciler:complete_element_component(current, wip)
+function M:complete_element_component(current, wip)
 	if current and wip.state_node then
 		self:update_single_node(wip)
 	else
@@ -992,24 +992,24 @@ end
 
 ---@param current markup.Fiber
 ---@param wip markup.Fiber
-function Reconciler:complete_class_component(current, wip)
+function M:complete_class_component(current, wip)
 	--
 end
 
 ---@param current markup.Fiber
 ---@param wip markup.Fiber
-function Reconciler:complete_fragment_component(current, wip)
+function M:complete_fragment_component(current, wip)
 	--
 end
 
 ---@param rootf markup.Fiber
-function Reconciler:commit(rootf)
+function M:commit(rootf)
 	self:traverse_and_commit(rootf, rootf.child)
 end
 
 ---@param hostf markup.Fiber
 ---@param finishedf markup.Fiber
-function Reconciler:traverse_and_commit(hostf, finishedf)
+function M:traverse_and_commit(hostf, finishedf)
 	if not finishedf then
 		return
 	end
@@ -1044,13 +1044,13 @@ function Reconciler:traverse_and_commit(hostf, finishedf)
 end
 
 ---@param fiber markup.Fiber
-function Reconciler:is_host_parent(fiber)
+function M:is_host_parent(fiber)
 	return fiber.tag == FiberTag.ELEMENT or fiber.tag == FiberTag.ROOT
 end
 
 ---@param fiber markup.Fiber
 ---@return markup.Node?
-function Reconciler:host_sibling(fiber)
+function M:host_sibling(fiber)
 	---@type markup.Fiber
 	local node = fiber
 
@@ -1092,7 +1092,7 @@ end
 
 ---@param finishedf markup.Fiber
 ---@param parentf markup.Fiber
-function Reconciler:commit_placement(finishedf, parentf)
+function M:commit_placement(finishedf, parentf)
 	assert(parentf, "`parentf` must exist for placement")
 
 	local parent_node = parentf.state_node
@@ -1109,7 +1109,7 @@ end
 
 ---@param finishedf markup.Fiber
 ---@param parentf markup.Fiber
-function Reconciler:commit_update(finishedf, parentf)
+function M:commit_update(finishedf, parentf)
 	assert(parentf, "`parentf` must exist for placement")
 
 	if finishedf.tag == "element" then
@@ -1128,7 +1128,7 @@ function Reconciler:commit_update(finishedf, parentf)
 	finishedf.flags:clear(Flag.UPDATE)
 end
 
-function Reconciler:schedule_render()
+function M:schedule_render()
 	if self.render_scheduled then
 		return
 	end
@@ -1146,4 +1146,4 @@ end
 ---| markup.Reconciler.static
 
 ---@type markup.Reconciler.constructor
-return Reconciler
+return M

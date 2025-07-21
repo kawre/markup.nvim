@@ -42,6 +42,9 @@ function M.open(_renderer)
 end
 
 function M.draw(_page, opts)
+	if not renderer.root then
+		return
+	end
 	page = _page or (page or "fiber")
 
 	local lines

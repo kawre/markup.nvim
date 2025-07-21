@@ -1,5 +1,4 @@
 local markup = require("markup.core")
-local log, u = require("markup.logger"), require("markup.utils") ---@diagnostic disable-line: unused-local
 
 ---@alias markup.TabPage.count "."|"+"|"-"|"0"|"$"
 

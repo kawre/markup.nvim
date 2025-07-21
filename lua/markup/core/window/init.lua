@@ -21,7 +21,7 @@ local Win = require("markup.core.window.win")
 ---@field position markup.Window.position
 ---@field keymaps { active?: table, pending?: table }
 
----@class markup.Window : markup.Object
+---@class markup.Window2 : markup.Object
 ---@field protected _ markup.Window.props
 ---@field id integer
 ---@field bufnr integer

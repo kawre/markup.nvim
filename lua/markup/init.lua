@@ -1,9 +1,3 @@
-local log = require("markup.logger") ---@diagnostic disable-line: unused-local
-local lookup = require("markup.lookup")
-local cmd = require("markup.cmd")
-
-Markup = { renderers = {}, is_dev = false, debug_mode = false }
-
 ---@class markup
 ---@field inline markup.factory.Element.constructor
 ---@field block markup.factory.Element.constructor
@@ -18,15 +12,38 @@ Markup = { renderers = {}, is_dev = false, debug_mode = false }
 ---@field Window any
 ---@field Renderer any
 ---@field [string] markup.factory.Element.constructor
-local markup = {}
-setmetatable(markup, {
+local M = {}
+setmetatable(M, {
 	__index = function(_, k)
-		return lookup[k]
+		if not Markup.did_setup then
+			M.setup()
+		end
+		return require("markup.lookup")[k]
 	end,
 })
 
+_G.Markup = {
+	debug_mode = false,
+	debug = false,
+	is_dev = false,
+	did_setup = false,
+	renderers = {},
+}
+-- _G.Markup = setmetatable({
+-- 	debug_mode = false,
+-- 	debug = false,
+-- 	is_dev = false,
+-- 	did_setup = false,
+-- 	renderers = {},
+-- }, {
+-- 	__index = function(t, k)
+-- 		t[k] = require("markup.core." .. k)
+-- 		return rawget(t, k)
+-- 	end,
+-- })
+
 ---@param opts? table
-function markup.setup(opts)
+function M.setup(opts)
 	opts = opts or {}
 	local config = require("markup.config")
 	config.user = vim.tbl_deep_extend("force", config, opts)
@@ -34,9 +51,24 @@ function markup.setup(opts)
 	Markup.is_dev = config.user.dev
 	Markup.debug_mode = config.debug
 	require("markup.theme").setup()
+
+	Markup.util = require("markup.utils")
+	Markup.log = require("markup.logger")
+	Markup.debug = function(...)
+		if Snacks then
+			Snacks.debug(...)
+		else
+			Markup.log.debug(...)
+		end
+	end
+	Markup.config = config
+
+	local cmd = require("markup.cmd")
 	cmd.setup()
+
+	Markup.did_setup = true
 end
 
 -- require("markup-playground").setup()
 
-return markup
+return M
