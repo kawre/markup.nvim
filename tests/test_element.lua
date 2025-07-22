@@ -4,7 +4,6 @@
 local markup = require("markup")
 local new_set = MiniTest.new_set
 local expect, eq = MiniTest.expect, MiniTest.expect.equality
-local child = MiniTest.new_child_neovim()
 
 local T = new_set()
 

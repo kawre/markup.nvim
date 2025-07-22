@@ -1,13 +1,9 @@
-local normalizer = require("markup.node.normalizer")
+-- local normalizer = require("markup.node.normalizer")
 local FiberTag = require("markup.reconciler.enum").Tag
 local Node = require("markup.node")
 
 ---@class markup.factory.node
-local M = setmetatable({}, {
-	__call = function(t, ...)
-		return t.new(...)
-	end,
-})
+local M = Markup.singleton()
 
 ---@param type markup.node.type
 ---@param name? string
@@ -18,8 +14,7 @@ end
 
 ---@param element markup.element
 function M.from_element(element)
-	local props = normalizer.props(element.props, element._style)
-	local node = M.new("element", element.type, props)
+	local node = M.new("element", element.type, element.props)
 	return node
 end
 

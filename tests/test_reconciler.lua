@@ -28,7 +28,7 @@ local function reconcile_frame(frame)
 	child.lua(([[
 		_G.frame = %s
 		_G.reconciler:reconcile()
-		_G.renderer.rootf.child.flags:set(2)
+		_G.renderer.rootf.child:set_flags(2)
 		]]):format(frame))
 end
 

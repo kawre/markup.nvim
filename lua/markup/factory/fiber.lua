@@ -4,17 +4,13 @@ local Fiber = require("markup.reconciler.fiber")
 local typeof = type
 
 ---@class markup.factory.fiber
-local M = setmetatable({}, {
-	__call = function(t, ...)
-		return t.new(...)
-	end,
-})
+local M = Markup.singleton()
 
 ---@param tag markup.Fiber.tag
 ---@param props? table
 ---@param key? any
 function M.new(tag, props, key)
-	return Fiber.new(tag, props, key)
+	return Fiber(tag, props, key)
 end
 
 function M.from_text(content)
@@ -51,7 +47,7 @@ function M.root(element)
 	local fiber = M.new(Tag.ROOT)
 	fiber.pending_props = { children = element }
 	fiber.state_node = Markup.factory.node("element", "root")
-	fiber.flags:set(Flag.PLACEMENT)
+	fiber:set_flags(Flag.PLACEMENT)
 	return fiber
 end
 

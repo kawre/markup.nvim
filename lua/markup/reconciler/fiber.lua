@@ -1,4 +1,4 @@
-local FiberFlags = require("markup.reconciler.fiber.flags")
+local Flag = require("markup.reconciler.enum").Flag
 
 ---@class markup.Fiber.queue
 ---@field dispatch function
@@ -28,23 +28,37 @@ local FiberFlags = require("markup.reconciler.fiber.flags")
 ---@field index integer
 ---@field deletions? markup.fiber[]
 ---@field hostf markup.fiber
-local M = {}
+local M = Markup.object()
 
 ---@param tag markup.Fiber.tag
 ---@param props? table
 ---@param key? any
----@return markup.fiber
-function M.new(tag, props, key)
-	local self = setmetatable({}, M)
-
+function M:new(tag, props, key)
 	self.pending_props = props
 	self.key = key
 	self.tag = tag
-	self.flags = FiberFlags:new()
+	self.flags = Flag.NONE
 	self.index = 1
 	self.__id = Markup.util.gen_id()
+end
 
-	return self
+---@param ... markup.fiber.flag
+function M:set_flags(...)
+	self.flags = bit.bor(self.flags, ...)
+end
+
+---@param ... markup.fiber.flag
+function M:clear_flags(...)
+	self.flags = bit.band(self.flags, bit.bnot(bit.bor(...)))
+end
+
+---@param ... markup.fiber.flag
+function M:check_flags(...)
+	return self.flags == ... or bit.band(self.flags, ...) ~= 0
+end
+
+function M:reset_flags()
+	self.flags = Flag.NONE
 end
 
 return M

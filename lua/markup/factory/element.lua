@@ -2,11 +2,7 @@ local Element = require("markup.element")
 
 ---@class markup.factory.element
 ---@overload fun(type, props, style): markup.element
-local M = setmetatable({}, {
-	__call = function(t, ...)
-		return t.new(...)
-	end,
-})
+local M = Markup.singleton()
 
 local function normalize_props(props, style)
 	if type(props) ~= "table" or getmetatable(props) then
@@ -92,6 +88,10 @@ end
 
 function M.fragment(...)
 	return M.new("fragment", ...)
+end
+
+function M.context(...)
+	return M.new("context", ...)
 end
 
 return M

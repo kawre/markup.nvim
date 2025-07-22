@@ -107,7 +107,7 @@ function M:begin_work(current, wip)
 		if
 			current.type == wip.type
 			and old_props == new_props
-			and wip.flags:check(Flag.NONE)
+			and wip:check_flags(Flag.NONE)
 			and not self:has_pending_updates(wip)
 		then
 			-- nothing to do, we can reuse the current fiber
@@ -157,7 +157,7 @@ function M:complete_unit(unit)
 	complete_work(self, current, wip)
 
 	self.work_stack:push(unit.sibling)
-	-- assertor.bug(unit.flags:check(Flag.NONE), "Fiber flags must be `NONE` after completion")
+	-- assertor.bug(unit:check_flags(Flag.NONE), "Fiber flags must be `NONE` after completion")
 end
 
 ---@param fiber markup.fiber
@@ -197,7 +197,7 @@ function M:commit_deletions(fiber)
 	end
 
 	fiber.deletions = nil
-	fiber.flags:clear(Flag.CHILD_DELETE)
+	fiber:clear_flags(Flag.CHILD_DELETE)
 end
 
 ---@param wip markup.fiber
@@ -208,7 +208,7 @@ function M:place_single_node(wip)
 		-- handle single text child elements
 		self:place_single_text_child(wip)
 	end
-	wip.flags:set(Flag.PLACEMENT)
+	wip:set_flags(Flag.PLACEMENT)
 end
 
 ---@param wip markup.fiber
@@ -217,7 +217,7 @@ function M:update_single_node(wip)
 	assert(current, "`current` must exist for updating a single node")
 
 	if current.memoized_props ~= wip.pending_props then
-		wip.flags:set(Flag.UPDATE)
+		wip:set_flags(Flag.UPDATE)
 	end
 
 	-- if self:is_valid_text(wip.pending_props.children) then
@@ -231,7 +231,7 @@ function M:update_single_node(wip)
 	-- 	wip.state_node:replace_props(wip.pending_props)
 	-- end
 	--
-	-- wip.flags:clear(Flag.UPDATE)
+	-- wip:clear_flags(Flag.UPDATE)
 end
 
 ---@param fiber markup.fiber
@@ -275,9 +275,9 @@ end
 ---@param wip markup.fiber
 function M:update_text_component(current, wip)
 	if not current then
-		wip.flags:set(Flag.PLACEMENT)
+		wip:set_flags(Flag.PLACEMENT)
 	elseif current.memoized_props ~= wip.pending_props then
-		wip.flags:set(Flag.UPDATE)
+		wip:set_flags(Flag.UPDATE)
 	end
 end
 
@@ -285,7 +285,7 @@ end
 function M:create_instance(fiber)
 	Markup.assert.bug(not fiber.state_node, "`fiber.state_node` must not exist during creation")
 
-	fiber.flags:set(Flag.PLACEMENT)
+	fiber:set_flags(Flag.PLACEMENT)
 
 	-- if fiber.tag == FiberTag.FUNCTION then
 	-- 	fiber.state_node = fiber.type(fiber.pending_props)
@@ -310,9 +310,9 @@ function M:update_element_component(current, wip)
 	local next_children = next_props and next_props.children
 
 	if not current then
-		wip.flags:set(Flag.PLACEMENT)
+		wip:set_flags(Flag.PLACEMENT)
 	elseif wip.state_node and current.memoized_props ~= wip.pending_props then
-		wip.flags:set(Flag.UPDATE)
+		wip:set_flags(Flag.UPDATE)
 	end
 
 	if self:is_valid_text(next_children) then
@@ -356,7 +356,7 @@ function M:render_with_hooks(current, wip)
 	wip.memoized_state = wip.hook
 	wip.hook = nil
 
-	wip.flags:clear(Flag.UPDATE)
+	wip:clear_flags(Flag.UPDATE)
 
 	return children
 end
@@ -366,7 +366,7 @@ end
 function M:delete_child(returnf, child)
 	if not returnf.deletions then
 		returnf.deletions = { child }
-		returnf.flags:set(Flag.CHILD_DELETE)
+		returnf:set_flags(Flag.CHILD_DELETE)
 	else
 		table.insert(returnf.deletions, child)
 	end
@@ -563,7 +563,7 @@ function M:update_node_text(fiber)
 
 	if old_text ~= new_text then
 		node:set_text_content(new_text)
-		-- fiber.flags:clear(Flag.UPDATE)
+		-- fiber:clear_flags(Flag.UPDATE)
 	end
 end
 
@@ -776,7 +776,7 @@ function M:place_child(new_fiber, last_placed_index, new_index)
 		local old_index = current.index
 		if old_index < last_placed_index then
 			-- TODO this is a move
-			new_fiber.flags:set(Flag.PLACEMENT)
+			new_fiber:set_flags(Flag.PLACEMENT)
 			return last_placed_index
 		else
 			-- this item can stay in place
@@ -784,7 +784,7 @@ function M:place_child(new_fiber, last_placed_index, new_index)
 		end
 	else
 		-- this is an insertion
-		new_fiber.flags:set(Flag.PLACEMENT)
+		new_fiber:set_flags(Flag.PLACEMENT)
 		return last_placed_index
 	end
 end
@@ -846,7 +846,7 @@ function M:reconcile_single_text(returnf, current, content)
 		self:delete_remaining_children(returnf, current)
 		local fiber = Markup.factory.fiber.from_text(content)
 		fiber["return"] = returnf
-		fiber.flags:set(Flag.PLACEMENT)
+		fiber:set_flags(Flag.PLACEMENT)
 		return fiber
 	end
 end
@@ -897,9 +897,9 @@ end
 ---@param current markup.fiber
 ---@param wip markup.fiber
 function M:complete_root_component(current, wip)
-	if wip.flags:check(Flag.PLACEMENT) then
+	if wip:check_flags(Flag.PLACEMENT) then
 		self:populate_state_node(wip)
-		wip.flags:clear(Flag.PLACEMENT)
+		wip:clear_flags(Flag.PLACEMENT)
 	end
 end
 
@@ -916,7 +916,7 @@ function M:populate_state_node(wip)
 			node = node.child
 		else
 			curr:append_child(node.state_node)
-			node.flags:clear(Flag.PLACEMENT)
+			node:clear_flags(Flag.PLACEMENT)
 
 			if node == wip then
 				break
@@ -943,10 +943,10 @@ end
 function M:complete_function_component(current, wip)
 	-- function component placemenet is handled
 	-- during `begin_work`
-	wip.flags:clear(Flag.PLACEMENT)
-	wip.flags:clear(Flag.UPDATE)
+	wip:clear_flags(Flag.PLACEMENT)
+	wip:clear_flags(Flag.UPDATE)
 
-	-- if wip.flags:check(Flag.CHILD_DELETE) then
+	-- if wip:check_flags(Flag.CHILD_DELETE) then
 	-- 	self:process_deletions(wip)
 	-- end
 end
@@ -965,10 +965,10 @@ function M:complete_text_component(current, wip)
 	else
 		self:place_single_node(wip)
 	end
-	-- if wip.flags:check(Flag.PLACEMENT) then
+	-- if wip:check_flags(Flag.PLACEMENT) then
 	-- end
 	--
-	-- if wip.flags:check(Flag.UPDATE) then
+	-- if wip:check_flags(Flag.UPDATE) then
 	-- end
 end
 
@@ -1007,20 +1007,20 @@ function M:traverse_and_commit(hostf, finishedf)
 		return
 	end
 
-	if finishedf.flags:check(Flag.CHILD_DELETE) then
+	if finishedf:check_flags(Flag.CHILD_DELETE) then
 		self:commit_deletions(finishedf)
 	end
 
 	if finishedf.tag == "text" or finishedf.tag == "element" then
-		if finishedf.flags:check(Flag.PLACEMENT) then
+		if finishedf:check_flags(Flag.PLACEMENT) then
 			self:commit_placement(finishedf, hostf)
 		end
 
-		if finishedf.flags:check(Flag.UPDATE) then
+		if finishedf:check_flags(Flag.UPDATE) then
 			self:commit_update(finishedf, hostf)
 		end
 	else
-		finishedf.flags:reset()
+		finishedf:reset_flags()
 	end
 
 	local child = finishedf.child
@@ -1031,7 +1031,7 @@ function M:traverse_and_commit(hostf, finishedf)
 	end
 
 	Markup.assert.bug(
-		finishedf.flags:check(Flag.NONE),
+		finishedf:check_flags(Flag.NONE),
 		"Fiber flags must be `NONE` after commit: " .. tostring(finishedf.flags)
 	)
 end
@@ -1063,7 +1063,7 @@ function M:host_sibling(fiber)
 		local found = false
 
 		while node and node.tag ~= FiberTag.ELEMENT and node.tag ~= FiberTag.TEXT do
-			if node.flags:check(Flag.PLACEMENT) then
+			if node:check_flags(Flag.PLACEMENT) then
 				found = true
 				break
 			end
@@ -1077,7 +1077,7 @@ function M:host_sibling(fiber)
 			node = node.child
 		end
 
-		if not found and node and not node.flags:check(Flag.PLACEMENT) then
+		if not found and node and not node:check_flags(Flag.PLACEMENT) then
 			return node.state_node
 		end
 	end
@@ -1097,7 +1097,7 @@ function M:commit_placement(finishedf, parentf)
 		parent_node:append_child(finishedf.state_node)
 	end
 
-	finishedf.flags:clear(Flag.PLACEMENT)
+	finishedf:clear_flags(Flag.PLACEMENT)
 end
 
 ---@param finishedf markup.fiber
@@ -1118,7 +1118,7 @@ function M:commit_update(finishedf, parentf)
 		end
 	end
 
-	finishedf.flags:clear(Flag.UPDATE)
+	finishedf:clear_flags(Flag.UPDATE)
 end
 
 function M:schedule_render()

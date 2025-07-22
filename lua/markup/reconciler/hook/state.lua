@@ -20,6 +20,15 @@ local function mount_state(initial)
 	end
 
 	return hook.memoized_state, hook.queue.dispatch
+
+	-- return {
+	-- 	get = function()
+	-- 		return hook.memoized_state
+	-- 	end,
+	-- 	set = function(_, ...)
+	-- 		return hook.queue.dispatch(...)
+	-- 	end,
+	-- }
 end
 
 local function update_state()

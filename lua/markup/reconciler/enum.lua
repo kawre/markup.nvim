@@ -14,7 +14,7 @@ M.Tag = {
 	ELEMENT = "element",
 }
 
----@enum markup.Fiber.flag
+---@enum markup.fiber.flag
 M.Flag = {
 	NONE = 0,
 

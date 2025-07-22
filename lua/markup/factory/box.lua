@@ -1,11 +1,7 @@
 ---@alias markup.Render.LayoutType "flex" | "block" | "inline" | "text"
 
----@class markup.factory.box
-local M = setmetatable({}, {
-	__call = function(t, ...)
-		return t.new(...)
-	end,
-})
+---@class markup.factory.box: markup.singleton
+local M = Markup.singleton()
 
 local strategies = {
 	["flex"] = require("markup.renderer.box.layout.flex"),

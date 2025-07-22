@@ -29,6 +29,7 @@ function M:new(opts)
 	-- self.win:on({ "BufAdd", "BufWinEnter" }, function()
 	-- 	self:render()
 	-- end)
+
 	self.win:on("BufEnter", function()
 		-- Markup.log("bufenter")
 		vim.keymap.set("n", "<CR>", function()

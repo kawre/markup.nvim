@@ -25,6 +25,7 @@ local M = {}
 ---@field renderer markup.renderer
 ---@field reconciler markup.reconciler
 ---@field object markup.object
+---@field singleton markup.singleton
 _G.Markup = setmetatable({ core = M }, {
 	__index = function(t, k)
 		t[k] = require("markup." .. k)
@@ -36,6 +37,7 @@ M.Component = Markup.factory.element.component
 M.Class = Markup.factory.element.class
 M.Fragment = Markup.factory.element.fragment
 M.variable = require("markup.reconciler.hook.state")
+M.context = require("markup.reconciler.hook.context")
 
 setmetatable(M, {
 	__call = function(_, ...)

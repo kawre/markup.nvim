@@ -1,17 +1,7 @@
 ---@class markup.object
----@overload fun(): table
-local M = setmetatable({}, {
-	__call = function(t, name)
-		return t.constructor(name)
-	end,
-})
-
----@private
-function M.new() end
-
----@private
-function M.constructor(name)
-	local O = setmetatable({}, {
+---@field private new function
+return function(name)
+	local M = setmetatable({}, {
 		__call = function(t, ...)
 			local self = setmetatable({}, t)
 			assert(t.new, "Object must have a 'new' method")
@@ -20,9 +10,6 @@ function M.constructor(name)
 		end,
 		__name = name or "markup.object",
 	})
-	O.__index = O
-
-	return O
+	M.__index = M
+	return M
 end
-
-return M

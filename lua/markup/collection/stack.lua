@@ -1,16 +1,10 @@
 ---@class markup.stack
 ---@field len integer
 ---@overload fun(): markup.stack
-local M = setmetatable({}, {
-	__call = function(t)
-		return t.new()
-	end,
-})
-M.__index = M
+local M = Markup.object()
 
----@return markup.stack
-function M.new()
-	return setmetatable({ len = 0 }, M)
+function M:new()
+	self.len = 0
 end
 
 function M:push(value)
