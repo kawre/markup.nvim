@@ -1,4 +1,4 @@
-local FiberTag = require("markup.reconciler.enum").Tag
+local Tag = require("markup.reconciler.enum").Tag
 local Flag = require("markup.reconciler.enum").Flag
 local Dispatcher = require("markup.reconciler.dispatcher")
 
@@ -17,6 +17,7 @@ M.static = {}
 
 ---@type markup.reconciler?
 M.static.currently_working_reconciler = nil
+M.static.last_context_dep = nil
 
 ---@param assert_? boolean
 function M.static.get(assert_)
@@ -116,16 +117,30 @@ function M:begin_work(current, wip)
 	end
 
 	local next_work ---@type function
-	if wip.tag == FiberTag.ELEMENT then
+	if --
+		wip.tag == Tag.ELEMENT
+	then
 		next_work = M.update_element_component
-	elseif wip.tag == FiberTag.FUNCTION then
+	elseif --
+		wip.tag == Tag.FUNCTION
+	then
 		next_work = M.update_function_component
-	elseif wip.tag == FiberTag.TEXT then
+	elseif --
+		wip.tag == Tag.TEXT
+	then
 		next_work = M.update_text_component
-	elseif wip.tag == FiberTag.FRAGMENT then
+	elseif --
+		wip.tag == Tag.FRAGMENT
+	then
 		next_work = M.update_fragment_component
-	elseif wip.tag == FiberTag.ROOT then
+	elseif --
+		wip.tag == Tag.ROOT
+	then
 		next_work = M.update_root_component
+	elseif --
+		wip.tag == Tag.CONTEXT
+	then
+		next_work = M.update_context_component
 	else
 		error(("Invalid Fiber tag: %s"):format(wip.tag))
 	end
@@ -139,22 +154,38 @@ function M:complete_unit(unit)
 	local current, wip = unit.alternate, unit
 
 	local complete_work ---@type function
-	if wip.tag == FiberTag.ELEMENT then
-		complete_work = M.complete_element_component
-	elseif wip.tag == FiberTag.TEXT then
-		complete_work = M.complete_text_component
-	elseif wip.tag == FiberTag.FUNCTION then
-		complete_work = M.complete_function_component
-	elseif wip.tag == FiberTag.CLASS then
-		complete_work = M.complete_class_component
-	elseif wip.tag == FiberTag.FRAGMENT then
-		complete_work = M.complete_fragment_component
-	elseif wip.tag == FiberTag.ROOT then
-		complete_work = M.complete_root_component
+	if --
+		wip.tag == Tag.ELEMENT
+	then
+		if current and wip.state_node then
+			self:update_single_node(wip)
+		else
+			self:place_single_node(wip)
+			self:populate_state_node(wip)
+		end
+	elseif --
+		wip.tag == Tag.TEXT
+	then
+		if current and wip.state_node then
+			self:update_node_text(wip)
+		else
+			self:place_single_node(wip)
+		end
+	elseif --
+		wip.tag == Tag.FUNCTION
+	then
+		wip:clear_flags(Flag.PLACEMENT)
+		wip:clear_flags(Flag.UPDATE)
+	elseif --
+		wip.tag == Tag.ROOT
+	then
+		if wip:check_flags(Flag.PLACEMENT) then
+			self:populate_state_node(wip)
+			wip:clear_flags(Flag.PLACEMENT)
+		end
 	else
-		error(("Invalid Fiber tag: %s"):format(wip.tag))
+		-- error(("Invalid Fiber tag: %s"):format(wip.tag))
 	end
-	complete_work(self, current, wip)
 
 	self.work_stack:push(unit.sibling)
 	-- assertor.bug(unit:check_flags(Flag.NONE), "Fiber flags must be `NONE` after completion")
@@ -271,6 +302,17 @@ function M:update_root_component(current, wip)
 	return wip.child
 end
 
+---@param current markup.fiber
+---@param wip markup.fiber
+function M:update_context_component(current, wip)
+	local ctx = wip.type
+	local next_value = wip.pending_props.value
+	ctx.current = next_value
+
+	wip.child = self:reconcile_children(current, wip, wip.pending_props.children)
+	return wip.child
+end
+
 ---@param current? markup.fiber
 ---@param wip markup.fiber
 function M:update_text_component(current, wip)
@@ -300,7 +342,7 @@ end
 
 function M:is_direct_text_child(fiber)
 	local parent = fiber["return"]
-	return parent and parent.tag == FiberTag.ELEMENT
+	return parent and parent.tag == Tag.ELEMENT
 end
 
 ---@param current? markup.fiber
@@ -497,6 +539,7 @@ function M:create_wip(current, props)
 	wip.flags = current.flags
 
 	wip.child = current.child
+	wip.deps = current.deps
 	wip.hook = current.hook
 	wip.sibling = current.sibling
 	wip.index = current.index
@@ -543,7 +586,7 @@ end
 ---@param current? markup.fiber
 ---@param content any
 function M:update_text_node(returnf, current, content)
-	if current and current.tag == FiberTag.TEXT then
+	if current and current.tag == Tag.TEXT then
 		-- If the existing fiber is a text node, update it
 		local existing = self:use_fiber(current, content)
 		existing["return"] = returnf
@@ -762,7 +805,7 @@ function M:map_remaining_children(current_first_child)
 end
 
 function M:is_node_kind(fiber)
-	return fiber.tag == FiberTag.ELEMENT or fiber.tag == FiberTag.TEXT
+	return fiber.tag == Tag.ELEMENT or fiber.tag == Tag.TEXT
 end
 
 ---@param new_fiber markup.fiber
@@ -835,7 +878,7 @@ end
 ---@param current? markup.fiber
 ---@param content string|number
 function M:reconcile_single_text(returnf, current, content)
-	if current and current.tag == FiberTag.TEXT then
+	if current and current.tag == Tag.TEXT then
 		-- update existing text node and delete remaining children
 		self:delete_remaining_children(returnf, current.sibling)
 		local existing = self:use_fiber(current, content)
@@ -894,20 +937,11 @@ function M:delete_remaining_children(returnf, current_first_child)
 	end
 end
 
----@param current markup.fiber
----@param wip markup.fiber
-function M:complete_root_component(current, wip)
-	if wip:check_flags(Flag.PLACEMENT) then
-		self:populate_state_node(wip)
-		wip:clear_flags(Flag.PLACEMENT)
-	end
-end
-
 ---@param wip markup.fiber
 function M:populate_state_node(wip)
 	local curr, node = wip.state_node, wip.child
 	while node do
-		if not (node.tag == FiberTag.TEXT or node.tag == FiberTag.ELEMENT) then
+		if not (node.tag == Tag.TEXT or node.tag == Tag.ELEMENT) then
 			if not node.child then
 				break
 			end
@@ -936,63 +970,6 @@ function M:populate_state_node(wip)
 			end
 		end
 	end
-end
-
----@param current markup.fiber
----@param wip markup.fiber
-function M:complete_function_component(current, wip)
-	-- function component placemenet is handled
-	-- during `begin_work`
-	wip:clear_flags(Flag.PLACEMENT)
-	wip:clear_flags(Flag.UPDATE)
-
-	-- if wip:check_flags(Flag.CHILD_DELETE) then
-	-- 	self:process_deletions(wip)
-	-- end
-end
-
----@param current markup.fiber
----@param wip markup.fiber
-function M:complete_component_component(current, wip)
-	--
-end
-
----@param current markup.fiber
----@param wip markup.fiber
-function M:complete_text_component(current, wip)
-	if current and wip.state_node then
-		self:update_node_text(wip)
-	else
-		self:place_single_node(wip)
-	end
-	-- if wip:check_flags(Flag.PLACEMENT) then
-	-- end
-	--
-	-- if wip:check_flags(Flag.UPDATE) then
-	-- end
-end
-
----@param current markup.fiber
----@param wip markup.fiber
-function M:complete_element_component(current, wip)
-	if current and wip.state_node then
-		self:update_single_node(wip)
-	else
-		self:place_single_node(wip)
-		self:populate_state_node(wip)
-	end
-end
-
----@param current markup.fiber
----@param wip markup.fiber
-function M:complete_class_component(current, wip)
-	--
-end
-
----@param current markup.fiber
----@param wip markup.fiber
-function M:complete_fragment_component(current, wip)
-	--
 end
 
 function M:commit()
@@ -1038,7 +1015,7 @@ end
 
 ---@param fiber markup.fiber
 function M:is_host_parent(fiber)
-	return fiber.tag == FiberTag.ELEMENT or fiber.tag == FiberTag.ROOT
+	return fiber.tag == Tag.ELEMENT or fiber.tag == Tag.ROOT
 end
 
 ---@param fiber markup.fiber
@@ -1062,7 +1039,7 @@ function M:host_sibling(fiber)
 
 		local found = false
 
-		while node and node.tag ~= FiberTag.ELEMENT and node.tag ~= FiberTag.TEXT do
+		while node and node.tag ~= Tag.ELEMENT and node.tag ~= Tag.TEXT do
 			if node:check_flags(Flag.PLACEMENT) then
 				found = true
 				break

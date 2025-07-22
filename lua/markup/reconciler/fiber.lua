@@ -20,6 +20,7 @@ local Flag = require("markup.reconciler.enum").Flag
 ---@field tag markup.Fiber.tag
 ---@field return? markup.fiber
 ---@field state_node markup.node
+---@field deps table
 ---@field key? any
 ---@field hook? markup.Fiber.hook
 ---@field alternate? markup.fiber

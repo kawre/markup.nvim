@@ -139,7 +139,7 @@ end
 
 ---@param value any
 ---@param ...any function arguments
-function M.call_if_callable(value, ...)
+function M.call(value, ...)
 	return vim.is_callable(value) and value(...) or value
 end
 

@@ -1,6 +1,11 @@
+local Tag = require("markup.reconciler.enum").Tag
+local Context = require("markup.reconciler.hook.context")
+
 local function use(spec)
-	local fiber = Markup.reconciler.static.get_currently_rendering_fiber(true)
-	return fiber.memoized_props.value
+	if spec.typeof == Tag.CONTEXT then
+		---@cast spec markup.hooks.context
+		return Context.read(spec)
+	end
 end
 
 return use

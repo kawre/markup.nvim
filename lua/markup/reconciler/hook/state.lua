@@ -2,7 +2,7 @@
 local function mount_state(initial)
 	local reconciler = Markup.reconciler.static.get(true)
 
-	initial = Markup.util.call_if_callable(initial)
+	initial = Markup.util.call(initial)
 
 	local hook = reconciler:mount_wip_hook({
 		base_state = initial,
@@ -15,7 +15,7 @@ local function mount_state(initial)
 
 	hook.queue.dispatch = function(value)
 		reconciler.dispatcher:set_state(hook, function()
-			hook.memoized_state = Markup.util.call_if_callable(value, hook.memoized_state)
+			hook.memoized_state = Markup.util.call(value, hook.memoized_state)
 		end)
 	end
 

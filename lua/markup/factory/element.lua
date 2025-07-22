@@ -82,6 +82,7 @@ end
 ---@param Class table
 function M.class(Class)
 	return function(...)
+		Class.typeof = "class"
 		return M.new(Class, ...)
 	end
 end
@@ -90,8 +91,23 @@ function M.fragment(...)
 	return M.new("fragment", ...)
 end
 
-function M.context(...)
-	return M.new("context", ...)
+function M.consumer(ctx)
+	local consumer = M.new("consumer")
+	consumer.ctx = ctx
+	return consumer
+end
+
+function M.context(default)
+	local ctx = {
+		typeof = "context",
+		current = default,
+	}
+
+	ctx.provider = function(...)
+		return M.new(ctx, ...)
+	end
+
+	return ctx
 end
 
 return M

@@ -17,7 +17,6 @@ local strategies = {
 ---@return markup.Render.Box
 function M.new(node)
 	local RenderNode = require("markup.renderer.box")
-	-- local layout_type = type(node.props) == "table" and node.props.layout or "text"
 	local layout_type = node.type == "text" and "text" or node.tag_name
 	local layout_strategy = strategies[layout_type]
 

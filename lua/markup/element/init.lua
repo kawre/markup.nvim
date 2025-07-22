@@ -1,15 +1,16 @@
 local _type = type
 
----@alias markup.Element.typeof
+---@alias markup.element.typeof
 ---| "function"
 ---| "class"
 ---| "fragment"
 ---| "element"
 ---| "root"
+---| "context"
 
 ---@class markup.element
 ---@field type string basically a tag name or a function/class
----@field typeof markup.Element.typeof more specific type of the element
+---@field typeof markup.element.typeof more specific type of the element
 ---@field props markup.node.props
 ---@field ref? any
 ---@field key? any
@@ -17,20 +18,24 @@ local _type = type
 local M = {}
 M.__index = M
 
----@return markup.Element.typeof
+---@return markup.element.typeof
 local function typeof_from_type(type)
 	if _type(type) == "function" then
 		return "function"
+	elseif _type(type) == "table" then
+		return type.typeof or "fragment"
 	elseif _type(type) == "string" then
 		if type == "fragment" then
 			return "fragment"
 		elseif type == "root" then
 			return "root"
+		elseif type == "context" then
+			return "context"
+		elseif type == "consumer" then
+			return "context"
 		else
 			return "element"
 		end
-	elseif _type(type) == "table" and getmetatable(type) then
-		return "class"
 	end
 
 	error("Invalid type: " .. tostring(type))
@@ -44,7 +49,7 @@ function M.new(type, props)
 	self.props = props
 	self.ref = nil
 
-	if props.key then
+	if props and props.key then
 		self.key = props.key
 		-- TODO
 		-- props.key = nil

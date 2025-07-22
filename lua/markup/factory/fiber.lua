@@ -1,7 +1,7 @@
 local Tag = require("markup.reconciler.enum").Tag
 local Flag = require("markup.reconciler.enum").Flag
 local Fiber = require("markup.reconciler.fiber")
-local typeof = type
+local _type = type
 
 ---@class markup.factory.fiber
 local M = Markup.singleton()
@@ -25,15 +25,23 @@ end
 function M.from_type_and_props(type, props, key)
 	local resolved_type = type
 
-	-- default to element type
 	local tag = Tag.ELEMENT
 
 	if type == Tag.FRAGMENT then
 		tag = Tag.FRAGMENT
-	elseif typeof(type) == "function" then
+	elseif _type(type) == "function" then
 		tag = Tag.FUNCTION
-	elseif typeof(type) == "table" and not getmetatable(type) then
-		tag = Tag.FRAGMENT
+	elseif _type(type) == "table" then
+		---@type markup.element.typeof
+		local typeof = type.typeof
+
+		if not typeof then
+			tag = Tag.FRAGMENT
+		elseif typeof == "class" then
+			tag = Tag.CLASS
+		elseif typeof == "context" then
+			tag = Tag.CONTEXT
+		end
 	end
 
 	local fiber = M.new(tag, props, key)

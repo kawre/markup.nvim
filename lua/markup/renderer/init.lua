@@ -48,7 +48,7 @@ end
 
 ---@param element any
 function M:bind(element)
-	element = Markup.util.call_if_callable(element)
+	element = Markup.util.call(element)
 	self.rootf = Markup.factory.fiber.root(element)
 	self.root = Markup.factory.box.root(self)
 end

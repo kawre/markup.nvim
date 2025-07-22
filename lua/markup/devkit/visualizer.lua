@@ -49,6 +49,8 @@ function M.fiber(root, opts)
 			table.insert(entries, { " " .. fiber.state_node.text_content })
 		elseif fiber.tag == FiberTag.FUNCTION then
 			table.insert(entries, { "󰊕 Component", "Label" })
+		elseif fiber.tag == FiberTag.CONTEXT then
+			table.insert(entries, { "󰨾 context", "Number" })
 		else
 			table.insert(entries, { " " .. tostring(fiber.type), "DiagnosticHint" })
 			if fiber.memoized_props and fiber.memoized_props.children then

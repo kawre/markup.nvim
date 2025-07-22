@@ -12,6 +12,7 @@ M.Tag = {
 	ROOT = "root",
 	TEXT = "text",
 	ELEMENT = "element",
+	CONTEXT = "context",
 }
 
 ---@enum markup.fiber.flag

@@ -1,18 +1,28 @@
----@generic T
----@alias markup.context
----| fun(initial_state: T): T, fun(value: T | fun(value: T): T?)
+local Tag = require("markup.reconciler.enum").Tag
 
-local function context()
-	local fiber = Markup.reconciler.static.get_currently_rendering_fiber(true)
-	assert(fiber, "context hook must be called within a fiber")
+---@class markup.hooks.context
+local M = Markup.singleton()
 
-	local ctx = Markup.object()
-	function ctx:new()
-		self.provider = function(...)
-			return Markup.factory.element("context", ...)
-		end
+function M.read_for_consumer(consumer, ctx)
+	local value = ctx.current
+	local ctx_dep = { ctx = ctx, memoized_value = value, next = nil }
+
+	if not Markup.reconciler.static.last_context_dep then
+		Markup.reconciler.static.last_context_dep = ctx_dep
+		consumer.deps = {
+			first_context = ctx_dep,
+		}
+	else
+		Markup.reconciler.static.last_context_dep.next = ctx_dep
+		Markup.reconciler.static.last_context_dep = ctx_dep
 	end
-	return ctx
+
+	return value
 end
 
-return context
+function M.read(ctx)
+	local fiber = Markup.reconciler.static.get_currently_rendering_fiber(true)
+	return M.read_for_consumer(fiber, ctx)
+end
+
+return M
