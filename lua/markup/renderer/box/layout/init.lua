@@ -17,7 +17,7 @@ function Layout.new(name, type)
 	}
 end
 
----@param box markup.Render.Box
+---@param box markup.box
 function Layout.layout(box) ---@diagnostic disable-line: unused-local
 	error("Layout.layout must be implemented by subclasses")
 end

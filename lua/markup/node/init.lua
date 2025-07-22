@@ -32,7 +32,7 @@ local normalizer = require("markup.node.normalizer")
 ---@field text_content string
 ---@field parent markup.node
 ---@field child_nodes markup.node[]
----@field box? markup.Render.Box
+---@field box? markup.box
 ---@field fiber markup.fiber
 ---@field props markup.node.props
 ---@field container markup.renderer

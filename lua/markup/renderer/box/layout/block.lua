@@ -3,7 +3,7 @@ local Layout = require("markup.renderer.box.layout")
 ---@class markup.Render.Layout.Block : markup.Render.Layout
 local BlockLayout = Layout.new("RenderBlock", { "block" })
 
----@param box markup.Render.Box
+---@param box markup.box
 function BlockLayout.layout(box)
 	local props = box.props
 
@@ -35,7 +35,7 @@ function BlockLayout.layout(box)
 	BlockLayout.compute_final_size(box)
 end
 
----@param box markup.Render.Box
+---@param box markup.box
 function BlockLayout.compute_initial_width(box)
 	local width = box.props.width
 	local parent_cbox = box.parent:content_box_size()
@@ -43,7 +43,7 @@ function BlockLayout.compute_initial_width(box)
 	box:set_content_box_size(width)
 end
 
----@param box markup.Render.Box
+---@param box markup.box
 function BlockLayout.compute_final_size(box)
 	local height = box.props.height
 	box:set_content_box_size(

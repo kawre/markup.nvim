@@ -3,7 +3,7 @@ local Layout = require("markup.renderer.box.layout")
 ---@class markup.Render.Layout.Flex : markup.Render.Layout
 local FlexLayout = Layout.new("RenderFlex", { "flex", "block" })
 
----@param box markup.Render.Box
+---@param box markup.box
 function FlexLayout.layout(box)
 	local w, h = FlexLayout.compute_initial_size(box)
 	if box.props.vertical then
@@ -17,7 +17,7 @@ function FlexLayout.layout(box)
 	FlexLayout.align(box)
 end
 
----@param box markup.Render.Box
+---@param box markup.box
 function FlexLayout.layout_horizontal(box, w, h)
 	local props = box.props
 	local gw = w and math.ceil(w / #box.children)
@@ -38,7 +38,7 @@ function FlexLayout.layout_horizontal(box, w, h)
 	box.height = max_height
 end
 
----@param box markup.Render.Box
+---@param box markup.box
 function FlexLayout.layout_vertical(box, w, h)
 	local props = box.props
 
@@ -57,7 +57,7 @@ function FlexLayout.layout_vertical(box, w, h)
 	box.height = box.y
 end
 
----@param box markup.Render.Box
+---@param box markup.box
 function FlexLayout.compute_initial_size(box)
 	local props = box.props
 	local width, height = props.width, props.height
@@ -75,7 +75,7 @@ function FlexLayout.compute_initial_size(box)
 	return width, height
 end
 
----@param box markup.Render.Box
+---@param box markup.box
 function FlexLayout.compute_final_size(box, w, h)
 	local vertical = box.props.vertical
 
@@ -91,7 +91,7 @@ function FlexLayout.compute_final_size(box, w, h)
 	box:set_content_box_size(width, height)
 end
 
----@param box markup.Render.Box
+---@param box markup.box
 function FlexLayout.justify(box)
 	local props = box.props
 	local cbox = box:content_box_size()
@@ -136,7 +136,7 @@ function FlexLayout.justify(box)
 	end
 end
 
----@param box markup.Render.Box
+---@param box markup.box
 function FlexLayout.align(box)
 	local props = box.props
 	local cbox = box:content_box_size()

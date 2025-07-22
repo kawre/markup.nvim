@@ -21,7 +21,7 @@ T["factory"]["create()"]["works"] = function(tag, props)
 
 	eq(f.pending_props, props)
 	eq(f.tag, tag)
-	eq(f.flags.flags, 0)
+	eq(f.flags, 0)
 	eq(f.index, 1)
 end
 

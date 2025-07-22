@@ -21,7 +21,7 @@ local defaults = require("markup.renderer.box.props.defaults")
 local BoxProps = {}
 BoxProps.__index = BoxProps
 
----@param box markup.Render.Box
+---@param box markup.box
 function BoxProps:new(box)
 	return setmetatable({}, {
 		__index = function(_, key)

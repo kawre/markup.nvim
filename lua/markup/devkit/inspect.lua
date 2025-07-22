@@ -1,51 +1,75 @@
 ---@class markup.devkit.inspect
 ---@field renderer markup.renderer
-local M = {}
+---@overload fun(opts: markup.window.config): markup.devkit.inspect
+local M = Markup.object()
 
 local ns = vim.api.nvim_create_namespace("markup_inspector")
 
-function M.open(renderer)
-	M.renderer = renderer
-	M.win = Markup.window({
+---@param opts markup.window.config
+function M:new(opts)
+	opts = opts or {}
+	local win = opts.win or vim.api.nvim_get_current_win()
+	self.renderer = Markup.renderers[win]
+
+	opts = vim.tbl_deep_extend("keep", opts, {
 		position = "right",
+		relative = "win",
 		minimal = true,
 		enter = false,
 	})
+	self.win = Markup.window(opts)
 
-	vim.keymap.set("n", "1", function()
-		M.draw("fiber")
-	end)
-	vim.keymap.set("n", "2", function()
-		M.draw("node")
-	end)
-	vim.keymap.set("n", "3", function()
-		M.draw("render")
-	end)
-	vim.keymap.set("n", "4", function()
-		Markup.config.debug = not Markup.config.debug
-		M.draw()
-	end)
+	vim.api.nvim_create_autocmd("User", {
+		pattern = "MarkupRender" .. self.renderer.win.id,
+		callback = function()
+			self:paint()
+		end,
+	})
+
+	self:map(self.renderer.win.buf)
+	self:map()
+	self:paint()
 end
 
-function M.draw(page, opts)
-	if not M.renderer.rootf then
+function M:map(buf)
+	buf = buf or self.win.buf
+
+	vim.keymap.set("n", "1", function()
+		self:paint("fiber")
+	end, { buffer = buf })
+	vim.keymap.set("n", "2", function()
+		self:paint("node")
+	end, { buffer = buf })
+	vim.keymap.set("n", "3", function()
+		self:paint("render")
+	end, { buffer = buf })
+	vim.keymap.set("n", "4", function()
+		Markup.config.debug = not Markup.config.debug
+		self.renderer:rerender()
+		self:paint()
+	end, { buffer = buf })
+end
+
+function M:paint(page, opts)
+	if not self.renderer.rootf then
 		return
 	end
-	page = page or (M.page or "fiber")
+	page = page or (self.page or "fiber")
 
 	local lines
 	if page == "node" then
-		lines = Markup.devkit.visualizer[page](M.renderer:node_root(), opts)
+		lines = Markup.devkit.visualizer[page](self.renderer:node_root(), opts)
 	elseif page == "fiber" then
-		lines = Markup.devkit.visualizer[page](M.renderer:fiber_root(), opts)
+		lines = Markup.devkit.visualizer[page](self.renderer:fiber_root(), opts)
 	elseif page == "render" then
-		lines = Markup.devkit.visualizer[page](M.renderer:render_root(), opts)
+		lines = Markup.devkit.visualizer[page](self.renderer:render_root(), opts)
 	end
 
+	local active_hl = "NeogitHunkHeaderHighlight"
 	local nav = {
-		{ "Fiber Tree", page == "fiber" and "IncSearch" or "Conceal" },
-		{ "Node Tree", page == "node" and "IncSearch" or "Conceal" },
-		{ "Render Tree", page == "render" and "IncSearch" or "Conceal" },
+		{ "Fiber Tree", page == "fiber" and active_hl or "Conceal" },
+		{ "Node Tree", page == "node" and active_hl or "Conceal" },
+		{ "Render Tree", page == "render" and active_hl or "Conceal" },
 		{ "Toggle debug mode", Markup.config.debug and "Search" or "Conceal" },
 	}
 
@@ -56,7 +80,16 @@ function M.draw(page, opts)
 	table.insert(lines, 1, {})
 	table.insert(lines, 1, nav)
 
-	vim.api.nvim_buf_call(M.win.buf, function()
+	local stats = {
+		{ " 󰓅 ", "NeogitHunkHeaderHighlight" },
+		{ (" %.2f ms"):format(self.renderer.stats.elapsed) },
+		{ " | ", "Conceal" },
+		{ ("%d fps"):format(self.renderer.stats.fps) },
+	}
+	table.insert(lines, 1, {})
+	table.insert(lines, 1, stats)
+
+	vim.api.nvim_buf_call(self.win.buf, function()
 		vim.api.nvim_buf_clear_namespace(0, ns, 0, -1)
 		for l, line in ipairs(lines or {}) do
 			vim.api.nvim_buf_set_lines(0, l - 1, l, false, { "" })
@@ -67,7 +100,7 @@ function M.draw(page, opts)
 		end
 	end)
 
-	M.page = page
+	self.page = page
 end
 
 return M

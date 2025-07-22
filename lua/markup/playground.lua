@@ -1,5 +1,3 @@
-local api = vim.api
-
 local path = vim.fn.stdpath("data") .. "/markup/lua/playground"
 local file = path .. "/init.lua"
 
@@ -10,21 +8,19 @@ function M.open()
 	vim.fn.mkdir(path, "p")
 	vim.cmd.tabe(file)
 	vim.cmd.tcd(path)
+	local buf = vim.api.nvim_get_current_buf()
 
 	M.preview = Markup.renderer({
-		-- ns_id = api.nvim_create_namespace("markup.playground"),
-		-- enter = false,
-		-- show = true,
 		position = "right",
 		width = 0.5,
 		enter = false,
-		-- config = {
-		-- 	relative = "editor",
-		-- 	vertical = true,
-		-- 	width = 0.5,
-		-- },
 	})
-	Markup.devkit.inspect.open(M.preview)
+
+	M.inspect = Markup.devkit.inspect({
+		win = M.preview.win.win,
+		position = "bottom",
+	})
+	M.inspect:map(buf)
 
 	vim.api.nvim_create_autocmd("BufWritePost", {
 		callback = function()
@@ -40,7 +36,6 @@ end
 
 function M.run()
 	vim.cmd("luafile " .. file)
-	Markup.devkit.inspect.draw("fiber")
 end
 
 return M

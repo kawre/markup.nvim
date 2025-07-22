@@ -3,7 +3,7 @@ local Layout = require("markup.renderer.box.layout")
 ---@class markup.Render.Layout.Inline : markup.Render.Layout
 local InlineLayout = Layout.new("RenderInline", { "inline" })
 
----@param box markup.Render.Box
+---@param box markup.box
 function InlineLayout.layout(box)
 	local props = box.props
 	box.height = 1

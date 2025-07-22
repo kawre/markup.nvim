@@ -1,10 +1,10 @@
 local BoxProps = require("markup.renderer.box.props")
 
----@class markup.Render.Box
+---@class markup.box
 ---@field layout_strategy markup.Render.Layout
----@field children markup.Render.Box[]
+---@field children markup.box[]
 ---@field node markup.node
----@field parent markup.Render.Box
+---@field parent markup.box
 ---@field dirty boolean
 ---@field buf table
 ---@field x integer
@@ -38,10 +38,15 @@ function RenderBox:new(node, layout_strategy)
 end
 
 function RenderBox:build()
+	for _, child in ipairs(self.children) do
+		child:destroy()
+	end
+
 	for _, child in ipairs(self.node.child_nodes) do
 		local new_render_node = self:attach(child)
 		new_render_node:build()
 	end
+
 	-- self.dirty = false
 end
 
@@ -64,12 +69,12 @@ end
 
 ---@param child markup.node
 function RenderBox:attach(child)
-	local render_node = Markup.factory.box(child)
+	local child_box = Markup.factory.box(child)
 
-	table.insert(self.children, render_node)
-	render_node.parent = self
-
-	return render_node
+	table.insert(self.children, child_box)
+	child_box.parent = self
+	child_box.dirty = true
+	return child_box
 end
 
 function RenderBox:iter_children()
@@ -89,9 +94,9 @@ end
 function RenderBox:layout()
 	assert(self.layout_strategy, "Layout strategy is not set")
 
-	if self.dirty == false then
-		return
-	end
+	-- if self.dirty == false then
+	-- 	return
+	-- end
 
 	-- offset
 	self.ox = self.parent.x
@@ -235,7 +240,52 @@ function RenderBox:destroy()
 		end
 	end
 	table.remove(self.parent.children, index)
+	self = nil
 end
+
+-- ---@param renderer markup.renderer
+-- ---@param x integer
+-- ---@param y integer
+-- function RenderBox:paint(renderer, x, y)
+-- 	local ns = renderer.ns
+-- 	local props = self.props
+--
+-- 	if self:is("text") then
+-- 		-- only leaf nodes (text) can output text on the screen
+-- 		local word = tostring(self.node.text_content)
+-- 		-- vim.api.nvim_buf_set_text(0, y, x, y, x + self.width, { word })
+-- 		if not renderer.lines[y] then
+-- 			renderer.lines[y] = {}
+-- 		end
+-- 		-- renderer.lines[y][x] = { str = word, len = self.width }
+-- 		table.insert(renderer.lines[y], { word = word, width = self.width, x = x })
+-- 	else
+-- 		-- everything else only outputs style
+-- 		local pbox = self:padding_box_size()
+-- 		local pox = x + props.margin_left
+-- 		local poy = y + props.margin_top
+--
+-- 		Markup.util.set_hl({
+-- 			[self.__id] = self.props.style,
+-- 		}, { managed = true, prefix = "MarkupDynamic" })
+--
+-- 		for line = 0, pbox.height - 1 do
+-- 			table.insert(renderer.extmarks, {
+-- 				line = poy + line,
+-- 				col = pox,
+-- 				end_col = pox + pbox.width,
+-- 				hl_group = "MarkupDynamic" .. self.__id,
+-- 			})
+-- 			-- local extmark_id = vim.api.nvim_buf_set_extmark(0, ns, poy + line, pox, {
+-- 			-- 	end_col = pox + pbox.width,
+-- 			-- 	hl_eol = true,
+-- 			-- 	hl_group = "MarkupDynamic" .. self.__id,
+-- 			-- 	hl_mode = "combine",
+-- 			-- })
+-- 			-- table.insert(self.extmarks, extmark_id)
+-- 		end
+-- 	end
+-- end
 
 ---@param renderer markup.renderer
 ---@param x integer

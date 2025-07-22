@@ -120,7 +120,7 @@ end
 cmd.commands = {
 	inspect = {
 		function()
-			require("markup.devkit.inspect").open()
+			Markup.devkit.inspect()
 		end,
 	},
 	playground = {

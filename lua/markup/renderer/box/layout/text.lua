@@ -3,7 +3,7 @@ local Layout = require("markup.renderer.box.layout")
 ---@class markup.Render.Layout.Text : markup.Render.Layout
 local TextLayout = Layout.new("RenderText", { "inline", "text" })
 
----@param box markup.Render.Box
+---@param box markup.box
 function TextLayout.layout(box)
 	local str = tostring(box.node.text_content)
 	assert(str ~= "", "text nodes should not be empty")

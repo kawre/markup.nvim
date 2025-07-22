@@ -26,7 +26,7 @@ local M = {}
 ---@field reconciler markup.reconciler
 ---@field object markup.object
 ---@field singleton markup.singleton
-_G.Markup = setmetatable({ core = M }, {
+_G.Markup = setmetatable({ core = M, renderers = {} }, {
 	__index = function(t, k)
 		t[k] = require("markup." .. k)
 		return rawget(t, k)

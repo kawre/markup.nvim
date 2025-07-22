@@ -1,13 +1,13 @@
 local FiberTag = require("markup.core.reconciler.enum").Tag
 local FiberFlag = require("markup.core.reconciler.enum").Flag
 
----@param root? markup.Render.Box
+---@param root? markup.box
 ---@param exclude_ids? boolean
 return function(root, exclude_ids)
 	local lines = {}
 	local lines2 = {}
 
-	---@param node markup.Render.Box
+	---@param node markup.box
 	local function print_node_tree(node, depth, prefix, is_last)
 		if not node then
 			return

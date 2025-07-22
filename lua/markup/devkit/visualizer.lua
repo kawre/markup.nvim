@@ -140,7 +140,7 @@ function M.node(root, opts)
 	return opts.hl and lines or remove_hl(lines)
 end
 
----@param root? markup.Render.Box
+---@param root? markup.box
 ---@param opts? table
 function M.render(root, opts)
 	opts = vim.tbl_deep_extend("keep", opts or {}, {

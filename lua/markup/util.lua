@@ -89,15 +89,15 @@ function M.starts_with(str, start)
 	return str:sub(1, #start) == start
 end
 
-function M.measure_time(name, fn)
+function M.benchmark(fn)
 	local start_time = vim.uv.hrtime()
 	local res = fn()
 	local end_time = vim.uv.hrtime()
 
 	local elapsed = end_time - start_time
 	local elapsed_ms, fps = elapsed / 1e6, math.floor(1e9 / elapsed)
-	Markup.log.info(("[%s]: %.2f ms | %d fps"):format(name, elapsed_ms, fps))
-	return res
+	-- Markup.log(("[%s]: %.2f ms | %d fps"):format(name, elapsed_ms, fps))
+	return elapsed_ms, fps
 end
 
 ---@param orig table

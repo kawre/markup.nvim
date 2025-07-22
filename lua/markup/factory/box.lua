@@ -1,6 +1,7 @@
 ---@alias markup.Render.LayoutType "flex" | "block" | "inline" | "text"
 
 ---@class markup.factory.box: markup.singleton
+---@overload fun(node: markup.node): markup.box
 local M = Markup.singleton()
 
 local strategies = {
@@ -14,7 +15,7 @@ local strategies = {
 }
 
 ---@param node markup.node
----@return markup.Render.Box
+---@return markup.box
 function M.new(node)
 	local RenderNode = require("markup.renderer.box")
 	local layout_type = node.type == "text" and "text" or node.tag_name
