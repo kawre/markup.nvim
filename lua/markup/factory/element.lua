@@ -4,7 +4,7 @@ local Element = require("markup.element")
 ---@overload fun(type, props, style): markup.element
 local M = Markup.singleton()
 
-local function normalize_props(props, style)
+local function resolve(props, style)
 	if type(props) ~= "table" or getmetatable(props) then
 		-- single child or no props
 		props = { children = props }
@@ -69,7 +69,7 @@ end
 
 ---@type markup.factory.Element.constructor.raw
 function M.new(type, props, style)
-	return Element.new(type, normalize_props(props, style))
+	return Element.new(type, resolve(props, style))
 end
 
 ---@param Component fun(props?: any|{ children?: any }): any
@@ -89,12 +89,6 @@ end
 
 function M.fragment(...)
 	return M.new("fragment", ...)
-end
-
-function M.consumer(ctx)
-	local consumer = M.new("consumer")
-	consumer.ctx = ctx
-	return consumer
 end
 
 function M.context(default)

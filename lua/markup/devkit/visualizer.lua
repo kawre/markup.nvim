@@ -120,6 +120,7 @@ function M.node(root, opts)
 		}
 
 		if not opts.exclude_ids then
+			-- table.insert(entries, { " " })
 			table.insert(entries, { ("  %s "):format(node.__id), "LspInlayHint" })
 		end
 
@@ -150,6 +151,7 @@ function M.render(root, opts)
 
 	local lines = {}
 
+	---@param node markup.box
 	local function print_node_tree(node, depth, prefix, is_last)
 		if not node then
 			return
@@ -158,28 +160,37 @@ function M.render(root, opts)
 		depth = depth or 0
 		prefix = prefix or ""
 
-		local mark = not (vim.tbl_isempty(node.children) and is_last) and "├╴" or "└╴"
+		local mark = not (vim.tbl_isempty(node.node.child_nodes) and is_last) and "├╴"
+			or "└╴"
 		local indent = prefix .. (depth > 0 and mark or "")
 
 		local entries = {
 			{ indent, "SignColumn" },
-			{ node:name() },
-			{ node.dirty and "  " or " ", "Number" },
-			{ ("(%s)"):format(node.node.tag_name), "Conceal" },
+			-- { node:name() },
+			{ node.dirty and "  " or "", "Number" },
 		}
 
+		if node:is("text") then
+			table.insert(entries, 2, { node.node.text_content })
+			table.insert(entries, 2, { "#", "Number" })
+		else
+			table.insert(entries, 2, { node:name(), "Label" })
+			table.insert(entries, { (" (%s)"):format(node.node.tag_name), "Conceal" })
+		end
+
 		if not opts.exclude_ids then
+			table.insert(entries, { " " })
 			table.insert(entries, { ("  %s "):format(node.__id), "LspInlayHint" })
 		end
 
 		table.insert(lines, entries)
 
-		for i, child in ipairs(node.children or {}) do
+		for i, child in ipairs(node.node.child_nodes) do
 			print_node_tree(
-				child,
+				child.box,
 				depth + 1,
 				prefix .. (depth > 0 and "│ " or ""),
-				i == #node.children
+				i == #node:children()
 			)
 		end
 	end

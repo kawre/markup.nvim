@@ -20,10 +20,9 @@ end
 ---@param box markup.box
 function FlexLayout.layout_horizontal(box, w, h)
 	local props = box.props
-	local gw = w and math.ceil(w / #box.children)
-
+	local len = box:children_len()
+	local gw = w and math.ceil(w / len)
 	local max_width, max_height = 0, 0
-	local len = #box.children
 
 	for i, child in box:iter_children() do
 		child:layout()
@@ -43,7 +42,7 @@ function FlexLayout.layout_vertical(box, w, h)
 	local props = box.props
 
 	local max_width = 0
-	local len = #box.children
+	local len = box:children_len()
 
 	for i, child in box:iter_children() do
 		child:layout()
@@ -98,7 +97,7 @@ function FlexLayout.justify(box)
 
 	if props.justify == "center" then
 		local x = math.ceil((cbox.width - box.width) / 2)
-		local len = #box.children
+		local len = box:children_len()
 		for i, child in box:iter_children() do
 			child.ox = x
 			local child_mbox = child:margin_box_size()
@@ -106,32 +105,33 @@ function FlexLayout.justify(box)
 		end
 	elseif props.justify == "end" then
 		local x = cbox.width - box.width
-		local len = #box.children
+		local len = box:children_len()
 		for i, child in box:iter_children() do
 			child.ox = x
 			local child_mbox = child:margin_box_size()
 			x = x + child_mbox.width + (i ~= len and props.spacing or 0)
 		end
 	elseif props.justify == "between" then
-		local n = #box.children
-		local last = box.children[n]
+		local children = box:children()
+		local n = #children
+		local last = children[n]
 
 		if n > 1 then
 			local total_children_width = 0
-			for _, child in box:iter_children() do
+			for _, child in ipairs(children) do
 				total_children_width = total_children_width + child.width
 			end
 
 			local space = math.floor((cbox.width - total_children_width) / (n - 1))
 			local current_x = 0
-			for _, child in box:iter_children() do
+			for _, child in ipairs(children) do
 				child.ox = current_x
 				current_x = current_x + child.width + space
 			end
 
 			last.ox = cbox.width - last.width
 		else
-			box.children[1].ox = 0
+			children[1].ox = 0
 		end
 	end
 end
@@ -143,7 +143,7 @@ function FlexLayout.align(box)
 
 	if props.align == "center" then
 		local y = 0
-		local len = #box.children
+		local len = box:children_len()
 		for i, child in box:iter_children() do
 			local child_mbox = child:margin_box_size()
 			child.oy = y

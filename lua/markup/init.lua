@@ -12,17 +12,17 @@ local M = {}
 ---@class markup.global
 ---@field core markup
 ---@field collection markup.collection
----@field assert markup.assert
 ---@field log markup.logger
 ---@field util markup.util
 ---@field devkit markup.devkit
----@field config markup.config
 ---@field playground markup.playground
----@field node markup.node
----@field cmd markup.cmd
 ---@field factory markup.factory
 ---@field window markup.window
 ---@field renderer markup.renderer
+---@field assert markup.assert
+---@field config markup.config
+---@field node markup.node
+---@field cmd markup.cmd
 ---@field reconciler markup.reconciler
 ---@field object markup.object
 ---@field singleton markup.singleton
@@ -39,7 +39,6 @@ M.Fragment = Markup.factory.element.fragment
 M.variable = require("markup.reconciler.hook.state")
 M.context = Markup.factory.element.context
 M.use = require("markup.reconciler.hook.use")
-
 setmetatable(M, {
 	__call = function(_, ...)
 		return Markup.factory.element(...)

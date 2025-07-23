@@ -1,5 +1,5 @@
----@class markup.array : tablelib
----@overload fun(tbl?: table): markup.array
+---@class markup.list : tablelib
+---@overload fun(tbl?: table): markup.list
 local M = {}
 M.__index = M
 
@@ -16,6 +16,7 @@ function M.new(tbl)
 	return setmetatable(tbl or {}, M)
 end
 
+-- Returns a new array with the values of the current array.
 function M:map(apply)
 	return M(vim.tbl_map(apply, self))
 end
@@ -36,6 +37,7 @@ function M:extend(src, start, finish)
 	return vim.list_extend(self, src, start, finish)
 end
 
+-- Replaces values with the result of applying the function to each value.
 function M:foreach(fn)
 	for i, v in ipairs(self) do
 		self[i] = fn(v, i)

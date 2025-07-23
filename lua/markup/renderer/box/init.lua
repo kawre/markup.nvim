@@ -2,7 +2,6 @@ local BoxProps = require("markup.renderer.box.props")
 
 ---@class markup.box
 ---@field layout_strategy markup.Render.Layout
----@field children markup.box[]
 ---@field node markup.node
 ---@field parent markup.box
 ---@field dirty boolean
@@ -27,7 +26,6 @@ local RenderBox = Markup.object()
 ---@param layout_strategy markup.Render.Layout
 function RenderBox:new(node, layout_strategy)
 	self.layout_strategy = layout_strategy
-	self.children = {}
 	self.node = node
 	node.box = self
 	self.dirty = true
@@ -38,21 +36,24 @@ function RenderBox:new(node, layout_strategy)
 end
 
 function RenderBox:build()
-	for _, child in ipairs(self.children) do
-		child:destroy()
-	end
-
 	for _, child in ipairs(self.node.child_nodes) do
 		local new_render_node = self:attach(child)
 		new_render_node:build()
 	end
-
-	-- self.dirty = false
 end
 
 function RenderBox:reflow()
-	for _, child in ipairs(self.children) do
-		child:reflow()
+	if not self.dirty then
+		return
+	end
+
+	for _, child in ipairs(self.node.child_nodes) do
+		if not child.box then
+			self:attach(child)
+			child.box:build()
+		else
+			child.box:reflow()
+		end
 	end
 end
 
@@ -61,24 +62,21 @@ function RenderBox:flag_as_dirty()
 		return
 	end
 
-	-- self.dirty = true
-	-- if self.parent then
-	-- 	self.parent:flag_as_dirty()
-	-- end
+	self.dirty = true
+	if self.parent then
+		self.parent:flag_as_dirty()
+	end
 end
 
 ---@param child markup.node
 function RenderBox:attach(child)
 	local child_box = Markup.factory.box(child)
-
-	table.insert(self.children, child_box)
 	child_box.parent = self
-	child_box.dirty = true
 	return child_box
 end
 
 function RenderBox:iter_children()
-	local children = self.children
+	local children = self.node.child_nodes
 	local i, n = 0, #children
 	local reverse = self.props.reverse
 
@@ -87,16 +85,16 @@ function RenderBox:iter_children()
 		if i > n then
 			return nil
 		end
-		return i, children[reverse and (n + 1 - i) or i]
+		return i, children[reverse and (n + 1 - i) or i].box
 	end
 end
 
 function RenderBox:layout()
 	assert(self.layout_strategy, "Layout strategy is not set")
 
-	-- if self.dirty == false then
-	-- 	return
-	-- end
+	if self.dirty == false then
+		return
+	end
 
 	-- offset
 	self.ox = self.parent.x
@@ -297,7 +295,12 @@ function RenderBox:paint(renderer, x, y)
 	if self:is("text") then
 		-- only leaf nodes (text) can output text on the screen
 		local word = tostring(self.node.text_content)
-		vim.api.nvim_buf_set_text(0, y, x, y, x + self.width, { word })
+		-- vim.api.nvim_buf_set_text(0, y, x, y, x + self.width, { word })
+		vim.api.nvim_buf_set_extmark(0, ns, y, x, {
+			virt_text = { { word } },
+			virt_text_pos = "overlay",
+			hl_mode = "combine",
+		})
 	else
 		-- everything else only outputs style
 		local pbox = self:padding_box_size()
@@ -491,6 +494,16 @@ end
 -- 		left = left,
 -- 	}
 -- end
+
+function RenderBox:children()
+	return vim.tbl_map(function(n)
+		return n.box
+	end, self.node.child_nodes)
+end
+
+function RenderBox:children_len()
+	return #self.node.child_nodes
+end
 
 function RenderBox:in_range(x, y, range)
 	if not range then

@@ -8,7 +8,7 @@ function InlineLayout.layout(box)
 	local props = box.props
 	box.height = 1
 
-	local len = #box.children
+	local len = box:children_len()
 	for i, child in box:iter_children() do
 		assert(child:is("inline"), "Inline layout can only be used for inline nodes")
 

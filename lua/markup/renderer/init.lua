@@ -79,34 +79,31 @@ function M:render(element)
 		self:bind(element)
 	end
 	assert(self.rootf, "Renderer root not bound. Call :render(element) to bind the root element.")
-	-- self.root = Markup.factory.box.root(self)
+	self.first_render = true
 	self:rerender()
 end
 
 function M:rerender()
 	local elapsed, fps = Markup.util.benchmark(function()
-		self.lines = {}
-
 		self.reconciler:reconcile()
 		self:build()
 		self:layout()
-
-		vim.api.nvim_buf_call(self.win.buf, function()
-			self:paint()
-		end)
+		self:paint()
 	end)
-	vim.api.nvim__redraw({ win = self.win.win, flush = true })
+
 	self.stats = { fps = fps, elapsed = elapsed }
 
 	vim.api.nvim_exec_autocmds("User", { pattern = "MarkupRender" .. self.win.id })
+	self.first_render = false
 end
 
 function M:build()
 	local root = self:render_root()
-	-- if root.dirty then
-	root:build()
+
+	-- if self.first_render then
+	-- 	root:build()
 	-- else
-	-- root:reflow()
+	root:reflow()
 	-- end
 end
 
@@ -167,16 +164,19 @@ function M:_paint_with_concat_lines()
 end
 
 function M:paint()
-	local mbox = self:render_root():margin_box_size()
+	vim.api.nvim_buf_call(self.win.buf, function()
+		local mbox = self:render_root():margin_box_size()
 
-	local lines = {}
-	local fill = (" "):rep(mbox.width)
-	for i = 1, mbox.height do
-		lines[i] = fill
-	end
-	vim.api.nvim_buf_set_lines(0, 0, -1, false, lines)
+		local lines = {}
+		local fill = (" "):rep(mbox.width)
+		for i = 1, mbox.height do
+			lines[i] = fill
+		end
+		vim.api.nvim_buf_set_lines(0, 0, -1, false, lines)
 
-	self:traverse_and_paint(0, 0, self:render_root())
+		self:traverse_and_paint(0, 0, self:render_root())
+	end)
+	-- vim.api.nvim__redraw({ win = self.win.win, flush = true })
 end
 
 ---(x, y) are the coordinates of the parent margin box
@@ -199,10 +199,10 @@ function M:traverse_and_paint(x, y, box)
 		self:traverse_and_paint(cx + child.ox, cy + child.oy, child)
 	end
 
-	-- if Markup.config.debug then
-	-- 	box:debug_paint_margin(x, y)
-	-- 	box:debug_paint_padding(x, y)
-	-- end
+	if Markup.config.debug then
+		box:debug_paint_margin(x, y)
+		box:debug_paint_padding(x, y)
+	end
 
 	if type(props.style) == "string" or not vim.tbl_isempty(props.style) then
 		box:paint(self, x, y)

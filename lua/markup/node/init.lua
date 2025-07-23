@@ -118,7 +118,9 @@ function Node:_insert(child, pos)
 	if child.parent then
 		child.parent:remove_child(child)
 	end
+
 	child.parent = self
+	self:flag_render_tree_as_dirty()
 end
 
 ---@param child markup.node
