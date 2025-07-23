@@ -2,7 +2,7 @@
 01| fiber root (root)   7f1f1                                
 02|├╴󰊕 Component (function)   ae0fc                           
 03|│ ├╴ block (element)   54047                              
-04|│ │ └╴ inline  500 (element)   67157                     
+04|│ │ └╴ inline #[500] (element)   67157                    
 05|~                                                           
 06|~                                                           
 07|~                                                           

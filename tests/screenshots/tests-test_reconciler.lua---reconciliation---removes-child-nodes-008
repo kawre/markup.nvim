@@ -1,10 +1,10 @@
 --|---------|---------|---------|---------|---------|---------|
-01| root (element)  bdee2                                    
-02|├╴ block (element)  3ab95                                 
-03|│ ├╴ inline (element)  dd303                              
-04|│ │ └╴ 500 (text)  c2c38                                  
-05|│ ├╴ block (element)  b34fd                               
-06|│ │ └╴ 501 (text)  53590                                  
+01| root (element)   bdee2                                   
+02|├╴ block (element)   3ab95                                
+03|│ ├╴ inline (element)   dd303                             
+04|│ │ └╴#[500] (text)   c2c38                                
+05|│ ├╴ block (element)   b34fd                              
+06|│ │ └╴#[501] (text)   53590                                
 07|~                                                           
 08|~                                                           
 09|~                                                           

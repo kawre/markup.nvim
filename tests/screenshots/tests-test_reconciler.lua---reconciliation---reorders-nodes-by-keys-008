@@ -1,12 +1,12 @@
 --|---------|---------|---------|---------|---------|---------|
-01| root (element)  a82b6                                    
-02|├╴ inline (element)  de3b6                                
-03|│ └╴ A (text)  e76c3                                      
-04|├╴ 123 (text)  3515d                                      
-05|├╴ inline (element)  6782e                                
-06|│ └╴ B (text)  8139f                                      
-07|├╴ inline (element)  dc142                                
-08|│ └╴ C (text)  797f7                                      
+01| root (element)   a82b6                                   
+02|├╴ inline (element)   de3b6                               
+03|│ └╴#[A] (text)   e76c3                                    
+04|├╴#[123] (text)   3515d                                    
+05|├╴ inline (element)   6782e                               
+06|│ └╴#[B] (text)   8139f                                    
+07|├╴ inline (element)   dc142                               
+08|│ └╴#[C] (text)   797f7                                    
 09|~                                                           
 10|~                                                           
 11|~                                                           

@@ -1,7 +1,7 @@
 --|---------|---------|---------|---------|---------|---------|
-01| root (element)  715dd                                    
-02|├╴ inline (element)  ec929                                
-03|│ └╴ text (text)  6e91d                                   
+01| root (element)   715dd                                   
+02|├╴ inline (element)   ec929                               
+03|│ └╴#[text] (text)   6e91d                                 
 04|~                                                           
 05|~                                                           
 06|~                                                           

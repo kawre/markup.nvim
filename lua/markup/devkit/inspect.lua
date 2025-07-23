@@ -84,7 +84,9 @@ function M:paint(page, opts)
 		{ " 󰓅 ", "NeogitHunkHeaderHighlight" },
 		{ (" %.2f ms"):format(self.renderer.stats.elapsed) },
 		{ " | ", "Conceal" },
-		{ ("%d fps"):format(self.renderer.stats.fps) },
+		{ ("%d fps "):format(self.renderer.stats.fps) },
+		{ "  ", "NeogitDiffDeleteHighlight" },
+		{ (" %.2f ms"):format(self.renderer.stats.first_elapsed) },
 	}
 	table.insert(lines, 1, {})
 	table.insert(lines, 1, stats)

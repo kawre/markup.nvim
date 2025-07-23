@@ -1,7 +1,7 @@
 --|---------|---------|---------|---------|---------|---------|
-01| root (element)  78624                                    
-02|├╴ block (element)  f20dd                                 
-03|│ └╴ text (text)  6d4db                                   
+01| root (element)   78624                                   
+02|├╴ block (element)   f20dd                                
+03|│ └╴#[text] (text)   6d4db                                 
 04|~                                                           
 05|~                                                           
 06|~                                                           

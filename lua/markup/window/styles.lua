@@ -43,6 +43,12 @@ M.minimal = {
 	},
 }
 
+M.renderer = {
+	position = "right",
+	height = 0.5,
+	width = 0.5,
+}
+
 M.split = {
 	position = "bottom",
 	height = 0.4,

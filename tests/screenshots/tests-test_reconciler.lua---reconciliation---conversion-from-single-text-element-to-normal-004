@@ -2,8 +2,8 @@
 01| fiber root (root)   99906                                
 02|├╴󰊕 Component (function)   c7c5f                           
 03|│ ├╴ block (element)   c2d70                              
-04|│ │ ├╴ inline  im count: 4 (element)   e8f2a             
-05|│ │ └╴ i'm overriding (text)   bbf95                      
+04|│ │ ├╴ inline #[im count: 4] (element)   e8f2a            
+05|│ │ └╴#[i'm overriding] (text)   bbf95                     
 06|~                                                           
 07|~                                                           
 08|~                                                           

@@ -2,8 +2,8 @@
 01| fiber root (root)   68ce8                                
 02|├╴󰊕 Component (function)   811f2                           
 03|│ ├╴ inline (element)   5ba9e                             
-04|│ │ ├╴ 5 (text)   2a685                                   
-05|│ │ └╴ 5 (text)   eb9a1                                   
+04|│ │ ├╴#[5] (text)   2a685                                  
+05|│ │ └╴#[5] (text)   eb9a1                                  
 06|~                                                           
 07|~                                                           
 08|~                                                           

@@ -5,11 +5,11 @@ local Flag = require("markup.reconciler.enum").Flag
 ---@field pending? { action: fun() }[]
 ---@field last_rendered_state any
 
----@class markup.Fiber.hook
+---@class markup.fiber.hook
 ---@field memoized_state any
 ---@field base_state any
 ---@field queue markup.Fiber.queue
----@field next? markup.Fiber.hook
+---@field next? markup.fiber.hook
 
 ---@class markup.fiber
 ---@field pending_props any
@@ -22,7 +22,7 @@ local Flag = require("markup.reconciler.enum").Flag
 ---@field state_node markup.node
 ---@field deps table
 ---@field key? any
----@field hook? markup.Fiber.hook
+---@field hook? markup.fiber.hook
 ---@field alternate? markup.fiber
 ---@field child? markup.fiber
 ---@field sibling? markup.fiber

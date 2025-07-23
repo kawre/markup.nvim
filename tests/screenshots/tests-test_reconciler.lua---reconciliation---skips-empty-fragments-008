@@ -1,7 +1,7 @@
 --|---------|---------|---------|---------|---------|---------|
-01| root (element)  bcaca                                    
-02|├╴ inline (element)  48ff8                                
-03|│ └╴ 5 (text)  be5bd                                      
+01| root (element)   bcaca                                   
+02|├╴ inline (element)   48ff8                               
+03|│ └╴#[5] (text)   be5bd                                    
 04|~                                                           
 05|~                                                           
 06|~                                                           

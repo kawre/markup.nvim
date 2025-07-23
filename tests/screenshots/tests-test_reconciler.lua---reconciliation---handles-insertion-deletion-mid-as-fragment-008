@@ -1,9 +1,9 @@
 --|---------|---------|---------|---------|---------|---------|
-01| root (element)  25624                                    
-02|├╴ block (element)  6864a                                 
-03|│ ├╴ inline (element)  c534b                              
-04|│ │ └╴ im count: 4 (text)  91da4                          
-05|│ └╴ i'm overriding (text)  455ca                         
+01| root (element)   25624                                   
+02|├╴ block (element)   6864a                                
+03|│ ├╴ inline (element)   c534b                             
+04|│ │ └╴#[im count: 4] (text)   91da4                        
+05|│ └╴#[i'm overriding] (text)   455ca                       
 06|~                                                           
 07|~                                                           
 08|~                                                           

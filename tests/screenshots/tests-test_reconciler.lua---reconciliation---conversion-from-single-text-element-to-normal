@@ -1,7 +1,7 @@
 --|---------|---------|---------|---------|---------|---------|
 01| fiber root (root)   99906                                
 02|├╴󰊕 Component (function)   c7c5f                           
-03|│ └╴ block  text (element)   c2d70                       
+03|│ └╴ block #[text] (element)   c2d70                      
 04|~                                                           
 05|~                                                           
 06|~                                                           

@@ -17,7 +17,7 @@ vim.api.nvim_create_autocmd("ColorScheme", {
 
 --- Ensures the hl groups are always set, even after a colorscheme change.
 ---@param groups snacks.util.hl
----@param opts? { prefix?:string, default?:boolean, managed?:boolean }
+---@param opts? { prefix?:string, default?:boolean, managed?:boolean, ns?:integer }
 function M.set_hl(groups, opts)
 	opts = opts or {}
 	for hl_group, hl in pairs(groups) do
@@ -27,7 +27,7 @@ function M.set_hl(groups, opts)
 		if opts.managed ~= false then
 			hl_groups[hl_group] = hl
 		end
-		vim.api.nvim_set_hl(0, hl_group, hl)
+		vim.api.nvim_set_hl(opts.ns or 0, hl_group, hl)
 	end
 end
 
@@ -91,13 +91,11 @@ end
 
 function M.benchmark(fn)
 	local start_time = vim.uv.hrtime()
-	local res = fn()
+	fn()
 	local end_time = vim.uv.hrtime()
 
-	local elapsed = end_time - start_time
-	local elapsed_ms, fps = elapsed / 1e6, math.floor(1e9 / elapsed)
-	-- Markup.log(("[%s]: %.2f ms | %d fps"):format(name, elapsed_ms, fps))
-	return elapsed_ms, fps
+	local elapsed = end_time - start_time -- ns
+	return elapsed / 1e6 -- ms
 end
 
 ---@param orig table

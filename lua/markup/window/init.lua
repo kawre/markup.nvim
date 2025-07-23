@@ -173,7 +173,7 @@ function M.resolve(...)
 	return ret
 end
 
----@param opts? markup.window.config|{}
+---@param opts? markup.window.config|table
 function M:new(opts)
 	id = id + 1
 	self.id = id
@@ -322,6 +322,7 @@ function M:_on(event, opts)
 	elseif opts.buf then
 		event_opts.buffer = self.buf
 	end
+
 	vim.api.nvim_create_autocmd(event, event_opts)
 end
 
@@ -632,7 +633,7 @@ function M:show()
 		self:update()
 		return self
 	end
-	self.augroup = vim.api.nvim_create_augroup("snacks_win_" .. self.id, { clear = true })
+	self.augroup = vim.api.nvim_create_augroup("markup_win_" .. self.id, { clear = true })
 
 	self:open_buf()
 

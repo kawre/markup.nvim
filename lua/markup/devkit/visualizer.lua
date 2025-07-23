@@ -41,12 +41,18 @@ function M.fiber(root, opts)
 			{ indent, "SignColumn" },
 		}
 
+		local function insert_text(text)
+			table.insert(entries, { "#[", "Number" })
+			table.insert(entries, { ("%s"):format(text) })
+			table.insert(entries, { "]", "Number" })
+		end
+
 		if fiber.tag == FiberTag.FRAGMENT then
 			table.insert(entries, { " " .. fiber.type, "Number" })
 		elseif fiber.tag == FiberTag.ROOT then
 			table.insert(entries, { " fiber root", "Error" })
 		elseif fiber.tag == FiberTag.TEXT then
-			table.insert(entries, { " " .. fiber.state_node.text_content })
+			insert_text(fiber.state_node.text_content)
 		elseif fiber.tag == FiberTag.FUNCTION then
 			table.insert(entries, { "󰊕 Component", "Label" })
 		elseif fiber.tag == FiberTag.CONTEXT then
@@ -56,7 +62,8 @@ function M.fiber(root, opts)
 			if fiber.memoized_props and fiber.memoized_props.children then
 				local children = fiber.memoized_props.children
 				if type(children) == "string" or type(children) == "number" then
-					table.insert(entries, { "  " .. tostring(fiber.pending_props.children) })
+					table.insert(entries, { " " })
+					insert_text(children)
 				end
 			end
 		end
@@ -109,18 +116,22 @@ function M.node(root, opts)
 		local mark = (has_children or not is_last) and "├╴" or "└╴"
 		local indent = prefix .. (depth > 0 and mark or "")
 
-		local label = node.type == "element" and { " " .. node.tag_name, "DiagnosticHint" }
-			or { " " .. node.text_content }
-
 		local entries = {
 			{ indent, "SignColumn" },
-			label,
 			{ " " },
 			{ ("(%s)"):format(node.type), "Conceal" },
 		}
 
+		if node.type == "element" then
+			table.insert(entries, 2, { " " .. node.tag_name, "DiagnosticHint" })
+		else
+			table.insert(entries, 2, { "]", "Number" })
+			table.insert(entries, 2, { ("%s"):format(node.text_content) })
+			table.insert(entries, 2, { "#[", "Number" })
+		end
+
 		if not opts.exclude_ids then
-			-- table.insert(entries, { " " })
+			table.insert(entries, { " " })
 			table.insert(entries, { ("  %s "):format(node.__id), "LspInlayHint" })
 		end
 
@@ -171,12 +182,19 @@ function M.render(root, opts)
 		}
 
 		if node:is("text") then
-			table.insert(entries, 2, { node.node.text_content })
-			table.insert(entries, 2, { "#", "Number" })
+			table.insert(entries, 2, { "]", "Number" })
+			table.insert(entries, 2, { ("%s"):format(node.node.text_content) })
+			table.insert(entries, 2, { "#[", "Number" })
 		else
-			table.insert(entries, 2, { node:name(), "Label" })
-			table.insert(entries, { (" (%s)"):format(node.node.tag_name), "Conceal" })
+			table.insert(entries, 2, { " " .. node:name(), "Label" })
+			-- table.insert(entries, { (" (%s)"):format(node.node.tag_name), "Conceal" })
 		end
+
+		local mrange = node:margin_box_range()
+		table.insert(entries, {
+			(" [%s, %s] - [%s, %s]"):format(mrange.top, mrange.left, mrange.bottom, mrange.right),
+			"@comment.query",
+		})
 
 		if not opts.exclude_ids then
 			table.insert(entries, { " " })

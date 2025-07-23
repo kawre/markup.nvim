@@ -7,7 +7,7 @@ function M:new(reconciler)
 	self.reconciler = reconciler
 end
 
----@param hook markup.Fiber.hook
+---@param hook markup.fiber.hook
 ---@param action function
 function M:enqueue_hook_update(hook, action)
 	local queue = hook.queue
@@ -37,7 +37,7 @@ function M:resolve_hook_updates(fiber)
 	end
 end
 
----@param hook markup.Fiber.hook
+---@param hook markup.fiber.hook
 ---@param action function
 function M:set_state(hook, action)
 	self:enqueue_hook_update(hook, action)

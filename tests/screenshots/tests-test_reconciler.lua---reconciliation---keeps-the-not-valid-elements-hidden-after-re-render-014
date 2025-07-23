@@ -1,9 +1,9 @@
 --|---------|---------|---------|---------|---------|---------|
-01| root (element)  e9abf                                    
-02|├╴ inline (element)  4b159                                
-03|│ └╴ 5 (text)  a5a4c                                      
-04|├╴ inline (element)  d17f6                                
-05|│ └╴ 5 (text)  d0329                                      
+01| root (element)   e9abf                                   
+02|├╴ inline (element)   4b159                               
+03|│ └╴#[5] (text)   a5a4c                                    
+04|├╴ inline (element)   d17f6                               
+05|│ └╴#[5] (text)   d0329                                    
 06|~                                                           
 07|~                                                           
 08|~                                                           

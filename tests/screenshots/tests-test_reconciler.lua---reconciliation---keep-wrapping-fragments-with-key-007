@@ -2,7 +2,7 @@
 01| fiber root (root)   83861                                
 02|├╴󰊕 Component (function)   343fb                           
 03|│ ├╴ fragment [key = A] (fragment)   2a68a                
-04|│ │ └╴ 5 (text)   a2022                                   
+04|│ │ └╴#[5] (text)   a2022                                  
 05|~                                                           
 06|~                                                           
 07|~                                                           

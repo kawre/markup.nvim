@@ -4,7 +4,7 @@ local Dispatcher = require("markup.reconciler.dispatcher")
 
 ---@class markup.reconciler: markup.object
 ---@field currently_rendering_fiber markup.fiber
----@field wip_hook markup.Fiber.hook?
+---@field wip_hook markup.fiber.hook?
 ---@field renderer? markup.renderer
 ---@field dispatcher markup.dispatcher
 ---@field render_scheduled boolean
@@ -894,8 +894,8 @@ function M:reconcile_single_text(returnf, current, content)
 	end
 end
 
----@param payload? table
----@return markup.Fiber.hook
+---@param payload? markup.fiber.hook
+---@return markup.fiber.hook
 function M:mount_wip_hook(payload)
 	local hook = payload or {}
 
@@ -911,7 +911,7 @@ function M:mount_wip_hook(payload)
 	return self.wip_hook
 end
 
----@return markup.Fiber.hook
+---@return markup.fiber.hook
 function M:update_wip_hook()
 	if not self.wip_hook then
 		-- first hook to be updated

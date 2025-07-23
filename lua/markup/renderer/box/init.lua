@@ -92,9 +92,9 @@ end
 function RenderBox:layout()
 	assert(self.layout_strategy, "Layout strategy is not set")
 
-	if self.dirty == false then
-		return
-	end
+	-- if self.dirty == false then
+	-- 	return
+	-- end
 
 	-- offset
 	self.ox = self.parent.x
@@ -309,7 +309,7 @@ function RenderBox:paint(renderer, x, y)
 
 		Markup.util.set_hl({
 			[self.__id] = self.props.style,
-		}, { managed = true, prefix = "MarkupDynamic" })
+		}, { managed = true, prefix = "MarkupDynamic", force = true })
 
 		for line = 0, pbox.height - 1 do
 			local extmark_id = vim.api.nvim_buf_set_extmark(0, ns, poy + line, pox, {
@@ -323,11 +323,10 @@ function RenderBox:paint(renderer, x, y)
 	end
 end
 
-local debug_ns = vim.api.nvim_create_namespace("markup.debug")
-
-function RenderBox:debug_paint_margin(x, y)
+function RenderBox:debug_paint_margin(renderer, x, y)
 	assert(Markup.config.debug, "Debug mode is not enabled.")
 	local props = self.props
+	local ns = renderer.debug_ns
 
 	local hl = "CurSearch"
 
@@ -344,7 +343,7 @@ function RenderBox:debug_paint_margin(x, y)
 	local mbye = mbys + props.margin_bottom
 
 	for line = mtys, mtye - 1 do
-		vim.api.nvim_buf_set_extmark(0, debug_ns, line, mlxs, {
+		vim.api.nvim_buf_set_extmark(0, ns, line, mlxs, {
 			end_col = mrxs + props.margin_right,
 			hl_eol = true,
 			hl_group = hl,
@@ -352,7 +351,7 @@ function RenderBox:debug_paint_margin(x, y)
 		})
 	end
 	for line = mbys, mbye - 1 do
-		vim.api.nvim_buf_set_extmark(0, debug_ns, line, mlxs, {
+		vim.api.nvim_buf_set_extmark(0, ns, line, mlxs, {
 			end_col = mrxs + props.margin_right,
 			hl_eol = true,
 			hl_group = hl,
@@ -360,13 +359,13 @@ function RenderBox:debug_paint_margin(x, y)
 		})
 	end
 	for line = mtye, mbys - 1 do
-		vim.api.nvim_buf_set_extmark(0, debug_ns, line, mlxs, {
+		vim.api.nvim_buf_set_extmark(0, ns, line, mlxs, {
 			end_col = mlxs + props.margin_left,
 			hl_eol = true,
 			hl_group = hl,
 			hl_mode = "combine",
 		})
-		vim.api.nvim_buf_set_extmark(0, debug_ns, line, mrxs, {
+		vim.api.nvim_buf_set_extmark(0, ns, line, mrxs, {
 			end_col = mrxs + props.margin_right,
 			hl_eol = true,
 			hl_group = hl,
@@ -375,9 +374,10 @@ function RenderBox:debug_paint_margin(x, y)
 	end
 end
 
-function RenderBox:debug_paint_padding(x, y)
+function RenderBox:debug_paint_padding(renderer, x, y)
 	assert(Markup.config.debug, "Debug mode is not enabled.")
 	local props = self.props
+	local ns = renderer.debug_ns
 
 	local hl = "Search"
 
@@ -390,7 +390,7 @@ function RenderBox:debug_paint_padding(x, y)
 	local pbye = pbys + props.padding_bottom
 
 	for line = ptys, ptye - 1 do
-		vim.api.nvim_buf_set_extmark(0, debug_ns, line, plxs, {
+		vim.api.nvim_buf_set_extmark(0, ns, line, plxs, {
 			end_col = prxs + props.padding_right,
 			hl_eol = true,
 			hl_group = hl,
@@ -398,7 +398,7 @@ function RenderBox:debug_paint_padding(x, y)
 		})
 	end
 	for line = pbys, pbye - 1 do
-		vim.api.nvim_buf_set_extmark(0, debug_ns, line, plxs, {
+		vim.api.nvim_buf_set_extmark(0, ns, line, plxs, {
 			end_col = prxs + props.padding_right,
 			hl_eol = true,
 			hl_group = hl,
@@ -406,13 +406,13 @@ function RenderBox:debug_paint_padding(x, y)
 		})
 	end
 	for line = ptye, pbys - 1 do
-		vim.api.nvim_buf_set_extmark(0, debug_ns, line, plxs, {
+		vim.api.nvim_buf_set_extmark(0, ns, line, plxs, {
 			end_col = plxs + props.padding_left,
 			hl_eol = true,
 			hl_group = hl,
 			hl_mode = "combine",
 		})
-		vim.api.nvim_buf_set_extmark(0, debug_ns, line, prxs, {
+		vim.api.nvim_buf_set_extmark(0, ns, line, prxs, {
 			end_col = prxs + props.padding_right,
 			hl_eol = true,
 			hl_group = hl,

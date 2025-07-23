@@ -1,7 +1,7 @@
 --|---------|---------|---------|---------|---------|---------|
 01| fiber root (root)   68ce8                                
 02|├╴󰊕 Component (function)   811f2                           
-03|│ └╴ inline  text (element)   5ba9e                      
+03|│ └╴ inline #[text] (element)   5ba9e                     
 04|~                                                           
 05|~                                                           
 06|~                                                           

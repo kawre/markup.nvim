@@ -1,12 +1,12 @@
 --|---------|---------|---------|---------|---------|---------|
-01| root (element)  a44fb                                    
-02|├╴ inline (element)  693c6                                
-03|│ └╴ A (text)  449a4                                      
-04|├╴ 123 (text)  f2866                                      
-05|├╴ inline (element)  b63d6                                
-06|│ └╴ B (text)  d11cb                                      
-07|├╴ inline (element)  a2a77                                
-08|│ └╴ C (text)  49588                                      
+01| root (element)   a44fb                                   
+02|├╴ inline (element)   693c6                               
+03|│ └╴#[A] (text)   449a4                                    
+04|├╴#[123] (text)   f2866                                    
+05|├╴ inline (element)   b63d6                               
+06|│ └╴#[B] (text)   d11cb                                    
+07|├╴ inline (element)   a2a77                               
+08|│ └╴#[C] (text)   49588                                    
 09|~                                                           
 10|~                                                           
 11|~                                                           

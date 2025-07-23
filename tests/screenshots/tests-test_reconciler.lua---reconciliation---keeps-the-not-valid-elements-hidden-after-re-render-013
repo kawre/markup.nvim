@@ -1,8 +1,8 @@
 --|---------|---------|---------|---------|---------|---------|
 01| fiber root (root)   2f305                                
 02|├╴󰊕 Component (function)   3d6c5                           
-03|│ ├╴ inline  5 (element)   6fa50                         
-04|│ └╴ inline  5 (element)   5635f                         
+03|│ ├╴ inline #[5] (element)   6fa50                        
+04|│ └╴ inline #[5] (element)   5635f                        
 05|~                                                           
 06|~                                                           
 07|~                                                           
