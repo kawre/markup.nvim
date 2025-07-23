@@ -17,6 +17,7 @@ local M = {}
 ---@field devkit markup.devkit
 ---@field playground markup.playground
 ---@field factory markup.factory
+---@field dispatcher markup.dispatcher
 ---@field window markup.window
 ---@field renderer markup.renderer
 ---@field assert markup.assert

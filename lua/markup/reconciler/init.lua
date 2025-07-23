@@ -3,105 +3,73 @@ local Flag = require("markup.reconciler.enum").Flag
 local Dispatcher = require("markup.reconciler.dispatcher")
 
 ---@class markup.reconciler: markup.object
----@field currently_rendering_fiber markup.fiber
----@field wip_hook markup.fiber.hook?
----@field renderer? markup.renderer
----@field dispatcher markup.dispatcher
 ---@field render_scheduled boolean
+---@field current_fiber? markup.fiber
+---@field current_hook? markup.fiber.hook
+---@field wip_hook? markup.fiber.hook
+---@field work_stack table
+---@field work_stack_visited table
 ---@overload fun(renderer: markup.renderer): markup.reconciler
-local M = Markup.object()
+local M = Markup.singleton()
 
----@class markup.Reconciler.static
----@field currently_working_reconciler markup.reconciler?
-M.static = {}
+---@param rootf markup.fiber
+function M.new(rootf)
+	M.current_fiber = nil
+	M.current_hook = nil
+	M.wip_hook = nil
 
----@type markup.reconciler?
-M.static.currently_working_reconciler = nil
-M.static.last_context_dep = nil
-
----@param assert_? boolean
-function M.static.get(assert_)
-	local reconciler = M.static.currently_working_reconciler
-	if assert_ then
-		Markup.assert.bug(reconciler, "`reconciler` must be set")
-	end
-	return reconciler
-end
-
----@param assert_? boolean
-function M.static.get_currently_rendering_fiber(assert_)
-	local reconciler = M.static.get(assert_)
-	local fiber = reconciler and reconciler.currently_rendering_fiber
-
-	if assert_ then
-		Markup.assert.bug(fiber, "`fiber` must be set")
-	end
-
-	return fiber, reconciler
-end
-
----@param renderer markup.renderer
-function M:new(renderer)
-	self.currently_rendering_fiber = nil
-	self.dispatcher = Dispatcher(self)
-	self.renderer = renderer
-end
-
-function M:reconcile()
-	M.static.currently_working_reconciler = self
-	self:work_loop()
-	M.static.currently_working_reconciler = nil
-
-	self:commit()
+	local new_rootf = M.work_loop(rootf)
+	M.commit(new_rootf)
+	return new_rootf
 end
 
 ---@param rootf markup.fiber
-function M:fresh_stack(rootf)
-	local wip = self:create_wip(rootf, rootf.pending_props)
+function M.fresh_stack(rootf)
+	local wip = M.create_wip(rootf, rootf.pending_props)
 
-	self.work_stack = Markup.collection.stack()
-	self.work_stack:push(wip)
-	self.work_stack_visited = {}
+	M.work_stack = Markup.collection.stack()
+	M.work_stack:push(wip)
+	M.work_stack_visited = {}
 
-	return self.work_stack
+	return M.work_stack
 end
 
 ---dfs reconciliation
-function M:work_loop()
-	self.work_stack = self:fresh_stack(self.renderer.rootf)
+---@param rootf markup.fiber
+function M.work_loop(rootf)
+	M.work_stack = M.fresh_stack(rootf)
 
 	local unit
-	while self.work_stack.len > 0 do
-		unit = self.work_stack:pop()
-		self:process_unit(unit)
+	while M.work_stack.len > 0 do
+		unit = M.work_stack:pop()
+		M.process_unit(unit)
 	end
 
-	self.renderer.rootf = unit
+	return unit
 end
 
 ---@param unit markup.fiber
 ---@return markup.fiber?
-function M:process_unit(unit)
-	if self.work_stack_visited[unit] then
-		return self:complete_unit(unit)
-		-- return
+function M.process_unit(unit)
+	if M.work_stack_visited[unit] then
+		return M.complete_unit(unit)
 	end
 
-	self.currently_rendering_fiber = unit
-	local next = self:begin_work(unit.alternate, unit)
-	self.currently_rendering_fiber = nil
+	M.current_fiber = unit
+	local next = M.begin_work(unit.alternate, unit)
+	M.current_fiber = nil
 
 	unit.memoized_props = unit.pending_props
 
-	self.work_stack:push(unit)
-	self.work_stack:push(next)
-	self.work_stack_visited[unit] = true
+	M.work_stack:push(unit)
+	M.work_stack:push(next)
+	M.work_stack_visited[unit] = true
 end
 
 ---@param current? markup.fiber
 ---@param wip markup.fiber
 ---@return markup.fiber
-function M:begin_work(current, wip)
+function M.begin_work(current, wip)
 	-- first check if the fiber can be reused
 	if current then
 		local old_props, new_props = current.memoized_props, wip.pending_props
@@ -109,10 +77,10 @@ function M:begin_work(current, wip)
 			current.type == wip.type
 			and old_props == new_props
 			and wip:check_flags(Flag.NONE)
-			and not self:has_pending_updates(wip)
+			and not M.has_pending_updates(wip)
 		then
 			-- nothing to do, we can reuse the current fiber
-			return self:bailout(wip)
+			return M.bailout(wip)
 		end
 	end
 
@@ -146,11 +114,11 @@ function M:begin_work(current, wip)
 	end
 
 	---@diagnostic disable-next-line: return-type-mismatch
-	return next_work(self, current, wip)
+	return next_work(current, wip)
 end
 
 ---@param unit markup.fiber
-function M:complete_unit(unit)
+function M.complete_unit(unit)
 	local current, wip = unit.alternate, unit
 
 	local complete_work ---@type function
@@ -158,18 +126,18 @@ function M:complete_unit(unit)
 		wip.tag == Tag.ELEMENT
 	then
 		if current and wip.state_node then
-			self:update_single_node(wip)
+			M.update_single_node(wip)
 		else
-			self:place_single_node(wip)
-			self:populate_state_node(wip)
+			M.place_single_node(wip)
+			M.populate_state_node(wip)
 		end
 	elseif --
 		wip.tag == Tag.TEXT
 	then
 		if current and wip.state_node then
-			self:update_node_text(wip)
+			M.update_node_text(wip)
 		else
-			self:place_single_node(wip)
+			M.place_single_node(wip)
 		end
 	elseif --
 		wip.tag == Tag.FUNCTION
@@ -180,20 +148,20 @@ function M:complete_unit(unit)
 		wip.tag == Tag.ROOT
 	then
 		if wip:check_flags(Flag.PLACEMENT) then
-			self:populate_state_node(wip)
+			M.populate_state_node(wip)
 			wip:clear_flags(Flag.PLACEMENT)
 		end
 	else
 		-- error(("Invalid Fiber tag: %s"):format(wip.tag))
 	end
 
-	self.work_stack:push(unit.sibling)
+	M.work_stack:push(unit.sibling)
 	-- assertor.bug(unit:check_flags(Flag.NONE), "Fiber flags must be `NONE` after completion")
 end
 
 ---@param fiber markup.fiber
 ---@return markup.fiber
-function M:find_element_ancestor(fiber)
+function M.find_element_ancestor(fiber)
 	local parent = fiber and fiber["return"]
 
 	while parent and not parent.state_node do
@@ -205,7 +173,7 @@ function M:find_element_ancestor(fiber)
 end
 
 ---@param fiber markup.fiber
-function M:commit_deletions(fiber)
+function M.commit_deletions(fiber)
 	assert(fiber.deletions, "`fiber.deletions` must exist for commit deletions")
 
 	local bfs = Markup.collection.stack()
@@ -232,18 +200,18 @@ function M:commit_deletions(fiber)
 end
 
 ---@param wip markup.fiber
-function M:place_single_node(wip)
+function M.place_single_node(wip)
 	wip.state_node = Markup.factory.node.from_fiber(wip)
 
-	if type(wip.pending_props) == "table" and self:is_valid_text(wip.pending_props.children) then
+	if type(wip.pending_props) == "table" and M.is_valid_text(wip.pending_props.children) then
 		-- handle single text child elements
-		self:place_single_text_child(wip)
+		M.place_single_text_child(wip)
 	end
 	wip:set_flags(Flag.PLACEMENT)
 end
 
 ---@param wip markup.fiber
-function M:update_single_node(wip)
+function M.update_single_node(wip)
 	local current = wip.alternate
 	assert(current, "`current` must exist for updating a single node")
 
@@ -251,12 +219,12 @@ function M:update_single_node(wip)
 		wip:set_flags(Flag.UPDATE)
 	end
 
-	-- if self:is_valid_text(wip.pending_props.children) then
+	-- if M.is_valid_text(wip.pending_props.children) then
 	-- 	-- handle single text child elements
-	-- 	if self:is_valid_text(current.memoized_props.children) then
-	-- 		self:update_single_text_child(wip)
+	-- 	if M.is_valid_text(current.memoized_props.children) then
+	-- 		M.update_single_text_child(wip)
 	-- 	else
-	-- 		self:place_single_text_child(wip)
+	-- 		M.place_single_text_child(wip)
 	-- 	end
 	-- else
 	-- 	wip.state_node:replace_props(wip.pending_props)
@@ -266,7 +234,7 @@ function M:update_single_node(wip)
 end
 
 ---@param fiber markup.fiber
-function M:place_single_text_child(fiber)
+function M.place_single_text_child(fiber)
 	assert(fiber.state_node, "`fiber.state_node` must exist for text child placement")
 
 	local text_node = Markup.factory.node.from_text(fiber.pending_props.children)
@@ -274,48 +242,48 @@ function M:place_single_text_child(fiber)
 end
 
 ---@param fiber markup.fiber
-function M:bailout(fiber)
-	self:clone_child_fibers(fiber)
+function M.bailout(fiber)
+	M.clone_child_fibers(fiber)
 	return fiber.child
 end
 
 ---@param current? markup.fiber
 ---@param wip markup.fiber
-function M:update_function_component(current, wip)
-	local next_children = self:render_with_hooks(current, wip)
+function M.update_function_component(current, wip)
+	local next_children = M.render_with_hooks(current, wip)
 
-	wip.child = self:reconcile_children(current, wip, next_children)
+	wip.child = M.reconcile_children(current, wip, next_children)
 	return wip.child
 end
 
-function M:update_fragment_component(current, wip)
-	wip.child = self:reconcile_children(current, wip, wip.pending_props.children)
+function M.update_fragment_component(current, wip)
+	wip.child = M.reconcile_children(current, wip, wip.pending_props.children)
 	return wip.child
 end
 
 ---@param current markup.fiber
 ---@param wip markup.fiber
-function M:update_root_component(current, wip)
+function M.update_root_component(current, wip)
 	Markup.assert.bug(current, "Root must always have an alternate fiber")
 
-	wip.child = self:reconcile_children(current, wip, wip.pending_props.children)
+	wip.child = M.reconcile_children(current, wip, wip.pending_props.children)
 	return wip.child
 end
 
 ---@param current markup.fiber
 ---@param wip markup.fiber
-function M:update_context_component(current, wip)
+function M.update_context_component(current, wip)
 	local ctx = wip.type
 	local next_value = wip.pending_props.value
 	ctx.current = next_value
 
-	wip.child = self:reconcile_children(current, wip, wip.pending_props.children)
+	wip.child = M.reconcile_children(current, wip, wip.pending_props.children)
 	return wip.child
 end
 
 ---@param current? markup.fiber
 ---@param wip markup.fiber
-function M:update_text_component(current, wip)
+function M.update_text_component(current, wip)
 	if not current then
 		wip:set_flags(Flag.PLACEMENT)
 	elseif current.memoized_props ~= wip.pending_props then
@@ -324,7 +292,7 @@ function M:update_text_component(current, wip)
 end
 
 ---@param fiber markup.fiber
-function M:create_instance(fiber)
+function M.create_instance(fiber)
 	Markup.assert.bug(not fiber.state_node, "`fiber.state_node` must not exist during creation")
 
 	fiber:set_flags(Flag.PLACEMENT)
@@ -335,19 +303,19 @@ function M:create_instance(fiber)
 	-- 	-- fiber.state_node =
 	-- elseif fiber.tag == FiberTag.ROOT then
 	-- end
-	-- fiber.state_node.frame = self.renderer
+	-- fiber.state_node.frame = M.renderer
 
 	return fiber
 end
 
-function M:is_direct_text_child(fiber)
+function M.is_direct_text_child(fiber)
 	local parent = fiber["return"]
 	return parent and parent.tag == Tag.ELEMENT
 end
 
 ---@param current? markup.fiber
 ---@param wip markup.fiber
-function M:update_element_component(current, wip)
+function M.update_element_component(current, wip)
 	local next_props = wip.pending_props
 	local next_children = next_props and next_props.children
 
@@ -357,17 +325,17 @@ function M:update_element_component(current, wip)
 		wip:set_flags(Flag.UPDATE)
 	end
 
-	if self:is_valid_text(next_children) then
+	if M.is_valid_text(next_children) then
 		-- dont return, keep the function going to delete the remaining children
 		next_children = nil
 	end
 
-	wip.child = self:reconcile_children(current, wip, next_children)
+	wip.child = M.reconcile_children(current, wip, next_children)
 	return wip.child
 end
 
 ---@param fiber markup.fiber
-function M:has_pending_updates(fiber)
+function M.has_pending_updates(fiber)
 	if fiber.tag ~= "function" then
 		return false
 	end
@@ -384,12 +352,12 @@ end
 
 ---@param current? markup.fiber
 ---@param wip markup.fiber
-function M:render_with_hooks(current, wip)
+function M.render_with_hooks(current, wip)
 	-- clear the hooks to make space for the next hooks
-	self.wip_hook = nil
+	M.wip_hook = nil
 
 	-- if there are pending updates, update the state
-	self.dispatcher:resolve_hook_updates(wip)
+	Dispatcher.resolve_hook_updates(wip)
 
 	local Component = wip.type
 	local props = wip.pending_props
@@ -405,7 +373,7 @@ end
 
 ---@param returnf markup.fiber
 ---@param child markup.fiber
-function M:delete_child(returnf, child)
+function M.delete_child(returnf, child)
 	if not returnf.deletions then
 		returnf.deletions = { child }
 		returnf:set_flags(Flag.CHILD_DELETE)
@@ -416,15 +384,15 @@ end
 
 ---@param returnf markup.fiber
 ---@param child markup.element
-function M:create_child(returnf, child)
-	if self:is_valid_text(child) then
+function M.create_child(returnf, child)
+	if M.is_valid_text(child) then
 		local fiber = Markup.factory.fiber.from_text(child) ---@diagnostic disable-line: param-type-mismatch
 		fiber["return"] = returnf
 		return fiber
 	end
 
 	if child then
-		local el = self:prepare_element(child)
+		local el = M.prepare_element(child)
 		if el then
 			local fiber = Markup.factory.fiber.from_element(el)
 			fiber["return"] = returnf
@@ -436,22 +404,22 @@ function M:create_child(returnf, child)
 end
 
 ---@param content any
-function M:is_valid_text(content)
+function M.is_valid_text(content)
 	return (type(content) == "string" and content ~= "") or type(content) == "number"
 end
 
 ---@param content any
-function M:should_be_fragment(content)
+function M.should_be_fragment(content)
 	return type(content) == "table" and not getmetatable(content) and not vim.tbl_isempty(content)
 end
 
 ---@param element markup.element
-function M:is_host_element(element)
+function M.is_host_element(element)
 	return element.typeof == "root" or element.typeof == "element"
 end
 
 ---@param content any
-function M:is_valid_element(content)
+function M.is_valid_element(content)
 	if not getmetatable(content) then
 		return false
 	end ---@cast content markup.element
@@ -469,21 +437,21 @@ end
 ---@param returnf markup.fiber
 ---@param old_fiber? markup.fiber
 ---@param new_child markup.element
-function M:update_slot(returnf, old_fiber, new_child)
+function M.update_slot(returnf, old_fiber, new_child)
 	local key = old_fiber and old_fiber.key
 
-	if self:is_valid_text(new_child) then
+	if M.is_valid_text(new_child) then
 		if key then
 			return nil
 		end
 
-		return self:update_text_node(returnf, old_fiber, new_child)
+		return M.update_text_node(returnf, old_fiber, new_child)
 	end
 
 	if new_child and new_child.key == key then
-		local el = self:prepare_element(new_child)
+		local el = M.prepare_element(new_child)
 		if el then
-			return self:update_element_node(returnf, old_fiber, el)
+			return M.update_element_node(returnf, old_fiber, el)
 		end
 	end
 
@@ -491,7 +459,7 @@ function M:update_slot(returnf, old_fiber, new_child)
 end
 
 ---@param fiber markup.fiber
-function M:clone_child_fibers(fiber)
+function M.clone_child_fibers(fiber)
 	if not fiber.child then
 		return nil
 	end
@@ -499,14 +467,14 @@ function M:clone_child_fibers(fiber)
 	---@type markup.fiber
 	local current_child = fiber.child
 
-	local new_child = self:create_wip(current_child, current_child.pending_props)
+	local new_child = M.create_wip(current_child, current_child.pending_props)
 	fiber.child = new_child
 	new_child["return"] = fiber
 
 	while current_child ~= nil and current_child.sibling ~= nil do
 		current_child = current_child.sibling
 
-		new_child.sibling = self:create_wip(current_child, current_child.pending_props)
+		new_child.sibling = M.create_wip(current_child, current_child.pending_props)
 		new_child = new_child.sibling
 
 		new_child["return"] = fiber
@@ -517,7 +485,7 @@ end
 
 ---@param current markup.fiber
 ---@param props any
-function M:create_wip(current, props)
+function M.create_wip(current, props)
 	local wip = current.alternate
 
 	if not wip then
@@ -548,34 +516,34 @@ function M:create_wip(current, props)
 	return wip
 end
 
-function M:prepare_element(element)
+function M.prepare_element(element)
 	if not element then
 		return nil
 	end
 
 	local el = element
-	if self:should_be_fragment(el) then
+	if M.should_be_fragment(el) then
 		el = Markup.factory.element.fragment(el)
 	end
 
-	return self:is_valid_element(el) and el
+	return M.is_valid_element(el) and el
 end
 
 ---@param existing table<any, markup.fiber>
 ---@param returnf markup.fiber
 ---@param new_index integer
 ---@param new_child markup.element
-function M:update_from_map(existing, returnf, new_index, new_child)
-	if self:is_valid_text(new_child) then
+function M.update_from_map(existing, returnf, new_index, new_child)
+	if M.is_valid_text(new_child) then
 		local matched = existing[new_index]
-		return self:update_text_node(returnf, matched, new_child)
+		return M.update_text_node(returnf, matched, new_child)
 	end
 
 	if new_child then
-		local el = self:prepare_element(new_child)
+		local el = M.prepare_element(new_child)
 		if el then
 			local matched = existing[el.key or new_index]
-			return self:update_element_node(returnf, matched, el)
+			return M.update_element_node(returnf, matched, el)
 		end
 	end
 
@@ -585,10 +553,10 @@ end
 ---@param returnf markup.fiber
 ---@param current? markup.fiber
 ---@param content any
-function M:update_text_node(returnf, current, content)
+function M.update_text_node(returnf, current, content)
 	if current and current.tag == Tag.TEXT then
 		-- If the existing fiber is a text node, update it
-		local existing = self:use_fiber(current, content)
+		local existing = M.use_fiber(current, content)
 		existing["return"] = returnf
 		return existing
 	else
@@ -600,7 +568,7 @@ function M:update_text_node(returnf, current, content)
 end
 
 ---@param fiber markup.fiber
-function M:update_node_text(fiber)
+function M.update_node_text(fiber)
 	local old_text, new_text = fiber.alternate.pending_props, fiber.pending_props
 	local node = fiber.state_node
 
@@ -611,7 +579,7 @@ function M:update_node_text(fiber)
 end
 
 ---@param fiber markup.fiber
-function M:update_single_text_child(fiber)
+function M.update_single_text_child(fiber)
 	local text_node = fiber.state_node.child_nodes[1]
 	assert(text_node:is("text"))
 
@@ -621,10 +589,10 @@ end
 ---@param returnf markup.fiber
 ---@param current? markup.fiber
 ---@param element markup.element
-function M:update_element_node(returnf, current, element)
+function M.update_element_node(returnf, current, element)
 	if current and current.type == element.type then
 		-- If the existing fiber is not an element node, create a new one
-		local existing = self:use_fiber(current, element.props)
+		local existing = M.use_fiber(current, element.props)
 		existing["return"] = returnf
 		return existing
 	else
@@ -638,7 +606,7 @@ end
 ---@param returnf markup.fiber
 ---@param current_first_child? markup.fiber
 ---@param new_children markup.element[]
-function M:reconcile_children_list(returnf, current_first_child, new_children)
+function M.reconcile_children_list(returnf, current_first_child, new_children)
 	local new_index, last_placed_index = 1, 1
 
 	new_children = vim.tbl_filter(function(i) -- TODO this should be done in the while loop
@@ -656,7 +624,7 @@ function M:reconcile_children_list(returnf, current_first_child, new_children)
 			next_old_fiber = old_fiber.sibling
 		end
 
-		local new_fiber = self:update_slot(returnf, old_fiber, new_children[new_index])
+		local new_fiber = M.update_slot(returnf, old_fiber, new_children[new_index])
 
 		if not new_fiber then
 			if not old_fiber then
@@ -666,10 +634,10 @@ function M:reconcile_children_list(returnf, current_first_child, new_children)
 		end
 
 		if old_fiber and not new_fiber.alternate then
-			self:delete_child(returnf, old_fiber)
+			M.delete_child(returnf, old_fiber)
 		end
 
-		last_placed_index = self:place_child(new_fiber, last_placed_index, new_index)
+		last_placed_index = M.place_child(new_fiber, last_placed_index, new_index)
 
 		if not prev_new_fiber then
 			result_first_child = new_fiber
@@ -686,7 +654,7 @@ function M:reconcile_children_list(returnf, current_first_child, new_children)
 	if new_index == #new_children + 1 then
 		-- all of the new fibers have been processed,
 		-- we can safely delete the remaining old fibers
-		self:delete_remaining_children(returnf, old_fiber)
+		M.delete_remaining_children(returnf, old_fiber)
 		return result_first_child
 	end
 
@@ -694,10 +662,10 @@ function M:reconcile_children_list(returnf, current_first_child, new_children)
 		-- we still have some new fibers to process no existing children,
 		-- so we can just insert them all
 		while new_index <= #new_children do
-			local new_fiber = self:create_child(returnf, new_children[new_index])
+			local new_fiber = M.create_child(returnf, new_children[new_index])
 
 			if new_fiber then
-				last_placed_index = self:place_child(new_fiber, last_placed_index, new_index)
+				last_placed_index = M.place_child(new_fiber, last_placed_index, new_index)
 
 				if prev_new_fiber then
 					prev_new_fiber.sibling = new_fiber
@@ -714,18 +682,18 @@ function M:reconcile_children_list(returnf, current_first_child, new_children)
 		return result_first_child
 	end
 
-	local existing_children = self:map_remaining_children(old_fiber)
+	local existing_children = M.map_remaining_children(old_fiber)
 
 	while new_index <= #new_children do
 		local new_fiber =
-			self:update_from_map(existing_children, returnf, new_index, new_children[new_index])
+			M.update_from_map(existing_children, returnf, new_index, new_children[new_index])
 
 		if new_fiber then
 			if new_fiber.alternate then
 				existing_children[new_fiber.key and new_fiber.key or new_index] = nil
 			end
 
-			last_placed_index = self:place_child(new_fiber, last_placed_index, new_index)
+			last_placed_index = M.place_child(new_fiber, last_placed_index, new_index)
 
 			if prev_new_fiber then
 				prev_new_fiber.sibling = new_fiber
@@ -741,14 +709,14 @@ function M:reconcile_children_list(returnf, current_first_child, new_children)
 
 	for _, child in pairs(existing_children) do
 		-- delete the remaining children that are not in the new children list
-		self:delete_child(returnf, child)
+		M.delete_child(returnf, child)
 	end
 
 	return result_first_child
 end
 
 ---@param new_child markup.element
-function M:prepare_new_child(new_child)
+function M.prepare_new_child(new_child)
 	local child = new_child
 
 	while getmetatable(child) and child.typeof == "fragment" and not child.key do
@@ -761,38 +729,38 @@ end
 ---@param current? markup.fiber
 ---@param wip markup.fiber
 ---@param next_children markup.element
-function M:reconcile_children(current, wip, next_children)
-	return self:reconcile_child_fibers(wip, current and current.child, next_children)
+function M.reconcile_children(current, wip, next_children)
+	return M.reconcile_child_fibers(wip, current and current.child, next_children)
 end
 
 ---@param returnf markup.fiber
 ---@param current_first_child? markup.fiber
 ---@param new_child markup.element
-function M:reconcile_child_fibers(returnf, current_first_child, new_child)
-	new_child = self:prepare_new_child(new_child)
+function M.reconcile_child_fibers(returnf, current_first_child, new_child)
+	new_child = M.prepare_new_child(new_child)
 
-	if self:is_valid_text(new_child) then
+	if M.is_valid_text(new_child) then
 		---@diagnostic disable-next-line: param-type-mismatch
-		return self:reconcile_single_text(returnf, current_first_child, new_child)
+		return M.reconcile_single_text(returnf, current_first_child, new_child)
 	elseif new_child then
 		if not getmetatable(new_child) then
 			-- this is an array list
-			return self:reconcile_children_list(returnf, current_first_child, new_child)
+			return M.reconcile_children_list(returnf, current_first_child, new_child)
 		else
 			-- this is an element object
-			local el = self:prepare_element(new_child)
+			local el = M.prepare_element(new_child)
 			if el then
-				return self:reconcile_single_element(returnf, current_first_child, el)
+				return M.reconcile_single_element(returnf, current_first_child, el)
 			end
 		end
 	end
 
-	return self:delete_remaining_children(returnf, current_first_child)
+	return M.delete_remaining_children(returnf, current_first_child)
 end
 
 ---@param current_first_child? markup.fiber
 ---@return table<any, markup.fiber>
-function M:map_remaining_children(current_first_child)
+function M.map_remaining_children(current_first_child)
 	local existing = {}
 
 	local child = current_first_child
@@ -804,14 +772,14 @@ function M:map_remaining_children(current_first_child)
 	return existing
 end
 
-function M:is_node_kind(fiber)
+function M.is_node_kind(fiber)
 	return fiber.tag == Tag.ELEMENT or fiber.tag == Tag.TEXT
 end
 
 ---@param new_fiber markup.fiber
 ---@param last_placed_index integer
 ---@param new_index integer
-function M:place_child(new_fiber, last_placed_index, new_index)
+function M.place_child(new_fiber, last_placed_index, new_index)
 	new_fiber.index = new_index
 	local current = new_fiber.alternate
 
@@ -836,7 +804,7 @@ end
 ---@param current_first_child? markup.fiber
 ---@param element markup.element
 ---@return markup.fiber?
-function M:reconcile_single_element(returnf, current_first_child, element)
+function M.reconcile_single_element(returnf, current_first_child, element)
 	local key = element.key
 	local child = current_first_child
 
@@ -845,16 +813,16 @@ function M:reconcile_single_element(returnf, current_first_child, element)
 		if child.key == key then
 			-- if the key matches, update the existing child
 			if child.type == element.type then
-				self:delete_remaining_children(returnf, child.sibling)
-				local existing = self:use_fiber(child, element.props)
+				M.delete_remaining_children(returnf, child.sibling)
+				local existing = M.use_fiber(child, element.props)
 				existing["return"] = returnf
 				return existing
 			end
 
-			self:delete_remaining_children(returnf, child)
+			M.delete_remaining_children(returnf, child)
 			break
 		else
-			self:delete_child(returnf, child)
+			M.delete_child(returnf, child)
 		end
 
 		child = child.sibling
@@ -867,8 +835,8 @@ end
 
 ---@param fiber markup.fiber
 ---@param props any
-function M:use_fiber(fiber, props)
-	local clone = self:create_wip(fiber, props)
+function M.use_fiber(fiber, props)
+	local clone = M.create_wip(fiber, props)
 	clone.sibling = nil
 	clone.index = 1
 	return clone
@@ -877,16 +845,16 @@ end
 ---@param returnf markup.fiber
 ---@param current? markup.fiber
 ---@param content string|number
-function M:reconcile_single_text(returnf, current, content)
+function M.reconcile_single_text(returnf, current, content)
 	if current and current.tag == Tag.TEXT then
 		-- update existing text node and delete remaining children
-		self:delete_remaining_children(returnf, current.sibling)
-		local existing = self:use_fiber(current, content)
+		M.delete_remaining_children(returnf, current.sibling)
+		local existing = M.use_fiber(current, content)
 		existing["return"] = returnf
 		return existing
 	else
 		-- create a new text node and delete existing children
-		self:delete_remaining_children(returnf, current)
+		M.delete_remaining_children(returnf, current)
 		local fiber = Markup.factory.fiber.from_text(content)
 		fiber["return"] = returnf
 		fiber:set_flags(Flag.PLACEMENT)
@@ -896,31 +864,31 @@ end
 
 ---@param payload? markup.fiber.hook
 ---@return markup.fiber.hook
-function M:mount_wip_hook(payload)
+function M.mount_wip_hook(payload)
 	local hook = payload or {}
 
-	if not self.wip_hook then
+	if not M.wip_hook then
 		-- first hook to be mounted
-		self.wip_hook = hook
-		self.currently_rendering_fiber.hook = hook
+		M.wip_hook = hook
+		M.current_fiber.hook = hook
 	else
-		self.wip_hook.next = hook
-		self.wip_hook = hook
+		M.wip_hook.next = hook
+		M.wip_hook = hook
 	end
 
-	return self.wip_hook
+	return M.wip_hook
 end
 
 ---@return markup.fiber.hook
-function M:update_wip_hook()
-	if not self.wip_hook then
+function M.update_wip_hook()
+	if not M.wip_hook then
 		-- first hook to be updated
-		self.wip_hook = self.currently_rendering_fiber.memoized_state
-		self.currently_rendering_fiber.hook = self.wip_hook
+		M.wip_hook = M.current_fiber.memoized_state
+		M.current_fiber.hook = M.wip_hook
 	end
 
-	local hook = self.wip_hook
-	self.wip_hook = self.wip_hook.next
+	local hook = M.wip_hook
+	M.wip_hook = M.wip_hook.next
 
 	Markup.assert.hook_user(hook, "Rendered more hooks than on previous render") ---@cast hook -nil
 	return hook
@@ -928,17 +896,17 @@ end
 
 ---@param returnf markup.fiber
 ---@param current_first_child? markup.fiber
-function M:delete_remaining_children(returnf, current_first_child)
+function M.delete_remaining_children(returnf, current_first_child)
 	local child = current_first_child
 
 	while child do
-		self:delete_child(returnf, child)
+		M.delete_child(returnf, child)
 		child = child.sibling
 	end
 end
 
 ---@param wip markup.fiber
-function M:populate_state_node(wip)
+function M.populate_state_node(wip)
 	local curr, node = wip.state_node, wip.child
 	while node do
 		if not (node.tag == Tag.TEXT or node.tag == Tag.ELEMENT) then
@@ -972,29 +940,29 @@ function M:populate_state_node(wip)
 	end
 end
 
-function M:commit()
-	local rootf = self.renderer.rootf
-	self:traverse_and_commit(rootf, rootf.child)
+---@param rootf markup.fiber
+function M.commit(rootf)
+	M.traverse_and_commit(rootf, rootf.child)
 end
 
 ---@param hostf markup.fiber
 ---@param finishedf markup.fiber
-function M:traverse_and_commit(hostf, finishedf)
+function M.traverse_and_commit(hostf, finishedf)
 	if not finishedf then
 		return
 	end
 
 	if finishedf:check_flags(Flag.CHILD_DELETE) then
-		self:commit_deletions(finishedf)
+		M.commit_deletions(finishedf)
 	end
 
 	if finishedf.tag == "text" or finishedf.tag == "element" then
 		if finishedf:check_flags(Flag.PLACEMENT) then
-			self:commit_placement(finishedf, hostf)
+			M.commit_placement(finishedf, hostf)
 		end
 
 		if finishedf:check_flags(Flag.UPDATE) then
-			self:commit_update(finishedf, hostf)
+			M.commit_update(finishedf, hostf)
 		end
 	else
 		finishedf:reset_flags()
@@ -1003,7 +971,7 @@ function M:traverse_and_commit(hostf, finishedf)
 	local child = finishedf.child
 	hostf = finishedf.state_node and finishedf or hostf
 	while child do
-		self:traverse_and_commit(hostf, child)
+		M.traverse_and_commit(hostf, child)
 		child = child.sibling
 	end
 
@@ -1014,13 +982,13 @@ function M:traverse_and_commit(hostf, finishedf)
 end
 
 ---@param fiber markup.fiber
-function M:is_host_parent(fiber)
+function M.is_host_parent(fiber)
 	return fiber.tag == Tag.ELEMENT or fiber.tag == Tag.ROOT
 end
 
 ---@param fiber markup.fiber
 ---@return markup.node?
-function M:host_sibling(fiber)
+function M.host_sibling(fiber)
 	---@type markup.fiber
 	local node = fiber
 
@@ -1028,7 +996,7 @@ function M:host_sibling(fiber)
 		-- Move up if there’s no sibling
 		while not node.sibling do
 			local parent = node["return"]
-			if not parent or self:is_host_parent(parent) then
+			if not parent or M.is_host_parent(parent) then
 				return nil
 			end
 			node = parent
@@ -1062,11 +1030,11 @@ end
 
 ---@param finishedf markup.fiber
 ---@param parentf markup.fiber
-function M:commit_placement(finishedf, parentf)
+function M.commit_placement(finishedf, parentf)
 	assert(parentf, "`parentf` must exist for placement")
 
 	local parent_node = parentf.state_node
-	local sibling = self:host_sibling(finishedf)
+	local sibling = M.host_sibling(finishedf)
 
 	if sibling then
 		sibling:insert_before(finishedf.state_node)
@@ -1079,16 +1047,16 @@ end
 
 ---@param finishedf markup.fiber
 ---@param parentf markup.fiber
-function M:commit_update(finishedf, parentf)
+function M.commit_update(finishedf, parentf)
 	assert(parentf, "`parentf` must exist for placement")
 
 	if finishedf.tag == "element" then
-		if self:is_valid_text(finishedf.pending_props.children) then
+		if M.is_valid_text(finishedf.pending_props.children) then
 			-- handle single text child elements
-			if self:is_valid_text(finishedf.alternate.memoized_props.children) then
-				self:update_single_text_child(finishedf)
+			if M.is_valid_text(finishedf.alternate.memoized_props.children) then
+				M.update_single_text_child(finishedf)
 			else
-				self:place_single_text_child(finishedf)
+				M.place_single_text_child(finishedf)
 			end
 		else
 			finishedf.state_node:replace_props(finishedf.pending_props)
@@ -1096,18 +1064,6 @@ function M:commit_update(finishedf, parentf)
 	end
 
 	finishedf:clear_flags(Flag.UPDATE)
-end
-
-function M:schedule_render()
-	if self.render_scheduled then
-		return
-	end
-
-	self.render_scheduled = true
-	vim.schedule(function()
-		self.render_scheduled = false
-		self.renderer:rerender()
-	end)
 end
 
 return M

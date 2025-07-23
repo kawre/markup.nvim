@@ -6,13 +6,15 @@ local styles = require("markup.window.styles")
 
 ---@class markup.renderer
 ---@field protected opts markup.renderer.opts
----@field reconciler markup.reconciler
 ---@field root any
+---@field current? markup.renderer
 ---@field win markup.window
 ---@field private observers table<string, table>
+---@field is_scheduled boolean
 ---@field fps integer
 ---@overload fun(opts?: markup.window.config): markup.renderer
 local M = Markup.object()
+M.current = nil
 
 ---@param opts? markup.window.config
 function M:new(opts)
@@ -27,7 +29,6 @@ function M:new(opts)
 	self.ns = vim.api.nvim_create_namespace(("markup_renderer_[%s]"):format(self.win.id))
 	self.debug_ns =
 		vim.api.nvim_create_namespace(("markup_renderer_[%s]_debug"):format(self.win.id))
-	self.reconciler = Markup.reconciler(self)
 	self.observers = {}
 	self.fps_samples = {}
 	self.stats = {}
@@ -57,11 +58,24 @@ function M:render(element)
 	self:rerender()
 end
 
+function M:schedule_rerender()
+	if self.is_scheduled then
+		return
+	end
+
+	self.is_scheduled = true
+	vim.schedule(function()
+		self:rerender()
+		self.is_scheduled = false
+	end)
+end
+
 function M:rerender()
 	assert(self.rootf, "Renderer root not bound. Call :render(element) to bind the root element.")
+	M.current = self
 
 	local elapsed = Markup.util.benchmark(function()
-		self.reconciler:reconcile()
+		self.rootf = Markup.reconciler(self.rootf)
 		self:build()
 		self:layout()
 		self:paint()
@@ -71,6 +85,7 @@ function M:rerender()
 
 	-- vim.api.nvim__redraw({ win = self.win.win, flush = true })
 	vim.api.nvim_exec_autocmds("User", { pattern = "MarkupRender" .. self.win.id })
+	M.current = nil
 end
 
 function M:track_fps(elapsed)

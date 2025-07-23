@@ -20,14 +20,13 @@ local function mock_renderer()
 	end)
 
 	_G.renderer.rootf = Markup.factory.fiber.root(App())
-	_G.reconciler = Markup.reconciler(renderer)
 	]])
 end
 
 local function reconcile_frame(frame)
 	child.lua(([[
 		_G.frame = %s
-		_G.reconciler:reconcile()
+		_G.renderer.rootf = Markup.reconciler(_G.renderer.rootf)
 		_G.renderer.rootf.child:set_flags(2)
 		]]):format(frame))
 end

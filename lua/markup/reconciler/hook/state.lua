@@ -1,10 +1,10 @@
+local Dispatcher = require("markup.reconciler.dispatcher")
+
 ---@param initial any
 local function mount_state(initial)
-	local reconciler = Markup.reconciler.static.get(true)
-
 	initial = Markup.util.call(initial)
 
-	local hook = reconciler:mount_wip_hook({
+	local hook = Markup.reconciler.mount_wip_hook({
 		base_state = initial,
 		memoized_state = initial,
 		queue = {
@@ -13,28 +13,21 @@ local function mount_state(initial)
 		},
 	})
 
+	local current_renderer = Markup.renderer.current
+	assert(current_renderer, "`variable:set(...)` must be called within a renderer context")
+
 	hook.queue.dispatch = function(value)
-		reconciler.dispatcher:set_state(hook, function()
+		Dispatcher.set_state(hook, function()
 			hook.memoized_state = Markup.util.call(value, hook.memoized_state)
 		end)
+		current_renderer:schedule_rerender()
 	end
 
 	return hook.memoized_state, hook.queue.dispatch
-
-	-- return {
-	-- 	get = function()
-	-- 		return hook.memoized_state
-	-- 	end,
-	-- 	set = function(_, ...)
-	-- 		return hook.queue.dispatch(...)
-	-- 	end,
-	-- }
 end
 
 local function update_state()
-	local reconciler = Markup.reconciler.static.get(true)
-
-	local hook = reconciler:update_wip_hook()
+	local hook = Markup.reconciler.update_wip_hook()
 	assert(hook, "`update_state` must be called while reconciler work, this is a bug.")
 	return hook.memoized_state, hook.queue.dispatch
 end
@@ -45,7 +38,8 @@ end
 
 ---@type markup.use_state
 local function use_state(initial)
-	local fiber = Markup.reconciler.static.get_currently_rendering_fiber(true)
+	local fiber = Markup.reconciler.current_fiber
+	assert(fiber, "use_state hook must be called within a fiber context")
 
 	if not fiber.memoized_state then
 		return mount_state(initial)

@@ -46,8 +46,7 @@ function Node:new(type, name, props)
 	self.child_nodes = {}
 	self.parent = nil
 	self.type = type
-	local reconciler = Markup.reconciler.static.get()
-	self.container = reconciler and reconciler.renderer
+	self.container = Markup.renderer.current
 	self.tag_name = name
 	self:create_props_proxy(props)
 	self.__id = Markup.util.gen_id()
