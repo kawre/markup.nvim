@@ -36,10 +36,6 @@ function M:new(opts)
 
 	self.win_keys = {} ---@type table<markup.node, { key: string, cb: function }[]>
 	self.keys = {} ---@type table<markup.node, { key: string, cb: function }[]>
-
-	self.win:on("BufEnter", function()
-		Markup.log("elo")
-	end, { buf = true })
 end
 
 ---@param element any
@@ -189,7 +185,7 @@ function M:paint()
 
 		self:traverse_and_paint(0, 0, self:render_root())
 	end)
-	vim.api.nvim__redraw({ buf = self.win.buf, flush = true, valid = true })
+	-- vim.api.nvim__redraw({ buf = self.win.buf, flush = true, valid = true })
 end
 
 ---(x, y) are the coordinates of the parent margin box

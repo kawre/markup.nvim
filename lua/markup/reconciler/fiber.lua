@@ -11,6 +11,13 @@ local Flag = require("markup.reconciler.enum").Flag
 ---@field queue markup.Fiber.queue
 ---@field next? markup.fiber.hook
 
+---@class markup.fiber.hook.effect
+---@field memoized_state any
+---@field create function
+---@field deps table
+---@field destroy? function
+---@field next? markup.fiber.hook.effect
+
 ---@class markup.fiber
 ---@field pending_props any
 ---@field memoized_props any
@@ -19,6 +26,7 @@ local Flag = require("markup.reconciler.enum").Flag
 ---@field element_type string
 ---@field tag markup.Fiber.tag
 ---@field return? markup.fiber
+---@field update_queue table
 ---@field state_node markup.node
 ---@field deps table
 ---@field key? any

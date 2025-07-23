@@ -23,7 +23,7 @@ function M.resolve_hook_updates(fiber)
 	local hook = fiber.memoized_state
 
 	while hook do
-		if hook.queue.pending then
+		if hook.queue and hook.queue.pending then
 			for _, update in ipairs(hook.queue.pending) do
 				M.execute(update.action)
 			end
@@ -40,7 +40,6 @@ function M.set_state(hook, action)
 end
 
 function M.execute(fn, ...)
-	Markup.log(fn)
 	fn(...)
 end
 

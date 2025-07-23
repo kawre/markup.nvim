@@ -5,6 +5,8 @@
 ---@field grid markup.factory.Element.constructor
 ---@field element markup.factory.Element.constructor.raw
 ---@field variable markup.use_state
+---@field effect markup.effect
+---@field ref markup.ref
 ---@field private setup any
 ---@field [string] markup.factory.Element.constructor
 local M = {}
@@ -40,6 +42,8 @@ M.Fragment = Markup.factory.element.fragment
 M.variable = require("markup.reconciler.hook.state")
 M.context = Markup.factory.element.context
 M.use = require("markup.reconciler.hook.use")
+M.effect = require("markup.reconciler.hook.effect")
+M.view = require("markup.reconciler.hook.view")
 setmetatable(M, {
 	__call = function(_, ...)
 		return Markup.factory.element(...)
