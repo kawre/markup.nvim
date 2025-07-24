@@ -460,7 +460,7 @@ function RenderBox:margin_box_range()
 
 	return {
 		top = top,
-		bottom = bottom,
+		bottom = math.max(0, bottom - 1),
 		right = right,
 		left = left,
 	}
@@ -480,7 +480,7 @@ function RenderBox:padding_box_range()
 
 	return {
 		top = top,
-		bottom = bottom,
+		bottom = math.max(0, bottom - 1),
 		right = right,
 		left = left,
 	}
@@ -533,7 +533,20 @@ function RenderBox:in_range(x, y, range)
 		range = self:padding_box_range()
 	end
 
-	return x >= range.left and x < range.right and y >= range.top and y < range.bottom
+	return x >= range.left and x <= range.right and y >= range.top and y <= range.bottom
+end
+
+function RenderBox:distance_to(x, y)
+	if not self.wx or not self.wy then
+		return math.huge
+	end
+
+	local range = self:margin_box_range()
+	assert(range, "Box range is not defined.")
+	local dx = math.max(range.left - x, 0, x - range.right)
+	local dy = math.max(range.top - y, 0, y - range.bottom)
+
+	return math.sqrt(dx * dx + dy * dy)
 end
 
 return RenderBox

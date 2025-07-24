@@ -34,12 +34,17 @@ function M:new(opts)
 	self.stats = {}
 	self.buttons = {}
 	self.keys = {} ---@type table<markup.node, { key: string, cb: function }[]>
+	self.cursor = { suppress = false }
 
 	self.win:on("WinResized", function()
 		if vim.tbl_contains(vim.v.event.windows, self.win.win) then
 			self:render()
 		end
 	end, { pattern = "*" })
+
+	self.win:on("CursorMoved", function()
+		self:handle_cursor_moved()
+	end, { buf = true })
 end
 
 ---@param element any
@@ -249,6 +254,80 @@ function M:render_root()
 	return self:node_root().box
 end
 
-function M:handle_key() end
+function M:handle_cursor_moved()
+	if self.rootf and not self.win:valid() then
+		return
+	end
+
+	local cursor = vim.api.nvim_win_get_cursor(self.win.win)
+	local new_row, new_col = cursor[1], cursor[2]
+	local prev_row, prev_col = unpack(self.cursor.prev or { new_row, new_col })
+
+	local stack = Markup.collection.stack()
+	stack:push(self:render_root())
+	local buttons = {} ---@type markup.box[]
+
+	local row = new_row - 1
+	local prow = prev_row - 1
+
+	while stack.len > 0 do
+		local box = stack:pop() ---@cast box markup.box
+		local mrange = box:margin_box_range()
+		assert(mrange, "Box must have a margin box range")
+
+		-- Directional pruning
+		local skip = false
+		if prow < row and mrange.bottom < row then
+			-- moved down, box ends above
+			skip = true
+		elseif prow > row and mrange.top > row then
+			-- moved up, box starts below
+			skip = true
+		elseif prev_col < new_col and mrange.right < new_col then
+			-- moved right, box ends left
+			skip = true
+		elseif prev_col > new_col and mrange.left > new_col then
+			-- moved left, box starts right
+			skip = true
+		end
+
+		if not skip then
+			if box.node.tag_name == "button" then
+				table.insert(buttons, box)
+			else
+				for _, child in box:iter_children() do
+					stack:push(child)
+				end
+			end
+		end
+	end
+
+	if #buttons == 0 then
+		vim.api.nvim_win_set_cursor(self.win.win, self.cursor.prev)
+		return
+	end
+
+	table.sort(buttons, function(a, b)
+		return a:distance_to(new_col, new_row - 1) < b:distance_to(new_col, new_row - 1)
+	end)
+
+	local target = buttons[1]
+	local mrange = target:margin_box_range()
+	assert(mrange, "Target box must have a margin box range")
+
+	-- If inside the new button, do nothing
+	if target:in_range(new_col, row, mrange) then
+		self.cursor.prev = { new_row, new_col }
+		return
+	end
+
+	-- Clamp col & row inside the target box
+	local clamped_col = math.max(mrange.left, math.min(new_col, mrange.right))
+	local clamped_row = math.max(mrange.top, math.min(row, mrange.bottom))
+
+	-- Convert back to 1-indexed for win_set_cursor
+	self.cursor.prev = { clamped_row + 1, clamped_col }
+	vim.api.nvim_win_set_cursor(self.win.win, self.cursor.prev)
+end
 
 return M

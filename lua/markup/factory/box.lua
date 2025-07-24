@@ -9,6 +9,7 @@ local strategies = {
 	["hflex"] = require("markup.renderer.box.layout.flex"),
 	["vflex"] = require("markup.renderer.box.layout.flex"),
 	["block"] = require("markup.renderer.box.layout.block"),
+	["button"] = require("markup.renderer.box.layout.block"),
 	["root"] = require("markup.renderer.box.layout.block"),
 	["inline"] = require("markup.renderer.box.layout.inline"),
 	["text"] = require("markup.renderer.box.layout.text"),
