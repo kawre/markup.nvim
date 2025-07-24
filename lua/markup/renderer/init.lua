@@ -33,16 +33,18 @@ function M:new(opts)
 	self.fps_samples = {}
 	self.stats = {}
 	self.buttons = {}
-
-	self.win_keys = {} ---@type table<markup.node, { key: string, cb: function }[]>
 	self.keys = {} ---@type table<markup.node, { key: string, cb: function }[]>
+
+	self.win:on("WinResized", function()
+		if vim.tbl_contains(vim.v.event.windows, self.win.win) then
+			self:render()
+		end
+	end, { pattern = "*" })
 end
 
 ---@param element any
 function M:bind(element)
-	element = Markup.util.call(element)
-	self.rootf = Markup.factory.fiber.root(element)
-	self.root = Markup.factory.box.root(self)
+	self.element = Markup.util.call(element)
 end
 
 ---@param element? any
@@ -50,7 +52,11 @@ function M:render(element)
 	if element then
 		self:bind(element)
 	end
+
 	self.stats = {}
+	self.rootf = Markup.factory.fiber.root(self.element)
+	self.root = Markup.factory.box.root(self)
+
 	self:rerender()
 end
 
@@ -105,12 +111,7 @@ end
 
 function M:build()
 	local root = self:render_root()
-
-	-- if self.first_render then
-	-- 	root:build()
-	-- else
 	root:reflow()
-	-- end
 end
 
 function M:layout()

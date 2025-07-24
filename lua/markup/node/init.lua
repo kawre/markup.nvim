@@ -57,20 +57,20 @@ end
 function Node:create_props_proxy(props)
 	self.props = normalizer.props(props)
 
-	if self.props.on_confirm then
-		self.container:subscribe("confirm", self, self.props.on_confirm)
-	elseif self.props.on_key then
-		for key, cb in pairs(self.props.on_key) do
-			vim.keymap.set("n", Markup.util.normkey(key), function()
-				cb(self.container)
-			end)
-			-- self.container:subscribe("key", self, function(ev)
-			-- 	if ev.key == key then
-			-- 		cb(ev)
-			-- 	end
-			-- end)
-		end
-	end
+	-- if self.props.on_confirm then
+	-- 	self.container:subscribe("confirm", self, self.props.on_confirm)
+	-- elseif self.props.on_key then
+	-- 	for key, cb in pairs(self.props.on_key) do
+	-- 		vim.keymap.set("n", Markup.util.normkey(key), function()
+	-- 			cb(self.container)
+	-- 		end)
+	-- 		-- self.container:subscribe("key", self, function(ev)
+	-- 		-- 	if ev.key == key then
+	-- 		-- 		cb(ev)
+	-- 		-- 	end
+	-- 		-- end)
+	-- 	end
+	-- end
 
 	setmetatable(self.props, {
 		__newindex = function(tbl, key, value)
@@ -96,6 +96,7 @@ end
 function Node:set_text_content(content)
 	assert(self:is("text"), "Cannot set text content on a non-text node")
 	self.text_content = content
+	self:flag_render_tree_as_dirty()
 end
 
 function Node:clone()
@@ -172,6 +173,7 @@ end
 function Node:destroy()
 	assert(self.parent, "Cannot destroy a node without a parent")
 	self.parent:remove_child(self)
+	self:flag_render_tree_as_dirty()
 	self = nil
 end
 

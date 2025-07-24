@@ -40,6 +40,7 @@ function RenderBox:build()
 		local new_render_node = self:attach(child)
 		new_render_node:build()
 	end
+	self:flag_as_dirty()
 end
 
 function RenderBox:reflow()
@@ -92,9 +93,20 @@ end
 function RenderBox:layout()
 	assert(self.layout_strategy, "Layout strategy is not set")
 
-	-- if self.dirty == false then
-	-- 	return
-	-- end
+	if self.dirty == false then
+		return
+	end
+
+	local old_cwidth = self.content_width
+	local old_cheight = self.content_height
+	self.content_width = nil
+	self.content_height = nil
+
+	self.width = nil
+	self.height = nil
+
+	self.wx = nil
+	self.wy = nil
 
 	-- offset
 	self.ox = self.parent.x
@@ -111,7 +123,10 @@ function RenderBox:layout()
 	Markup.assert.bug(self.content_width, "Content width must be resolved by layout strategy.")
 	Markup.assert.bug(self.content_height, "Content height must be resolved by layout strategy.")
 
-	self.dirty = false
+	-- self.dirty = false
+	if old_cwidth ~= self.content_width or old_cheight ~= self.content_height then
+		self.parent:flag_as_dirty()
+	end
 end
 
 function RenderBox:add_child(node)
@@ -424,6 +439,10 @@ end
 function RenderBox:margin_box_range()
 	local props = self.props
 
+	if not self.wx or not self.wy then
+		return
+	end
+
 	local top = self.wy
 	local bottom = top
 		+ props.margin_top
@@ -449,6 +468,10 @@ end
 
 function RenderBox:padding_box_range()
 	local props = self.props
+
+	if not self.wx or not self.wy then
+		return
+	end
 
 	local top = self.wy + props.margin_top
 	local bottom = props.padding_top + top + self.content_height + props.padding_bottom

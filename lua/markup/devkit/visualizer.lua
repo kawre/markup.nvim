@@ -177,8 +177,7 @@ function M.render(root, opts)
 
 		local entries = {
 			{ indent, "SignColumn" },
-			-- { node:name() },
-			{ node.dirty and "  " or "", "Number" },
+			{ node.dirty and " " or "", "Number" },
 		}
 
 		if node:is("text") then
@@ -191,10 +190,17 @@ function M.render(root, opts)
 		end
 
 		local mrange = node:margin_box_range()
-		table.insert(entries, {
-			(" [%s, %s] - [%s, %s]"):format(mrange.top, mrange.left, mrange.bottom, mrange.right),
-			"@comment.query",
-		})
+		if mrange then
+			table.insert(entries, {
+				(" [%s, %s] - [%s, %s]"):format(
+					mrange.top,
+					mrange.left,
+					mrange.bottom,
+					mrange.right
+				),
+				"@comment.query",
+			})
+		end
 
 		if not opts.exclude_ids then
 			table.insert(entries, { " " })

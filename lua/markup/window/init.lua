@@ -693,7 +693,7 @@ function M:show()
 		end,
 	})
 
-	self:map()
+	self:_map()
 	self:drop()
 
 	return self
@@ -768,34 +768,88 @@ function M:set_buf(buf)
 	Markup.util.wo(self.win, self.opts.wo)
 end
 
-function M:map()
+---@param mode string|string[]
+---@param lhs string
+---@param rhs string|string[]|fun(self: markup.window): string?
+---@param opts? vim.api.keyset.keymap
+function M:map(mode, lhs, rhs, opts)
+	opts = opts or {}
+
+	---@cast opts markup.window.Keys
+	opts.mode = mode
+	opts[1] = lhs
+	opts[2] = rhs
+
+	table.insert(self.keys, opts)
+	if self:buf_valid() then
+		return self:_keymap_set(opts)
+	end
+end
+
+function M:unmap(mode, lhs, opts)
+	for i, spec in ipairs(self.keys) do
+		if spec[1] == lhs and (not mode or spec.mode == mode) then
+			table.remove(self.keys, i)
+			break
+		end
+	end
+	vim.keymap.del(mode, lhs, opts)
+end
+
+function M:_unmap()
 	if not self:buf_valid() then
 		return
 	end
 	for _, spec in pairs(self.keys) do
-		local opts = vim.deepcopy(spec)
-		opts[1] = nil
-		opts[2] = nil
-		opts.mode = nil
-		---@diagnostic disable-next-line: cast-type-mismatch
-		---@cast opts vim.keymap.set.Opts
-		opts.buffer = self.buf
-		opts.nowait = true
-		local rhs = spec[2]
-		local is_action = type(rhs) == "string" or type(rhs) == "table"
-		if is_action then
-			local desc = spec.desc
-			---@cast rhs string|string[]
-			rhs, desc = self:action(rhs)
-			opts.desc = opts.desc or desc
-		else
-			rhs = function()
-				return spec[2](self)
-			end
+		self:_keymap_del(spec)
+	end
+	self.keys = {}
+end
+
+---@param spec markup.window.Keys
+function M:_keymap_del(spec)
+	vim.keymap.del(spec.mode or "n", spec[1])
+end
+
+function M:_keymap_set(spec)
+	local opts = vim.deepcopy(spec)
+	opts[1] = nil
+	opts[2] = nil
+	opts.mode = nil
+	---@diagnostic disable-next-line: cast-type-mismatch
+	---@cast opts vim.keymap.set.Opts
+	opts.buffer = self.buf
+	opts.nowait = true
+	local rhs = spec[2]
+	local is_action = type(rhs) == "string" or type(rhs) == "table"
+	if is_action then
+		local desc = spec.desc
+		---@cast rhs string|string[]
+		rhs, desc = self:action(rhs)
+		opts.desc = opts.desc or desc
+	else
+		rhs = function()
+			return spec[2](self)
 		end
-		spec.desc = spec.desc or opts.desc
-		---@cast spec markup.window.Keys
-		vim.keymap.set(spec.mode or "n", spec[1], rhs, opts)
+	end
+	spec.desc = spec.desc or opts.desc
+	---@cast spec markup.window.Keys
+	spec.mode = spec.mode or "n"
+	vim.keymap.set(spec.mode, spec[1], rhs, opts)
+
+	return function()
+		-- easly unmap the key
+		self:unmap(spec.mode, spec[1], opts)
+	end
+end
+
+---@private
+function M:_map()
+	if not self:buf_valid() then
+		return
+	end
+	for _, spec in pairs(self.keys) do
+		self:_keymap_set(spec)
 	end
 end
 
