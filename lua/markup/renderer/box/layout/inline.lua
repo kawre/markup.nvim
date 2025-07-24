@@ -12,14 +12,17 @@ function InlineLayout.layout(box)
 	for i, child in box:iter_children() do
 		assert(child:is("inline"), "Inline layout can only be used for inline nodes")
 
-		child:layout()
-		local mbox = child:margin_box_size()
+		child:layout({})
+		local mbox = child:get_box_size("margin")
 
 		box.x = box.x + mbox.width + (i ~= len and props.spacing or 0)
 	end
 
 	box.width = box.x
-	box:set_content_box_size(box.width, box.height)
+	box:set_content_box_size({
+		width = box.width,
+		height = box.height,
+	})
 end
 
 return InlineLayout

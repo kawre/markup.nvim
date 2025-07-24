@@ -1,14 +1,14 @@
 local Layout = require("markup.renderer.box.layout")
 
 ---@class markup.Render.Layout.Block : markup.Render.Layout
-local BlockLayout = Layout.new("RenderBlock", { "block" })
+local M = Layout.new("RenderBlock", { "block" })
 
 ---@param box markup.box
-function BlockLayout.layout(box)
+---@param constraints markup.box.constraints
+function M.layout(box, constraints)
+	constraints = M.compute_initial_width(box, constraints)
+
 	local props = box.props
-
-	BlockLayout.compute_initial_width(box)
-
 	local max_x, max_y = 0, 0
 	local prev_mheight, prev_is_block = 0, false
 
@@ -18,8 +18,8 @@ function BlockLayout.layout(box)
 			box.x = 0
 		end
 
-		child:layout()
-		local child_mbox = child:margin_box_size()
+		child:layout(constraints)
+		local child_mbox = child:get_box_size("margin")
 		box.x = box.x + child_mbox.width
 
 		max_x = math.max(box.x, max_x)
@@ -32,24 +32,47 @@ function BlockLayout.layout(box)
 	box.height = math.max(box.y + prev_mheight, max_y)
 	box.width = max_x
 
-	BlockLayout.compute_final_size(box)
+	M.compute_final_size(box, constraints)
 end
 
 ---@param box markup.box
-function BlockLayout.compute_initial_width(box)
+---@param constraints markup.box.constraints
+function M.compute_initial_width(box, constraints)
 	local width = box.props.width
-	local parent_cbox = box.parent:content_box_size()
-	width = box:inherit_size(width, parent_cbox.width)
-	box:set_content_box_size(width)
+
+	-- box:set_content_box_size(width)
+	if width == "auto" or width == "full" then
+		width = constraints.width
+	elseif width == "fit" then
+		-- delegate to `compute_final_size`
+		width = nil
+	else ---@cast width number
+		width = Layout.resolve_size(width, constraints.width)
+	end
+
+	local height = box.props.height
+	if height == "auto" or height == "fit" then
+		-- delegate to `compute_final_size`
+		height = nil
+	elseif height == "full" then
+		height = constraints.height
+	else ---@cast height number
+		height = Layout.resolve_size(height, constraints.height)
+	end
+
+	return box:clamp_content_size({
+		width = width,
+		height = height,
+	})
 end
 
 ---@param box markup.box
-function BlockLayout.compute_final_size(box)
-	local height = box.props.height
-	box:set_content_box_size(
-		math.max(box.width, box.content_width or 0),
-		math.max(box.height, height)
-	)
+---@param constraints markup.box.constraints
+function M.compute_final_size(box, constraints)
+	box:set_content_box_size({
+		width = math.max(box.width, constraints.width or 0),
+		height = math.max(box.height, constraints.height or 0),
+	})
 end
 
-return BlockLayout
+return M

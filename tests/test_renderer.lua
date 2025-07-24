@@ -33,10 +33,10 @@ local T = new_set({
 })
 
 ---@param element markup.element
----@param force? boolean
-local function render_and_expect_screenshot(element, force)
+---@param opts? table
+local function render_and_expect_screenshot(element, opts)
 	child.lua(([[renderer:render(%s)]]):format(element))
-	expect.reference_screenshot(child.get_screenshot(), nil, { force = force })
+	expect.reference_screenshot(child.get_screenshot(), nil, opts)
 end
 
 T["render()"] = new_set()

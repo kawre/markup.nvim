@@ -18,24 +18,24 @@ local BoxProps = require("markup.renderer.box.props")
 ---@field content_height integer
 ---@field available_width integer
 ---@field available_height integer
----@field props markup.Render.props
+---@field props markup.box.props
 ---@field extmarks table
-local RenderBox = Markup.object()
+local M = Markup.object()
 
 ---@param node markup.node
 ---@param layout_strategy markup.Render.Layout
-function RenderBox:new(node, layout_strategy)
+function M:new(node, layout_strategy)
 	self.layout_strategy = layout_strategy
 	self.node = node
 	node.box = self
 	self.dirty = true
 	self.buf = {}
-	self.props = BoxProps:new(self)
+	self.props = BoxProps(self)
 	self.extmarks = {}
 	self.__id = Markup.util.gen_id()
 end
 
-function RenderBox:build()
+function M:build()
 	for _, child in ipairs(self.node.child_nodes) do
 		local new_render_node = self:attach(child)
 		new_render_node:build()
@@ -43,7 +43,7 @@ function RenderBox:build()
 	self:flag_as_dirty()
 end
 
-function RenderBox:reflow()
+function M:reflow()
 	if not self.dirty then
 		return
 	end
@@ -58,7 +58,7 @@ function RenderBox:reflow()
 	end
 end
 
-function RenderBox:flag_as_dirty()
+function M:flag_as_dirty()
 	if self.dirty then
 		return
 	end
@@ -70,13 +70,13 @@ function RenderBox:flag_as_dirty()
 end
 
 ---@param child markup.node
-function RenderBox:attach(child)
+function M:attach(child)
 	local child_box = Markup.factory.box(child)
 	child_box.parent = self
 	return child_box
 end
 
-function RenderBox:iter_children()
+function M:iter_children()
 	local children = self.node.child_nodes
 	local i, n = 0, #children
 	local reverse = self.props.reverse
@@ -90,15 +90,16 @@ function RenderBox:iter_children()
 	end
 end
 
-function RenderBox:layout()
+---@param constraints markup.box.constraints
+function M:layout(constraints)
 	assert(self.layout_strategy, "Layout strategy is not set")
 
 	if self.dirty == false then
 		return
 	end
 
-	local old_cwidth = self.content_width
-	local old_cheight = self.content_height
+	-- local old_cwidth = self.content_width
+	-- local old_cheight = self.content_height
 	self.content_width = nil
 	self.content_height = nil
 
@@ -109,12 +110,13 @@ function RenderBox:layout()
 	self.wy = nil
 
 	-- offset
-	self.ox = self.parent.x
-	self.oy = self.parent.y
+	local parent = self.parent
+	self.ox = parent and parent.x or 0
+	self.oy = parent and parent.y or 0
 
 	self.x = 0
 	self.y = 0
-	self.layout_strategy.layout(self)
+	self.layout_strategy.layout(self, constraints)
 	self.x = nil
 	self.y = nil
 
@@ -124,12 +126,12 @@ function RenderBox:layout()
 	Markup.assert.bug(self.content_height, "Content height must be resolved by layout strategy.")
 
 	-- self.dirty = false
-	if old_cwidth ~= self.content_width or old_cheight ~= self.content_height then
-		self.parent:flag_as_dirty()
-	end
+	-- if old_cwidth ~= self.content_width or old_cheight ~= self.content_height then
+	-- 	self.parent:flag_as_dirty()
+	-- end
 end
 
-function RenderBox:add_child(node)
+function M:add_child(node)
 	if not node or type(node) ~= "table" or not node.render or not node.layout then
 		error("Invalid child node")
 	end
@@ -140,7 +142,7 @@ function RenderBox:add_child(node)
 	return self
 end
 
-function RenderBox:remove_child(node)
+function M:remove_child(node)
 	if not self.children then
 		return self
 	end
@@ -153,98 +155,85 @@ function RenderBox:remove_child(node)
 	error("Child node not found")
 end
 
-function RenderBox:name()
+function M:name()
 	return self.layout_strategy.__name
 end
 
 ---@param layout_type markup.Render.LayoutType
-function RenderBox:is(layout_type)
+function M:is(layout_type)
 	return self.layout_strategy.__type[layout_type]
 end
 
--- function RenderNode:set_constraints(width, height)
--- 	if width then
--- 		self.width = width
--- 	end
--- 	if height then
--- 		self.height = height
--- 	end
--- end
+---@alias markup.box.kind "content" | "padding" | "margin"
 
-function RenderBox:margin_box_size()
+---@param kind? markup.box.kind
+function M:get_box_size(kind)
 	local props = self.props
-	local pbox = self:padding_box_size()
-
-	return {
-		width = pbox.width and pbox.width + (props.margin_left + props.margin_right),
-		height = pbox.height and pbox.height + (props.margin_top + props.margin_bottom),
-	}
-end
-
-function RenderBox:padding_box_size()
-	local props = self.props
-	local cbox = self:content_box_size()
-
-	return {
-		width = cbox.width and cbox.width + (props.padding_left + props.padding_right),
-		height = cbox.height and cbox.height + (props.padding_top + props.padding_bottom),
-	}
-end
-
----@param size integer
----@param ref integer
----@return integer
-function RenderBox:inherit_size(size, ref)
-	if not size then
-		return ref
-	end
-	if not ref then
-		return size
-	end
-
-	if size and size > 0 then
-		return size < 1 and math.ceil(ref * size) or size
-	else
-		return ref
+	if not kind then
+		return { width = self.width, height = self.height }
+	elseif kind == "content" then
+		return { width = self.content_width, height = self.content_height }
+	elseif kind == "padding" then
+		local c = self:get_box_size("content")
+		return {
+			width = c.width + props.padding_left + props.padding_right,
+			height = c.height + props.padding_top + props.padding_bottom,
+		}
+	elseif kind == "margin" then
+		local p = self:get_box_size("padding")
+		return {
+			width = p.width + props.margin_left + props.margin_right,
+			height = p.height + props.margin_top + props.margin_bottom,
+		}
 	end
 end
 
----@param width? integer
----@param height? integer
-function RenderBox:set_content_box_size(width, height)
-	local props = self.props
+---@param size { width?: integer, height?: integer }
+function M:set_content_box_size(size)
+	local out = self:clamp_content_size(size)
+	self:set_content_box_size_raw(out)
+end
 
-	if width then
+---@param size { width?: integer, height?: integer }
+function M:set_content_box_size_raw(size)
+	self.content_width = size.width
+	self.content_height = size.height
+end
+
+---@param size { width?: integer, height?: integer }
+---@return { width?: integer, height?: integer }
+function M:clamp_content_size(size)
+	local props = self.props
+	local out = {}
+
+	if size.width then
+		local width = size.width
 		if props.sizing == "inner" then
 			width = width
 				- (props.padding_left + props.padding_right)
 				- (props.margin_left + props.margin_right)
 		end
-		self.content_width = math.max(self.width or 0, width)
+		out.width = math.max(self.width or 0, width)
 	end
 
-	if height then
+	if size.height then
+		local height = size.height
 		if self:is("inline") then
-			self.content_height = 1
+			out.height = 1
 		else
 			if props.sizing == "inner" then
 				height = height
 					- (props.padding_top + props.padding_bottom)
 					- (props.margin_top + props.margin_bottom)
 			end
-			self.content_height = math.max(self.height or 0, height)
+			out.height = math.max(self.height or 0, height)
 		end
 	end
+
+	return out
 end
 
-function RenderBox:content_box_size()
-	return {
-		width = self.content_width,
-		height = self.content_height,
-	}
-end
-
-function RenderBox:destroy()
+function M:destroy()
 	local index
 	for i, child in ipairs(self.parent.children) do
 		if child == self then
@@ -303,7 +292,7 @@ end
 ---@param renderer markup.renderer
 ---@param x integer
 ---@param y integer
-function RenderBox:paint(renderer, x, y)
+function M:paint(renderer, x, y)
 	local ns = renderer.ns
 	local props = self.props
 
@@ -318,7 +307,7 @@ function RenderBox:paint(renderer, x, y)
 		})
 	else
 		-- everything else only outputs style
-		local pbox = self:padding_box_size()
+		local pbox = self:get_box_size("padding")
 		local pox = x + props.margin_left
 		local poy = y + props.margin_top
 
@@ -338,7 +327,7 @@ function RenderBox:paint(renderer, x, y)
 	end
 end
 
-function RenderBox:debug_paint_margin(renderer, x, y)
+function M:debug_paint_margin(renderer, x, y)
 	assert(Markup.config.debug, "Debug mode is not enabled.")
 	local props = self.props
 	local ns = renderer.debug_ns
@@ -389,7 +378,7 @@ function RenderBox:debug_paint_margin(renderer, x, y)
 	end
 end
 
-function RenderBox:debug_paint_padding(renderer, x, y)
+function M:debug_paint_padding(renderer, x, y)
 	assert(Markup.config.debug, "Debug mode is not enabled.")
 	local props = self.props
 	local ns = renderer.debug_ns
@@ -436,112 +425,99 @@ function RenderBox:debug_paint_padding(renderer, x, y)
 	end
 end
 
-function RenderBox:margin_box_range()
+---@param kind markup.box.kind
+function M:get_box_range(kind)
 	local props = self.props
 
 	if not self.wx or not self.wy then
 		return
 	end
 
-	local top = self.wy
-	local bottom = top
-		+ props.margin_top
-		+ props.padding_top
-		+ self.content_height
-		+ props.padding_bottom
-		+ props.margin_bottom
-	local left = self.wx
-	local right = left
-		+ props.margin_left
-		+ props.padding_left
-		+ self.content_width
-		+ props.padding_right
-		+ props.margin_right
+	-- if not kind then
+	-- 	return {
+	-- 		top = self.wy,
+	-- 		bottom = self.wy + self.height - 1,
+	-- 		left = self.wx,
+	-- 		right = self.wx + self.width - 1,
+	-- 	}
+	if kind == "margin" then
+		local top = self.wy
+		local bottom = top
+			+ props.margin_top
+			+ props.padding_top
+			+ self.content_height
+			+ props.padding_bottom
+			+ props.margin_bottom
+		local left = self.wx
+		local right = left
+			+ props.margin_left
+			+ props.padding_left
+			+ self.content_width
+			+ props.padding_right
+			+ props.margin_right
 
-	return {
-		top = top,
-		bottom = math.max(0, bottom - 1),
-		right = right,
-		left = left,
-	}
-end
+		return {
+			top = top,
+			bottom = math.max(0, bottom - 1),
+			left = left,
+			right = right,
+		}
+	elseif kind == "padding" then
+		local top = self.wy + props.margin_top
+		local bottom = props.padding_top + top + self.content_height + props.padding_bottom
+		local left = self.wx + props.margin_left
+		local right = left + props.padding_left + self.content_width + props.padding_right
 
-function RenderBox:padding_box_range()
-	local props = self.props
+		return {
+			top = top,
+			bottom = math.max(0, bottom - 1),
+			left = left,
+			right = right,
+		}
+	elseif kind == "content" then
+		local top = self.wy + props.margin_top + props.padding_top
+		local bottom = top + self.content_height
+		local left = self.wx + props.margin_left + props.padding_left
+		local right = left + self.content_width
 
-	if not self.wx or not self.wy then
-		return
+		return {
+			top = top,
+			bottom = bottom,
+			left = left,
+			right = right,
+		}
 	end
-
-	local top = self.wy + props.margin_top
-	local bottom = props.padding_top + top + self.content_height + props.padding_bottom
-	local left = self.wx + props.margin_left
-	local right = left + props.padding_left + self.content_width + props.padding_right
-
-	return {
-		top = top,
-		bottom = math.max(0, bottom - 1),
-		right = right,
-		left = left,
-	}
 end
 
-function RenderBox:content_box_range()
-	local props = self.props
-
-	local top = self.wy + props.margin_top + props.padding_top
-	local bottom = top + self.content_height
-	local left = self.wx + props.margin_left + props.padding_left
-	local right = left + self.content_width
-
-	return {
-		top = top,
-		bottom = bottom,
-		right = right,
-		left = left,
-	}
-end
-
--- function RenderBox:box_range()
--- 	local props = self.props
---
--- 	local top = self.wy + props.margin_top + props.padding_top
--- 	local bottom = top + self.content_height
--- 	local left = self.wx + props.margin_left + props.padding_left
--- 	local right = left + self.content_width
---
--- 	return {
--- 		top = top,
--- 		bottom = bottom,
--- 		right = right,
--- 		left = left,
--- 	}
--- end
-
-function RenderBox:children()
+function M:children()
 	return vim.tbl_map(function(n)
 		return n.box
 	end, self.node.child_nodes)
 end
 
-function RenderBox:children_len()
+function M:children_len()
 	return #self.node.child_nodes
 end
 
-function RenderBox:in_range(x, y, range)
+---(0,0) indexed
+---@param x any
+---@param y any
+---@param range any
+---@return boolean
+function M:in_range(x, y, range)
 	if not range then
-		range = self:padding_box_range()
+		range = self:get_box_range("padding")
 	end
 
 	return x >= range.left and x <= range.right and y >= range.top and y <= range.bottom
 end
 
-function RenderBox:distance_to(x, y)
+function M:distance_to(x, y)
 	if not self.wx or not self.wy then
 		return math.huge
 	end
 
-	local range = self:margin_box_range()
+	local range = self:get_box_range("margin")
 	assert(range, "Box range is not defined.")
 	local dx = math.max(range.left - x, 0, x - range.right)
 	local dy = math.max(range.top - y, 0, y - range.bottom)
@@ -549,4 +525,4 @@ function RenderBox:distance_to(x, y)
 	return math.sqrt(dx * dx + dy * dy)
 end
 
-return RenderBox
+return M

@@ -7,6 +7,7 @@ local styles = require("markup.window.styles")
 ---@class markup.renderer
 ---@field protected opts markup.renderer.opts
 ---@field root any
+---@field rootf markup.fiber
 ---@field current? markup.renderer
 ---@field win markup.window
 ---@field private observers table<string, table>
@@ -24,7 +25,6 @@ function M:new(opts)
 		Markup.renderers[win.win] = self
 	end
 
-	-- self.win = Snacks.win(opts)
 	self.win = Markup.window(opts)
 	self.ns = vim.api.nvim_create_namespace(("markup_renderer_[%s]"):format(self.win.id))
 	self.debug_ns =
@@ -34,7 +34,7 @@ function M:new(opts)
 	self.stats = {}
 	self.buttons = {}
 	self.keys = {} ---@type table<markup.node, { key: string, cb: function }[]>
-	self.cursor = { suppress = false }
+	self.cursor = {}
 
 	self.win:on("WinResized", function()
 		if vim.tbl_contains(vim.v.event.windows, self.win.win) then
@@ -58,9 +58,9 @@ function M:render(element)
 		self:bind(element)
 	end
 
-	self.stats = {}
 	self.rootf = Markup.factory.fiber.root(self.element)
-	self.root = Markup.factory.box.root(self)
+	self.root = Markup.factory.box(self.rootf.state_node)
+	self.stats = {}
 
 	self:rerender()
 end
@@ -115,18 +115,20 @@ function M:track_fps(elapsed)
 end
 
 function M:build()
-	local root = self:render_root()
-	root:reflow()
+	self:render_root():reflow()
 end
 
 function M:layout()
-	self:render_root():layout()
+	self:render_root():layout({
+		width = vim.api.nvim_win_get_width(self.win.win),
+		height = vim.api.nvim_win_get_height(self.win.win),
+	})
 end
 
 local str_cache = {}
 
 function M:_paint_with_concat_lines()
-	local mbox = self:render_root():margin_box_size()
+	local mbox = self:render_root():get_box_size("margin")
 
 	-- local fill = (" "):rep(mbox.width)
 	-- for i = 1, mbox.height do
@@ -180,7 +182,7 @@ function M:paint()
 		vim.api.nvim_buf_clear_namespace(0, self.ns, 0, -1)
 		vim.api.nvim_buf_clear_namespace(0, self.debug_ns, 0, -1)
 
-		local mbox = self:render_root():margin_box_size()
+		local mbox = self:render_root():get_box_size("margin")
 
 		local lines = {}
 		local fill = (" "):rep(mbox.width)
@@ -231,7 +233,7 @@ end
 
 ---@return markup.node
 function M:node_root()
-	return self:fiber_root().state_node
+	return self.rootf.state_node
 end
 
 ---@param event markup.renderer.event
@@ -251,7 +253,7 @@ end
 
 ---@return markup.box
 function M:render_root()
-	return self:node_root().box
+	return self.rootf.state_node.box
 end
 
 function M:handle_cursor_moved()
@@ -272,7 +274,7 @@ function M:handle_cursor_moved()
 
 	while stack.len > 0 do
 		local box = stack:pop() ---@cast box markup.box
-		local mrange = box:margin_box_range()
+		local mrange = box:get_box_range("margin")
 		assert(mrange, "Box must have a margin box range")
 
 		-- Directional pruning
@@ -303,7 +305,9 @@ function M:handle_cursor_moved()
 	end
 
 	if #buttons == 0 then
-		vim.api.nvim_win_set_cursor(self.win.win, self.cursor.prev)
+		if self.cursor.prev then
+			vim.api.nvim_win_set_cursor(self.win.win, self.cursor.prev)
+		end
 		return
 	end
 
@@ -312,7 +316,7 @@ function M:handle_cursor_moved()
 	end)
 
 	local target = buttons[1]
-	local mrange = target:margin_box_range()
+	local mrange = target:get_box_range("margin")
 	assert(mrange, "Target box must have a margin box range")
 
 	-- If inside the new button, do nothing

@@ -4,29 +4,32 @@ local Layout = require("markup.renderer.box.layout")
 local FlexLayout = Layout.new("RenderFlex", { "flex", "block" })
 
 ---@param box markup.box
-function FlexLayout.layout(box)
-	local w, h = FlexLayout.compute_initial_size(box)
+---@param constraints markup.box.constraints
+function FlexLayout.layout(box, constraints)
+	constraints = FlexLayout.compute_initial_size(box, constraints)
+
 	if box.props.vertical then
-		FlexLayout.layout_vertical(box, w, h)
+		FlexLayout.layout_vertical(box, constraints)
 	else
-		FlexLayout.layout_horizontal(box, w, h)
+		FlexLayout.layout_horizontal(box, constraints)
 	end
-	FlexLayout.compute_final_size(box, w, h)
+	FlexLayout.compute_final_size(box, constraints)
 
 	FlexLayout.justify(box)
 	FlexLayout.align(box)
 end
 
 ---@param box markup.box
-function FlexLayout.layout_horizontal(box, w, h)
+---@param constraints markup.box.constraints
+function FlexLayout.layout_horizontal(box, constraints)
 	local props = box.props
 	local len = box:children_len()
-	local gw = w and math.ceil(w / len)
+	-- local gw = w and math.ceil(w / len)
 	local max_width, max_height = 0, 0
 
 	for i, child in box:iter_children() do
-		child:layout()
-		local child_mbox = child:margin_box_size()
+		child:layout({})
+		local child_mbox = child:get_box_size("margin")
 
 		box.x = box.x + child_mbox.width + (i ~= len and props.spacing or 0)
 		max_width = math.max(max_width, box.x)
@@ -38,15 +41,16 @@ function FlexLayout.layout_horizontal(box, w, h)
 end
 
 ---@param box markup.box
-function FlexLayout.layout_vertical(box, w, h)
+---@param constraints markup.box.constraints
+function FlexLayout.layout_vertical(box, constraints)
 	local props = box.props
 
 	local max_width = 0
 	local len = box:children_len()
 
 	for i, child in box:iter_children() do
-		child:layout()
-		local child_mbox = child:margin_box_size()
+		child:layout({})
+		local child_mbox = child:get_box_size("margin")
 
 		box.y = box.y + child_mbox.height + (i ~= len and props.spacing or 0)
 		max_width = math.max(max_width, child_mbox.width)
@@ -57,50 +61,53 @@ function FlexLayout.layout_vertical(box, w, h)
 end
 
 ---@param box markup.box
-function FlexLayout.compute_initial_size(box)
+---@param constraints markup.box.constraints
+function FlexLayout.compute_initial_size(box, constraints)
 	local props = box.props
 	local width, height = props.width, props.height
-	local parent_cbox = box.parent:content_box_size()
 
-	if parent_cbox and not vim.tbl_isempty(parent_cbox) then
-		width = box:inherit_size(width, parent_cbox.width)
-		height = box:inherit_size(height, parent_cbox.height)
-	else
-		-- relative numbers [0,1) will not working when we don't know the parent size
-		width = width >= 1 and width or nil
-		height = height >= 1 and height or nil
+	if width == "fit" then
+		width = nil
+	elseif width == "auto" or width == "full" then
+		width = constraints.width
+	else ---@cast width number
+		width = Layout.resolve_size(width, constraints.width)
 	end
 
-	return width, height
+	if height == "fit" then
+		height = nil
+	elseif height == "auto" or height == "full" then
+		height = constraints.height
+	else ---@cast height number
+		height = Layout.resolve_size(height, constraints.height)
+	end
+
+	return box:clamp_content_size({
+		width = width,
+		height = height,
+	})
 end
 
 ---@param box markup.box
-function FlexLayout.compute_final_size(box, w, h)
-	local vertical = box.props.vertical
-
-	local width, height
-	if vertical then
-		width = w and math.max(w, box.width) or box.width
-		height = h and math.max(h, box.height) or box.height
-	else
-		width = w and math.max(w, box.width) or box.width
-		height = h and math.min(h, box.height) or box.height
-	end
-
-	box:set_content_box_size(width, height)
+---@param constraints markup.box.constraints
+function FlexLayout.compute_final_size(box, constraints)
+	box:set_content_box_size_raw({
+		width = math.max(box.width, constraints.width or 0),
+		height = math.max(box.height, constraints.height or 0),
+	})
 end
 
 ---@param box markup.box
 function FlexLayout.justify(box)
 	local props = box.props
-	local cbox = box:content_box_size()
+	local cbox = box:get_box_size("content")
 
 	if props.justify == "center" then
 		local x = math.ceil((cbox.width - box.width) / 2)
 		local len = box:children_len()
 		for i, child in box:iter_children() do
 			child.ox = x
-			local child_mbox = child:margin_box_size()
+			local child_mbox = child:get_box_size("margin")
 			x = x + child_mbox.width + (i ~= len and props.spacing or 0)
 		end
 	elseif props.justify == "end" then
@@ -108,7 +115,7 @@ function FlexLayout.justify(box)
 		local len = box:children_len()
 		for i, child in box:iter_children() do
 			child.ox = x
-			local child_mbox = child:margin_box_size()
+			local child_mbox = child:get_box_size("margin")
 			x = x + child_mbox.width + (i ~= len and props.spacing or 0)
 		end
 	elseif props.justify == "between" then
@@ -139,13 +146,13 @@ end
 ---@param box markup.box
 function FlexLayout.align(box)
 	local props = box.props
-	local cbox = box:content_box_size()
+	local cbox = box:get_box_size("content")
 
 	if props.align == "center" then
 		local y = 0
 		local len = box:children_len()
 		for i, child in box:iter_children() do
-			local child_mbox = child:margin_box_size()
+			local child_mbox = child:get_box_size("margin")
 			child.oy = y
 			child.ox = math.ceil((cbox.width - child_mbox.width) / 2)
 			y = y + child_mbox.height + (i ~= len and props.spacing or 0)

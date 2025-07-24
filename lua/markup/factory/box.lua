@@ -17,7 +17,7 @@ local strategies = {
 
 ---@param node markup.node
 ---@return markup.box
-function M.new(node)
+function M.call(node)
 	local RenderNode = require("markup.renderer.box")
 	local layout_type = node.type == "text" and "text" or node.tag_name
 	local layout_strategy = strategies[layout_type]
@@ -31,25 +31,7 @@ end
 
 ---@param renderer markup.renderer
 function M.root(renderer)
-	local root = M.new(renderer.rootf.state_node)
-
-	local id = renderer.win.win
-	local width = id and vim.api.nvim_win_get_width(id)
-	local height = id and vim.api.nvim_win_get_height(id)
-
-	---@diagnostic disable-next-line: missing-fields
-	root.parent = { -- mock parent
-		x = 0,
-		y = 0,
-		width = width,
-		height = height,
-		flag_as_dirty = function() end,
-	}
-
-	root.parent.content_box_size = function()
-		return { width = root.parent.width, height = root.parent.height }
-	end
-
+	local root = M.call(renderer.rootf.state_node)
 	return root
 end
 

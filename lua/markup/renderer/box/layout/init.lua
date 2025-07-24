@@ -1,11 +1,11 @@
 ---@class markup.Render.Layout
 ---@field __name string
 ---@field __type table<markup.Render.LayoutType, boolean>
-local Layout = {}
+local M = {}
 
 ---@param name string
 ---@param type? markup.Render.LayoutType[]
-function Layout.new(name, type)
+function M.new(name, type)
 	local type_lookup = {}
 	for _, t in ipairs(type or {}) do
 		type_lookup[t] = true
@@ -18,8 +18,27 @@ function Layout.new(name, type)
 end
 
 ---@param box markup.box
-function Layout.layout(box) ---@diagnostic disable-line: unused-local
+---@param constraints? markup.box.constraints
+function M.layout(box, constraints) ---@diagnostic disable-line: unused-local
 	error("Layout.layout must be implemented by subclasses")
 end
 
-return Layout
+---@class markup.box.constraints
+---@field width? number
+---@field height? number
+---@field min_width? number
+---@field min_height? number
+---@field max_width? number
+---@field max_height? number
+
+---@param size number
+---@param ref number
+function M.resolve_size(size, ref)
+	if size < 1 then
+		return math.floor(ref * size)
+	else
+		return math.floor(size)
+	end
+end
+
+return M

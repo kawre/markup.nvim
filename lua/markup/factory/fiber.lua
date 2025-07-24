@@ -9,12 +9,12 @@ local M = Markup.singleton()
 ---@param tag markup.Fiber.tag
 ---@param props? table
 ---@param key? any
-function M.new(tag, props, key)
+function M.call(tag, props, key)
 	return Fiber(tag, props, key)
 end
 
 function M.from_text(content)
-	return M.new(Tag.TEXT, content)
+	return M.call(Tag.TEXT, content)
 end
 
 ---@param element markup.element
@@ -44,7 +44,7 @@ function M.from_type_and_props(type, props, key)
 		end
 	end
 
-	local fiber = M.new(tag, props, key)
+	local fiber = M.call(tag, props, key)
 	fiber.element_type = type
 	fiber.type = resolved_type
 	return fiber
@@ -52,7 +52,7 @@ end
 
 ---@param element markup.element
 function M.root(element)
-	local fiber = M.new(Tag.ROOT)
+	local fiber = M.call(Tag.ROOT)
 	fiber.pending_props = { children = element }
 	fiber.state_node = Markup.factory.node("element", "root")
 	fiber:set_flags(Flag.PLACEMENT)

@@ -8,19 +8,19 @@ local M = Markup.singleton()
 ---@param type markup.node.type
 ---@param name? string
 ---@param props? markup.node.props
-function M.new(type, name, props)
+function M.call(type, name, props)
 	return Node(type, name, props)
 end
 
 ---@param element markup.element
 function M.from_element(element)
-	local node = M.new("element", element.type, element.props)
+	local node = M.call("element", element.type, element.props)
 	return node
 end
 
 ---@param content string|number
 function M.from_text(content)
-	local node = M.new("text")
+	local node = M.call("text")
 	node:set_text_content(content)
 	return node
 end
@@ -33,7 +33,7 @@ function M.from_fiber(fiber)
 		local text_content = type(props) == "table" and props.children or props
 		node = M.from_text(text_content)
 	elseif fiber.tag == FiberTag.ELEMENT then
-		node = M.new("element", fiber.element_type, fiber.pending_props)
+		node = M.call("element", fiber.element_type, fiber.pending_props)
 	else
 		error("Unknown fiber tag: " .. vim.inspect(fiber.tag))
 	end

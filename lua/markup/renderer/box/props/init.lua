@@ -1,6 +1,8 @@
 local defaults = require("markup.renderer.box.props.defaults")
 
----@class markup.Render.props
+---@alias markup.box.props.size "auto" | "fit" | "full" | number
+
+---@class markup.box.props
 ---@field margin_top integer
 ---@field margin_right integer
 ---@field margin_bottom integer
@@ -9,39 +11,53 @@ local defaults = require("markup.renderer.box.props.defaults")
 ---@field padding_right integer
 ---@field padding_bottom integer
 ---@field padding_left integer
----@field width integer
----@field height integer
+---@field width markup.box.props.size
+---@field height markup.box.props.size
+---@field min_width markup.box.props.size
+---@field min_height markup.box.props.size
+---@field max_width? markup.box.props.size
+---@field max_height? markup.box.props.size
 ---@field spacing integer
 ---@field justify string
 ---@field align string
----@field vertical string
+---@field vertical boolean
 ---@field sizing string
 ---@field reverse boolean
 ---@field style markup.Element.style
-local BoxProps = {}
-BoxProps.__index = BoxProps
+
+local M = Markup.singleton()
 
 ---@param box markup.box
-function BoxProps:new(box)
+function M.call(box)
 	return setmetatable({}, {
 		__index = function(_, key)
-			local props = box.node.props
+			local function resolve()
+				local props = box.node.props
 
-			local tag = box.node.tag_name
-			local tag_defaults = defaults[tag]
-			local prop = props[key]
+				local tag = box.node.tag_name
+				local tag_defaults = defaults[tag]
+				local prop = props[key]
 
-			if prop ~= nil then
-				return prop
-			elseif tag_defaults and tag_defaults[key] ~= nil then
-				return tag_defaults[key]
-			elseif defaults.default[key] ~= nil then
-				return defaults.default[key]
-			else
-				error(string.format("Property `%s` not found for tag `%s`", key, tag))
+				if prop ~= nil then
+					return prop
+				elseif tag_defaults and tag_defaults[key] ~= nil then
+					return tag_defaults[key]
+				elseif defaults.default[key] ~= nil then
+					return defaults.default[key]
+				else
+					error(string.format("Property `%s` not found for tag `%s`", key, tag))
+				end
 			end
+
+			-- local resolved = resolve()
+			-- return M[key] and M[key](resolved, box) or resolved
+			return resolve()
 		end,
 	})
 end
 
-return BoxProps
+-- function M.width(width, box)
+-- 	return 0
+-- end
+
+return M

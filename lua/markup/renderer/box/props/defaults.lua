@@ -1,5 +1,6 @@
 local M = {}
 
+---@type markup.box.props
 M.default = {
 	display = "block",
 	margin_top = 0,
@@ -10,8 +11,12 @@ M.default = {
 	padding_right = 0,
 	padding_bottom = 0,
 	padding_left = 0,
-	width = 0,
-	height = 0,
+	width = "auto",
+	height = "auto",
+	max_height = "auto",
+	max_width = "auto",
+	min_height = "auto",
+	min_width = "auto",
 	spacing = 0,
 	justify = "start",
 	align = "start",

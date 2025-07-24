@@ -68,14 +68,14 @@ end
 ---| fun(type: any, props?: markup.factory.Element.constructor.props, style?: markup.factory.Element.constructor.style): markup.element
 
 ---@type markup.factory.Element.constructor.raw
-function M.new(type, props, style)
+function M.call(type, props, style)
 	return Element.new(type, resolve(props, style))
 end
 
 ---@param Component fun(props?: any|{ children?: any }): any
 function M.component(Component)
 	return function(...)
-		return M.new(Component, ...)
+		return M.call(Component, ...)
 	end
 end
 
@@ -83,12 +83,12 @@ end
 function M.class(Class)
 	return function(...)
 		Class.typeof = "class"
-		return M.new(Class, ...)
+		return M.call(Class, ...)
 	end
 end
 
 function M.fragment(...)
-	return M.new("fragment", ...)
+	return M.call("fragment", ...)
 end
 
 function M.context(default)
@@ -98,7 +98,7 @@ function M.context(default)
 	}
 
 	ctx.provider = function(...)
-		return M.new(ctx, ...)
+		return M.call(ctx, ...)
 	end
 
 	return ctx

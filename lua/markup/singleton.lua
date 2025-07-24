@@ -3,8 +3,7 @@
 return function()
 	local M = setmetatable({}, {
 		__call = function(t, ...)
-			assert(t.new, "Singleton must have a 'new' method")
-			return t.new(...)
+			return t.call(...)
 		end,
 	})
 	return M

@@ -12,7 +12,10 @@ function TextLayout.layout(box)
 	-- box.width = vim.fn.strlen(str)
 	box.height = 1
 
-	box:set_content_box_size(box.width, box.height)
+	box:set_content_box_size({
+		width = box.width,
+		height = box.height,
+	})
 end
 
 return TextLayout

@@ -9,11 +9,11 @@ local Dispatcher = require("markup.reconciler.dispatcher")
 ---@field wip_hook? markup.fiber.hook
 ---@field work_stack table
 ---@field work_stack_visited table
----@overload fun(renderer: markup.renderer): markup.reconciler
+---@overload fun(fiber: markup.fiber): markup.fiber
 local M = Markup.singleton()
 
 ---@param rootf markup.fiber
-function M.new(rootf)
+function M.call(rootf)
 	M.current_fiber = nil
 	M.current_hook = nil
 	M.wip_hook = nil
