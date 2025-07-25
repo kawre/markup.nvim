@@ -1,27 +1,28 @@
-local Layout = require("markup.renderer.box.layout")
+local Impl = require("markup.renderer.box.impl")
+local RenderBlock = require("markup.renderer.box.impl.block")
 
----@class markup.Render.Layout.Flex : markup.Render.Layout
-local FlexLayout = Layout.new("RenderFlex", { "flex", "block" })
+---@class markup.box.flex : markup.box.impl
+local M = Impl("RenderFlex", { "flex", "block" })
 
 ---@param box markup.box
 ---@param constraints markup.box.constraints
-function FlexLayout.layout(box, constraints)
-	constraints = FlexLayout.compute_initial_size(box, constraints)
+function M.layout(box, constraints)
+	constraints = M.compute_initial_size(box, constraints)
 
 	if box.props.vertical then
-		FlexLayout.layout_vertical(box, constraints)
+		M.layout_vertical(box, constraints)
 	else
-		FlexLayout.layout_horizontal(box, constraints)
+		M.layout_horizontal(box, constraints)
 	end
-	FlexLayout.compute_final_size(box, constraints)
+	M.compute_final_size(box, constraints)
 
-	FlexLayout.justify(box)
-	FlexLayout.align(box)
+	M.justify(box)
+	M.align(box)
 end
 
 ---@param box markup.box
 ---@param constraints markup.box.constraints
-function FlexLayout.layout_horizontal(box, constraints)
+function M.layout_horizontal(box, constraints)
 	local props = box.props
 	local len = box:children_len()
 	-- local gw = w and math.ceil(w / len)
@@ -42,19 +43,28 @@ end
 
 ---@param box markup.box
 ---@param constraints markup.box.constraints
-function FlexLayout.layout_vertical(box, constraints)
+function M.layout_vertical(box, constraints)
 	local props = box.props
 
 	local max_width = 0
 	local len = box:children_len()
 
+	local isize = {} ---@type table<markup.box, markup.size>
 	for i, child in box:iter_children() do
-		child:layout({})
+		isize[i] = child:compute_intrinsic_size()
+	end
+
+	for i, child in box:iter_children() do
+		child:layout({
+			width = constraints.width,
+		})
 		local child_mbox = child:get_box_size("margin")
 
 		box.y = box.y + child_mbox.height + (i ~= len and props.spacing or 0)
 		max_width = math.max(max_width, child_mbox.width)
 	end
+
+	Markup.log(isize)
 
 	box.width = max_width
 	box.height = box.y
@@ -62,35 +72,13 @@ end
 
 ---@param box markup.box
 ---@param constraints markup.box.constraints
-function FlexLayout.compute_initial_size(box, constraints)
-	local props = box.props
-	local width, height = props.width, props.height
-
-	if width == "fit" then
-		width = nil
-	elseif width == "auto" or width == "full" then
-		width = constraints.width
-	else ---@cast width number
-		width = Layout.resolve_size(width, constraints.width)
-	end
-
-	if height == "fit" then
-		height = nil
-	elseif height == "auto" or height == "full" then
-		height = constraints.height
-	else ---@cast height number
-		height = Layout.resolve_size(height, constraints.height)
-	end
-
-	return box:clamp_content_size({
-		width = width,
-		height = height,
-	})
+function M.compute_initial_size(box, constraints)
+	return RenderBlock.compute_initial_size(box, constraints)
 end
 
 ---@param box markup.box
 ---@param constraints markup.box.constraints
-function FlexLayout.compute_final_size(box, constraints)
+function M.compute_final_size(box, constraints)
 	box:set_content_box_size_raw({
 		width = math.max(box.width, constraints.width or 0),
 		height = math.max(box.height, constraints.height or 0),
@@ -98,7 +86,7 @@ function FlexLayout.compute_final_size(box, constraints)
 end
 
 ---@param box markup.box
-function FlexLayout.justify(box)
+function M.justify(box)
 	local props = box.props
 	local cbox = box:get_box_size("content")
 
@@ -144,7 +132,7 @@ function FlexLayout.justify(box)
 end
 
 ---@param box markup.box
-function FlexLayout.align(box)
+function M.align(box)
 	local props = box.props
 	local cbox = box:get_box_size("content")
 
@@ -152,6 +140,11 @@ function FlexLayout.align(box)
 		local y = 0
 		local len = box:children_len()
 		for i, child in box:iter_children() do
+			child:set_content_box_size({
+				width = child.width,
+				height = child.height,
+			})
+
 			local child_mbox = child:get_box_size("margin")
 			child.oy = y
 			child.ox = math.ceil((cbox.width - child_mbox.width) / 2)
@@ -160,4 +153,11 @@ function FlexLayout.align(box)
 	end
 end
 
-return FlexLayout
+---@param box markup.box
+---@return markup.box.constraints
+function M.compute_intrinsic_size(box)
+	-- Reuse the block layout's min intrinsic size computation
+	return RenderBlock.compute_intrinsic_size(box)
+end
+
+return M

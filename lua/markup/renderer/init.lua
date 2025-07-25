@@ -43,7 +43,9 @@ function M:new(opts)
 	end, { pattern = "*" })
 
 	self.win:on("CursorMoved", function()
-		self:handle_cursor_moved()
+		if self:valid() then
+			self:handle_cursor_moved()
+		end
 	end, { buf = true })
 end
 
@@ -58,6 +60,7 @@ function M:render(element)
 		self:bind(element)
 	end
 
+	assert(self.element, "Renderer element not bound. Call :bind(element) to bind the element.")
 	self.rootf = Markup.factory.fiber.root(self.element)
 	self.root = Markup.factory.box(self.rootf.state_node)
 	self.stats = {}
@@ -332,6 +335,10 @@ function M:handle_cursor_moved()
 	-- Convert back to 1-indexed for win_set_cursor
 	self.cursor.prev = { clamped_row + 1, clamped_col }
 	vim.api.nvim_win_set_cursor(self.win.win, self.cursor.prev)
+end
+
+function M:valid()
+	return self.element and self.root and self.rootf and self.win:valid()
 end
 
 return M

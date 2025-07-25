@@ -56,8 +56,12 @@ function M.call(box)
 	})
 end
 
--- function M.width(width, box)
--- 	return 0
--- end
+function M:get_width()
+	return 0
+end
+
+function M.get_intrinsic_size()
+	return 0
+end
 
 return M

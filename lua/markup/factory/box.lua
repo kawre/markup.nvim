@@ -4,15 +4,15 @@
 ---@overload fun(node: markup.node): markup.box
 local M = Markup.singleton()
 
-local strategies = {
-	["flex"] = require("markup.renderer.box.layout.flex"),
-	["hflex"] = require("markup.renderer.box.layout.flex"),
-	["vflex"] = require("markup.renderer.box.layout.flex"),
-	["block"] = require("markup.renderer.box.layout.block"),
-	["button"] = require("markup.renderer.box.layout.block"),
-	["root"] = require("markup.renderer.box.layout.block"),
-	["inline"] = require("markup.renderer.box.layout.inline"),
-	["text"] = require("markup.renderer.box.layout.text"),
+local impls = {
+	["flex"] = require("markup.renderer.box.impl.flex"),
+	["hflex"] = require("markup.renderer.box.impl.flex"),
+	["vflex"] = require("markup.renderer.box.impl.flex"),
+	["block"] = require("markup.renderer.box.impl.block"),
+	["button"] = require("markup.renderer.box.impl.block"),
+	["root"] = require("markup.renderer.box.impl.block"),
+	["inline"] = require("markup.renderer.box.impl.inline"),
+	["text"] = require("markup.renderer.box.impl.text"),
 }
 
 ---@param node markup.node
@@ -20,7 +20,7 @@ local strategies = {
 function M.call(node)
 	local RenderNode = require("markup.renderer.box")
 	local layout_type = node.type == "text" and "text" or node.tag_name
-	local layout_strategy = strategies[layout_type]
+	local layout_strategy = impls[layout_type]
 
 	if not layout_strategy then
 		error("Unknown layout type: " .. tostring(layout_type))

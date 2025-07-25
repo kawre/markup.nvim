@@ -1,7 +1,17 @@
 local BoxProps = require("markup.renderer.box.props")
 
+---@class markup.box.constraints
+---@field width? number
+---@field height? number
+---@field min_width? number
+---@field min_height? number
+---@field max_width? number
+---@field max_height? number
+---@field available_width? number
+---@field available_height? number
+
 ---@class markup.box
----@field layout_strategy markup.Render.Layout
+---@field impl markup.box.impl
 ---@field node markup.node
 ---@field parent markup.box
 ---@field dirty boolean
@@ -16,16 +26,22 @@ local BoxProps = require("markup.renderer.box.props")
 ---@field height integer
 ---@field content_width integer
 ---@field content_height integer
----@field available_width integer
----@field available_height integer
+---@field min_content_width integer
+---@field min_content_height integer
+---@field max_content_width integer
+---@field max_content_height integer
+---@field fit_content_width integer
+---@field fit_content_height integer
+---@field intrinsic_width integer
+---@field intrinsic_height integer
 ---@field props markup.box.props
 ---@field extmarks table
 local M = Markup.object()
 
 ---@param node markup.node
----@param layout_strategy markup.Render.Layout
-function M:new(node, layout_strategy)
-	self.layout_strategy = layout_strategy
+---@param impl? markup.box.impl can be set later
+function M:new(node, impl)
+	self.impl = impl
 	self.node = node
 	node.box = self
 	self.dirty = true
@@ -92,7 +108,7 @@ end
 
 ---@param constraints markup.box.constraints
 function M:layout(constraints)
-	assert(self.layout_strategy, "Layout strategy is not set")
+	assert(self.impl, "Layout strategy is not set")
 
 	if self.dirty == false then
 		return
@@ -116,7 +132,7 @@ function M:layout(constraints)
 
 	self.x = 0
 	self.y = 0
-	self.layout_strategy.layout(self, constraints)
+	self.impl.layout(self, constraints)
 	self.x = nil
 	self.y = nil
 
@@ -156,12 +172,12 @@ function M:remove_child(node)
 end
 
 function M:name()
-	return self.layout_strategy.__name
+	return self.impl.__name
 end
 
 ---@param layout_type markup.Render.LayoutType
 function M:is(layout_type)
-	return self.layout_strategy.__type[layout_type]
+	return self.impl.__type[layout_type]
 end
 
 ---@alias markup.box.kind "content" | "padding" | "margin"
@@ -523,6 +539,23 @@ function M:distance_to(x, y)
 	local dy = math.max(range.top - y, 0, y - range.bottom)
 
 	return math.sqrt(dx * dx + dy * dy)
+end
+
+---@alias markup.size {width: integer, height: integer}
+
+---@return markup.size
+function M:compute_intrinsic_size()
+	return self.impl.compute_intrinsic_size(self)
+end
+
+---@param size number
+---@param ref number
+function M:resolve_size(size, ref)
+	if size < 1 then
+		return math.floor(ref * size)
+	else
+		return math.floor(size)
+	end
 end
 
 return M
