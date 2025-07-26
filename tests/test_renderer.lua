@@ -438,4 +438,115 @@ T["render()"]["hflex"]["nested flex elements with size"] = function()
 	render_and_expect_screenshot(app)
 end
 
+T["render()"]["vflex"] = new_set()
+
+T["render()"]["vflex"]["respect flex item width"] = function()
+	local app = m.vflex({
+		align = "center",
+		m.inline("inline"),
+		m.block({
+			width = 30,
+			style = "Search",
+			m.block("block2"),
+		}),
+		m.inline("inline32"),
+	})
+
+	render_and_expect_screenshot(app)
+end
+
+T["render()"]["vflex"]["justify and align center with specified height"] = function()
+	local app = m.vflex({
+		align = "center",
+		justify = "center",
+		m.inline("inline"),
+		m.block({
+			width = 30,
+			m.block("block2"),
+		}),
+		m.inline("inline32"),
+		style = "Search",
+		height = 10,
+	})
+
+	render_and_expect_screenshot(app)
+end
+
+T["render()"]["vflex"]["justify and align center without specified size"] = function()
+	local app = m.vflex({
+		align = "center",
+		justify = "center",
+		m.inline("inline"),
+		m.block({
+			m.block("block2"),
+		}),
+		m.inline("inline32"),
+		style = "Search",
+	})
+
+	render_and_expect_screenshot(app)
+end
+
+T["render()"]["vflex"]["justify and align center without specified size"] = function()
+	local app = m.vflex({
+		align = "center",
+		justify = "center",
+		m.inline("inline"),
+		m.block({
+			m.block("block2"),
+		}),
+		m.inline("inline32"),
+		style = "Search",
+	})
+
+	render_and_expect_screenshot(app)
+end
+
+T["render()"]["vflex"]["align end with justify center"] = function()
+	local app = m.vflex({
+		align = "end",
+		justify = "center",
+		spacing = 2,
+		m.inline("inline"),
+		m.block({
+			m.block("block2"),
+		}),
+		m.inline("inline32"),
+		style = "Search",
+		height = 7,
+	})
+
+	render_and_expect_screenshot(app)
+end
+
+T["render()"]["vflex"]["align end with justify end"] = function()
+	local app = m.vflex({
+		align = "end",
+		justify = "end",
+		spacing = 2,
+		m.inline("inline"),
+		m.block({
+			m.block("block2"),
+		}),
+		m.inline("inline32"),
+		style = "Search",
+		height = 10,
+	})
+
+	render_and_expect_screenshot(app)
+end
+
+T["render()"]["vflex"]["align items with stretch"] = function()
+	local app = m.vflex({
+		spacing = 1,
+		m.block("block", "Search"),
+		m.block("block", "Search"),
+		m.block("block", "Search"),
+		m.block("block", "Search"),
+		height = 10,
+	})
+
+	render_and_expect_screenshot(app)
+end
+
 return T

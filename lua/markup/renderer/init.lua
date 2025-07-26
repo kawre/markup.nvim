@@ -182,7 +182,7 @@ function M:paint()
 		vim.api.nvim_buf_clear_namespace(0, self.ns, 0, -1)
 		vim.api.nvim_buf_clear_namespace(0, self.debug_ns, 0, -1)
 
-		local cbox = self:render_root():get_box_size("content")
+		local cbox = self:render_root():get_box_size("margin")
 
 		local lines = {}
 		local fill = (" "):rep(cbox.width)

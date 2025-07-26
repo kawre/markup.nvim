@@ -11,10 +11,8 @@ function M.layout(box)
 	box.width = vim.api.nvim_strwidth(str)
 	box.height = 1
 
-	box:set_content_box_size({
-		width = box.width,
-		height = box.height,
-	})
+	box:set_content_box_width(box.width, true)
+	box:set_content_box_height(box.height, true)
 end
 
 return M

@@ -1,4 +1,5 @@
 local Impl = require("markup.renderer.box.impl")
+local RenderBlock = require("markup.renderer.box.impl.block")
 
 ---@class markup.box.inline : markup.box.impl
 local M = Impl("RenderInline", { "inline" })
@@ -22,18 +23,17 @@ function M.layout(box, input)
 	box.width = box.x
 	box.height = 1
 
-	box:set_content_box_size({
-		width = box.width,
-		height = box.height,
-	})
+	box:set_content_box_width(box.width, true)
+	box:set_content_box_height(box.height, true)
+	-- RenderBlock.compute_final_size(box, input, output)
 end
 
 ---@param box markup.box
 ---@param input markup.box.layout.Input
 function M.compute_output(box, input)
+	local width = box:resolve_size(box.computed.width, input.available_width)
 	return {
-		available_width = box:resolve_size(box.computed.width, input.available_width),
-		available_height = 1,
+		available_width = box:clamp_size(width, "width"),
 	}
 end
 

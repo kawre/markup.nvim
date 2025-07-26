@@ -19,13 +19,7 @@ function M.layout(box, input)
 	local bsize = {}
 
 	for i, child in ipairs(children) do
-		if child.computed.basis ~= "auto" then
-			bsize[i] = { width = child.computed.basis, height = 0 }
-		elseif child.computed.width ~= "auto" then
-			bsize[i] = { width = child.computed.width, height = 0 }
-		else
-			bsize[i] = child:compute_intrinsic_size()
-		end
+		bsize[i] = child:compute_intrinsic_size()
 
 		-- convert to logical size
 		if is_vertical then
@@ -38,7 +32,7 @@ function M.layout(box, input)
 		cross_size = math.max(cross_size, bsize[i].height)
 	end
 
-	local xd = box:resolve_size(props.height, cross_size)
+	local xd = box:resolve_size(props.height, is_vertical and content_size or cross_size)
 	local main_axis_avail = is_vertical and xd or size.available_width
 	local main_size = math.max(main_axis_avail, content_size)
 	local main_free_space = main_size - content_size

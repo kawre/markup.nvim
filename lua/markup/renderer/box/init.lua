@@ -211,49 +211,42 @@ function M:get_box_size(kind)
 	end
 end
 
----@param size { width?: integer, height?: integer }
-function M:set_content_box_size(size)
-	local out = self:clamp_content_size(size)
-	self:set_content_box_size_raw(out)
+---@param size integer
+---@param axis "width"|"height"
+function M:clamp_size(size, axis)
+	local computed = self.computed
+	if computed.sizing ~= "inner" then
+		return size
+	end
+	if axis == "width" then
+		return size
+			- (computed.padding_left + computed.padding_right)
+			- (computed.margin_left + computed.margin_right)
+	else
+		return size
+			- (computed.padding_top + computed.padding_bottom)
+			- (computed.margin_top + computed.margin_bottom)
+	end
 end
 
----@param size { width?: integer, height?: integer }
-function M:set_content_box_size_raw(size)
-	self.content_width = size.width
-	self.content_height = size.height
+---@param width integer
+---@param clamp? boolean
+function M:set_content_box_width(width, clamp)
+	if clamp then
+		width = self:clamp_size(width, "width")
+	end
+	self.content_width = math.max(self.width or 1, width)
 end
 
----@param size { width?: integer, height?: integer }
----@return { width?: integer, height?: integer }
-function M:clamp_content_size(size)
-	local props = self.computed
-	local out = {}
-
-	if size.width then
-		local width = size.width
-		if props.sizing == "inner" then
-			width = width
-				- (props.padding_left + props.padding_right)
-				- (props.margin_left + props.margin_right)
-		end
-		out.width = math.max(self.width or 0, width)
+---@param height integer
+---@param clamp? boolean
+function M:set_content_box_height(height, clamp)
+	if self:is("inline") then
+		height = 1
+	elseif clamp then
+		height = self:clamp_size(height, "height")
 	end
-
-	if size.height then
-		local height = size.height
-		if self:is("inline") then
-			out.height = 1
-		else
-			if props.sizing == "inner" then
-				height = height
-					- (props.padding_top + props.padding_bottom)
-					- (props.margin_top + props.margin_bottom)
-			end
-			out.height = math.max(self.height or 0, height)
-		end
-	end
-
-	return out
+	self.content_height = math.max(self.height or 1, height)
 end
 
 function M:destroy()
@@ -312,6 +305,7 @@ end
 -- 	end
 -- end
 
+---(0,0) indexed
 ---@param renderer markup.renderer
 ---@param x integer
 ---@param y integer
@@ -556,7 +550,7 @@ end
 ---@return markup.size
 function M:compute_intrinsic_size()
 	self:layout({ available_width = 0 })
-	return self:get_box_size("content")
+	return self:get_box_size("margin")
 end
 
 ---@param contraints markup.box.layout.Input

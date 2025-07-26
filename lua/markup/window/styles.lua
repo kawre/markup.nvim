@@ -40,6 +40,7 @@ M.minimal = {
 		statuscolumn = "",
 		wrap = false,
 		sidescrolloff = 0,
+		foldcolumn = "0",
 	},
 }
 
