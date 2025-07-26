@@ -1,5 +1,9 @@
 local M = {}
 
+function M.merge(props)
+	return vim.tbl_extend("keep", props, M.default, props or {})
+end
+
 ---@type markup.box.props
 M.default = {
 	display = "block",
@@ -19,7 +23,8 @@ M.default = {
 	min_width = "auto",
 	spacing = 0,
 	justify = "start",
-	align = "start",
+	align = "stretch",
+	basis = "auto",
 	vertical = false,
 	reverse = false,
 	sizing = "inner",
@@ -50,6 +55,7 @@ M.block = {
 
 M.inline = {
 	display = "inline",
+	sizing = "outer",
 }
 
 M.anchor = {

@@ -254,4 +254,17 @@ function M.blend(fg, bg, alpha)
 	return string.format("#%02x%02x%02x", blend(1), blend(2), blend(3))
 end
 
+---@param value number
+---@param min number
+---@param max number
+function M.clamp(value, min, max)
+	if value < min then
+		return min
+	elseif value > max then
+		return max
+	else
+		return value
+	end
+end
+
 return M

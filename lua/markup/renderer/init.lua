@@ -123,8 +123,9 @@ end
 
 function M:layout()
 	self:render_root():layout({
-		width = vim.api.nvim_win_get_width(self.win.win),
-		height = vim.api.nvim_win_get_height(self.win.win),
+		available_width = vim.api.nvim_win_get_width(self.win.win),
+		available_height = 0,
+		-- available_height = vim.api.nvim_win_get_height(self.win.win),
 	})
 end
 
@@ -185,11 +186,11 @@ function M:paint()
 		vim.api.nvim_buf_clear_namespace(0, self.ns, 0, -1)
 		vim.api.nvim_buf_clear_namespace(0, self.debug_ns, 0, -1)
 
-		local mbox = self:render_root():get_box_size("margin")
+		local cbox = self:render_root():get_box_size("content")
 
 		local lines = {}
-		local fill = (" "):rep(mbox.width)
-		for i = 1, mbox.height do
+		local fill = (" "):rep(cbox.width)
+		for i = 1, cbox.height do
 			lines[i] = fill
 		end
 		vim.api.nvim_buf_set_lines(0, 0, -1, false, lines)
@@ -212,7 +213,7 @@ function M:traverse_and_paint(x, y, box)
 		return
 	end
 
-	local props = box.props
+	local props = box.computed
 	local cx = x + props.margin_left + props.padding_left
 	local cy = y + props.margin_top + props.padding_top
 	for _, child in box:iter_children() do

@@ -13,8 +13,6 @@
 
 ---@alias markup.Element.display "inline"|"block"|"inline-block"|"flex"|"grid"
 
----@alias markup.Element.size {width: integer, height: integer}
-
 ---@class markup.Element.style.alias
 ---@field color? string `fg` alias
 ---@field strike? string `strikethrough` alias

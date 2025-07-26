@@ -1,14 +1,9 @@
 local BoxProps = require("markup.renderer.box.props")
 
----@class markup.box.constraints
----@field width? number
----@field height? number
----@field min_width? number
----@field min_height? number
----@field max_width? number
----@field max_height? number
----@field available_width? number
----@field available_height? number
+---@class markup.box.layout.Input
+---@field available_width number
+---@field available_height number
+---@field resume boolean? if true, the layout will not reset the box's position
 
 ---@class markup.box
 ---@field impl markup.box.impl
@@ -34,7 +29,8 @@ local BoxProps = require("markup.renderer.box.props")
 ---@field fit_content_height integer
 ---@field intrinsic_width integer
 ---@field intrinsic_height integer
----@field props markup.box.props
+---@field props markup.node.props
+---@field computed markup.box.props
 ---@field extmarks table
 local M = Markup.object()
 
@@ -46,7 +42,8 @@ function M:new(node, impl)
 	node.box = self
 	self.dirty = true
 	self.buf = {}
-	self.props = BoxProps(self)
+	self.props = self.node.props
+	self.computed = BoxProps(self)
 	self.extmarks = {}
 	self.__id = Markup.util.gen_id()
 end
@@ -95,7 +92,7 @@ end
 function M:iter_children()
 	local children = self.node.child_nodes
 	local i, n = 0, #children
-	local reverse = self.props.reverse
+	local reverse = self.computed.reverse
 
 	return function()
 		i = i + 1
@@ -106,16 +103,7 @@ function M:iter_children()
 	end
 end
 
----@param constraints markup.box.constraints
-function M:layout(constraints)
-	assert(self.impl, "Layout strategy is not set")
-
-	if self.dirty == false then
-		return
-	end
-
-	-- local old_cwidth = self.content_width
-	-- local old_cheight = self.content_height
+function M:reset_layout()
 	self.content_width = nil
 	self.content_height = nil
 
@@ -129,10 +117,23 @@ function M:layout(constraints)
 	local parent = self.parent
 	self.ox = parent and parent.x or 0
 	self.oy = parent and parent.y or 0
+end
+
+---@param input markup.box.layout.Input
+function M:layout(input)
+	assert(self.impl, "Layout strategy is not set")
+
+	if self.dirty == false then
+		return
+	end
+
+	if not input.resume then
+		self:reset_layout()
+	end
 
 	self.x = 0
 	self.y = 0
-	self.impl.layout(self, constraints)
+	self.impl.layout(self, input)
 	self.x = nil
 	self.y = nil
 
@@ -184,7 +185,7 @@ end
 
 ---@param kind? markup.box.kind
 function M:get_box_size(kind)
-	local props = self.props
+	local cprops = self.computed
 	if not kind then
 		return { width = self.width, height = self.height }
 	elseif kind == "content" then
@@ -192,14 +193,14 @@ function M:get_box_size(kind)
 	elseif kind == "padding" then
 		local c = self:get_box_size("content")
 		return {
-			width = c.width + props.padding_left + props.padding_right,
-			height = c.height + props.padding_top + props.padding_bottom,
+			width = c.width + cprops.padding_left + cprops.padding_right,
+			height = c.height + cprops.padding_top + cprops.padding_bottom,
 		}
 	elseif kind == "margin" then
 		local p = self:get_box_size("padding")
 		return {
-			width = p.width + props.margin_left + props.margin_right,
-			height = p.height + props.margin_top + props.margin_bottom,
+			width = p.width + cprops.margin_left + cprops.margin_right,
+			height = p.height + cprops.margin_top + cprops.margin_bottom,
 		}
 	end
 end
@@ -219,7 +220,7 @@ end
 ---@param size { width?: integer, height?: integer }
 ---@return { width?: integer, height?: integer }
 function M:clamp_content_size(size)
-	local props = self.props
+	local props = self.computed
 	local out = {}
 
 	if size.width then
@@ -310,7 +311,7 @@ end
 ---@param y integer
 function M:paint(renderer, x, y)
 	local ns = renderer.ns
-	local props = self.props
+	local props = self.computed
 
 	if self:is("text") then
 		-- only leaf nodes (text) can output text on the screen
@@ -328,7 +329,7 @@ function M:paint(renderer, x, y)
 		local poy = y + props.margin_top
 
 		Markup.util.set_hl({
-			[self.__id] = self.props.style,
+			[self.__id] = self.computed.style,
 		}, { managed = true, prefix = "MarkupDynamic", force = true })
 
 		for line = 0, pbox.height - 1 do
@@ -345,7 +346,7 @@ end
 
 function M:debug_paint_margin(renderer, x, y)
 	assert(Markup.config.debug, "Debug mode is not enabled.")
-	local props = self.props
+	local props = self.computed
 	local ns = renderer.debug_ns
 
 	local hl = "CurSearch"
@@ -396,7 +397,7 @@ end
 
 function M:debug_paint_padding(renderer, x, y)
 	assert(Markup.config.debug, "Debug mode is not enabled.")
-	local props = self.props
+	local props = self.computed
 	local ns = renderer.debug_ns
 
 	local hl = "Search"
@@ -443,7 +444,7 @@ end
 
 ---@param kind markup.box.kind
 function M:get_box_range(kind)
-	local props = self.props
+	local props = self.computed
 
 	if not self.wx or not self.wy then
 		return
@@ -505,10 +506,13 @@ function M:get_box_range(kind)
 	end
 end
 
+---@return markup.box[]
 function M:children()
-	return vim.tbl_map(function(n)
-		return n.box
-	end, self.node.child_nodes)
+	local res = {}
+	for _, child in self:iter_children() do
+		table.insert(res, child)
+	end
+	return res
 end
 
 function M:children_len()
@@ -545,16 +549,54 @@ end
 
 ---@return markup.size
 function M:compute_intrinsic_size()
-	return self.impl.compute_intrinsic_size(self)
+	self:layout({
+		available_width = 0,
+		available_height = 0,
+	})
+	return self:get_box_size("content")
 end
 
----@param size number
+---@param contraints markup.box.layout.Input
+function M:compute_available_size(contraints)
+	local props = self.computed
+	local width = props.width
+	local height = props.height
+
+	if width == "auto" or width == "full" then
+		width = contraints.available_width
+	elseif width == "fit" then
+		width = nil
+	else ---@cast width number
+		width = self:resolve_size(width, contraints.available_width)
+	end
+
+	if height == "auto" or height == "fit" then
+		height = nil
+	elseif height == "full" then
+		height = contraints.available_height
+	else ---@cast height number
+		height = self:resolve_size(height, contraints.available_height)
+	end
+
+	return { available_width = width, available_height = height }
+end
+
+---@param size markup.box.props.unit
 ---@param ref number
-function M:resolve_size(size, ref)
-	if size < 1 then
-		return math.floor(ref * size)
+---@param fallback? number
+function M:resolve_size(size, ref, fallback)
+	if size == "auto" then
+		return fallback or ref
+	elseif size == "fit" then
+		return 0
+	elseif size == "full" then
+		return ref
+	end
+
+	if size > 0 and size < 1 then
+		return math.ceil(ref * size)
 	else
-		return math.floor(size)
+		return size
 	end
 end
 
