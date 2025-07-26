@@ -1,9 +1,15 @@
 local BoxProps = require("markup.renderer.box.props")
 
+-- -@class markup.box.layout.Input
+-- -@field preferred_width number? if set, the layout will try to fit the box into this width
+-- -@field preferred_height number? if set, the layout will try to fit the box into this height
+-- -@field resume boolean? if true, the layout will not reset the box's position
+
 ---@class markup.box.layout.Input
 ---@field available_width number
----@field available_height number
----@field resume boolean? if true, the layout will not reset the box's position
+---@field min_width integer? Minimum width required (optional)
+---@field min_height integer? Minimum height required (optional)
+---@field resume boolean? If true, don't reset box position
 
 ---@class markup.box
 ---@field impl markup.box.impl
@@ -549,10 +555,7 @@ end
 
 ---@return markup.size
 function M:compute_intrinsic_size()
-	self:layout({
-		available_width = 0,
-		available_height = 0,
-	})
+	self:layout({ available_width = 0 })
 	return self:get_box_size("content")
 end
 
@@ -584,6 +587,7 @@ end
 ---@param size markup.box.props.unit
 ---@param ref number
 ---@param fallback? number
+---@return number
 function M:resolve_size(size, ref, fallback)
 	if size == "auto" then
 		return fallback or ref
@@ -592,7 +596,7 @@ function M:resolve_size(size, ref, fallback)
 	elseif size == "full" then
 		return ref
 	end
-
+	---@cast size number
 	if size > 0 and size < 1 then
 		return math.ceil(ref * size)
 	else

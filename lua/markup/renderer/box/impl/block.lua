@@ -30,35 +30,36 @@ function M.layout(box, input)
 	end
 
 	box.width = max_x
-	box.height = math.max(box.y + prev_mheight, max_y)
+	box.height = box.y + prev_mheight
 
-	M.compute_final_size(box, output)
+	M.compute_final_size(box, input, output)
 end
 
 ---@param box markup.box
----@param output markup.box.layout.Input
-function M.compute_final_size(box, output)
-	local computed = box.computed
-
-	local width = box:resolve_size(computed.width, output.available_width)
-	local height = box:resolve_size(computed.height, output.available_height)
-
-	box:set_content_box_size({ width = width, height = height })
-end
-
----@param box markup.box
+---@param input markup.box.layout.Input
 ---@return markup.box.layout.Input
-function M.compute_output(box, contraints)
+function M.compute_output(box, input)
 	local computed = box.computed
 
-	local width = box:resolve_size(computed.width, contraints.available_width)
-	local height = box:resolve_size(computed.height, contraints.available_height)
+	local width = box:resolve_size(computed.width, input.available_width)
+	-- local height = box:resolve_size(computed.height, input.available_height, input.min_height)
 
-	-- we skip the relative numbers to handle them in `compute_final_size`
 	return {
 		available_width = width,
-		available_height = height,
 	}
+end
+
+---@param box markup.box
+---@param input markup.box.layout.Input
+---@param output markup.box.layout.Input
+function M.compute_final_size(box, input, output)
+	local computed = box.computed
+
+	local width = math.max(box.width, output.available_width)
+	local height = math.max(box.height, box:resolve_size(computed.height, 0))
+	height = math.max(height, input.min_height or 0)
+
+	box:set_content_box_size({ width = width, height = height })
 end
 
 return M

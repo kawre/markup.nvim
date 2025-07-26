@@ -37,8 +37,8 @@ function M:new(opts)
 	self.cursor = {}
 
 	self.win:on("WinResized", function()
-		if vim.tbl_contains(vim.v.event.windows, self.win.win) then
-			self:render()
+		if self:valid() and vim.tbl_contains(vim.v.event.windows, self.win.win) then
+			self:rerender()
 		end
 	end, { pattern = "*" })
 
@@ -122,11 +122,7 @@ function M:build()
 end
 
 function M:layout()
-	self:render_root():layout({
-		available_width = vim.api.nvim_win_get_width(self.win.win),
-		available_height = 0,
-		-- available_height = vim.api.nvim_win_get_height(self.win.win),
-	})
+	self:render_root():layout({ available_width = vim.api.nvim_win_get_width(self.win.win) })
 end
 
 local str_cache = {}

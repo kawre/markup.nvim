@@ -4,23 +4,6 @@ local RenderBlock = require("markup.renderer.box.impl.block")
 ---@class markup.box.flex : markup.box.impl
 local M = Impl("RenderFlex", { "flex", "block" })
 
--- ---@param box markup.box
--- ---@param constraints markup.box.layout.Input
--- function M.layout(box, constraints)
--- 	-- constraints = box:compute_available_size(constraints)
---
--- 	if box.props.vertical then
--- 		M.layout_vertical(box, constraints)
--- 	else
--- 		M.layout_horizontal(box, constraints)
--- 	end
---
--- 	-- M.justify(box)
--- 	-- M.align(box)
---
--- 	M.compute_final_size(box, constraints)
--- end
-
 ---@param box markup.box
 ---@param input markup.box.layout.Input
 function M.layout(box, input)
@@ -44,36 +27,39 @@ function M.layout(box, input)
 			bsize[i] = child:compute_intrinsic_size()
 		end
 
-		local logical_width = is_vertical and bsize[i].height or bsize[i].width
-		local logical_height = is_vertical and bsize[i].width or bsize[i].height
+		-- convert to logical size
+		if is_vertical then
+			bsize[i].width, bsize[i].height = bsize[i].height, bsize[i].width
+		end
 
 		-- determine content width
-		content_size = content_size + logical_width + (i ~= len and props.spacing or 0)
+		content_size = content_size + bsize[i].width + (i ~= len and props.spacing or 0)
 		-- determine content height
-		cross_size = math.max(cross_size, logical_height)
+		cross_size = math.max(cross_size, bsize[i].height)
 	end
 
-	Markup.log(size)
-
-	local main_size = is_vertical and size.available_height or size.available_width
-	local free_space = main_size - content_size
+	local xd = box:resolve_size(props.height, cross_size)
+	local main_axis_avail = is_vertical and xd or size.available_width
+	local main_size = math.max(main_axis_avail, content_size)
+	local main_free_space = main_size - content_size
+	local main_axis = is_vertical and "oy" or "ox"
 
 	if props.justify == "center" then
-		local x = math.ceil(free_space / 2)
+		local x = math.floor(main_free_space / 2)
 		for i, child in ipairs(children) do
-			child.ox = x
+			child[main_axis] = x
 			x = x + bsize[i].width + (i ~= len and props.spacing or 0)
 		end
 	elseif props.justify == "start" then
 		local x = 0
 		for i, child in ipairs(children) do
-			child.ox = x
+			child[main_axis] = x
 			x = x + bsize[i].width + (i ~= len and props.spacing or 0)
 		end
 	elseif props.justify == "end" then
-		local x = free_space
+		local x = main_free_space
 		for i, child in ipairs(children) do
-			child.ox = x
+			child[main_axis] = x
 			x = x + bsize[1].width + (i ~= len and props.spacing or 0)
 		end
 	elseif props.justify == "between" then
@@ -81,45 +67,59 @@ function M.layout(box, input)
 		local last = children[n]
 
 		if n > 1 then
-			local space = math.floor(free_space / (n - 1))
+			local space = math.floor(main_free_space / (n - 1))
 			local current_x = 0
 			for _, child in ipairs(children) do
-				child.ox = current_x
+				child[main_axis] = current_x
 				current_x = current_x + child.width + space
 			end
 
 			last.ox = main_size - last.width
 		else
-			children[1].ox = 0
+			children[1][main_axis] = 0
 		end
 	end
 
+	local cross_axis_avail = math.max(not is_vertical and xd or size.available_width, cross_size)
+	local cross_axis = is_vertical and "ox" or "oy"
+
 	if props.align == "stretch" then
-		for _, b in ipairs(bsize) do
-			b.height = is_vertical and b.height or cross_size
+		for i, child in ipairs(children) do
+			child[cross_axis] = 0
+			bsize[i].height = cross_axis_avail
 		end
 	elseif props.align == "center" then
-		-- local y = 0
-		-- for i, child in ipairs(children) do
-		-- 	local child_mbox = child:get_box_size("margin")
-		-- 	child.oy = y
-		-- 	child.ox = math.ceil((cbox.width - child_mbox.width) / 2)
-		-- 	y = y + child_mbox.height + (i ~= len and props.spacing or 0)
-		-- end
+		for i, child in ipairs(children) do
+			child[cross_axis] = math.floor((cross_axis_avail - bsize[i].height) / 2)
+		end
+	elseif props.align == "start" then
+		for _, child in ipairs(children) do
+			child[cross_axis] = 0
+		end
+	elseif props.align == "end" then
+		for i, child in ipairs(children) do
+			child[cross_axis] = cross_axis_avail - bsize[i].height
+		end
 	end
 
 	for i, child in ipairs(children) do
-		if child.width ~= bsize[i].width or child.height ~= bsize[i].height then
+		local physical_width = is_vertical and bsize[i].height or bsize[i].width
+		local physical_height = is_vertical and bsize[i].width or bsize[i].height
+
+		if child.width ~= physical_width or child.height ~= physical_height then
 			-- layout the child if the size has changed
-			bsize[i].resume = true
-			child:layout(bsize[i])
+			child:layout({
+				available_width = physical_width,
+				min_height = physical_height,
+				resume = true,
+			})
 		end
 	end
 
-	box.width = main_size
-	box.height = cross_size
+	box.width = is_vertical and cross_size or main_size
+	box.height = is_vertical and main_size or cross_size
 
-	RenderBlock.compute_final_size(box, size)
+	RenderBlock.compute_final_size(box, input, size)
 end
 
 -- ---@param box markup.box
