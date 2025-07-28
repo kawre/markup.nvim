@@ -1,12 +1,12 @@
 --|---------|---------|---------|---------|---------|---------|
-01| fiber root (root)   7cdef                                
-02|├╴󰊕 Component (function)   ee782                           
-03|│ ├╴ inline #[5] (element)   64e47                        
-04|│ ├╴#[test] (text)   f1b1c                                 
-05|│ ├╴ block #[block] (element)   670be                     
-06|│ ├╴ fragment (fragment)   836e5                          
-07|│ │ └╴ block #[block] (element)   90de5                   
-08|│ └╴ block #[block] (element)   f00b0                     
+01| fiber root (root)   1184                                 
+02|├╴󰊕 Component (function)   1187                            
+03|│ ├╴ inline #[5] (element)   1188                         
+04|│ ├╴#[test] (text)   1189                                  
+05|│ ├╴ block #[block] (element)   1190                      
+06|│ ├╴ fragment (fragment)   1200                           
+07|│ │ └╴ block #[block] (element)   1202                    
+08|│ └╴ block #[block] (element)   1201                      
 09|~                                                           
 10|~                                                           
 11|~                                                           

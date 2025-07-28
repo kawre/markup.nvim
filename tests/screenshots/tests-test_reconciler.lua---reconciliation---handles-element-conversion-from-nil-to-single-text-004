@@ -1,7 +1,7 @@
 --|---------|---------|---------|---------|---------|---------|
-01| fiber root (root)   18fa3                                
-02|├╴󰊕 Component (function)   790eb                           
-03|│ └╴ block #[text] (element)   a2866                      
+01| fiber root (root)   1056                                 
+02|├╴󰊕 Component (function)   1059                            
+03|│ └╴ block #[text] (element)   1061                       
 04|~                                                           
 05|~                                                           
 06|~                                                           

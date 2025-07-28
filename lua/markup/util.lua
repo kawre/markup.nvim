@@ -159,15 +159,10 @@ function M.call(value, ...)
 	return vim.is_callable(value) and value(...) or value
 end
 
--- Essential for unit tests to ensure random IDs are consistent.
-math.randomseed(Markup.config.randomseed)
 local counter = 1000
-local prefix = ("%x"):format(math.random(0, 0xFFFFFF))
 
 function M.gen_id()
 	counter = counter + 1
-	-- local id = prefix .. ("%x"):format(counter)
-	-- return id
 	return counter
 end
 

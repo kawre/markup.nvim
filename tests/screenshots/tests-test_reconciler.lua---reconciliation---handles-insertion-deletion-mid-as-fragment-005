@@ -1,12 +1,12 @@
 --|---------|---------|---------|---------|---------|---------|
-01| root (element)   25624                                   
-02|├╴ block (element)   6864a                                
-03|│ ├╴ inline (element)   c534b                             
-04|│ │ └╴#[im count: 5] (text)   91da4                        
-05|│ ├╴ inline (element)   4d4ae                             
-06|│ │ └╴#[10000] (text)   e09b9                              
-07|│ ├╴#[2] (text)   cc2cb                                    
-08|│ └╴#[i'm overriding] (text)   5da0c                       
+01| root (element)   1292                                    
+02|├╴ block (element)   1301                                 
+03|│ ├╴ inline (element)   1298                              
+04|│ │ └╴#[im count: 5] (text)   1299                         
+05|│ ├╴ inline (element)   1309                              
+06|│ │ └╴#[10000] (text)   1310                               
+07|│ ├╴#[2] (text)   1311                                     
+08|│ └╴#[i'm overriding] (text)   1312                        
 09|~                                                           
 10|~                                                           
 11|~                                                           

@@ -1,10 +1,10 @@
 --|---------|---------|---------|---------|---------|---------|
-01| fiber root (root)   bbb3f                                
-02|├╴󰊕 Component (function)   8519c                           
-03|│ ├╴ inline #[A] [key = A] (element)   9b248              
-04|│ ├╴#[123] (text)   5bf9a                                  
-05|│ ├╴ inline #[B] [key = B] (element)   92c62              
-06|│ └╴ inline #[C] [key = C] (element)   62180              
+01| fiber root (root)   1250                                 
+02|├╴󰊕 Component (function)   1253                            
+03|│ ├╴ inline #[A] [key = A] (element)   1254               
+04|│ ├╴#[123] (text)   1271                                   
+05|│ ├╴ inline #[B] [key = B] (element)   1256               
+06|│ └╴ inline #[C] [key = C] (element)   1257               
 07|~                                                           
 08|~                                                           
 09|~                                                           

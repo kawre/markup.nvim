@@ -1,9 +1,9 @@
 --|---------|---------|---------|---------|---------|---------|
-01| root (element)   c561a                                   
-02|├╴ block (element)   6150c                                
-03|│ ├╴ inline (element)   2a463                             
-04|│ │ └╴#[im count: 4] (text)   3f0ac                        
-05|│ └╴#[i'm overriding] (text)   c0350                       
+01| root (element)   1011                                    
+02|├╴ block (element)   1020                                 
+03|│ ├╴ inline (element)   1017                              
+04|│ │ └╴#[im count: 4] (text)   1018                         
+05|│ └╴#[i'm overriding] (text)   1019                        
 06|~                                                           
 07|~                                                           
 08|~                                                           

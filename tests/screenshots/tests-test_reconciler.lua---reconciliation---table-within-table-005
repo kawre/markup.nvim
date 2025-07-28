@@ -1,14 +1,14 @@
 --|---------|---------|---------|---------|---------|---------|
-01| root (element)   76ef1                                   
-02|├╴ inline (element)   8e430                               
-03|│ └╴#[5] (text)   6e14a                                    
-04|├╴#[test] (text)   f2553                                   
-05|├╴ block (element)   9eec2                                
-06|│ └╴#[block] (text)   26a60                                
-07|├╴ block (element)   bf604                                
-08|│ └╴#[block] (text)   2f0f1                                
-09|├╴ block (element)   4e662                                
-10|│ └╴#[block] (text)   537d3                                
+01| root (element)   1185                                    
+02|├╴ inline (element)   1191                                
+03|│ └╴#[5] (text)   1192                                     
+04|├╴#[test] (text)   1193                                    
+05|├╴ block (element)   1194                                 
+06|│ └╴#[block] (text)   1195                                 
+07|├╴ block (element)   1203                                 
+08|│ └╴#[block] (text)   1204                                 
+09|├╴ block (element)   1205                                 
+10|│ └╴#[block] (text)   1206                                 
 11|~                                                           
 12|~                                                           
 13|~                                                           

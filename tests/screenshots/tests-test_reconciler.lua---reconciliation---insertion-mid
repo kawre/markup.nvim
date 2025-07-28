@@ -1,9 +1,9 @@
 --|---------|---------|---------|---------|---------|---------|
-01| fiber root (root)   5b726                                
-02|├╴󰊕 Component (function)   54754                           
-03|│ ├╴ block (element)   e8272                              
-04|│ │ ├╴ inline #[im count: 4] (element)   b763c            
-05|│ │ └╴#[i'm overriding] (text)   c4f86                     
+01| fiber root (root)   1010                                 
+02|├╴󰊕 Component (function)   1013                            
+03|│ ├╴ block (element)   1014                               
+04|│ │ ├╴ inline #[im count: 4] (element)   1015             
+05|│ │ └╴#[i'm overriding] (text)   1016                      
 06|~                                                           
 07|~                                                           
 08|~                                                           

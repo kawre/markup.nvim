@@ -1,8 +1,8 @@
 --|---------|---------|---------|---------|---------|---------|
-01| root (element)   bdee2                                   
-02|├╴ block (element)   3ab95                                
-03|│ ├╴ inline (element)   dd303                             
-04|│ │ └╴#[500] (text)   c2c38                                
+01| root (element)   1274                                    
+02|├╴ block (element)   1284                                 
+03|│ ├╴ inline (element)   1280                              
+04|│ │ └╴#[500] (text)   1281                                 
 05|~                                                           
 06|~                                                           
 07|~                                                           

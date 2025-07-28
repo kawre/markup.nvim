@@ -1,9 +1,9 @@
 --|---------|---------|---------|---------|---------|---------|
-01| fiber root (root)   7f1f1                                
-02|├╴󰊕 Component (function)   ae0fc                           
-03|│ ├╴ block (element)   54047                              
-04|│ │ ├╴ inline #[500] (element)   67157                    
-05|│ │ └╴ block #[501] (element)   18f22                     
+01| fiber root (root)   1273                                 
+02|├╴󰊕 Component (function)   1276                            
+03|│ ├╴ block (element)   1277                               
+04|│ │ ├╴ inline #[500] (element)   1278                     
+05|│ │ └╴ block #[501] (element)   1288                      
 06|~                                                           
 07|~                                                           
 08|~                                                           

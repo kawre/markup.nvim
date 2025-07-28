@@ -1,10 +1,10 @@
 --|---------|---------|---------|---------|---------|---------|
-01| root (element)   76ef1                                   
-02|├╴ inline (element)   8e430                               
-03|│ └╴#[5] (text)   6e14a                                    
-04|├╴#[test] (text)   f2553                                   
-05|├╴ block (element)   9eec2                                
-06|│ └╴#[block] (text)   26a60                                
+01| root (element)   1185                                    
+02|├╴ inline (element)   1191                                
+03|│ └╴#[5] (text)   1192                                     
+04|├╴#[test] (text)   1193                                    
+05|├╴ block (element)   1194                                 
+06|│ └╴#[block] (text)   1195                                 
 07|~                                                           
 08|~                                                           
 09|~                                                           

@@ -1,9 +1,9 @@
 --|---------|---------|---------|---------|---------|---------|
-01| fiber root (root)   68ce8                                
-02|├╴󰊕 Component (function)   811f2                           
-03|│ ├╴ inline (element)   5ba9e                             
-04|│ │ ├╴#[5] (text)   3ba03                                  
-05|│ │ └╴#[5] (text)   cb69a                                  
+01| fiber root (root)   1071                                 
+02|├╴󰊕 Component (function)   1074                            
+03|│ ├╴ inline (element)   1075                              
+04|│ │ ├╴#[5] (text)   1076                                   
+05|│ │ └╴#[5] (text)   1077                                   
 06|~                                                           
 07|~                                                           
 08|~                                                           

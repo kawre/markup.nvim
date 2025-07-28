@@ -1,9 +1,9 @@
 --|---------|---------|---------|---------|---------|---------|
-01| root (element)   41acd                                   
-02|├╴ inline (element)   bc957                               
-03|│ └╴#[5] (text)   b61bd                                    
-04|├╴ inline (element)   647f1                               
-05|│ └╴#[6] (text)   e2e66                                    
+01| root (element)   1096                                    
+02|├╴ inline (element)   1101                                
+03|│ └╴#[5] (text)   1102                                     
+04|├╴ inline (element)   1103                                
+05|│ └╴#[6] (text)   1104                                     
 06|~                                                           
 07|~                                                           
 08|~                                                           
