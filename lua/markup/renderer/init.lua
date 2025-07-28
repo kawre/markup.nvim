@@ -13,6 +13,7 @@ local styles = require("markup.window.styles")
 ---@field private observers table<string, table>
 ---@field is_scheduled boolean
 ---@field fps integer
+---@field lines markup.renderer.line[] 1 indexed lines table
 ---@overload fun(opts?: markup.window.config): markup.renderer
 local M = Markup.object()
 M.current = nil
@@ -35,6 +36,7 @@ function M:new(opts)
 	self.buttons = {}
 	self.keys = {} ---@type table<markup.node, { key: string, cb: function }[]>
 	self.cursor = {}
+	self.lines = {}
 
 	self.win:on("WinResized", function()
 		if self:valid() and vim.tbl_contains(vim.v.event.windows, self.win.win) then
@@ -42,11 +44,11 @@ function M:new(opts)
 		end
 	end, { pattern = "*" })
 
-	self.win:on("CursorMoved", function()
-		if self:valid() then
-			self:handle_cursor_moved()
-		end
-	end, { buf = true })
+	-- self.win:on("CursorMoved", function()
+	-- 	if self:valid() then
+	-- 		self:handle_cursor_moved()
+	-- 	end
+	-- end, { buf = true })
 end
 
 ---@param element any
@@ -81,21 +83,36 @@ function M:schedule_rerender()
 end
 
 function M:rerender()
+	-- collectgarbage("stop")
 	assert(self.rootf, "Renderer root not bound. Call :render(element) to bind the root element.")
 	M.current = self
 
-	local elapsed = Markup.util.benchmark(function()
+	local e1 = Markup.util.benchmark(function()
 		self.rootf = Markup.reconciler(self.rootf)
+	end)
+	local e2 = Markup.util.benchmark(function()
 		self:build()
+	end)
+	local e3 = Markup.util.benchmark(function()
 		self:layout()
+	end)
+	local e4 = Markup.util.benchmark(function()
 		self:paint()
 	end)
 
-	self:track_fps(elapsed)
+	-- Markup.log({
+	-- 	reconciler = e1,
+	-- 	build = e2,
+	-- 	layout = e3,
+	-- 	paint = e4,
+	-- })
+
+	self:track_fps(e1 + e2 + e3 + e4)
 
 	-- vim.api.nvim__redraw({ win = self.win.win, flush = true })
 	vim.api.nvim_exec_autocmds("User", { pattern = "MarkupRender" .. self.win.id })
 	M.current = nil
+	-- collectgarbage("restart")
 end
 
 function M:track_fps(elapsed)
@@ -103,7 +120,7 @@ function M:track_fps(elapsed)
 		self.stats.first_elapsed = elapsed
 	end
 	table.insert(self.fps_samples, 1e3 / elapsed)
-	if #self.fps_samples > 60 then
+	if #self.fps_samples > 10 then
 		table.remove(self.fps_samples, 1)
 	end
 
@@ -179,20 +196,30 @@ end
 
 function M:paint()
 	vim.api.nvim_buf_call(self.win.buf, function()
-		vim.api.nvim_buf_clear_namespace(0, self.ns, 0, -1)
-		vim.api.nvim_buf_clear_namespace(0, self.debug_ns, 0, -1)
+		-- vim.api.nvim_buf_clear_namespace(0, self.ns, 0, -1)
+		-- vim.api.nvim_buf_clear_namespace(0, self.debug_ns, 0, -1)
 
-		local cbox = self:render_root():get_box_size("margin")
+		local mbox = self:render_root():get_box_size("margin")
 
-		local lines = {}
-		local fill = (" "):rep(cbox.width)
-		for i = 1, cbox.height do
-			lines[i] = fill
+		self.lines = {}
+		for i = 1, mbox.height do
+			self.lines[i] = require("markup.renderer.line")()
 		end
-		vim.api.nvim_buf_set_lines(0, 0, -1, false, lines)
 
 		self:traverse_and_paint(0, 0, self:render_root())
+
+		local lines = {}
+		for _, line in pairs(self.lines) do
+			lines[#lines + 1] = line:build(mbox.width)
+		end
+
+		vim.api.nvim_buf_set_lines(0, 0, -1, false, lines)
+
+		for y, line in pairs(self.lines) do
+			line:paint(y, self.ns)
+		end
 	end)
+
 	-- vim.api.nvim__redraw({ buf = self.win.buf, flush = true, valid = true })
 end
 
@@ -203,6 +230,12 @@ end
 function M:traverse_and_paint(x, y, box)
 	box.wx = x
 	box.wy = y
+	box.wbx = x
+	box.wby = y
+
+	-- if not box.need_paint then
+	-- 	return
+	-- end
 
 	if box:is("text") then
 		box:paint(self, x, y)
@@ -326,8 +359,8 @@ function M:handle_cursor_moved()
 	end
 
 	-- Clamp col & row inside the target box
-	local clamped_col = math.max(mrange.left, math.min(new_col, mrange.right))
-	local clamped_row = math.max(mrange.top, math.min(row, mrange.bottom))
+	local clamped_col = Markup.util.clamp(new_col, mrange.left, mrange.right)
+	local clamped_row = Markup.util.clamp(row, mrange.top, mrange.bottom)
 
 	-- Convert back to 1-indexed for win_set_cursor
 	self.cursor.prev = { clamped_row + 1, clamped_col }

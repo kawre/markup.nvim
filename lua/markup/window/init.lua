@@ -76,6 +76,7 @@ local M = Markup.object()
 ---@field text? string|string[]|fun():(string[]|string) Initial lines to set in the buffer
 ---@field actions? table<string, markup.window.Action.spec> Actions that can be used in key mappings
 ---@field resize? boolean Automatically resize the window when the editor is resized
+---@field hijack? boolean|number If set, hijack the current window and use it as the new window. If a number, use that window instead.
 
 local SCROLL_UP, SCROLL_DOWN = Markup.util.keycode("<c-u>"), Markup.util.keycode("<c-d>")
 
@@ -182,6 +183,10 @@ function M:new(opts)
 	if opts.minimal then
 		opts = M.resolve("minimal", opts)
 	end
+
+	-- if opts.hijack then
+	-- 	opts.win = opts.hijack == true and vim.api.nvim_get_current_win() or opts.hijack
+	-- else
 	if opts.position == "float" then
 		opts = M.resolve("float", opts)
 	else
@@ -193,6 +198,7 @@ function M:new(opts)
 	if opts.relative == "win" then
 		opts.win = opts.win or vim.api.nvim_get_current_win()
 	end
+	-- end
 
 	self.keys = {}
 	self.events = {}

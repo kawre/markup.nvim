@@ -10,11 +10,13 @@ function M.open()
 	vim.cmd.tcd(path)
 	local buf = vim.api.nvim_get_current_buf()
 
-	M.preview = Markup.renderer({ enter = false })
+	M.preview = Markup.renderer({ enter = false, relative = "win", position = "bottom" })
 
 	M.inspect = Markup.devkit.inspect({
 		win = M.preview.win.win,
-		position = "bottom",
+		relative = "editor",
+		position = "right",
+		width = 0.4,
 	})
 	M.inspect:map(buf)
 

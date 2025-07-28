@@ -45,8 +45,7 @@ function M:map(buf)
 	end, { buffer = buf })
 	vim.keymap.set("n", "4", function()
 		Markup.config.debug = not Markup.config.debug
-		self.renderer:rerender()
-		self:paint()
+		self.renderer:schedule_rerender()
 	end, { buffer = buf })
 end
 

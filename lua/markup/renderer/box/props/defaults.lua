@@ -58,6 +58,11 @@ M.inline = {
 	sizing = "outer",
 }
 
+M.button = {
+	display = "block",
+	width = "fit",
+}
+
 M.anchor = {
 	style = { underline = true, fg = "#89b4fb" },
 }

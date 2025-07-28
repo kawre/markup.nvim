@@ -156,7 +156,6 @@ function M.complete_unit(unit)
 	end
 
 	M.work_stack:push(unit.sibling)
-	-- assertor.bug(unit:check_flags(Flag.NONE), "Fiber flags must be `NONE` after completion")
 end
 
 ---@param fiber markup.fiber

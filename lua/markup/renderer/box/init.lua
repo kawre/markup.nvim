@@ -38,6 +38,8 @@ local BoxProps = require("markup.renderer.box.props")
 ---@field props markup.node.props
 ---@field computed markup.box.props
 ---@field extmarks table
+---@field text_content string? only for text nodes
+---@field line? markup.renderer.line
 local M = Markup.object()
 
 ---@param node markup.node
@@ -129,10 +131,11 @@ end
 function M:layout(input)
 	assert(self.impl, "Layout strategy is not set")
 
-	if self.dirty == false then
-		return
-	end
+	-- if self.dirty == false then
+	-- 	return
+	-- end
 
+	local old_mbox = self:get_box_size("margin")
 	if not input.resume then
 		self:reset_layout()
 	end
@@ -148,10 +151,18 @@ function M:layout(input)
 	Markup.assert.bug(self.content_width, "Content width must be resolved by layout strategy.")
 	Markup.assert.bug(self.content_height, "Content height must be resolved by layout strategy.")
 
-	-- self.dirty = false
-	-- if old_cwidth ~= self.content_width or old_cheight ~= self.content_height then
-	-- 	self.parent:flag_as_dirty()
+	-- local mbox = self:get_box_size("margin")
+	-- if
+	-- 	(old_mbox.width ~= mbox.width or old_mbox.height ~= mbox.height)
+	-- 	or (self:is("text") and self.text_content ~= self.node.text_content)
+	-- then
+	-- 	self.need_paint = true
 	-- end
+	-- if self.line then
+	-- 	self.line.dirty = true
+	-- end
+
+	self.dirty = false
 end
 
 function M:add_child(node)
@@ -191,22 +202,35 @@ end
 
 ---@param kind? markup.box.kind
 function M:get_box_size(kind)
-	local cprops = self.computed
+	local computed = self.computed
+
 	if not kind then
 		return { width = self.width, height = self.height }
-	elseif kind == "content" then
+	end
+
+	if kind == "content" then
 		return { width = self.content_width, height = self.content_height }
 	elseif kind == "padding" then
 		local c = self:get_box_size("content")
+
+		if not c or not c.width or not c.height then
+			return {}
+		end
+
 		return {
-			width = c.width + cprops.padding_left + cprops.padding_right,
-			height = c.height + cprops.padding_top + cprops.padding_bottom,
+			width = c.width + computed.padding_left + computed.padding_right,
+			height = c.height + computed.padding_top + computed.padding_bottom,
 		}
 	elseif kind == "margin" then
 		local p = self:get_box_size("padding")
+
+		if not p or not p.width or not p.height then
+			return {}
+		end
+
 		return {
-			width = p.width + cprops.margin_left + cprops.margin_right,
-			height = p.height + cprops.margin_top + cprops.margin_bottom,
+			width = p.width + computed.margin_left + computed.margin_right,
+			height = p.height + computed.margin_top + computed.margin_bottom,
 		}
 	end
 end
@@ -313,35 +337,38 @@ function M:paint(renderer, x, y)
 	local ns = renderer.ns
 	local props = self.computed
 
+	-- for _, extmark_id in ipairs(self.extmarks) do
+	-- 	vim.api.nvim_buf_del_extmark(0, ns, extmark_id)
+	-- end
+	-- self.extmarks = {}
+
 	if self:is("text") then
 		-- only leaf nodes (text) can output text on the screen
-		local word = tostring(self.node.text_content)
-		-- vim.api.nvim_buf_set_text(0, y, x, y, x + self.width, { word })
-		vim.api.nvim_buf_set_extmark(0, ns, y, x, {
-			virt_text = { { word } },
-			virt_text_pos = "overlay",
-			hl_mode = "combine",
-		})
+		-- local word = tostring(self.node.text_content)
+		renderer.lines[y + 1]:insert(self)
 	else
 		-- everything else only outputs style
 		local pbox = self:get_box_size("padding")
 		local pox = x + props.margin_left
 		local poy = y + props.margin_top
 
-		Markup.util.set_hl({
-			[self.__id] = self.computed.style,
-		}, { managed = true, prefix = "MarkupDynamic", force = true })
+		-- Markup.util.set_hl({
+		-- 	[self.__id] = self.computed.style,
+		-- }, { managed = true, prefix = "MarkupDynamic", force = true })
 
 		for line = 0, pbox.height - 1 do
-			local extmark_id = vim.api.nvim_buf_set_extmark(0, ns, poy + line, pox, {
-				end_col = pox + pbox.width,
-				hl_eol = true,
-				hl_group = "MarkupDynamic" .. self.__id,
-				hl_mode = "combine",
-			})
-			table.insert(self.extmarks, extmark_id)
+			renderer.lines[poy + line + 1]:highlight(pox, pox + pbox.width, self.props.style)
+			-- local extmark_id = vim.api.nvim_buf_set_extmark(0, ns, poy + line, pox, {
+			-- 	end_col = pox + pbox.width,
+			-- 	hl_eol = true,
+			-- 	hl_group = self.props.style,
+			-- 	hl_mode = "combine",
+			-- })
+			-- table.insert(self.extmarks, extmark_id)
 		end
 	end
+
+	-- self.need_paint = false
 end
 
 function M:debug_paint_margin(renderer, x, y)

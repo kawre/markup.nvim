@@ -438,6 +438,17 @@ T["render()"]["hflex"]["nested flex elements with size"] = function()
 	render_and_expect_screenshot(app)
 end
 
+-- TODO
+-- T["render()"]["hflex"]["highlight with wide and icon characters correctly"] = function()
+-- 	local app = m.flex({
+-- 		spacing = 1,
+-- 		m.block("你今天吃了吗？"),
+-- 		m.block("nerdfont", "Search"),
+-- 	})
+--
+-- 	render_and_expect_screenshot(app)
+-- end
+
 T["render()"]["vflex"] = new_set()
 
 T["render()"]["vflex"]["respect flex item width"] = function()
