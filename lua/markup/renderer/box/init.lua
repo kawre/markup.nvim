@@ -61,21 +61,17 @@ function M:build()
 		local new_render_node = self:attach(child)
 		new_render_node:build()
 	end
-	self:flag_as_dirty()
 end
 
-function M:reflow()
-	if not self.dirty then
-		return
-	end
-
+---@param input markup.box.layout.Input
+function M:reflow(input)
 	for _, child in ipairs(self.node.child_nodes) do
 		if not child.box then
 			self:attach(child)
 			child.box:build()
-		else
-			child.box:reflow()
 		end
+
+		child.box:reflow(input)
 	end
 end
 
@@ -131,11 +127,11 @@ end
 function M:layout(input)
 	assert(self.impl, "Layout strategy is not set")
 
-	-- if self.dirty == false then
-	-- 	return
-	-- end
+	if not input.resume and not self.dirty then
+		return
+	end
 
-	local old_mbox = self:get_box_size("margin")
+	-- local old_mbox = self:get_box_size("margin")
 	if not input.resume then
 		self:reset_layout()
 	end
@@ -152,14 +148,8 @@ function M:layout(input)
 	Markup.assert.bug(self.content_height, "Content height must be resolved by layout strategy.")
 
 	-- local mbox = self:get_box_size("margin")
-	-- if
-	-- 	(old_mbox.width ~= mbox.width or old_mbox.height ~= mbox.height)
-	-- 	or (self:is("text") and self.text_content ~= self.node.text_content)
-	-- then
-	-- 	self.need_paint = true
-	-- end
-	-- if self.line then
-	-- 	self.line.dirty = true
+	-- if self.parent and (old_mbox.width ~= mbox.width or old_mbox.height ~= mbox.height) then
+	-- 	self.parent.dirty = true
 	-- end
 
 	self.dirty = false

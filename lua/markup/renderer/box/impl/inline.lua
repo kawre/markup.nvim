@@ -32,9 +32,7 @@ end
 ---@param input markup.box.layout.Input
 function M.compute_output(box, input)
 	local width = box:resolve_size(box.computed.width, input.available_width)
-	return {
-		available_width = box:clamp_size(width, "width"),
-	}
+	return { available_width = box:clamp_size(width, "width") }
 end
 
 return M

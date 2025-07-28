@@ -91,23 +91,20 @@ function M:rerender()
 		self.rootf = Markup.reconciler(self.rootf)
 	end)
 	local e2 = Markup.util.benchmark(function()
-		self:build()
-	end)
-	local e3 = Markup.util.benchmark(function()
+		self:reflow()
 		self:layout()
 	end)
-	local e4 = Markup.util.benchmark(function()
+	local e3 = Markup.util.benchmark(function()
 		self:paint()
 	end)
 
-	-- Markup.log({
-	-- 	reconciler = e1,
-	-- 	build = e2,
-	-- 	layout = e3,
-	-- 	paint = e4,
-	-- })
+	Markup.log({
+		reconciler = e1,
+		layout = e2,
+		paint = e3,
+	})
 
-	self:track_fps(e1 + e2 + e3 + e4)
+	self:track_fps(e1 + e2 + e3)
 
 	-- vim.api.nvim__redraw({ win = self.win.win, flush = true })
 	vim.api.nvim_exec_autocmds("User", { pattern = "MarkupRender" .. self.win.id })
@@ -134,7 +131,7 @@ function M:track_fps(elapsed)
 	self.stats.elapsed = elapsed
 end
 
-function M:build()
+function M:reflow()
 	self:render_root():reflow()
 end
 
