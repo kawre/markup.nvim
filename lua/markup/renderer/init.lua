@@ -83,13 +83,15 @@ function M:schedule_rerender()
 end
 
 function M:rerender()
-	-- collectgarbage("stop")
+	collectgarbage("stop")
 	assert(self.rootf, "Renderer root not bound. Call :render(element) to bind the root element.")
 	M.current = self
 
+	-- Snacks.profiler.start()
 	local e1 = Markup.util.benchmark(function()
 		self.rootf = Markup.reconciler(self.rootf)
 	end)
+	-- Snacks.profiler.stop()
 	local e2 = Markup.util.benchmark(function()
 		self:reflow()
 		self:layout()
@@ -98,7 +100,7 @@ function M:rerender()
 		self:paint()
 	end)
 
-	Markup.log({
+	Markup.log("Renderer stats", {
 		reconciler = e1,
 		layout = e2,
 		paint = e3,
@@ -109,7 +111,7 @@ function M:rerender()
 	-- vim.api.nvim__redraw({ win = self.win.win, flush = true })
 	vim.api.nvim_exec_autocmds("User", { pattern = "MarkupRender" .. self.win.id })
 	M.current = nil
-	-- collectgarbage("restart")
+	collectgarbage("restart")
 end
 
 function M:track_fps(elapsed)
@@ -227,12 +229,6 @@ end
 function M:traverse_and_paint(x, y, box)
 	box.wx = x
 	box.wy = y
-	box.wbx = x
-	box.wby = y
-
-	-- if not box.need_paint then
-	-- 	return
-	-- end
 
 	if box:is("text") then
 		box:paint(self, x, y)

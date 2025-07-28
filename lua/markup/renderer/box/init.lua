@@ -342,23 +342,10 @@ function M:paint(renderer, x, y)
 		local pox = x + props.margin_left
 		local poy = y + props.margin_top
 
-		-- Markup.util.set_hl({
-		-- 	[self.__id] = self.computed.style,
-		-- }, { managed = true, prefix = "MarkupDynamic", force = true })
-
 		for line = 0, pbox.height - 1 do
 			renderer.lines[poy + line + 1]:highlight(pox, pox + pbox.width, self.props.style)
-			-- local extmark_id = vim.api.nvim_buf_set_extmark(0, ns, poy + line, pox, {
-			-- 	end_col = pox + pbox.width,
-			-- 	hl_eol = true,
-			-- 	hl_group = self.props.style,
-			-- 	hl_mode = "combine",
-			-- })
-			-- table.insert(self.extmarks, extmark_id)
 		end
 	end
-
-	-- self.need_paint = false
 end
 
 function M:debug_paint_margin(renderer, x, y)

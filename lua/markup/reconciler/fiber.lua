@@ -1,4 +1,5 @@
 local Flag = require("markup.reconciler.enum").Flag
+local bit = require("bit")
 
 ---@class markup.Fiber.queue
 ---@field dispatch function

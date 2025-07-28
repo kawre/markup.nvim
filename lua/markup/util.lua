@@ -89,13 +89,31 @@ function M.starts_with(str, start)
 	return str:sub(1, #start) == start
 end
 
+function M.ends_with(str, ending)
+	return ending == "" or str:sub(-#ending) == ending
+end
 function M.benchmark(fn)
 	local start_time = vim.uv.hrtime()
 	fn()
 	local end_time = vim.uv.hrtime()
 
+	repeat
+	until true
+
 	local elapsed = end_time - start_time -- ns
 	return elapsed / 1e6 -- ms
+end
+
+function M.benchmark_repeat(times, fn)
+	local total = 0
+	for _ = 1, times do
+		local start_time = vim.uv.hrtime()
+		fn()
+		local end_time = vim.uv.hrtime()
+		local elapsed = end_time - start_time -- ns
+		total = total + elapsed / 1e6
+	end
+	return total / times -- average in ms
 end
 
 ---@param orig table
@@ -143,17 +161,14 @@ end
 
 -- Essential for unit tests to ensure random IDs are consistent.
 math.randomseed(Markup.config.randomseed)
-local ids = {}
+local counter = 1000
+local prefix = ("%x"):format(math.random(0, 0xFFFFFF))
 
 function M.gen_id()
-	local n = math.random(1e5, 1e6 - 1)
-	local id = ("%x"):format(n % 0xFFFFFFF)
-	if ids[id] then
-		return M.gen_id()
-	else
-		ids[id] = true
-		return id
-	end
+	counter = counter + 1
+	-- local id = prefix .. ("%x"):format(counter)
+	-- return id
+	return counter
 end
 
 ---@param str string

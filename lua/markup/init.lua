@@ -48,10 +48,11 @@ setmetatable(M, {
 	__call = function(_, ...)
 		return Markup.factory.element(...)
 	end,
-	__index = function(_, k)
-		return function(...)
+	__index = function(t, k)
+		t[k] = function(...)
 			return Markup.factory.element(k:lower(), ...)
 		end
+		return rawget(t, k)
 	end,
 })
 

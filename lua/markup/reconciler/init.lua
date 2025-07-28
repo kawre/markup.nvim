@@ -1,6 +1,7 @@
 local Tag = require("markup.reconciler.enum").Tag
 local Flag = require("markup.reconciler.enum").Flag
 local Dispatcher = require("markup.reconciler.dispatcher")
+local NodeFactory = require("markup.factory.node")
 
 ---@class markup.reconciler: markup.object
 ---@field render_scheduled boolean
@@ -200,7 +201,7 @@ end
 
 ---@param wip markup.fiber
 function M.place_single_node(wip)
-	wip.state_node = Markup.factory.node.from_fiber(wip)
+	wip.state_node = NodeFactory.from_fiber(wip)
 
 	if type(wip.pending_props) == "table" and M.is_valid_text(wip.pending_props.children) then
 		-- handle single text child elements

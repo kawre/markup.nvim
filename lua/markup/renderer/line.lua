@@ -38,9 +38,8 @@ end
 
 local whitespace_cache = setmetatable({}, {
 	__index = function(t, k)
-		local v = (" "):rep(k)
-		t[k] = v
-		return v
+		t[k] = (" "):rep(k)
+		return rawget(t, k)
 	end,
 })
 
