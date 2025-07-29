@@ -30,6 +30,11 @@ local T = new_set({
 })
 
 ---@param element any
+local function render(element)
+	child.lua(([[renderer:render(%s)]]):format(element))
+end
+
+---@param element any
 ---@param opts? table
 local function render_and_expect_screenshot(element, opts)
 	child.lua(([[renderer:render(%s)]]):format(element))
@@ -700,8 +705,10 @@ T["hooks"]["window"] = function()
 end
 
 T["hooks"]["effect"] = function()
+	child.lua("_G.order = {}")
+
 	local app = [[
-		m.Component(function()
+		m.component(function()
 			local count, set_count = m.hooks.variable(0)
 			local win = m.hooks.window()
 			
@@ -712,7 +719,10 @@ T["hooks"]["effect"] = function()
 			end, {})
 			
 			m.hooks.effect(function()
-				vim.notify("count: " .. count)
+				table.insert(_G.order, "create " .. count)
+				return function()
+					table.insert(_G.order, "destroy " .. count)
+				end
 			end, { count })
 			
 			return m.block({
@@ -722,13 +732,10 @@ T["hooks"]["effect"] = function()
 		end)
 	]]
 
-	local opts = nil
-
-	render_and_expect_screenshot(app, opts)
+	render(app)
 	child.type_keys("1")
-	expect.reference_screenshot(child.get_screenshot(), nil, opts)
 	child.type_keys("1")
-	expect.reference_screenshot(child.get_screenshot(), nil, opts)
+	eq(child.lua_get("_G.order"), { "create 0", "destroy 0", "create 1", "destroy 1", "create 2" })
 end
 
 T["hooks"]["effect unmount"] = function()
@@ -767,9 +774,8 @@ T["hooks"]["effect unmount"] = function()
 			})
 		end)
 	]])
-	local opts = nil
 
-	render_and_expect_screenshot("_G.App", opts)
+	render("_G.App")
 	eq(child.lua_get("_G.msg"), vim.NIL)
 	child.type_keys("1")
 	eq(child.lua_get("_G.msg"), "mounted")
@@ -807,14 +813,45 @@ T["hooks"]["effect unmount as single return"] = function()
 			return vis and Second()
 		end)
 	]])
-	local opts = nil
 
-	render_and_expect_screenshot("_G.App", opts)
+	render("_G.App")
 	eq(child.lua_get("_G.msg"), vim.NIL)
 	child.type_keys("1")
 	eq(child.lua_get("_G.msg"), "mounted")
 	child.type_keys("1")
 	eq(child.lua_get("_G.msg"), "un-mounted")
+end
+
+T["hooks"]["effect calls create after destroy"] = function()
+	child.lua("_G.order = {}; _G.count = 0")
+
+	local app = [[
+		m.component(function()
+			local win = m.hooks.window()
+			local vis, set_vis = m.hooks.variable(false)
+			local count, set_count = m.hooks.variable(0)
+
+			m.hooks.effect(function()
+				return win:map("n", "1", function()
+					set_vis(function(v) return not v end)
+				end)
+			end, {})
+			
+			m.hooks.effect(function()
+				_G.count = _G.count + 1
+				table.insert(_G.order, "create " .. _G.count)
+				return function()
+					table.insert(_G.order, "destroy " .. _G.count)
+				end
+			end, { vis, count })
+
+			return 'something'
+		end)
+	]]
+
+	render(app)
+	child.type_keys("1")
+	eq(child.lua_get("_G.order"), { "create 1", "destroy 1", "create 2" })
 end
 
 return T

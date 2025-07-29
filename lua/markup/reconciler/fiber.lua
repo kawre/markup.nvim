@@ -18,6 +18,7 @@ local bit = require("bit")
 ---@field deps table
 ---@field destroy? function
 ---@field next? markup.fiber.hook.effect
+---@field mounted boolean
 
 ---@class markup.fiber
 ---@field pending_props any

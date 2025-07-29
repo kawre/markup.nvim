@@ -1,8 +1,10 @@
 local function push_effect(fiber, create, deps)
 	local effect = {
 		deps = deps,
+		create = create,
 		destroy = nil,
 		next = nil,
+		mounted = false,
 	}
 
 	fiber.update_queue = fiber.update_queue
@@ -24,8 +26,6 @@ local function push_effect(fiber, create, deps)
 		fiber.update_queue.last_effect = effect
 	end
 
-	effect.destroy = create()
-
 	return effect
 end
 
@@ -34,7 +34,7 @@ local function mount_effect(fiber, create, deps)
 	hook.memoized_state = push_effect(fiber, create, deps)
 end
 
-local function update_effect(fiber, create, deps)
+local function update_effect(_, create, deps)
 	local hook = Markup.reconciler.update_wip_hook()
 	---@type markup.fiber.hook.effect
 	local effect = hook.memoized_state

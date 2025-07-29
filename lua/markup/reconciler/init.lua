@@ -188,6 +188,28 @@ function M.commit_unmount(fiber)
 	end
 end
 
+---@param finishedf markup.fiber
+function M.commit_effects(finishedf)
+	if not finishedf.update_queue then
+		return
+	end
+
+	local last_effect = finishedf.update_queue.last_effect
+	if not last_effect then
+		return
+	end
+
+	local first_effect = last_effect.next
+	local effect = first_effect
+	repeat
+		if not effect.mounted then
+			effect.destroy = Markup.util.call(effect.create)
+			effect.mounted = true
+		end
+		effect = effect.next
+	until effect == first_effect
+end
+
 ---@param fiber markup.fiber
 function M.commit_deletions(fiber)
 	assert(fiber.deletions, "`fiber.deletions` must exist for commit deletions")
@@ -993,6 +1015,8 @@ function M.traverse_and_commit(hostf, finishedf)
 	if finishedf:check_flags(Flag.CHILD_DELETE) then
 		M.commit_deletions(finishedf)
 	end
+
+	M.commit_effects(finishedf)
 
 	if finishedf.tag == "text" or finishedf.tag == "element" then
 		if finishedf:check_flags(Flag.PLACEMENT) then
