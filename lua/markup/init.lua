@@ -39,19 +39,12 @@ _G.Markup = setmetatable({ core = M, renderers = {} }, {
 M.Component = Markup.factory.element.component
 M.Class = Markup.factory.element.class
 M.Fragment = Markup.factory.element.fragment
-M.variable = require("markup.reconciler.hook.state")
-M.context = Markup.factory.element.context
-M.use = require("markup.reconciler.hook.use")
-M.effect = require("markup.reconciler.hook.effect")
-M.view = require("markup.reconciler.hook.view")
-
-M.hook = {
-	variable = require("markup.reconciler.hook.state"),
-	context = Markup.factory.element.context,
-	use = require("markup.reconciler.hook.use"),
-	effect = require("markup.reconciler.hook.effect"),
-	view = require("markup.reconciler.hook.view"),
-}
+M.hooks = require("markup.hooks")
+-- M.variable = require("markup.reconciler.hook.state")
+-- M.context = Markup.factory.element.context
+-- M.use = require("markup.reconciler.hook.use")
+-- M.effect = require("markup.reconciler.hook.effect")
+-- M.view = require("markup.reconciler.hook.view")
 
 setmetatable(M, {
 	__call = function(_, ...)

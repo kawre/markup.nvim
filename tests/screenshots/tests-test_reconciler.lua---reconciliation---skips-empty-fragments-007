@@ -1,7 +1,7 @@
 --|---------|---------|---------|---------|---------|---------|
-01| fiber root (root)   1112                                 
-02|├╴󰊕 Component (function)   1115                            
-03|│ └╴ inline #[5] (element)   1116                         
+01| fiber root (root)   1001                                 
+02|├╴󰊕 Component (function)   1004                            
+03|│ └╴ inline #[5] (element)   1005                         
 04|~                                                           
 05|~                                                           
 06|~                                                           

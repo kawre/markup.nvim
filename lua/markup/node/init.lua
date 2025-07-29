@@ -148,12 +148,17 @@ end
 
 ---@param child markup.node
 function Node:remove_child(child)
+	local found = false
 	for i, node in ipairs(self.child_nodes) do
 		if node == child then
 			child.parent = nil
 			table.remove(self.child_nodes, i)
+			found = true
 			break
 		end
+	end
+	if not found then
+		error("Node not found in child nodes")
 	end
 end
 

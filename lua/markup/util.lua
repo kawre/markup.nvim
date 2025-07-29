@@ -166,6 +166,10 @@ function M.gen_id()
 	return counter
 end
 
+function M.reset_id()
+	counter = 1000
+end
+
 ---@param str string
 function M.keycode(str)
 	return vim.api.nvim_replace_termcodes(str, true, true, true)

@@ -1,8 +1,8 @@
 --|---------|---------|---------|---------|---------|---------|
-01| fiber root (root)   1219                                 
-02|├╴󰊕 Component (function)   1222                            
-03|│ ├╴ fragment [key = A] (fragment)   1223                 
-04|│ │ └╴#[5] (text)   1231                                   
+01| fiber root (root)   1001                                 
+02|├╴󰊕 Component (function)   1004                            
+03|│ ├╴ fragment [key = A] (fragment)   1005                 
+04|│ │ └╴#[5] (text)   1013                                   
 05|~                                                           
 06|~                                                           
 07|~                                                           

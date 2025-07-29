@@ -10,6 +10,7 @@ local NodeFactory = require("markup.factory.node")
 ---@field wip_hook? markup.fiber.hook
 ---@field work_stack table
 ---@field work_stack_visited table
+---@field last_context_dep? markup.fiber.hook.context_dep
 ---@overload fun(fiber: markup.fiber): markup.fiber
 local M = Markup.singleton()
 
@@ -18,6 +19,7 @@ function M.call(rootf)
 	M.current_fiber = nil
 	M.current_hook = nil
 	M.wip_hook = nil
+	M.last_context_dep = nil
 
 	local new_rootf = M.work_loop(rootf)
 	M.commit(new_rootf)
@@ -161,42 +163,77 @@ end
 
 ---@param fiber markup.fiber
 ---@return markup.fiber
-function M.find_element_ancestor(fiber)
+function M.find_parent(fiber)
+	-- TODO: keep track of the parent during commit phase, it would make it faster
 	local parent = fiber and fiber["return"]
-
 	while parent and not parent.state_node do
 		parent = parent["return"]
 	end
-
-	Markup.assert.bug(parent, "Element ancestor must exist")
+	Markup.assert.bug(parent and parent.state_node, "Element ancestor must exist")
 	return parent
+end
+
+---@param fiber markup.fiber
+function M.commit_unmount(fiber)
+	if fiber.update_queue and fiber.update_queue.last_effect then
+		-- run the effects before unmounting
+		local first_effect = fiber.update_queue.last_effect.next
+		local effect = first_effect
+		repeat
+			if effect.destroy then
+				Markup.util.call(effect.destroy)
+			end
+			effect = effect.next
+		until effect == first_effect
+	end
 end
 
 ---@param fiber markup.fiber
 function M.commit_deletions(fiber)
 	assert(fiber.deletions, "`fiber.deletions` must exist for commit deletions")
 
-	local bfs = Markup.collection.stack()
 	for _, deletion in ipairs(fiber.deletions) do
-		bfs:push(deletion)
-	end
-
-	while bfs.len > 0 do
-		local node = bfs:pop()
-
-		if node.state_node then
-			node.state_node:destroy()
-		else
-			local child = node.child
-			while child do
-				bfs:push(child)
-				child = child.sibling
-			end
-		end
+		M.commit_deletion(deletion)
 	end
 
 	fiber.deletions = nil
 	fiber:clear_flags(Flag.CHILD_DELETE)
+end
+
+---@param deletedf markup.fiber
+function M.commit_deletion(deletedf)
+	local parent = M.find_parent(deletedf)
+	M.traverse_deletion(parent, deletedf, false, true)
+	M.detach_fiber(deletedf)
+end
+
+---@param parentf markup.fiber
+---@param deletedf markup.fiber
+---@param did_detach boolean
+---@param skip_sibling? boolean
+function M.traverse_deletion(parentf, deletedf, did_detach, skip_sibling)
+	M.commit_unmount(deletedf)
+
+	local old = did_detach
+	if not did_detach and deletedf.state_node then
+		parentf.state_node:remove_child(deletedf.state_node)
+		did_detach = true
+	end
+
+	if deletedf.child then
+		M.traverse_deletion(parentf, deletedf.child, did_detach)
+	end
+	if not skip_sibling and deletedf.sibling then
+		M.traverse_deletion(parentf, deletedf.sibling, old)
+	end
+end
+
+function M.detach_fiber(fiber)
+	local alternate = fiber.alternate
+	if alternate then
+		alternate["return"] = nil
+	end
+	fiber["return"] = nil
 end
 
 ---@param wip markup.fiber
@@ -424,12 +461,13 @@ function M.is_valid_element(content)
 		return false
 	end ---@cast content markup.element
 
-	if type(content.type) == "string" then
-		local children = content.props.children
-		if not children or (type(children) == "table" and vim.tbl_isempty(children)) then
-			return false
-		end
-	end
+	-- if type(content.type) == "string" then
+	-- 	local children = content.props.children
+	-- 	if not children or (type(children) == "table" and vim.tbl_isempty(children)) then
+	-- 	-- if not children or (type(children) == "table" and vim.tbl_isempty(children)) then
+	-- 		return false
+	-- 	end
+	-- end
 
 	return true
 end

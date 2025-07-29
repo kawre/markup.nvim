@@ -607,15 +607,21 @@ end
 
 -- Hooks
 
-T["hooks"] = new_set()
+T["hooks"] = new_set({
+	hooks = {
+		pre_case = function()
+			-- child.restart({ "-u", "scripts/minimal_init.lua" })
+		end,
+	},
+})
 
 T["hooks"]["variable"] = function()
 	local app = [[
 		m.Component(function()
-			local count, set_count = m.hook.variable(0)
-			local view = m.hook.view()
+			local count, set_count = m.hooks.variable(0)
+			local view = m.hooks.view()
 			
-			m.hook.effect(function()
+			m.hooks.effect(function()
 				return view.win:map("n", "1", function()
 					set_count(function(c)
 						return c + 1
@@ -645,10 +651,10 @@ end
 T["hooks"]["variable updating only once"] = function()
 	local app = [[
 		m.Component(function()
-			local count, set_count = m.hook.variable(0)
-			local view = m.hook.view()
+			local count, set_count = m.hooks.variable(0)
+			local view = m.hooks.view()
 			
-			m.hook.effect(function()
+			m.hooks.effect(function()
 				return view.win:map("n", "1", function()
 					-- this function is not recreated on every render
 					-- thus count always has the value of 0
@@ -678,8 +684,8 @@ end
 T["hooks"]["view"] = function()
 	local app = [[
 		m.Component(function()
-			local count, set_count = m.hook.variable(0)
-			local view = m.hook.view()
+			local count, set_count = m.hooks.variable(0)
+			local view = m.hooks.view()
 			
 			assert(view, "view must be defined during render")
 			
@@ -693,6 +699,120 @@ T["hooks"]["view"] = function()
 	local opts = nil
 
 	render_and_expect_screenshot(app, opts)
+end
+
+T["hooks"]["effect"] = function()
+	local app = [[
+		m.Component(function()
+			local count, set_count = m.hooks.variable(0)
+			local view = m.hooks.view()
+			
+			m.hooks.effect(function()
+				return view.win:map("n", "1", function()
+					set_count(function(c) return c + 1 end)
+				end)
+			end, {})
+			
+			m.hooks.effect(function()
+				vim.notify("count: " .. count)
+			end, { count })
+			
+			return m.block({
+				m.block("inline"),
+				m.block(count),
+			})
+		end)
+	]]
+
+	local opts = nil
+
+	render_and_expect_screenshot(app, opts)
+	child.type_keys("1")
+	expect.reference_screenshot(child.get_screenshot(), nil, opts)
+	child.type_keys("1")
+	expect.reference_screenshot(child.get_screenshot(), nil, opts)
+end
+
+T["hooks"]["effect unmount"] = function()
+	child.lua([[
+		_G.msg = vim.NIL
+		
+		local Second = m.Component(function()
+			m.hooks.effect(function()
+				_G.msg = "mounted"
+				return function()
+					_G.msg = "un-mounted"
+				end
+			end, {})
+
+			return "any"
+		end)
+
+		_G.App = m.Component(function()
+			local vis, set_vis = m.hooks.variable(false)
+			local view = m.hooks.view()
+
+			m.hooks.effect(function()
+				return view.win:map("n", "1", function()
+					set_vis(function(v)
+						return not v
+					end)
+				end)
+			end, {})
+
+			return m.block({
+				vis and Second(),
+			})
+		end)
+	]])
+	local opts = nil
+
+	render_and_expect_screenshot("_G.App", opts)
+	eq(child.lua_get("_G.msg"), vim.NIL)
+	child.type_keys("1")
+	eq(child.lua_get("_G.msg"), "mounted")
+	child.type_keys("1")
+	eq(child.lua_get("_G.msg"), "un-mounted")
+end
+
+T["hooks"]["effect unmount as single return"] = function()
+	child.lua([[
+		_G.msg = vim.NIL
+		
+		local Second = m.Component(function()
+			m.hooks.effect(function()
+				_G.msg = "mounted"
+				return function()
+					_G.msg = "un-mounted"
+				end
+			end, {})
+
+			return "any"
+		end)
+
+		_G.App = m.Component(function()
+			local vis, set_vis = m.hooks.variable(false)
+			local view = m.hooks.view()
+
+			m.hooks.effect(function()
+				return view.win:map("n", "1", function()
+					set_vis(function(v)
+						return not v
+					end)
+				end)
+			end, {})
+
+			return vis and Second()
+		end)
+	]])
+	local opts = nil
+
+	render_and_expect_screenshot("_G.App", opts)
+	eq(child.lua_get("_G.msg"), vim.NIL)
+	child.type_keys("1")
+	eq(child.lua_get("_G.msg"), "mounted")
+	child.type_keys("1")
+	eq(child.lua_get("_G.msg"), "un-mounted")
 end
 
 return T

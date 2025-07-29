@@ -1,12 +1,12 @@
 --|---------|---------|---------|---------|---------|---------|
-01| root (element)   1292                                    
-02|├╴ block (element)   1301                                 
-03|│ ├╴ inline (element)   1298                              
-04|│ │ └╴#[im count: 5] (text)   1299                         
-05|│ ├╴ inline (element)   1309                              
-06|│ │ └╴#[10000] (text)   1310                               
-07|│ ├╴#[2] (text)   1311                                     
-08|│ └╴#[i'm overriding] (text)   1312                        
+01| root (element)   1002                                    
+02|├╴ block (element)   1011                                 
+03|│ ├╴ inline (element)   1008                              
+04|│ │ └╴#[im count: 5] (text)   1009                         
+05|│ ├╴ inline (element)   1019                              
+06|│ │ └╴#[10000] (text)   1020                               
+07|│ ├╴#[2] (text)   1021                                     
+08|│ └╴#[i'm overriding] (text)   1022                        
 09|~                                                           
 10|~                                                           
 11|~                                                           

@@ -1,10 +1,10 @@
 --|---------|---------|---------|---------|---------|---------|
-01| root (element)   1035                                    
-02|├╴ block (element)   1039                                 
-03|│ ├╴#[text] (text)   1040                                  
-04|│ ├╴ inline (element)   1045                              
-05|│ │ └╴#[im count: 4] (text)   1046                         
-06|│ └╴#[i'm overriding] (text)   1047                        
+01| root (element)   1002                                    
+02|├╴ block (element)   1006                                 
+03|│ ├╴#[text] (text)   1007                                  
+04|│ ├╴ inline (element)   1012                              
+05|│ │ └╴#[im count: 4] (text)   1013                         
+06|│ └╴#[i'm overriding] (text)   1014                        
 07|~                                                           
 08|~                                                           
 09|~                                                           

@@ -1,7 +1,7 @@
 --|---------|---------|---------|---------|---------|---------|
-01| fiber root (root)   1088                                 
-02|├╴󰊕 Component (function)   1091                            
-03|│ └╴#[text] (text)   1093                                  
+01| fiber root (root)   1001                                 
+02|├╴󰊕 Component (function)   1004                            
+03|│ └╴#[text] (text)   1006                                  
 04|~                                                           
 05|~                                                           
 06|~                                                           

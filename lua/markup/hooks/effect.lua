@@ -67,9 +67,9 @@ local function effect(create, deps)
 	assert(type(create) == "function", "effect hook must be a function")
 
 	if not fiber.alternate then
-		return mount_effect(fiber, create, deps)
+		return mount_effect(fiber, create, deps or {})
 	else
-		return update_effect(fiber, create, deps)
+		return update_effect(fiber, create, deps or {})
 	end
 end
 
