@@ -619,10 +619,10 @@ T["hooks"]["variable"] = function()
 	local app = [[
 		m.Component(function()
 			local count, set_count = m.hooks.variable(0)
-			local view = m.hooks.view()
+			local win = m.hooks.window()
 			
 			m.hooks.effect(function()
-				return view.win:map("n", "1", function()
+				return win:map("n", "1", function()
 					set_count(function(c)
 						return c + 1
 					end)
@@ -652,10 +652,10 @@ T["hooks"]["variable updating only once"] = function()
 	local app = [[
 		m.Component(function()
 			local count, set_count = m.hooks.variable(0)
-			local view = m.hooks.view()
+			local win = m.hooks.window()
 			
 			m.hooks.effect(function()
-				return view.win:map("n", "1", function()
+				return win:map("n", "1", function()
 					-- this function is not recreated on every render
 					-- thus count always has the value of 0
 					set_count(count + 1)
@@ -681,14 +681,12 @@ T["hooks"]["variable updating only once"] = function()
 	expect.reference_screenshot(child.get_screenshot(), nil, opts)
 end
 
-T["hooks"]["view"] = function()
+T["hooks"]["window"] = function()
 	local app = [[
 		m.Component(function()
 			local count, set_count = m.hooks.variable(0)
-			local view = m.hooks.view()
-			
-			assert(view, "view must be defined during render")
-			
+			local win = m.hooks.window()
+			assert(win)
 			return m.block({
 				m.block("inline"),
 				m.block(count),
@@ -705,10 +703,10 @@ T["hooks"]["effect"] = function()
 	local app = [[
 		m.Component(function()
 			local count, set_count = m.hooks.variable(0)
-			local view = m.hooks.view()
+			local win = m.hooks.window()
 			
 			m.hooks.effect(function()
-				return view.win:map("n", "1", function()
+				return win:map("n", "1", function()
 					set_count(function(c) return c + 1 end)
 				end)
 			end, {})
@@ -750,10 +748,10 @@ T["hooks"]["effect unmount"] = function()
 
 		_G.App = m.Component(function()
 			local vis, set_vis = m.hooks.variable(false)
-			local view = m.hooks.view()
+			local win = m.hooks.window()
 
 			m.hooks.effect(function()
-				return view.win:map("n", "1", function()
+				return win:map("n", "1", function()
 					set_vis(function(v)
 						return not v
 					end)
@@ -761,7 +759,11 @@ T["hooks"]["effect unmount"] = function()
 			end, {})
 
 			return m.block({
-				vis and Second(),
+				vis and m.block({
+					m.fragment({
+						Second(),
+					})
+				})
 			})
 		end)
 	]])
@@ -792,10 +794,10 @@ T["hooks"]["effect unmount as single return"] = function()
 
 		_G.App = m.Component(function()
 			local vis, set_vis = m.hooks.variable(false)
-			local view = m.hooks.view()
+			local win = m.hooks.window()
 
 			m.hooks.effect(function()
-				return view.win:map("n", "1", function()
+				return win:map("n", "1", function()
 					set_vis(function(v)
 						return not v
 					end)

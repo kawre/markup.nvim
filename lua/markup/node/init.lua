@@ -3,8 +3,8 @@ local normalizer = require("markup.node.normalizer")
 ---@alias markup.node.type "element" | "text"
 
 ---@class markup.node.props
----@field children? markup.factory.Element.constructor.props
----@field style? markup.factory.Element.constructor.style
+---@field children? markup.factory.element.props
+---@field style? markup.factory.element.style
 ---@field display? markup.Element.display
 ---@field padding? markup.Element.padding
 ---@field padding_top? integer

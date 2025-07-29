@@ -10,7 +10,7 @@ local NodeFactory = require("markup.factory.node")
 ---@field wip_hook? markup.fiber.hook
 ---@field work_stack table
 ---@field work_stack_visited table
----@field last_context_dep? markup.fiber.hook.context_dep
+---@field last_context_dep? markup.hooks.context.dep
 ---@overload fun(fiber: markup.fiber): markup.fiber
 local M = Markup.singleton()
 

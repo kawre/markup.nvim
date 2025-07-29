@@ -1,14 +1,14 @@
 ---@class markup
----@field inline markup.factory.Element.constructor
----@field block markup.factory.Element.constructor
----@field flex markup.factory.Element.constructor
----@field grid markup.factory.Element.constructor
----@field element markup.factory.Element.constructor.raw
----@field variable markup.use_state
----@field effect markup.effect
----@field ref markup.ref
+---@field inline markup.factory.element
+---@field block markup.factory.element
+---@field flex markup.factory.element
+---@field grid markup.factory.element
+---@field component markup.factory.element.component
+---@field fragment markup.factory.element.fragment
+---@field hooks markup.hooks
 ---@field private setup any
----@field [string] markup.factory.Element.constructor
+---@field [string] markup.factory.element
+---@overload fun(type: any, props?: markup.factory.element.props, style?: markup.factory.element.style): markup.element
 local M = {}
 
 ---@class markup.global
@@ -36,24 +36,23 @@ _G.Markup = setmetatable({ core = M, renderers = {} }, {
 	end,
 })
 
-M.Component = Markup.factory.element.component
-M.Class = Markup.factory.element.class
-M.Fragment = Markup.factory.element.fragment
 M.hooks = require("markup.hooks")
--- M.variable = require("markup.reconciler.hook.state")
--- M.context = Markup.factory.element.context
--- M.use = require("markup.reconciler.hook.use")
--- M.effect = require("markup.reconciler.hook.effect")
--- M.view = require("markup.reconciler.hook.view")
 
-setmetatable(M, {
+setmetatable(M, { ---@diagnostic disable-line: param-type-mismatch
 	__call = function(_, ...)
 		return Markup.factory.element(...)
 	end,
 	__index = function(t, k)
+		k = k:lower()
+
 		t[k] = function(...)
-			return Markup.factory.element(k:lower(), ...)
+			if Markup.factory.element[k] then
+				return Markup.factory.element[k](...)
+			else
+				return Markup.factory.element(k, ...)
+			end
 		end
+
 		return rawget(t, k)
 	end,
 })

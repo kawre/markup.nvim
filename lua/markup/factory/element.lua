@@ -1,7 +1,32 @@
 local Element = require("markup.element")
 
----@class markup.factory.element
----@overload fun(type, props, style): markup.element
+---@alias markup.factory.element.props.children
+---| string
+---| number
+---| table
+
+---@alias markup.factory.element.style
+---| string
+---| vim.api.keyset.highlight
+
+---@alias markup.factory.element.props
+---| markup.factory.element.props.children
+---| { children?: markup.factory.element.props.children }
+---| markup.node.props
+
+---@alias markup.factory.element.fragment.props
+---| markup.factory.element.props.children
+---| { children?: markup.factory.element.props.children }
+
+---@alias markup.factory.element
+---| fun(props?: markup.factory.element.props, style?: markup.factory.element.style): markup.element
+
+---@alias markup.factory.element.fragment
+---| fun(props?: markup.factory.element.fragment.props): markup.element
+
+---@alias markup.factory.element.component
+---| fun(props?: any|{ children?: any }): any
+
 local M = Markup.singleton()
 
 local function resolve(props, style)
@@ -40,39 +65,11 @@ local function resolve(props, style)
 	return props
 end
 
----@alias markup.factory.Element.constructor.props.children
----| string
----| number
----| table
-
----@alias markup.factory.Element.constructor.props
----| markup.factory.Element.constructor.props.children
----| { children?: markup.factory.Element.constructor.props.children }
----| markup.node.props
-
----@alias markup.factory.Element.Fragment.constructor.props
----| markup.factory.Element.constructor.props.children
----| { children?: markup.factory.Element.constructor.props.children }
-
----@alias markup.factory.Element.constructor.style
----| string
----| vim.api.keyset.highlight
-
----@alias markup.factory.Element.Fragment.constructor
----| fun(props?: markup.factory.Element.Fragment.constructor.props): markup.element
-
----@alias markup.factory.Element.constructor
----| fun(props?: markup.factory.Element.constructor.props, style?: markup.factory.Element.constructor.style): markup.element
-
----@alias markup.factory.Element.constructor.raw
----| fun(type: any, props?: markup.factory.Element.constructor.props, style?: markup.factory.Element.constructor.style): markup.element
-
----@type markup.factory.Element.constructor.raw
+--@type markup.factory.Element.constructor.raw
 function M.call(type, props, style)
 	return Element.new(type, resolve(props, style))
 end
 
----@param Component fun(props?: any|{ children?: any }): any
 function M.component(Component)
 	return function(...)
 		return M.call(Component, ...)

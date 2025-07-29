@@ -57,10 +57,10 @@ local function update_effect(fiber, create, deps)
 end
 
 ---@generic T
----@alias markup.effect
+---@alias markup.hooks.effect
 ---| fun(function, table)
 
----@type markup.effect
+---@type markup.hooks.effect
 local function effect(create, deps)
 	local fiber = Markup.reconciler.current_fiber
 	assert(fiber, "effect hook must be called within a fiber context")

@@ -1,5 +1,10 @@
 local Tag = require("markup.reconciler.enum").Tag
 
+---@class markup.hooks.context.dep
+---@field ctx markup.hooks.context
+---@field memoized_value any
+---@field next markup.hooks.context.dep?
+
 ---@class markup.hooks.context
 local M = Markup.singleton()
 
