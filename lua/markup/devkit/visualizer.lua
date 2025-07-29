@@ -189,7 +189,7 @@ function M.render(root, opts)
 			-- table.insert(entries, { (" (%s)"):format(node.node.tag_name), "Conceal" })
 		end
 
-		local mrange = node:get_box_range("margin")
+		local mrange = node:get_rect("margin")
 		if mrange then
 			table.insert(entries, {
 				(" [%s, %s] - [%s, %s]"):format(

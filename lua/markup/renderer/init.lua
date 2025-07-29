@@ -44,11 +44,11 @@ function M:new(opts)
 		end
 	end, { pattern = "*" })
 
-	-- self.win:on("CursorMoved", function()
-	-- 	if self:valid() then
-	-- 		self:handle_cursor_moved()
-	-- 	end
-	-- end, { buf = true })
+	self.win:on("CursorMoved", function()
+		if self:valid() then
+			self:handle_cursor_moved()
+		end
+	end, { buf = true })
 end
 
 ---@param element any
@@ -83,15 +83,12 @@ function M:schedule_rerender()
 end
 
 function M:rerender()
-	collectgarbage("stop")
 	assert(self.rootf, "Renderer root not bound. Call :render(element) to bind the root element.")
 	M.current = self
 
-	-- Snacks.profiler.start()
 	local e1 = Markup.util.benchmark(function()
 		self.rootf = Markup.reconciler(self.rootf)
 	end)
-	-- Snacks.profiler.stop()
 	local e2 = Markup.util.benchmark(function()
 		self:reflow()
 		self:layout()
@@ -100,18 +97,16 @@ function M:rerender()
 		self:paint()
 	end)
 
-	Markup.log("Renderer stats", {
-		reconciler = e1,
-		layout = e2,
-		paint = e3,
-	})
+	-- Markup.log("Renderer stats", {
+	-- 	reconciler = e1,
+	-- 	layout = e2,
+	-- 	paint = e3,
+	-- })
 
 	self:track_fps(e1 + e2 + e3)
 
-	-- vim.api.nvim__redraw({ win = self.win.win, flush = true })
 	vim.api.nvim_exec_autocmds("User", { pattern = "MarkupRender" .. self.win.id })
 	M.current = nil
-	collectgarbage("restart")
 end
 
 function M:track_fps(elapsed)
@@ -139,58 +134,6 @@ end
 
 function M:layout()
 	self:render_root():layout({ available_width = vim.api.nvim_win_get_width(self.win.win) })
-end
-
-local str_cache = {}
-
-function M:_paint_with_concat_lines()
-	local mbox = self:render_root():get_box_size("margin")
-
-	-- local fill = (" "):rep(mbox.width)
-	-- for i = 1, mbox.height do
-	-- 	lines[i] = fill
-	-- end
-	-- vim.api.nvim_buf_set_lines(0, 0, -1, false, lines)
-
-	self.lines = {}
-	self.extmarks = {}
-	self:traverse_and_paint(0, 0, self:render_root())
-
-	local l = {}
-	for y, chunks in pairs(self.lines) do
-		local line = {}
-
-		table.sort(chunks, function(a, b)
-			return a.x <= b.x
-		end)
-
-		local k = 0
-		for _, chunk in ipairs(chunks) do
-			local diff = chunk.x - k
-			if diff > 0 then
-				if not str_cache[diff] then
-					str_cache[diff] = (" "):rep(diff)
-				end
-				table.insert(line, str_cache[diff])
-			end
-			table.insert(line, chunk.word)
-			k = chunk.x + chunk.width
-		end
-		table.insert(l, table.concat(line))
-	end
-
-	vim.api.nvim_buf_clear_namespace(0, self.ns, 0, -1)
-	vim.api.nvim_buf_set_lines(0, 0, -1, false, l)
-
-	for _, extmark in ipairs(self.extmarks) do
-		vim.api.nvim_buf_set_extmark(0, self.ns, extmark.line, extmark.col, {
-			strict = false,
-			end_col = extmark.end_col,
-			hl_eol = true,
-			hl_group = extmark.hl_group,
-			hl_mode = "combine",
-		})
-	end
 end
 
 function M:paint()
@@ -291,6 +234,19 @@ function M:handle_cursor_moved()
 	local new_row, new_col = cursor[1], cursor[2]
 	local prev_row, prev_col = unpack(self.cursor.prev or { new_row, new_col })
 
+	if self.cursor.prev and (new_row == prev_row and new_col == prev_col) then
+		-- No movement, do nothing
+		return
+	end
+
+	-- Markup.log({
+	-- 	"Cursor moved",
+	-- 	prev_row = prev_row,
+	-- 	prev_col = prev_col,
+	-- 	new_row = new_row,
+	-- 	new_col = new_col,
+	-- })
+
 	local stack = Markup.collection.stack()
 	stack:push(self:render_root())
 	local buttons = {} ---@type markup.box[]
@@ -300,22 +256,21 @@ function M:handle_cursor_moved()
 
 	while stack.len > 0 do
 		local box = stack:pop() ---@cast box markup.box
-		local mrange = box:get_box_range("margin")
-		assert(mrange, "Box must have a margin box range")
+		local mrect = box:get_rect("margin")
+		assert(mrect, "Box must have a margin box range")
 
 		-- Directional pruning
 		local skip = false
-		if prow < row and mrange.bottom < row then
+		if
 			-- moved down, box ends above
-			skip = true
-		elseif prow > row and mrange.top > row then
+			(prow < row and mrect.bottom <= row)
 			-- moved up, box starts below
-			skip = true
-		elseif prev_col < new_col and mrange.right < new_col then
+			or (prow > row and mrect.top > row)
 			-- moved right, box ends left
-			skip = true
-		elseif prev_col > new_col and mrange.left > new_col then
+			or (prev_col < new_col and mrect.right <= new_col)
 			-- moved left, box starts right
+			or (prev_col > new_col and mrect.left > new_col)
+		then
 			skip = true
 		end
 
@@ -330,34 +285,43 @@ function M:handle_cursor_moved()
 		end
 	end
 
+	---(0,0) indexed
+	---@param r integer
+	---@param c integer
+	local function set_cursor(r, c)
+		local line = vim.fn.getline(r)
+		local char_col = vim.fn.byteidx(line, c)
+		-- Convert back to 1-indexed for win_set_cursor
+		self.cursor.prev = { r, char_col }
+		vim.api.nvim_win_set_cursor(self.win.win, self.cursor.prev)
+	end
+
 	if #buttons == 0 then
 		if self.cursor.prev then
-			vim.api.nvim_win_set_cursor(self.win.win, self.cursor.prev)
+			set_cursor(prev_row, prev_col)
 		end
 		return
 	end
 
 	table.sort(buttons, function(a, b)
-		return a:distance_to(new_col, new_row - 1) < b:distance_to(new_col, new_row - 1)
+		return a:distance_to(new_col, row, true) < b:distance_to(new_col, row, true)
 	end)
 
 	local target = buttons[1]
-	local mrange = target:get_box_range("margin")
-	assert(mrange, "Target box must have a margin box range")
+	local mrect = target:get_rect("margin")
+	assert(mrect, "Target box must have a margin box range")
 
 	-- If inside the new button, do nothing
-	if target:in_range(new_col, row, mrange) then
-		self.cursor.prev = { new_row, new_col }
+	if target:in_rect(new_col, row, mrect) then
+		self.cursor.prev = { row + 1, new_col }
 		return
 	end
 
 	-- Clamp col & row inside the target box
-	local clamped_col = Markup.util.clamp(new_col, mrange.left, mrange.right)
-	local clamped_row = Markup.util.clamp(row, mrange.top, mrange.bottom)
+	local clamped_col = Markup.util.clamp(new_col, mrect.left, mrect.right - 1)
+	local clamped_row = Markup.util.clamp(row, mrect.top, mrect.bottom - 1)
 
-	-- Convert back to 1-indexed for win_set_cursor
-	self.cursor.prev = { clamped_row + 1, clamped_col }
-	vim.api.nvim_win_set_cursor(self.win.win, self.cursor.prev)
+	set_cursor(clamped_row + 1, clamped_col)
 end
 
 function M:valid()

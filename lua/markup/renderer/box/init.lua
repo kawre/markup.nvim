@@ -447,7 +447,7 @@ function M:debug_paint_padding(renderer, x, y)
 end
 
 ---@param kind markup.box.kind
-function M:get_box_range(kind)
+function M:get_rect(kind)
 	local props = self.computed
 
 	if not self.wx or not self.wy then
@@ -479,7 +479,7 @@ function M:get_box_range(kind)
 
 		return {
 			top = top,
-			bottom = math.max(0, bottom - 1),
+			bottom = bottom,
 			left = left,
 			right = right,
 		}
@@ -491,7 +491,7 @@ function M:get_box_range(kind)
 
 		return {
 			top = top,
-			bottom = math.max(0, bottom - 1),
+			bottom = bottom,
 			left = left,
 			right = right,
 		}
@@ -528,22 +528,30 @@ end
 ---@param y any
 ---@param range any
 ---@return boolean
-function M:in_range(x, y, range)
+function M:in_rect(x, y, range)
 	if not range then
-		range = self:get_box_range("padding")
+		range = self:get_rect("padding")
 	end
 
-	return x >= range.left and x <= range.right and y >= range.top and y <= range.bottom
+	return x >= range.left and x < range.right and y >= range.top and y < range.bottom
 end
 
-function M:distance_to(x, y)
+---(0,0) indexed
+---@param x any
+---@param y any
+---@param display? boolean If true, measure display distance, otherwise measure logical distance
+function M:distance_to(x, y, display)
 	if not self.wx or not self.wy then
 		return math.huge
 	end
 
-	local range = self:get_box_range("margin")
+	local range = self:get_rect("margin")
 	assert(range, "Box range is not defined.")
 	local dx = math.max(range.left - x, 0, x - range.right)
+	if display then
+		-- substract by two to make movement more natural since terminal y axis cells are twice as wide as x axis cells
+		dx = dx / 2
+	end
 	local dy = math.max(range.top - y, 0, y - range.bottom)
 
 	return math.sqrt(dx * dx + dy * dy)
