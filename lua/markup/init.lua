@@ -44,6 +44,15 @@ M.context = Markup.factory.element.context
 M.use = require("markup.reconciler.hook.use")
 M.effect = require("markup.reconciler.hook.effect")
 M.view = require("markup.reconciler.hook.view")
+
+M.hook = {
+	variable = require("markup.reconciler.hook.state"),
+	context = Markup.factory.element.context,
+	use = require("markup.reconciler.hook.use"),
+	effect = require("markup.reconciler.hook.effect"),
+	view = require("markup.reconciler.hook.view"),
+}
+
 setmetatable(M, {
 	__call = function(_, ...)
 		return Markup.factory.element(...)

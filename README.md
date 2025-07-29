@@ -7,21 +7,17 @@
 ## 🚧 TODO
 
 - [ ] Grid Box
-- [ ] Justify Content
-- [ ] Reverse
-- [x] Background color
-- [x] Margin and Padding
-- [x] Height and Width
 - [ ] Max Width and Max Height
 - [ ] Window Layout Box
-- [x] Tab class
+- [ ] Tab class
 - [ ] Notification spinner
+- [ ] Incremental paint
 
 ### 📦 Elements
 
 - [ ] Input (text, radio, checkbox)
 - [ ] Image
 - [ ] Table
-- [x] List (ul, ol)
-- [x] Anchor (hyperlinks)
-- [x] strong, italic, underline, strike, code, mark, small, sub, sup
+- [ ] List (ul, ol)
+- [ ] Anchor (hyperlinks)
+- [ ] strong, italic, underline, strike, code, mark, small, sub, sup

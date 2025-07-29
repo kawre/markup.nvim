@@ -234,19 +234,6 @@ function M:handle_cursor_moved()
 	local new_row, new_col = cursor[1], cursor[2]
 	local prev_row, prev_col = unpack(self.cursor.prev or { new_row, new_col })
 
-	if self.cursor.prev and (new_row == prev_row and new_col == prev_col) then
-		-- No movement, do nothing
-		return
-	end
-
-	-- Markup.log({
-	-- 	"Cursor moved",
-	-- 	prev_row = prev_row,
-	-- 	prev_col = prev_col,
-	-- 	new_row = new_row,
-	-- 	new_col = new_col,
-	-- })
-
 	local stack = Markup.collection.stack()
 	stack:push(self:render_root())
 	local buttons = {} ---@type markup.box[]
@@ -316,11 +303,11 @@ function M:handle_cursor_moved()
 		self.cursor.prev = { row + 1, new_col }
 		return
 	end
+	-- Markup.log(target.wx)
 
 	-- Clamp col & row inside the target box
 	local clamped_col = Markup.util.clamp(new_col, mrect.left, mrect.right - 1)
 	local clamped_row = Markup.util.clamp(row, mrect.top, mrect.bottom - 1)
-
 	set_cursor(clamped_row + 1, clamped_col)
 end
 

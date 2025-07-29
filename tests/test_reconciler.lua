@@ -15,7 +15,7 @@ local function mock_renderer()
 	}
 
 	_G.frame = nil
-	local App = markup.Component(function()
+	local App = m.Component(function()
 		return _G.frame
 	end)
 
@@ -70,7 +70,7 @@ local T = new_set({
 			-- child.restart({ "-u", "scripts/minimal_init.lua" })
 			markup = helpers.mock_markup()
 			child.start({ "-u", "scripts/minimal_init.lua" })
-			child.lua([[markup = require('markup')]])
+			child.lua([[m = require('markup')]])
 		end,
 		pre_case = function()
 			child.o.lines, child.o.columns = 15, 60

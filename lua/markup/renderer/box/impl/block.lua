@@ -42,11 +42,8 @@ function M.compute_output(box, input)
 	local computed = box.computed
 
 	local width = box:resolve_size(computed.width, input.available_width)
-	-- local height = box:resolve_size(computed.height, input.available_height, input.min_height)
 
-	return {
-		available_width = box:clamp_size(width, "width"),
-	}
+	return { available_width = box:clamp_size(width, "width") }
 end
 
 ---@param box markup.box
@@ -59,7 +56,6 @@ function M.compute_final_size(box, input, output)
 	local height = math.max(box.height, box:resolve_size(computed.height, 0))
 	height = math.max(height, input.min_height or 0)
 
-	-- box:set_content_box_size({ width = width, height = height })
 	box:set_content_box_width(width)
 	box:set_content_box_height(height, true)
 end

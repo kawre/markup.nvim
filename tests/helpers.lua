@@ -18,7 +18,7 @@ function H.serialize(props)
 	elseif type(props) == "number" then
 		return tostring(props)
 	elseif type(props) == "string" then
-		return props:match("^markup%.[^%.%(%)%s]+%b()$") and props or ("\"%s\""):format(props)
+		return props:match("^m%.[^%.%(%)%s]+%b()$") and props or ("\"%s\""):format(props)
 	elseif type(props) == "boolean" then
 		return tostring(props)
 	elseif props == nil then
@@ -31,7 +31,7 @@ end
 function H.mock_markup()
 	local function serializer(_, key)
 		return function(props)
-			return ("markup.%s(%s)"):format(key, H.serialize(props))
+			return ("m.%s(%s)"):format(key, H.serialize(props))
 		end
 	end
 

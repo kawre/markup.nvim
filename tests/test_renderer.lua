@@ -13,13 +13,10 @@ local T = new_set({
 			m = helpers.mock_markup()
 			child.start({ "-u", "scripts/minimal_init.lua" })
 			child.lua([[
-			markup = require('markup')
-			Markup.window = setmetatable({}, {
-				__call = function()
-					return { win = vim.api.nvim_get_current_win(), buf = vim.api.nvim_get_current_buf(), id = 1, on = function() end }
-				end
-			})
-			renderer = Markup.renderer()
+				m = require('markup')
+				renderer = Markup.renderer({ position = 'current', hijack = true, show = false, minimal = false })
+				renderer.win.buf = vim.api.nvim_get_current_buf()
+				renderer.win:show()
 			]])
 		end,
 		pre_case = function()
@@ -32,10 +29,58 @@ local T = new_set({
 	},
 })
 
----@param element markup.element
+---@param element any
 ---@param opts? table
 local function render_and_expect_screenshot(element, opts)
 	child.lua(([[renderer:render(%s)]]):format(element))
+	expect.reference_screenshot(child.get_screenshot(), nil, opts)
+end
+
+T["cursor"] = new_set({
+	hooks = {
+		post_case = function()
+			child.api.nvim_win_set_cursor(0, { 1, 0 })
+		end,
+	},
+})
+
+T["cursor"]["works"] = function()
+	child.o.lines = 20
+
+	local app = m.block({
+		spacing = 2,
+		justify = "center",
+		m.button("B"),
+		m.flex({
+			spacing = 2,
+			m.button("B"),
+			m.block(1),
+			m.button("B"),
+		}),
+		m.block(3),
+		m.button("B1231233"),
+		m.button("B"),
+	})
+
+	local opts = nil
+
+	-- initial render
+	render_and_expect_screenshot(app, opts)
+
+	-- cursor movement
+	child.type_keys("j")
+	expect.reference_screenshot(child.get_screenshot(), nil, opts)
+	child.type_keys("l")
+	expect.reference_screenshot(child.get_screenshot(), nil, opts)
+	child.type_keys("j")
+	expect.reference_screenshot(child.get_screenshot(), nil, opts)
+	child.type_keys("j")
+	expect.reference_screenshot(child.get_screenshot(), nil, opts)
+	child.type_keys("k")
+	expect.reference_screenshot(child.get_screenshot(), nil, opts)
+	child.type_keys("5l")
+	expect.reference_screenshot(child.get_screenshot(), nil, opts)
+	child.type_keys("k")
 	expect.reference_screenshot(child.get_screenshot(), nil, opts)
 end
 
@@ -558,6 +603,96 @@ T["render()"]["vflex"]["align items with stretch"] = function()
 	})
 
 	render_and_expect_screenshot(app)
+end
+
+-- Hooks
+
+T["hooks"] = new_set()
+
+T["hooks"]["variable"] = function()
+	local app = [[
+		m.Component(function()
+			local count, set_count = m.hook.variable(0)
+			local view = m.hook.view()
+			
+			m.hook.effect(function()
+				return view.win:map("n", "1", function()
+					set_count(function(c)
+						return c + 1
+					end)
+				end)
+			end, {})
+			
+			return m.block({
+				m.block("inline"),
+				m.block(count),
+			})
+		end)
+	]]
+
+	local opts = nil
+
+	-- initial render
+	render_and_expect_screenshot(app, opts)
+
+	child.type_keys("1")
+	expect.reference_screenshot(child.get_screenshot(), nil, opts)
+
+	child.type_keys("1")
+	expect.reference_screenshot(child.get_screenshot(), nil, opts)
+end
+
+T["hooks"]["variable updating only once"] = function()
+	local app = [[
+		m.Component(function()
+			local count, set_count = m.hook.variable(0)
+			local view = m.hook.view()
+			
+			m.hook.effect(function()
+				return view.win:map("n", "1", function()
+					-- this function is not recreated on every render
+					-- thus count always has the value of 0
+					set_count(count + 1)
+				end)
+			end, {})
+			
+			return m.block({
+				m.block("inline"),
+				m.block(count),
+			})
+		end)
+	]]
+
+	local opts = nil
+
+	-- initial render
+	render_and_expect_screenshot(app, opts)
+
+	child.type_keys("1")
+	expect.reference_screenshot(child.get_screenshot(), nil, opts)
+
+	child.type_keys("1")
+	expect.reference_screenshot(child.get_screenshot(), nil, opts)
+end
+
+T["hooks"]["view"] = function()
+	local app = [[
+		m.Component(function()
+			local count, set_count = m.hook.variable(0)
+			local view = m.hook.view()
+			
+			assert(view, "view must be defined during render")
+			
+			return m.block({
+				m.block("inline"),
+				m.block(count),
+			})
+		end)
+	]]
+
+	local opts = nil
+
+	render_and_expect_screenshot(app, opts)
 end
 
 return T
