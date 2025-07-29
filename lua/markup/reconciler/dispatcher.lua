@@ -1,4 +1,4 @@
----@class markup.dispatcher: markup.object
+---@class markup.dispatcher
 ---@field reconciler markup.reconciler
 ---@field queues table
 local M = Markup.singleton()

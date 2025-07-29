@@ -8,15 +8,27 @@ local Tag = require("markup.reconciler.enum").Tag
 ---@class markup.hooks.context
 local M = Markup.singleton()
 
+---@param default any
+function M.call(default)
+	local ctx = {
+		typeof = "context",
+		current = default,
+	}
+
+	ctx.provider = function(...)
+		return Markup.factory.element(ctx, ...)
+	end
+
+	return ctx
+end
+
 function M.read_for_consumer(consumer, ctx)
 	local value = ctx.current
 	local ctx_dep = { ctx = ctx, memoized_value = value, next = nil }
 
 	if not Markup.reconciler.last_context_dep then
 		Markup.reconciler.last_context_dep = ctx_dep
-		consumer.deps = {
-			first_context = ctx_dep,
-		}
+		consumer.deps = { first_context = ctx_dep }
 	else
 		Markup.reconciler.last_context_dep.next = ctx_dep
 		Markup.reconciler.last_context_dep = ctx_dep

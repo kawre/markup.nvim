@@ -88,17 +88,4 @@ function M.fragment(...)
 	return M.call("fragment", ...)
 end
 
-function M.context(default)
-	local ctx = {
-		typeof = "context",
-		current = default,
-	}
-
-	ctx.provider = function(...)
-		return M.call(ctx, ...)
-	end
-
-	return ctx
-end
-
 return M
