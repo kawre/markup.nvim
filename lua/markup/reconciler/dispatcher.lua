@@ -82,6 +82,7 @@ end
 function M.update_effect(fiber, create, deps)
 	local hook = Markup.reconciler.update_wip_hook()
 	local inst = hook.memoized_state.inst
+	Markup.assert.user_hook(inst)
 	local current_hook = Markup.reconciler.current_hook
 
 	if current_hook and deps then
@@ -113,7 +114,7 @@ end
 ---@param initial any
 function M.mount_variable(initial)
 	local current_renderer = Markup.renderer.current
-	assert(current_renderer, "`variable:set(...)` must be called within a renderer context")
+	Markup.assert.user(current_renderer, "`set variable` must be called within a renderer context") ---@cast current_renderer -nil
 
 	initial = Markup.util.call(initial)
 	local hook = Markup.reconciler.mount_wip_hook({
@@ -149,10 +150,7 @@ end
 
 function M.update_variable()
 	local hook = Markup.reconciler.update_wip_hook()
-	Markup.assert.user(
-		hook.queue,
-		"Should have a queue. You are likely calling Hooks conditionally, which is not allowed"
-	)
+	Markup.assert.user_hook(hook.queue)
 	return hook.memoized_state, hook.queue.dispatch
 end
 

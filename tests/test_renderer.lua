@@ -686,6 +686,70 @@ T["hooks"]["variable updating only once"] = function()
 	expect.reference_screenshot(child.get_screenshot(), nil, opts)
 end
 
+T["hooks"]["variable batches multiple updates into one render"] = function()
+	child.lua([[
+		_G.render_count = 0
+		
+		_G.App = m.component(function()
+			local count, set_count = m.hooks.variable(0)
+			local num, set_num = m.hooks.variable(1000)
+			local win = m.hooks.window()
+			
+			_G.render_count = _G.render_count + 1
+			
+			m.hooks.effect(function()
+				return win:map("n", "1", function()
+					set_count(math.random())
+					set_count(math.random())
+					set_count(math.random())
+					set_num(math.random())
+					set_count(math.random())
+					set_count(math.random())
+					set_num(math.random())
+				end)
+			end, {})
+			
+			return m.block({
+				m.block("inline"),
+				m.block(count),
+			})
+		end)
+	]])
+
+	render("_G.App")
+	child.type_keys("1")
+	eq(child.lua_get("_G.render_count"), 2)
+end
+
+-- T["hooks"]["variable throws error when called conditionally"] = function()
+-- 	child.lua([[
+-- 		_G.App = m.component(function()
+-- 			local win = m.hooks.window()
+-- 			local count, set_count = m.hooks.variable(0)
+-- 			local vis, set_vis = m.hooks.variable(false)
+-- 			if vis then
+-- 				local vis2, set_vis2 = m.hooks.variable(false)
+-- 			end
+--
+-- 			m.hooks.effect(function()
+-- 				return win:map("n", "1", function()
+-- 					set_vis(function(v) return not v end)
+-- 				end)
+-- 			end, {})
+--
+-- 			return m.block({
+-- 				m.block("inline"),
+-- 				m.block(count),
+-- 			})
+-- 		end)
+-- 	]])
+--
+-- 	render("_G.App")
+-- 	expect.error(function()
+-- 		child.type_keys("1")
+-- 	end, "You are likely calling Hooks conditionally")
+-- end
+
 T["hooks"]["window"] = function()
 	local app = [[
 		m.Component(function()
@@ -952,9 +1016,31 @@ T["hooks"]["effect with multiple iterations"] = function()
 	render("_G.App")
 	local times = 100
 	for _ = 1, times do
-		child.type_keys(20, "9")
+		child.type_keys(5, "9")
 	end
 	eq(child.lua_get("_G.count"), times)
+end
+
+T["hooks"]["renderer is present on each render cycle"] = function()
+	child.lua([[
+		_G.App = m.component(function()
+			assert(Markup.renderer.current)
+			return "5"
+		end)
+	]])
+
+	render("_G.App")
+end
+
+T["hooks"]["renderer is present on each render cycle"] = function()
+	child.lua([[
+		_G.App = m.component(function()
+			assert(Markup.renderer.current)
+			return "5"
+		end)
+	]])
+
+	render("_G.App")
 end
 
 return T

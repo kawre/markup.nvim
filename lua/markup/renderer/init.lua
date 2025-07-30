@@ -16,7 +16,7 @@ local styles = require("markup.window.styles")
 ---@field lines markup.renderer.line[] 1 indexed lines table
 ---@overload fun(opts?: markup.window.config): markup.renderer
 local M = Markup.object()
-M.current = nil
+M.current = nil -- the current renderer instance, on each render cycle
 
 ---@param opts? markup.window.config
 function M:new(opts)
@@ -37,6 +37,7 @@ function M:new(opts)
 	self.keys = {} ---@type table<markup.node, { key: string, cb: function }[]>
 	self.cursor = {}
 	self.lines = {}
+	self.render_count = 0
 
 	self.win:on("WinResized", function()
 		if self:valid() and vim.tbl_contains(vim.v.event.windows, self.win.win) then
@@ -71,7 +72,7 @@ function M:render(element)
 end
 
 function M:schedule_rerender()
-	if self.is_scheduled or M.current then
+	if M.current or self.is_scheduled then
 		return
 	end
 
@@ -84,6 +85,7 @@ end
 
 function M:rerender()
 	assert(self.rootf, "Renderer root not bound. Call :render(element) to bind the root element.")
+	self.render_count = self.render_count + 1
 	M.current = self
 
 	local e1 = Markup.util.benchmark(function()
@@ -96,12 +98,6 @@ function M:rerender()
 	local e3 = Markup.util.benchmark(function()
 		self:paint()
 	end)
-
-	-- Markup.log("Renderer stats", {
-	-- 	reconciler = e1,
-	-- 	layout = e2,
-	-- 	paint = e3,
-	-- })
 
 	self:track_fps(e1 + e2 + e3)
 

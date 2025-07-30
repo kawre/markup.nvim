@@ -1,7 +1,6 @@
 local Tag = require("markup.reconciler.enum").Tag
 local Flag = require("markup.reconciler.enum").Flag
 local Dispatcher = require("markup.reconciler.dispatcher")
-local NodeFactory = require("markup.factory.node")
 
 ---@class markup.reconciler: markup.object
 ---@field render_scheduled boolean
@@ -176,7 +175,7 @@ end
 
 ---@param wip markup.fiber
 function M.place_single_node(wip)
-	wip.state_node = NodeFactory.from_fiber(wip)
+	wip.state_node = Markup.factory.node.from_fiber(wip)
 
 	if type(wip.pending_props) == "table" and M.is_valid_text(wip.pending_props.children) then
 		-- handle single text child elements
@@ -342,7 +341,7 @@ function M.render_with_hooks(current, wip)
 	local props = wip.pending_props
 	local children = Component(props) -- re-render the component
 
-	Markup.assert.hook_user(
+	Markup.assert.user(
 		not (M.current_hook and M.current_hook.next),
 		"Rendered fewer hooks than expected. This may be caused by an accidental early return statement."
 	)
