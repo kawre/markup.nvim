@@ -6,7 +6,7 @@ function M.props(props)
 	if not props then
 		return {}
 	end
-	props = Markup.util.shallowcopy(props)
+	props = Markup.util.shallow_copy(props)
 	props.children = nil
 
 	if props.margin then

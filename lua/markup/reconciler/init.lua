@@ -63,6 +63,7 @@ function M.process_unit(unit)
 	M.current_fiber = nil
 
 	unit.memoized_props = unit.pending_props
+	-- unit.memoized_state = M.current_hook
 
 	M.work_stack:push(unit)
 	M.work_stack:push(next)
@@ -171,91 +172,6 @@ function M.find_parent(fiber)
 	end
 	Markup.assert.bug(parent and parent.state_node, "Element ancestor must exist")
 	return parent
-end
-
----@param fiber markup.fiber
-function M.commit_unmount(fiber)
-	if fiber.update_queue and fiber.update_queue.last_effect then
-		-- run the effects before unmounting
-		local first_effect = fiber.update_queue.last_effect.next
-		local effect = first_effect
-		repeat
-			if effect.destroy then
-				Markup.util.call(effect.destroy)
-			end
-			effect = effect.next
-		until effect == first_effect
-	end
-end
-
----@param finishedf markup.fiber
-function M.commit_effects(finishedf)
-	if not finishedf.update_queue then
-		return
-	end
-
-	local last_effect = finishedf.update_queue.last_effect
-	if not last_effect then
-		return
-	end
-
-	local first_effect = last_effect.next
-	local effect = first_effect
-	repeat
-		if not effect.mounted then
-			effect.destroy = Markup.util.call(effect.create)
-			effect.mounted = true
-		end
-		effect = effect.next
-	until effect == first_effect
-end
-
----@param fiber markup.fiber
-function M.commit_deletions(fiber)
-	assert(fiber.deletions, "`fiber.deletions` must exist for commit deletions")
-
-	for _, deletion in ipairs(fiber.deletions) do
-		M.commit_deletion(deletion)
-	end
-
-	fiber.deletions = nil
-	fiber:clear_flags(Flag.CHILD_DELETE)
-end
-
----@param deletedf markup.fiber
-function M.commit_deletion(deletedf)
-	local parent = M.find_parent(deletedf)
-	M.traverse_deletion(parent, deletedf, false, true)
-	M.detach_fiber(deletedf)
-end
-
----@param parentf markup.fiber
----@param deletedf markup.fiber
----@param did_detach boolean
----@param skip_sibling? boolean
-function M.traverse_deletion(parentf, deletedf, did_detach, skip_sibling)
-	M.commit_unmount(deletedf)
-
-	local old = did_detach
-	if not did_detach and deletedf.state_node then
-		parentf.state_node:remove_child(deletedf.state_node)
-		did_detach = true
-	end
-
-	if deletedf.child then
-		M.traverse_deletion(parentf, deletedf.child, did_detach)
-	end
-	if not skip_sibling and deletedf.sibling then
-		M.traverse_deletion(parentf, deletedf.sibling, old)
-	end
-end
-
-function M.detach_fiber(fiber)
-	local alternate = fiber.alternate
-	if alternate then
-		alternate["return"] = nil
-	end
-	fiber["return"] = nil
 end
 
 ---@param wip markup.fiber
@@ -413,17 +329,26 @@ end
 ---@param wip markup.fiber
 function M.render_with_hooks(current, wip)
 	-- clear the hooks to make space for the next hooks
+	M.current_hook = nil
 	M.wip_hook = nil
 
 	-- if there are pending updates, update the state
 	Dispatcher.resolve_hook_updates(wip)
 
+	-- wip.memoized_state = nil
+	-- wip.update_queue = nil
+
 	local Component = wip.type
 	local props = wip.pending_props
 	local children = Component(props) -- re-render the component
 
-	wip.memoized_state = wip.hook
-	wip.hook = nil
+	Markup.assert.hook_user(
+		not (M.current_hook and M.current_hook.next),
+		"Rendered fewer hooks than expected. This may be caused by an accidental early return statement."
+	)
+	-- wip.memoized_state = M.current_hook
+	M.current_hook = nil
+	M.wip_hook = nil
 
 	wip:clear_flags(Flag.UPDATE)
 
@@ -930,7 +855,7 @@ function M.mount_wip_hook(payload)
 	if not M.wip_hook then
 		-- first hook to be mounted
 		M.wip_hook = hook
-		M.current_fiber.hook = hook
+		M.current_fiber.memoized_state = hook
 	else
 		M.wip_hook.next = hook
 		M.wip_hook = hook
@@ -941,17 +866,64 @@ end
 
 ---@return markup.fiber.hook
 function M.update_wip_hook()
-	if not M.wip_hook then
-		-- first hook to be updated
-		M.wip_hook = M.current_fiber.memoized_state
-		M.current_fiber.hook = M.wip_hook
+	local next_current_hook
+
+	if not M.current_hook then
+		local current = M.current_fiber.alternate
+		if current then
+			next_current_hook = current.memoized_state
+		else
+			next_current_hook = nil
+		end
+	else
+		next_current_hook = M.current_hook.next
 	end
 
-	local hook = M.wip_hook
-	M.wip_hook = M.wip_hook.next
+	local next_wip_hook
+	if not M.wip_hook then
+		next_wip_hook = M.current_fiber.memoized_state
+	else
+		next_wip_hook = M.wip_hook.next
+	end
 
-	Markup.assert.hook_user(hook, "Rendered more hooks than on previous render") ---@cast hook -nil
-	return hook
+	if next_wip_hook then
+		-- there's already a work-in-progress. Reuse it.
+		M.wip_hook = next_wip_hook
+		next_wip_hook = M.wip_hook.next
+
+		M.current_hook = next_current_hook
+	else
+		if not next_current_hook then
+			if not M.current_fiber.alternate then
+				Markup.assert.bug(false, "Update hook called on initial render")
+			else
+				-- This is an update. We should always have a current hook.
+				Markup.assert.bug(false, "Rendered more hooks than during the previous render")
+			end
+		end
+
+		M.current_hook = next_current_hook
+
+		local new_hook = { ---@type markup.fiber.hook
+			typeof = M.current_hook.typeof,
+			memoized_state = M.current_hook.memoized_state,
+			base_state = M.current_hook.base_state,
+			queue = M.current_hook.queue,
+			next = nil,
+		}
+
+		if not M.wip_hook then
+			-- This is the first hook in the list.
+			M.wip_hook = new_hook
+			M.current_fiber.memoized_state = new_hook
+		else
+			-- Append to the end of the list.
+			M.wip_hook.next = new_hook
+			M.wip_hook = new_hook
+		end
+	end
+
+	return M.wip_hook
 end
 
 ---@param returnf markup.fiber
@@ -1105,6 +1077,98 @@ function M.commit_placement(finishedf, parentf)
 	end
 
 	finishedf:clear_flags(Flag.PLACEMENT)
+end
+
+---@param fiber markup.fiber
+function M.commit_unmount(fiber)
+	local hook = fiber.memoized_state
+
+	while hook do
+		local state = hook.memoized_state
+		local typeof = state and state.typeof
+
+		if typeof == "effect" then
+			local inst = state.inst
+			if inst.destroy then
+				Markup.util.call(inst.destroy)
+			end
+		end
+
+		hook = hook.next
+	end
+end
+
+---@param finishedf markup.fiber
+function M.commit_effects(finishedf)
+	local update_queue = finishedf.update_queue
+	if not update_queue then
+		return
+	end
+
+	local last_effect = update_queue.last_effect
+	if last_effect then
+		local first_effect = last_effect.next
+		local effect = first_effect ---@cast effect -nil
+
+		repeat
+			local inst = effect.inst
+			if inst.destroy then
+				inst.destroy()
+			end
+			inst.destroy = effect.create()
+
+			effect = effect.next
+		until effect == first_effect
+		update_queue.last_effect = nil
+	end
+
+	assert(vim.tbl_isempty(update_queue), "`update_queue` must be empty after committing effects")
+	update_queue = nil
+end
+
+---@param fiber markup.fiber
+function M.commit_deletions(fiber)
+	assert(fiber.deletions, "`fiber.deletions` must exist for commit deletions")
+
+	for _, deletion in ipairs(fiber.deletions) do
+		M.commit_deletion(deletion)
+	end
+
+	fiber.deletions = nil
+	fiber:clear_flags(Flag.CHILD_DELETE)
+end
+
+---@param deletedf markup.fiber
+function M.commit_deletion(deletedf)
+	local parent = M.find_parent(deletedf)
+	M.traverse_deletion(parent, deletedf, false)
+	M.detach_fiber(deletedf)
+end
+
+---@param parentf markup.fiber
+---@param deletedf markup.fiber
+---@param did_detach boolean
+function M.traverse_deletion(parentf, deletedf, did_detach)
+	M.commit_unmount(deletedf)
+
+	if not did_detach and deletedf.state_node then
+		parentf.state_node:remove_child(deletedf.state_node)
+		did_detach = true
+	end
+
+	local child = deletedf.child
+	while child do
+		M.traverse_deletion(parentf, child, did_detach)
+		child = child.sibling
+	end
+end
+
+function M.detach_fiber(fiber)
+	local alternate = fiber.alternate
+	if alternate then
+		alternate["return"] = nil
+	end
+	fiber["return"] = nil
 end
 
 ---@param finishedf markup.fiber

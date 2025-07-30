@@ -7,10 +7,14 @@ local bit = require("bit")
 ---@field last_rendered_state any
 
 ---@class markup.fiber.hook
+---@field typeof? string
 ---@field memoized_state any
 ---@field base_state any
 ---@field queue markup.Fiber.queue
 ---@field next? markup.fiber.hook
+
+---@class markup.fiber.update_queue
+---@field last_effect? markup.fiber.hook.effect
 
 ---@class markup.fiber.hook.effect
 ---@field memoized_state any
@@ -18,7 +22,7 @@ local bit = require("bit")
 ---@field deps table
 ---@field destroy? function
 ---@field next? markup.fiber.hook.effect
----@field mounted boolean
+---@field inst { destroy?: function }
 
 ---@class markup.fiber
 ---@field pending_props any
@@ -28,7 +32,7 @@ local bit = require("bit")
 ---@field element_type string
 ---@field tag markup.Fiber.tag
 ---@field return? markup.fiber
----@field update_queue table
+---@field update_queue markup.fiber.update_queue
 ---@field state_node markup.node
 ---@field deps table
 ---@field key? any

@@ -36,8 +36,7 @@ _G.Markup = setmetatable({ core = M, renderers = {} }, {
 	end,
 })
 
-M.hooks = require("markup.hooks")
-
+M.hooks = require("markup.reconciler.dispatcher").hooks
 setmetatable(M, { ---@diagnostic disable-line: param-type-mismatch
 	__call = function(_, ...)
 		return Markup.factory.element(...)

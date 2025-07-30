@@ -854,4 +854,107 @@ T["hooks"]["effect calls create after destroy"] = function()
 	eq(child.lua_get("_G.order"), { "create 1", "destroy 1", "create 2" })
 end
 
+T["hooks"]["context"] = function()
+	child.lua([[
+		local ctx = m.hooks.context()
+
+		local App = m.component(function()
+			local c = m.hooks.use(ctx)
+			_G.page = c.page
+			return m.block("123")
+		end)
+
+		_G.Root = m.component(function()
+			return ctx:provider({
+				value = { page = "menu" },
+				App(),
+			})
+		end)
+	]])
+
+	render("_G.Root")
+	eq(child.lua_get("_G.page"), "menu")
+end
+
+T["hooks"]["context with state change"] = function()
+	child.lua([[
+		local ctx = m.hooks.context()
+
+		local App = m.component(function()
+			local c = m.hooks.use(ctx)
+			local win = m.hooks.window()
+
+			m.hooks.effect(function()
+				return win:map("n", "9", function()
+					c.set_count(function(cnt)
+						return cnt + 1
+					end)
+				end)
+			end, {})
+
+			return m.block(c.count)
+		end)
+
+		_G.Root = m.component(function()
+			local count, set_count = m.hooks.variable(0)
+
+			return ctx:provider({
+				value = { count = count, set_count = set_count },
+				App(),
+			})
+		end)
+	]])
+
+	local opts = {}
+
+	render_and_expect_screenshot("_G.Root", opts)
+	child.type_keys("9")
+	expect.reference_screenshot(child.get_screenshot(), nil, opts)
+end
+
+T["hooks"]["effect with multiple iterations"] = function()
+	child.lua([[
+		_G.count = 0
+
+		local Second = m.component(function()
+			m.hooks.effect(function()
+				assert(_G.count % 2 == 0)
+				_G.count = _G.count + 1
+				return function()
+					assert(_G.count % 2 == 1)
+					_G.count = _G.count + 1
+				end
+			end, {})
+		end)
+
+		_G.App = m.component(function()
+			local vis, set_vis = m.hooks.variable(false)
+			local win = m.hooks.window()
+
+			m.hooks.effect(function()
+				return win:map("n", "9", function() set_vis(function(v) return not v end) end)
+			end, {})
+
+			return m.block({
+				m.inline("123"),
+				vis and m.block({
+					m.fragment({
+						Second(),
+					}),
+				}),
+				m.inline("123"),
+				m.inline("123"),
+				m.inline("123"),
+			})
+		end)
+	]])
+
+	render("_G.App")
+	local times = 100
+	for _ = 1, times do
+		child.type_keys(20, "9")
+	end
+	eq(child.lua_get("_G.count"), times)
+end
+
 return T

@@ -97,9 +97,6 @@ function M.benchmark(fn)
 	fn()
 	local end_time = vim.uv.hrtime()
 
-	repeat
-	until true
-
 	local elapsed = end_time - start_time -- ns
 	return elapsed / 1e6 -- ms
 end
@@ -117,13 +114,35 @@ function M.benchmark_repeat(times, fn)
 end
 
 ---@param orig table
-function M.shallowcopy(orig)
+function M.shallow_copy(orig)
 	assert(type(orig) == "table", "`orig` must be a table")
 	local copy = {}
 	for key, value in pairs(orig) do
 		copy[key] = value
 	end
 	return copy
+end
+
+---@param t1 table
+---@param t2 table
+function M.shallow_eq(t1, t2)
+	if t1 == t2 then
+		return true
+	end
+	if type(t1) ~= "table" or type(t2) ~= "table" then
+		return false
+	end
+	if #t1 ~= #t2 then
+		return false
+	end
+
+	for key, value in pairs(t1) do
+		if t2[key] == nil or t2[key] ~= value then
+			return false
+		end
+	end
+
+	return true
 end
 
 function M.index_of(tbl, value)

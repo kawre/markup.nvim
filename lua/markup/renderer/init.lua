@@ -71,7 +71,7 @@ function M:render(element)
 end
 
 function M:schedule_rerender()
-	if self.is_scheduled then
+	if self.is_scheduled or M.current then
 		return
 	end
 
