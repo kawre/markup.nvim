@@ -21,3 +21,10 @@
 - [ ] List (ul, ol)
 - [ ] Anchor (hyperlinks)
 - [ ] strong, italic, underline, strike, code, mark, small, sub, sup
+
+### Hooks
+
+- [ ] `useMemo`
+- [ ] `useCallback`
+- [x] `useEffect`
+- [x] `useState`

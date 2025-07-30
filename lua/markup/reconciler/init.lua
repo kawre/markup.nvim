@@ -1,6 +1,5 @@
 local Tag = require("markup.reconciler.enum").Tag
 local Flag = require("markup.reconciler.enum").Flag
-local Dispatcher = require("markup.reconciler.dispatcher")
 
 ---@class markup.reconciler: markup.object
 ---@field render_scheduled boolean
@@ -332,7 +331,7 @@ function M.render_with_hooks(current, wip)
 	M.wip_hook = nil
 
 	-- if there are pending updates, update the state
-	Dispatcher.resolve_hook_updates(wip)
+	Markup.dispatcher.resolve_hook_updates(wip)
 
 	-- wip.memoized_state = nil
 	-- wip.update_queue = nil

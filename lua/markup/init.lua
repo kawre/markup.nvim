@@ -6,6 +6,7 @@
 ---@field component markup.factory.element.component
 ---@field fragment markup.factory.element.fragment
 ---@field hooks markup.hooks
+---@field store any
 ---@field private setup any
 ---@field [string] markup.factory.element
 ---@overload fun(type: any, props?: markup.factory.element.props, style?: markup.factory.element.style): markup.element
@@ -36,14 +37,13 @@ _G.Markup = setmetatable({ core = M, renderers = {} }, {
 	end,
 })
 
-M.hooks = require("markup.reconciler.dispatcher").hooks
+M.hooks = require("markup.reconciler.hooks")
 setmetatable(M, { ---@diagnostic disable-line: param-type-mismatch
 	__call = function(_, ...)
 		return Markup.factory.element(...)
 	end,
 	__index = function(t, k)
 		k = k:lower()
-
 		t[k] = function(...)
 			if Markup.factory.element[k] then
 				return Markup.factory.element[k](...)
@@ -51,10 +51,13 @@ setmetatable(M, { ---@diagnostic disable-line: param-type-mismatch
 				return Markup.factory.element(k, ...)
 			end
 		end
-
 		return rawget(t, k)
 	end,
 })
+
+_G.Markup.dispatcher = require("markup.reconciler.dispatcher")
+_G.Markup.list = require("markup.collection.list")
+_G.Markup.stack = require("markup.collection.stack")
 
 ---@private
 ---@param opts? table
