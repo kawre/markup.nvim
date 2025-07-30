@@ -6,25 +6,21 @@ local Tag = require("markup.reconciler.enum").Tag
 ---@field next markup.hooks.context.dep?
 
 ---@class markup.hooks.context
-local M = Markup.singleton()
+local M = Markup.object()
 
 ---@param default any
-function M.call(default)
-	local ctx = {
-		typeof = "context",
-		current = default,
-	}
-
-	ctx.provider = function(...)
-		return Markup.factory.element(ctx, ...)
-	end
-
-	return ctx
+function M:new(default)
+	self.typeof = "context"
+	self.current = default
 end
 
-function M.read_for_consumer(consumer, ctx)
-	local value = ctx.current
-	local ctx_dep = { ctx = ctx, memoized_value = value, next = nil }
+function M:provider(...)
+	return Markup.factory.element(self, ...)
+end
+
+function M:read_for_consumer(consumer)
+	local value = self.current
+	local ctx_dep = { ctx = self, memoized_value = value, next = nil }
 
 	if not Markup.reconciler.last_context_dep then
 		Markup.reconciler.last_context_dep = ctx_dep
@@ -37,9 +33,10 @@ function M.read_for_consumer(consumer, ctx)
 	return value
 end
 
-function M.read(ctx)
+function M:read()
 	local fiber = Markup.reconciler.current_fiber
-	return M.read_for_consumer(fiber, ctx)
+	assert(fiber, "Cannot read context outside of a fiber")
+	return self:read_for_consumer(fiber)
 end
 
 return M

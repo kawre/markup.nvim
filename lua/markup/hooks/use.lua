@@ -6,7 +6,7 @@ local ctx = require("markup.hooks.context")
 local function use(spec)
 	if spec.typeof == Tag.CONTEXT then
 		---@cast spec markup.hooks.context
-		return ctx.read(spec)
+		return spec:read()
 	end
 end
 
