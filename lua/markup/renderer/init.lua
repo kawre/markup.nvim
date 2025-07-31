@@ -37,7 +37,6 @@ function M:new(opts)
 	self.keys = {} ---@type table<markup.node, { key: string, cb: function }[]>
 	self.cursor = {}
 	self.lines = {}
-	self.render_count = 0
 
 	self.win:on("WinResized", function()
 		if self:valid() and vim.tbl_contains(vim.v.event.windows, self.win.win) then
@@ -85,7 +84,6 @@ end
 
 function M:rerender()
 	assert(self.rootf, "Renderer root not bound. Call :render(element) to bind the root element.")
-	self.render_count = self.render_count + 1
 	M.current = self
 
 	local e1 = Markup.util.benchmark(function()
@@ -99,13 +97,15 @@ function M:rerender()
 		self:paint()
 	end)
 
-	self:track_fps(e1 + e2 + e3)
+	self:track_stats(e1, e2, e3)
 
 	vim.api.nvim_exec_autocmds("User", { pattern = "MarkupRender" .. self.win.id })
 	M.current = nil
 end
 
-function M:track_fps(elapsed)
+function M:track_stats(reconciliation, layout, paint)
+	local elapsed = reconciliation + layout + paint
+
 	if vim.tbl_isempty(self.stats) then
 		self.stats.first_elapsed = elapsed
 	end
@@ -122,6 +122,10 @@ function M:track_fps(elapsed)
 
 	self.stats.fps = avg_fps
 	self.stats.elapsed = elapsed
+	self.stats.reconciliation = reconciliation
+	self.stats.layout = layout
+	self.stats.paint = paint
+	self.stats.count = (self.stats.count or 0) + 1
 end
 
 function M:reflow()
@@ -156,9 +160,9 @@ function M:paint()
 		for y, line in pairs(self.lines) do
 			line:paint(y, self.ns)
 		end
-	end)
 
-	-- vim.api.nvim__redraw({ buf = self.win.buf, flush = true, valid = true })
+		vim.api.nvim__redraw({ buf = 0, flush = true })
+	end)
 end
 
 ---(x, y) are the coordinates of the parent margin box

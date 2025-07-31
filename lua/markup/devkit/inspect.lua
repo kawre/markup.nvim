@@ -79,16 +79,23 @@ function M:paint(page, opts)
 	table.insert(lines, 1, {})
 	table.insert(lines, 1, nav)
 
-	local stats = {
-		{ " 󰓅 ", "NeogitHunkHeaderHighlight" },
-		{ (" %.2f ms"):format(self.renderer.stats.elapsed) },
-		{ " | ", "Conceal" },
-		{ ("%d fps "):format(self.renderer.stats.fps) },
-		{ "  ", "NeogitDiffDeleteHighlight" },
-		{ (" %.2f ms"):format(self.renderer.stats.first_elapsed) },
-	}
 	table.insert(lines, 1, {})
-	table.insert(lines, 1, stats)
+	table.insert(lines, 1, {
+		{ " Σ ", "NeogitDiffDeleteHighlight" },
+		{ (" %.2f ms"):format(self.renderer.stats.elapsed) },
+		{ " " },
+		{ "  ", "NeogitHunkHeaderHighlight" },
+		{ (" %d fps"):format(self.renderer.stats.fps) },
+		{ " | ", "Conceal" },
+		{ "  ", "DiagnosticVirtualTextError" },
+		{ (" %.2f ms"):format(self.renderer.stats.reconciliation) },
+		{ " " },
+		{ "  ", "DiagnosticVirtualTextWarn" },
+		{ (" %.2f ms"):format(self.renderer.stats.layout) },
+		{ " " },
+		{ "  ", "DiagnosticVirtualTextInfo" },
+		{ (" %.2f ms"):format(self.renderer.stats.paint) },
+	})
 
 	vim.api.nvim_buf_call(self.win.buf, function()
 		vim.api.nvim_buf_clear_namespace(0, ns, 0, -1)
