@@ -315,7 +315,7 @@ function M.has_pending_updates(fiber)
 
 	local hook = fiber.memoized_state
 	while hook do
-		if hook.queue and hook.queue.pending then
+		if (hook.queue and hook.queue.pending) or hook.need_update then
 			return true
 		end
 		hook = hook.next

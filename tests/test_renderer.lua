@@ -1043,4 +1043,37 @@ T["hooks"]["renderer is present on each render cycle"] = function()
 	render("_G.App")
 end
 
+T["hooks"]["effect state is updated to avoid infinite render loops"] = function()
+	child.lua([[
+		local ref = { current = {} }
+		local inst = {}
+		_G.count = 0
+		
+		_G.App = m.component(function()
+			local win = m.hooks.window()
+			local count, set_count = m.hooks.variable(0)
+			local _, render = m.hooks.variable(false)
+			
+			m.hooks.effect(function()
+				return win:map("n", "9", function()
+					ref.current = inst -- change reference once
+					render() -- rerender
+				end)
+			end, {})
+			
+			m.hooks.effect(function()
+				set_count(count + 1)
+				_G.count = count + 1
+			end, { ref.current })
+			
+			return "5"
+		end)
+	]])
+
+	render("_G.App")
+	eq(child.lua_get("_G.count"), 1)
+	child.type_keys("9", "9", "9")
+	eq(child.lua_get("_G.count"), 2)
+end
+
 return T

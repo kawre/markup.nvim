@@ -26,7 +26,7 @@ function M:filter(fn)
 end
 
 function M:isempty()
-	return #self == 0
+	return vim.tbl_isempty(self)
 end
 
 function M:contains(value)

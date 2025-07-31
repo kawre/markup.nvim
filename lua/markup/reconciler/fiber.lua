@@ -10,7 +10,7 @@ local bit = require("bit")
 ---@field typeof? string
 ---@field memoized_state any
 ---@field base_state any
----@field queue markup.Fiber.queue
+---@field queue? markup.Fiber.queue
 ---@field next? markup.fiber.hook
 
 ---@class markup.fiber.update_queue

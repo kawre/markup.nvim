@@ -39,6 +39,7 @@ function M.update_effect(fiber, create, deps)
 
 		if not Markup.util.shallow_eq(prev_deps, deps) then
 			Markup.dispatcher.push_effect(fiber, create, inst, deps)
+			hook.memoized_state.deps = deps
 		end
 	end
 end
