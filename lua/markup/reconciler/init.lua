@@ -123,7 +123,6 @@ end
 function M.complete_unit(unit)
 	local current, wip = unit.alternate, unit
 
-	local complete_work ---@type function
 	if --
 		wip.tag == Tag.ELEMENT
 	then
@@ -153,8 +152,6 @@ function M.complete_unit(unit)
 			M.populate_state_node(wip)
 			wip:clear_flags(Flag.PLACEMENT)
 		end
-	else
-		-- error(("Invalid Fiber tag: %s"):format(wip.tag))
 	end
 
 	M.work_stack:push(unit.sibling)

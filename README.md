@@ -4,6 +4,11 @@
   
 </div>
 
+`markup.nvim` is a Neovim plugin that helps you build reactive user
+interfaces inside Neovim, using a simple markup language inspired by HTML and CSS.
+Whether you want to customize your setup or build plugin UIs,
+it’s designed to be easy and flexible.
+
 # Requirements
 
 - nvim 0.10

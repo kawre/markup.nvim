@@ -1,6 +1,3 @@
-local Tag = require("markup.reconciler.enum").Tag
-local Flag = require("markup.reconciler.enum").Flag
-
 ---@class markup.dispatcher
 ---@field reconciler markup.reconciler
 ---@field queues table
