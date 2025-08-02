@@ -1,9 +1,9 @@
-local markup = require("markup.core")
+local m = require("markup")
 
----@class markup.Parser.Html : markup.Parser
-local Html = markup.Parser:extend("markup.parser.html") ---@diagnostic disable-line: undefined-field
+---@class markup.parser.html : markup.parser.impl
+local M = {}
 
-Html.entities = {
+M.entities = {
 	["&nbsp;"] = " ",
 	["&quot;"] = "\"",
 	["&#39;"] = "'",
@@ -81,28 +81,29 @@ Html.entities = {
 	["&sdot;"] = "⋅",
 }
 
-Html.tag_map = {
-	["a"] = markup.Anchor,
-	["sub"] = markup.Sub,
-	["sup"] = markup.Sup,
-	["div"] = markup.Block,
-	["p"] = markup.Block,
-	["code"] = markup.Code,
-	["pre"] = markup.Pre,
-	["blockquote"] = markup.Block,
-	["ul"] = markup.List,
-	["ol"] = markup.OList,
-	["li"] = markup.ListItem,
-	["strong"] = markup.Strong,
-	["s"] = markup.Strong,
+M.tag_map = {
+	-- ["a"] = m.Anchor,
+	-- ["sub"] = m.Sub,
+	-- ["sup"] = m.Sup,
+	["div"] = m.block,
+	["p"] = m.block,
+	-- ["code"] = m.Code,
+	["pre"] = m.block,
+	["blockquote"] = m.block,
+	["ul"] = m.block,
+	-- ["ol"] = m.OList,
+	-- ["li"] = m.ListItem,
+	-- ["strong"] = m.Strong,
+	-- ["s"] = m.Strong,
 }
 
-function Html:init(...)
-	Html.super.init(self, ...)
-
+function M.prepare_text(text)
+	Markup.log(text)
 	-- -- self.text = self.text:gsub("\n", "&lcnl;\n")
-	self.text = self.text:gsub(" <", "&nbsp;<")
-	self.text = self.text:gsub("> ", ">&nbsp;")
+	text = text:gsub(" <", "&nbsp;<")
+	text = text:gsub("> ", ">&nbsp;")
+
+	return text
 	-- self.text = self.text:gsub("([^<>]*)", function(segment)
 	-- 	-- Only process segments outside of <tags>
 	-- 	if not segment:find("^<.*>$") then
@@ -110,30 +111,33 @@ function Html:init(...)
 	-- 	end
 	-- 	return segment
 	-- end)
-	log.debug(self.text)
 end
 
+---@param parser markup.parser
 ---@param node TSNode
-function Html:tag_name(node)
+function M.tag_name(parser, node)
 	local tag = node:child(0):child(1)
-	return self:get_node_text(tag)
+	return parser:get_node_text(tag)
 end
 
-function Html:entity_mapper(node)
-	local text = self:get_node_text(node)
-	return markup.Inline(self.entities[text] or text)
+---@param parser markup.parser
+function M.entity_mapper(parser, node)
+	local text = parser:get_node_text(node)
+	return m.inline(M.entities[text] or text)
 end
 
-function Html:tag_mapper(node)
+function M.tag_mapper(parser, node)
 	if node:type() == "element" then
-		local tag = self:tag_name(node)
-		return self.tag_map[tag] or markup.Inline
+		local tag = M.tag_name(parser, node)
+		return M.tag_map[tag] or m.inline
 	else
-		return markup.Inline
+		return m.block
 	end
 end
 
-function Html:parse_node(node)
+---@param parser markup.parser
+---@param node TSNode
+function M.parse_node(parser, node)
 	local children = {}
 
 	for child in node:iter_children() do
@@ -141,20 +145,20 @@ function Html:parse_node(node)
 		local x
 
 		if ntype == "text" then
-			x = markup.Inline(self:get_node_text(child))
+			x = m.inline(parser:get_node_text(child))
 		elseif ntype == "entity" then
-			x = self:entity_mapper(child)
+			x = M.entity_mapper(parser, child)
 		else
-			x = self:parse_node(child)
+			x = M.parse_node(parser, child)
 		end
 
 		table.insert(children, x)
 	end
 
 	if not vim.tbl_isempty(children) then
-		local elem = self:tag_mapper(node)(children)
+		local elem = M.tag_mapper(parser, node)(children)
 		return elem
 	end
 end
 
-return Html
+return M

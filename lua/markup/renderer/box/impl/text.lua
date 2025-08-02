@@ -6,7 +6,7 @@ local M = Impl("RenderText", { "inline", "text" })
 ---@param box markup.box
 function M.layout(box)
 	local content = tostring(box.node.text_content)
-	assert(content ~= "", "text nodes should not be empty")
+	-- assert(content ~= "", "text nodes should not be empty")
 
 	box.height = 1
 	box.length = #content -- byte length

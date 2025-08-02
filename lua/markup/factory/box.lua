@@ -1,3 +1,5 @@
+local RenderNode = require("markup.renderer.box")
+
 ---@alias markup.Render.LayoutType "flex" | "block" | "inline" | "text"
 
 ---@class markup.factory.box: markup.singleton
@@ -18,15 +20,14 @@ local impls = {
 ---@param node markup.node
 ---@return markup.box
 function M.call(node)
-	local RenderNode = require("markup.renderer.box")
-	local layout_type = node.type == "text" and "text" or node.tag_name
-	local layout_strategy = impls[layout_type]
-
-	if not layout_strategy then
-		error("Unknown layout type: " .. tostring(layout_type))
-	end
-
-	return RenderNode(node, layout_strategy)
+	-- local layout_type = node.type == "text" and "text" or node.tag_name
+	-- local layout_strategy = impls[layout_type]
+	--
+	-- if not layout_strategy then
+	-- 	error("Unknown layout type: " .. tostring(layout_type))
+	-- end
+	--
+	return RenderNode(node)
 end
 
 ---@param renderer markup.renderer

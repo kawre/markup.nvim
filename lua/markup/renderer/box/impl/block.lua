@@ -13,7 +13,9 @@ function M.layout(box, input)
 	local prev_mheight, prev_is_block = 0, false
 
 	for i, child in box:iter_children() do
-		if i ~= 1 and (prev_is_block or child:is("block")) then
+		local is_block = child:is("block") and not child:is("inline")
+
+		if i ~= 1 and (prev_is_block or is_block) then
 			box.y = box.y + prev_mheight + props.spacing
 			box.x = 0
 		end
@@ -25,12 +27,12 @@ function M.layout(box, input)
 		max_x = math.max(box.x, max_x)
 		max_y = math.max(box.y, max_y)
 
-		prev_is_block = child:is("block")
+		prev_is_block = is_block
 		prev_mheight = child_mbox.height
 	end
 
 	box.width = max_x
-	box.height = box.y + prev_mheight
+	box.height = box.y + math.max(1, prev_mheight)
 
 	M.compute_final_size(box, input, output)
 end

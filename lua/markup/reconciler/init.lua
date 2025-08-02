@@ -384,7 +384,7 @@ end
 
 ---@param content any
 function M.is_valid_text(content)
-	return (type(content) == "string" and content ~= "") or type(content) == "number"
+	return type(content) == "string" or type(content) == "number"
 end
 
 ---@param content any

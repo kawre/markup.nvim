@@ -25,6 +25,7 @@ local defaults = require("markup.renderer.box.props.defaults")
 ---@field sizing string
 ---@field reverse boolean
 ---@field style? markup.Element.style
+---@field display markup.Element.display
 
 local M = Markup.singleton()
 

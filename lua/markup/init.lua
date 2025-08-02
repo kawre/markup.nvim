@@ -23,6 +23,7 @@ local M = {}
 ---@field layout markup.layout
 ---@field object markup.object
 ---@field singleton markup.singleton
+---@field parser markup.parser
 _G.Markup = setmetatable({ core = M, renderers = {} }, {
 	__index = function(t, k)
 		t[k] = require("markup." .. k)

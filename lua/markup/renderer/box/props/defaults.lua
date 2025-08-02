@@ -39,6 +39,14 @@ M.flex = {
 	display = "flex",
 }
 
+M.inblock = {
+	display = "inblock",
+}
+
+M.newl = {
+	display = "newl",
+}
+
 M.hflex = {
 	display = "flex",
 	vertical = false,

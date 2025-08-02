@@ -12,7 +12,7 @@ local BoxProps = require("markup.renderer.box.props")
 ---@field resume boolean? If true, don't reset box position
 
 ---@class markup.box
----@field impl markup.box.impl
+---@field impl? markup.box.impl
 ---@field node markup.node
 ---@field parent markup.box
 ---@field dirty boolean
@@ -43,9 +43,7 @@ local BoxProps = require("markup.renderer.box.props")
 local M = Markup.object()
 
 ---@param node markup.node
----@param impl? markup.box.impl can be set later
-function M:new(node, impl)
-	self.impl = impl
+function M:new(node)
 	self.node = node
 	node.box = self
 	self.dirty = true
@@ -123,9 +121,21 @@ function M:reset_layout()
 	self.oy = parent and parent.y or 0
 end
 
+local impls = setmetatable({}, {
+	__index = function(t, k)
+		t[k] = require("markup.renderer.box.impl." .. k)
+		return rawget(t, k)
+	end,
+})
+
+function M:get_impl()
+	return self.node.type == "text" and impls["text"] or impls[self.computed.display]
+end
+
 ---@param input markup.box.layout.Input
-function M:layout(input)
-	assert(self.impl, "Layout strategy is not set")
+---@param impl? markup.box.impl layout dictated by the parent box
+function M:layout(input, impl)
+	impl = impl or self:get_impl()
 
 	if not input.resume and not self.dirty then
 		return
@@ -138,7 +148,7 @@ function M:layout(input)
 
 	self.x = 0
 	self.y = 0
-	self.impl.layout(self, input)
+	impl.layout(self, input)
 	self.x = nil
 	self.y = nil
 
@@ -180,12 +190,14 @@ function M:remove_child(node)
 end
 
 function M:name()
-	return self.impl.__name
+	local impl = self:get_impl()
+	return impl and impl.__name
 end
 
 ---@param layout_type markup.Render.LayoutType
 function M:is(layout_type)
-	return self.impl.__type[layout_type]
+	local impl = self:get_impl()
+	return impl and impl.__type[layout_type]
 end
 
 ---@alias markup.box.kind "content" | "padding" | "margin"
@@ -255,9 +267,7 @@ end
 ---@param height integer
 ---@param clamp? boolean
 function M:set_content_box_height(height, clamp)
-	if self:is("inline") then
-		height = 1
-	elseif clamp then
+	if clamp then
 		height = self:clamp_size(height, "height")
 	end
 	self.content_height = math.max(self.height or 1, height)

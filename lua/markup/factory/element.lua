@@ -72,8 +72,22 @@ function M.inline(props, style)
 end
 
 ---@type markup.factory.element.new
+function M.text(props, style)
+	return M.call("inline", props, style)
+end
+
+---@type markup.factory.element.new
 function M.block(props, style)
 	return M.call("block", props, style)
+end
+
+---@type markup.factory.element.new
+function M.inblock(props, style)
+	return M.call("inblock", props, style)
+end
+
+function M.newl()
+	return M.call("newl", {})
 end
 
 ---@type markup.factory.element.new
