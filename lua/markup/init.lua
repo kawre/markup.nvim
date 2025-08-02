@@ -1,15 +1,7 @@
----@class markup
----@field inline markup.factory.element
----@field block markup.factory.element
----@field flex markup.factory.element
----@field grid markup.factory.element
----@field component markup.factory.element.component
----@field fragment markup.factory.element.fragment
+---@class markup: markup.factory.element
 ---@field hooks markup.hooks
----@field store any
 ---@field private setup any
----@field [string] markup.factory.element
----@overload fun(type: any, props?: markup.factory.element.props, style?: markup.factory.element.style): markup.element
+---@field [string] markup.factory.element.new
 local M = {}
 
 ---@class markup.global
@@ -28,6 +20,7 @@ local M = {}
 ---@field node markup.node
 ---@field cmd markup.cmd
 ---@field reconciler markup.reconciler
+---@field layout markup.layout
 ---@field object markup.object
 ---@field singleton markup.singleton
 _G.Markup = setmetatable({ core = M, renderers = {} }, {

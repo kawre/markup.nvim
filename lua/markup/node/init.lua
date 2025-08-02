@@ -37,7 +37,7 @@ local normalizer = require("markup.node.normalizer")
 ---@field props markup.node.props
 ---@field container markup.renderer
 ---@overload fun(type: markup.node.type, name?: string, props?: markup.node.props): markup.node
-local Node = Markup.object()
+local Node = Markup.object("node")
 
 ---@param type markup.node.type
 ---@param name? string

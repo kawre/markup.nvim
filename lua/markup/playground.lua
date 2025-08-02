@@ -10,7 +10,12 @@ function M.open()
 	vim.cmd.tcd(path)
 	local buf = vim.api.nvim_get_current_buf()
 
-	M.preview = Markup.renderer({ enter = false, relative = "win", position = "bottom" })
+	local win = Markup.window({
+		enter = false,
+		relative = "win",
+		position = "bottom",
+	})
+	M.preview = Markup.renderer(win)
 
 	M.inspect = Markup.devkit.inspect({
 		win = M.preview.win.win,

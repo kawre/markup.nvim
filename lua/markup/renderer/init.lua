@@ -18,15 +18,12 @@ local styles = require("markup.window.styles")
 local M = Markup.object()
 M.current = nil -- the current renderer instance, on each render cycle
 
----@param opts? markup.window.config
-function M:new(opts)
-	opts = vim.tbl_deep_extend("keep", opts or {}, styles["renderer"])
+---@param win markup.window
+function M:new(win)
+	self.win = win
 
-	opts.on_win = function(win)
-		Markup.renderers[win.win] = self
-	end
+	table.insert(Markup.renderers, self)
 
-	self.win = Markup.window(opts)
 	self.ns = vim.api.nvim_create_namespace(("markup_renderer_[%s]"):format(self.win.id))
 	self.debug_ns =
 		vim.api.nvim_create_namespace(("markup_renderer_[%s]_debug"):format(self.win.id))

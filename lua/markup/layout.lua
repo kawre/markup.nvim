@@ -7,8 +7,8 @@
 ---@field closed? boolean
 ---@field split? boolean
 ---@field screenpos number[]?
-local M = {}
-M.__index = M
+---@overload fun(opts: markup.layout.config): markup.layout
+local M = Markup.object()
 
 M.meta = {
 	desc = "Window layouts",
@@ -42,8 +42,7 @@ local defaults = {
 }
 
 ---@param opts markup.layout.config
-function M.new(opts)
-	local self = setmetatable({}, M)
+function M:new(opts)
 	self.opts = vim.tbl_extend("force", defaults, opts)
 	self.win_opts = {}
 	self.wins = self.opts.wins or {}
@@ -159,7 +158,6 @@ function M.new(opts)
 			self:show()
 		end)
 	end
-	return self
 end
 
 ---@param cb fun(widget: markup.layout.widget, parent?: markup.layout.box)
@@ -449,23 +447,23 @@ function M:update_win(win, parent)
 	w.enabled = true
 	assert(w, ("win %s not part of layout"):format(win.win))
 	-- add win opts from layout
-	-- w.opts = Markup.config.merge(
-	-- 	vim.deepcopy(self.win_opts[win.win] or {}),
-	-- 	{
-	-- 		width = 0,
-	-- 		height = 0,
-	-- 		enter = false,
-	-- 	},
-	-- 	win,
-	-- 	{
-	-- 		relative = "win",
-	-- 		win = self.root.win,
-	-- 		backdrop = false,
-	-- 		resize = false,
-	-- 		zindex = (self.opts.layout.zindex or 50) + win.depth + 1,
-	-- 		w = { snacks_layout = true },
-	-- 	}
-	-- )
+	w.opts = Markup.config.merge(
+		vim.deepcopy(self.win_opts[win.win] or {}),
+		{
+			width = 0,
+			height = 0,
+			enter = false,
+		},
+		win,
+		{
+			relative = "win",
+			win = self.root.win,
+			backdrop = false,
+			resize = false,
+			zindex = (self.opts.layout.zindex or 50) + win.depth + 1,
+			w = { snacks_layout = true },
+		}
+	)
 	-- fix fullscreen for splits
 	if self.opts.fullscreen and self.split then
 		w.opts.relative = "editor"

@@ -17,6 +17,7 @@ local _type = type
 ---@field _owner? any
 local M = {}
 M.__index = M
+M.__type = "markup.element"
 
 ---@return markup.element.typeof
 local function typeof_from_type(type)

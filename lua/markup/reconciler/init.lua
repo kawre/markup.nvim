@@ -389,7 +389,15 @@ end
 
 ---@param content any
 function M.should_be_fragment(content)
-	return type(content) == "table" and not getmetatable(content) and not vim.tbl_isempty(content)
+	if
+		-- type(content) == "table"
+		-- or (type(content) == "table" and Markup.util.typeof(content, "list"))
+		vim.islist(content)
+	then
+		return #content ~= 0
+	else
+		return false
+	end
 end
 
 ---@param element markup.element
@@ -723,7 +731,7 @@ function M.reconcile_child_fibers(returnf, current_first_child, new_child)
 		---@diagnostic disable-next-line: param-type-mismatch
 		return M.reconcile_single_text(returnf, current_first_child, new_child)
 	elseif new_child then
-		if not getmetatable(new_child) then
+		if vim.islist(new_child) then
 			-- this is an array list
 			return M.reconcile_children_list(returnf, current_first_child, new_child)
 		else

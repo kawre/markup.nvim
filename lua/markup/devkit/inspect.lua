@@ -9,7 +9,7 @@ local ns = vim.api.nvim_create_namespace("markup_inspector")
 function M:new(opts)
 	opts = opts or {}
 	local win = opts.win or vim.api.nvim_get_current_win()
-	self.renderer = Markup.renderers[win]
+	self.renderer = Markup.util.win_get_renderer(win)
 
 	opts = vim.tbl_deep_extend("keep", opts, {
 		position = "right",

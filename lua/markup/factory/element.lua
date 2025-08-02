@@ -1,32 +1,26 @@
 local Element = require("markup.element")
 
----@alias markup.factory.element.props.children
----| string
----| number
----| table
+---@alias markup.factory.element.style string|vim.api.keyset.highlight
 
----@alias markup.factory.element.style
----| string
----| vim.api.keyset.highlight
+---@class markup.factory.element.children.dynamic
+---@field [number] markup.factory.element.children
 
----@alias markup.factory.element.props
----| markup.factory.element.props.children
----| { children?: markup.factory.element.props.children }
----| markup.node.props
+---@alias markup.factory.element.children number|string|table|markup.factory.element.children.dynamic
 
 ---@alias markup.factory.element.fragment.props
----| markup.factory.element.props.children
----| { children?: markup.factory.element.props.children }
+---| { children?: markup.factory.element.children }
+---| markup.factory.element.children
 
----@alias markup.factory.element
+---@alias markup.factory.element.props
+---| { children?: markup.factory.element.children }
+---| markup.factory.element.children
+---| markup.node.props
+
+---@alias markup.factory.element.new
 ---| fun(props?: markup.factory.element.props, style?: markup.factory.element.style): markup.element
 
----@alias markup.factory.element.fragment
----| fun(props?: markup.factory.element.fragment.props): markup.element
-
----@alias markup.factory.element.component
----| fun(props?: any|{ children?: any }): any
-
+---@class markup.factory.element
+---@overload fun(type: any, props?: markup.factory.element.props, style?: markup.factory.element.style): markup.element
 local M = Markup.singleton()
 
 local function resolve(props, style)
@@ -65,14 +59,34 @@ local function resolve(props, style)
 	return props
 end
 
---@type markup.factory.Element.constructor.raw
+---@param type any
+---@param props? markup.factory.element.props
+---@param style? markup.factory.element.style
 function M.call(type, props, style)
 	return Element.new(type, resolve(props, style))
 end
 
-function M.component(Component)
-	return function(...)
-		return M.call(Component, ...)
+---@type markup.factory.element.new
+function M.inline(props, style)
+	return M.call("inline", props, style)
+end
+
+---@type markup.factory.element.new
+function M.block(props, style)
+	return M.call("block", props, style)
+end
+
+---@type markup.factory.element.new
+function M.flex(props, style)
+	return M.call("flex", props, style)
+end
+
+---@generic T
+---@param fn fun(props?: T): any
+---@return fun(props?: T): any
+function M.component(fn)
+	return function(props)
+		return M.call(fn, props)
 	end
 end
 
@@ -84,8 +98,9 @@ function M.class(Class)
 	end
 end
 
-function M.fragment(...)
-	return M.call("fragment", ...)
+---@param props? markup.factory.element.fragment.props
+function M.fragment(props)
+	return M.call("fragment", props)
 end
 
 return M

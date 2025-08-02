@@ -2,6 +2,7 @@
 ---@overload fun(tbl?: table): markup.list
 local M = {}
 M.__index = M
+M.__type = "markup.list"
 
 setmetatable(M, { ---@diagnostic disable-line: param-type-mismatch
 	__call = function(_, tbl)
@@ -18,7 +19,11 @@ end
 
 -- Returns a new array with the values of the current array.
 function M:map(apply)
-	return M(vim.tbl_map(apply, self))
+	local tbl = {}
+	for i, v in ipairs(self) do
+		tbl[i] = apply(v, i)
+	end
+	return M(tbl)
 end
 
 function M:filter(fn)

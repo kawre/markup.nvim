@@ -45,21 +45,6 @@ function M.color(group, prop)
 	end
 end
 
-function M.set_option_value(name, value, opts)
-	local ok, err = pcall(vim.api.nvim_set_option_value, name, value, opts)
-	if not ok then
-		Markup.log.error(err)
-	end
-end
-
-function M.buf_set_opts(bufnr, options)
-	if vim.api.nvim_buf_is_valid(bufnr) then
-		for opt, value in pairs(options) do
-			M.set_option_value(opt, value, { buf = bufnr })
-		end
-	end
-end
-
 ---Set buffer-local options.
 ---@param buf number
 ---@param bo vim.bo | table
@@ -73,15 +58,7 @@ end
 ---@param bo vim.bo | table
 function M.wo(win, bo)
 	for k, v in pairs(bo or {}) do
-		vim.api.nvim_set_option_value(k, v, { win = win })
-	end
-end
-
-function M.win_set_opts(winid, options)
-	if vim.api.nvim_win_is_valid(winid) then
-		for opt, value in pairs(options) do
-			M.set_option_value(opt, value, { win = winid, scope = "local" })
-		end
+		vim.api.nvim_set_option_value(k, v, { win = win, scope = "local" })
 	end
 end
 
@@ -297,6 +274,29 @@ function M.clamp(value, min, max)
 		return max
 	else
 		return value
+	end
+end
+
+---@alias markup.object.type
+---| "element"
+---| "fiber"
+---| "node"
+---| "box"
+---| "list"
+---| "stack"
+
+---@param obj table
+---@param type markup.object.type
+function M.typeof(obj, type)
+	return getmetatable(obj).__type == "markup." .. type
+end
+
+---@param id integer
+function M.win_get_renderer(id)
+	for _, renderer in ipairs(Markup.renderers) do
+		if renderer.win.win == id then
+			return renderer
+		end
 	end
 end
 

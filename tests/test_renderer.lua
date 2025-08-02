@@ -14,9 +14,10 @@ local T = new_set({
 			child.start({ "-u", "scripts/minimal_init.lua" })
 			child.lua([[
 				m = require('markup')
-				renderer = Markup.renderer({ position = 'current', hijack = true, show = false, minimal = false })
-				renderer.win.buf = vim.api.nvim_get_current_buf()
-				renderer.win:show()
+				local win = Markup.window({ position = 'current', hijack = true, show = false, minimal = false })
+				renderer = Markup.renderer(win)
+				win.buf = vim.api.nvim_get_current_buf()
+				win:show()
 			]])
 		end,
 		pre_case = function()
