@@ -1,9 +1,9 @@
 ---@alias markup.object
----| fun(type?: string): {}
+---| fun(mt?: metatable): {}
 
----@type markup.object
-return function(type)
-	local M = setmetatable({}, {
+---@param mt metatable
+return function(mt)
+	mt = vim.tbl_extend("keep", {
 		__call = function(t, ...)
 			local self = setmetatable({}, t)
 			assert(t.new, "Object must have a 'new' method")
@@ -11,7 +11,10 @@ return function(type)
 			return self
 		end,
 		__type = ("markup.%s"):format(type or "object"),
-	})
+	}, mt or {})
+
+	local M = setmetatable({}, mt)
 	M.__index = M
+
 	return M
 end

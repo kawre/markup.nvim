@@ -148,7 +148,7 @@ function M:layout(input, impl)
 
 	self.x = 0
 	self.y = 0
-	impl.layout(self, input)
+	local ret = impl.layout(self, input)
 	self.x = nil
 	self.y = nil
 
@@ -163,6 +163,8 @@ function M:layout(input, impl)
 	-- end
 
 	self.dirty = false
+
+	return ret
 end
 
 function M:add_child(node)

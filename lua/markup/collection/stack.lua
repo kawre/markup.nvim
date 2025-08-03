@@ -1,7 +1,7 @@
 ---@class markup.stack
 ---@field len integer
 ---@overload fun(): markup.stack
-local M = Markup.object("stack")
+local M = Markup.object()
 
 function M:new()
 	self.len = 0

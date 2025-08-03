@@ -171,7 +171,9 @@ end
 
 ---@param wip markup.fiber
 function M.place_single_node(wip)
-	wip.state_node = Markup.factory.node.from_fiber(wip)
+	local dom = Markup.renderer.current.dom
+	wip.state_node = Markup.factory.node.from_fiber(dom, wip)
+	-- wip.state_node = dom:create_element
 
 	if type(wip.pending_props) == "table" and M.is_valid_text(wip.pending_props.children) then
 		-- handle single text child elements

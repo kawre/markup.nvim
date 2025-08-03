@@ -24,6 +24,7 @@ local M = {}
 ---@field object markup.object
 ---@field singleton markup.singleton
 ---@field parser markup.parser
+---@field rust markup.rust
 _G.Markup = setmetatable({ core = M, renderers = {} }, {
 	__index = function(t, k)
 		t[k] = require("markup." .. k)

@@ -12,6 +12,7 @@ local styles = require("markup.window.styles")
 ---@field win markup.window
 ---@field private observers table<string, table>
 ---@field is_scheduled boolean
+---@field dom markup.dom
 ---@field fps integer
 ---@field lines markup.renderer.line[] 1 indexed lines table
 ---@overload fun(opts?: markup.window.config): markup.renderer
@@ -34,6 +35,7 @@ function M:new(win)
 	self.keys = {} ---@type table<markup.node, { key: string, cb: function }[]>
 	self.cursor = {}
 	self.lines = {}
+	self.dom = Markup.rust.create_dom()
 
 	self.win:on("WinResized", function()
 		if self:valid() and vim.tbl_contains(vim.v.event.windows, self.win.win) then
@@ -60,8 +62,8 @@ function M:render(element)
 	end
 
 	assert(self.element, "Renderer element not bound. Call :bind(element) to bind the element.")
-	self.rootf = Markup.factory.fiber.root(self.element)
-	self.root = Markup.factory.box(self.rootf.state_node)
+	self.rootf = Markup.factory.fiber.root(self.dom, self.element)
+	-- self.root = Markup.factory.box(self.rootf.state_node)
 	self.stats = {}
 
 	self:rerender()
@@ -86,15 +88,15 @@ function M:rerender()
 	local e1 = Markup.util.benchmark(function()
 		self.rootf = Markup.reconciler(self.rootf)
 	end)
-	local e2 = Markup.util.benchmark(function()
-		self:reflow()
-		self:layout()
-	end)
-	local e3 = Markup.util.benchmark(function()
-		self:paint()
-	end)
+	-- local e2 = Markup.util.benchmark(function()
+	-- 	self:reflow()
+	-- 	self:layout()
+	-- end)
+	-- local e3 = Markup.util.benchmark(function()
+	-- 	self:paint()
+	-- end)
 
-	self:track_stats(e1, e2, e3)
+	-- self:track_stats(e1, e2, e3)
 
 	vim.api.nvim_exec_autocmds("User", { pattern = "MarkupRender" .. self.win.id })
 	M.current = nil

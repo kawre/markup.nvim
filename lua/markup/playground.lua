@@ -17,13 +17,13 @@ function M.open()
 	})
 	M.preview = Markup.renderer(win)
 
-	M.inspect = Markup.devkit.inspect({
-		win = M.preview.win.win,
-		relative = "editor",
-		position = "right",
-		width = 0.4,
-	})
-	M.inspect:map(buf)
+	-- M.inspect = Markup.devkit.inspect({
+	-- 	win = M.preview.win.win,
+	-- 	relative = "editor",
+	-- 	position = "right",
+	-- 	width = 0.4,
+	-- })
+	-- M.inspect:map(buf)
 
 	vim.api.nvim_create_autocmd("BufWritePost", {
 		callback = function()
