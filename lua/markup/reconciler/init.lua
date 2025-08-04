@@ -209,7 +209,8 @@ end
 function M.place_single_text_child(fiber)
 	assert(fiber.state_node, "`fiber.state_node` must exist for text child placement")
 
-	local text_node = Markup.factory.node.from_text(fiber.pending_props.children)
+	local dom = Markup.renderer.current.dom
+	local text_node = Markup.factory.node.from_text(dom, fiber.pending_props.children)
 	fiber.state_node:append_child(text_node)
 end
 

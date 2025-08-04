@@ -10,7 +10,6 @@ local M = Markup.singleton()
 ---@param name? string
 ---@param props? markup.node.props
 function M.call(dom, type, name, props)
-	Markup.log(dom)
 	if type == "element" then
 		return dom:create_element(name, props)
 	elseif type == "text" then

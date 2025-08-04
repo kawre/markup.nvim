@@ -1,5 +1,7 @@
-mod common;
+// mod common;
+mod compute;
 mod node;
+mod style;
 mod tree;
 use std::{cell::RefCell, rc::Rc};
 
