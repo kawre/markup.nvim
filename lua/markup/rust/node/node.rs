@@ -15,6 +15,7 @@ pub enum NodeKind {
     Flexbox,
     Grid,
     Block,
+    Inline,
     Text,
 }
 
@@ -131,11 +132,7 @@ impl Node {
             "flexbox" => Node::new_column(style),
             "grid" => Node::new_grid(style),
             "block" => Node::new_block(style),
-            // "text" => Node::new_text(TextContext {
-            //     text_content: String::from("123"),
-            //     writing_mode: WritingMode::Horizontal,
-            // }),
-            // "image" => Node::new_image(style, None),
+            "inline" => Node::new_inline(style),
             _ => Node::new_block(style),
         }
     }
@@ -168,6 +165,13 @@ impl Node {
                 display: Display::Block,
                 ..style
             },
+            ..Node::default()
+        }
+    }
+    pub fn new_inline(style: Style) -> Node {
+        Node {
+            kind: NodeKind::Inline,
+            style: Style { ..style },
             ..Node::default()
         }
     }

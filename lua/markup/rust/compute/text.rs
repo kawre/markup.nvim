@@ -1,11 +1,14 @@
 use crate::{
+    compute::LayoutTextContainer,
     node::Node,
     style::{TextContainerStyle, TextItemStyle},
-    tree::{tree, Tree},
+    tree::{tree, LayoutPartialTreeExt, Tree},
 };
+
 use taffy::{
-    prelude::*, BoxSizing, CoreStyle, Layout, LayoutInput, LayoutOutput, LayoutPartialTree,
-    LengthPercentageAuto, NodeId, Overflow, Point, Position, Rect, Size,
+    prelude::*, BoxGenerationMode, BoxSizing, CollapsibleMarginSet, CoreStyle, Layout, LayoutInput,
+    LayoutOutput, LayoutPartialTree, LengthPercentageAuto, MaybeMath, NodeId, Overflow, Point,
+    Position, Rect, ResolveOrZero, RunMode, Size, SizingMode,
 };
 
 #[allow(dead_code)]
@@ -14,8 +17,13 @@ pub enum WritingMode {
     Vertical,
 }
 
-pub struct TextContext {
+pub struct TextChunk {
     pub text_content: String,
+    pub display_width: f32,
+}
+
+pub struct TextContext {
+    pub chunks: Vec<TextChunk>,
     pub writing_mode: WritingMode,
 }
 
@@ -28,33 +36,18 @@ struct TextItem {
     /// and controls the order in which the nodes are placed
     order: u32,
 
+    size: Size<Option<f32>>,
+
     /// Items that are tables don't have stretch sizing applied to them
     is_table: bool,
 
-    /// The base size of this item
-    size: Size<Option<f32>>,
-    /// The minimum allowable size of this item
-    min_size: Size<Option<f32>>,
-    /// The maximum allowable size of this item
-    max_size: Size<Option<f32>>,
-
-    /// The overflow style of the item
-    overflow: Point<Overflow>,
-    /// The width of the item's scrollbars (if it has scrollbars)
-    scrollbar_width: f32,
-
-    /// The position style of the item
-    position: Position,
-    /// The final offset of this item
-    inset: Rect<LengthPercentageAuto>,
-    /// The margin of this item
+    // margin_left: f32,
+    // margin_right: f32,
+    //
+    // padding_left: f32,
+    // padding_right: f32,
     margin: Rect<LengthPercentageAuto>,
-    /// The margin of this item
-    padding: Rect<f32>,
-    /// The margin of this item
-    border: Rect<f32>,
-    /// The sum of padding and border for this item
-    padding_border_sum: Size<f32>,
+    padding: Rect<LengthPercentage>,
 
     /// The computed border box size of this item
     computed_size: Size<f32>,
@@ -149,36 +142,256 @@ pub fn text_measure_function(
     }
 }
 
-pub trait LayoutTextContainer: LayoutPartialTree {
-    /// The style type representing the text container's styles
-    type TextContainerStyle<'a>: TextContainerStyle
-    where
-        Self: 'a;
-
-    /// The style type representing each CSS Grid item's styles
-    type TextItemStyle<'a>: TextItemStyle
-    where
-        Self: 'a;
-
-    /// Get the container's styles
-    fn get_text_container_style(&self, node_id: NodeId) -> Self::TextContainerStyle<'_>;
-
-    /// Get the child's styles
-    fn get_text_child_style(&self, child_node_id: NodeId) -> Self::TextItemStyle<'_>;
-}
-
 /// Computes the layout of [`LayoutPartialTree`] according to the block layout algorithm
 pub fn compute_text_layout(
     tree: &mut impl LayoutTextContainer,
     node_id: NodeId,
     inputs: LayoutInput,
 ) -> LayoutOutput {
-    LayoutOutput {
-        size: Size::ZERO,
-        content_size: todo!(),
-        first_baselines: todo!(),
-        top_margin: todo!(),
-        bottom_margin: todo!(),
-        margins_can_collapse_through: todo!(),
+    let LayoutInput {
+        known_dimensions,
+        run_mode,
+        ..
+    } = inputs;
+
+    if run_mode == RunMode::ComputeSize {
+        if let Size {
+            width: Some(width),
+            height: Some(height),
+        } = known_dimensions
+        {
+            return LayoutOutput::from_outer_size(Size { width, height });
+        }
     }
+
+    compute_inner(tree, node_id, inputs)
+}
+
+fn compute_inner(
+    tree: &mut impl LayoutTextContainer,
+    node_id: NodeId,
+    inputs: LayoutInput,
+) -> LayoutOutput {
+    let LayoutInput {
+        known_dimensions,
+        parent_size,
+        available_space,
+        run_mode,
+        vertical_margins_are_collapsible,
+        ..
+    } = inputs;
+
+    let style = tree.get_text_container_style(node_id);
+    let raw_padding = style.padding();
+    let raw_padding_right = raw_padding.right;
+    let raw_padding_left = raw_padding.left;
+    let raw_margin_right = style.margin().right;
+    let raw_margin_left = style.margin().left;
+    let color = style.highlight();
+
+    drop(style);
+
+    // 1. Generate items
+    let mut items = generate_item_list(tree, node_id);
+
+    // 2. Compute container width
+    let container_outer_width = known_dimensions.width.unwrap_or_else(|| {
+        let available_width = available_space.width;
+        determine_content_based_container_width(tree, &items, available_width)
+    });
+
+    // Short-circuit if computing size and both dimensions known
+    if let (RunMode::ComputeSize, Some(container_outer_height)) =
+        (run_mode, known_dimensions.height)
+    {
+        return LayoutOutput::from_outer_size(Size {
+            width: container_outer_width,
+            height: container_outer_height,
+        });
+    }
+
+    // 3. Perform final item layout and return content height
+    let resolved_padding = raw_padding
+        .resolve_or_zero(Some(container_outer_width), |val, basis| {
+            tree.calc(val, basis)
+        });
+    let resolved_content_box_inset = resolved_padding;
+    let (
+        inflow_content_size,
+        intrinsic_outer_height,
+        first_child_top_margin_set,
+        last_child_bottom_margin_set,
+    ) = perform_final_layout_on_in_flow_children(tree, &mut items, container_outer_width);
+    let container_outer_height = known_dimensions.height.unwrap_or(intrinsic_outer_height);
+    let final_outer_size = Size {
+        width: container_outer_width,
+        height: container_outer_height,
+    };
+
+    // Short-circuit if computing size
+    if run_mode == RunMode::ComputeSize {
+        return LayoutOutput::from_outer_size(final_outer_size);
+    }
+
+    // 5. Perform hidden layout on hidden children
+    let len = tree.child_count(node_id);
+    for order in 0..len {
+        let child = tree.get_child_id(node_id, order);
+        if tree.get_text_child_style(child).box_generation_mode() == BoxGenerationMode::None {
+            tree.set_unrounded_layout(child, &Layout::with_order(order as u32));
+            tree.perform_child_layout(
+                child,
+                Size::NONE,
+                Size::NONE,
+                Size::MAX_CONTENT,
+                SizingMode::InherentSize,
+                Line::FALSE,
+            );
+        }
+    }
+
+    // #[cfg_attr(not(feature = "content_size"), allow(unused_variables))]
+    let content_size = Size {
+        width: 0.0,
+        height: 0.0,
+    };
+
+    LayoutOutput {
+        size: final_outer_size,
+        content_size,
+        first_baselines: Point::NONE,
+        top_margin: CollapsibleMarginSet::ZERO,
+        bottom_margin: CollapsibleMarginSet::ZERO,
+        margins_can_collapse_through: false,
+    }
+}
+
+#[inline]
+fn generate_item_list(tree: &impl LayoutTextContainer, node: NodeId) -> Vec<TextItem> {
+    tree.child_ids(node)
+        .map(|child_node_id| (child_node_id, tree.get_text_child_style(child_node_id)))
+        .filter(|(_, style)| style.box_generation_mode() != BoxGenerationMode::None)
+        .enumerate()
+        .map(|(order, (child_node_id, child_style))| {
+            let padding = child_style.padding();
+            let margin = child_style.margin();
+
+            TextItem {
+                node_id: child_node_id,
+                order: order as u32,
+                is_table: child_style.is_table(),
+
+                margin,
+                padding,
+
+                // Fields to be computed later (for now we initialise with dummy values)
+                size: Size::zero(),
+                computed_size: Size::zero(),
+                static_position: Point::zero(),
+                can_be_collapsed_through: false,
+            }
+        })
+        .collect()
+}
+
+/// Compute the content-based width in the case that the width of the container is not known
+#[inline]
+fn determine_content_based_container_width(
+    tree: &mut impl LayoutPartialTree,
+    items: &[TextItem],
+    available_width: AvailableSpace,
+) -> f32 {
+    let available_space = Size {
+        width: available_width,
+        height: AvailableSpace::MinContent,
+    };
+
+    let mut max_child_width = 0.0;
+    for item in items.iter() {
+        let known_dimensions = item.size;
+
+        let width = known_dimensions.width.unwrap_or_else(|| {
+            let margin = item
+                .margin
+                .resolve_or_zero(available_space.width.into_option(), |val, basis| {
+                    tree.resolve_calc_value(val, basis)
+                });
+            let item_x_margin_sum = margin.left + margin.right;
+            let size_and_baselines = tree.perform_child_layout(
+                item.node_id,
+                known_dimensions,
+                Size::NONE,
+                available_space.map_width(|w| w.maybe_sub(item_x_margin_sum)),
+                SizingMode::InherentSize,
+                Line::TRUE,
+            );
+
+            size_and_baselines.size.width + item_x_margin_sum
+        });
+        // let width = f32_max(width, item.padding_border_sum.width);
+
+        max_child_width += width;
+    }
+
+    max_child_width
+}
+
+/// Compute each child's final size and position
+#[inline]
+fn perform_final_layout_on_in_flow_children(
+    tree: &mut impl LayoutPartialTree,
+    items: &mut [TextItem],
+    container_outer_width: f32,
+) -> (Size<f32>, f32, CollapsibleMarginSet, CollapsibleMarginSet) {
+    // let mut first_child_top_margin_set = CollapsibleMarginSet::default();
+    // let mut last_child_bottom_margin_set = CollapsibleMarginSet::default();
+
+    // Compute the size and position of each item
+    for item in items.iter_mut() {
+        let known_dimensions = item.size;
+        let available_space = Size {
+            width: AvailableSpace::Definite(container_outer_width),
+            height: AvailableSpace::MinContent,
+        };
+
+        let size_and_baselines = tree.perform_child_layout(
+            item.node_id,
+            known_dimensions,
+            Size::NONE,
+            available_space,
+            SizingMode::InherentSize,
+            Line::TRUE,
+        );
+
+        item.computed_size = size_and_baselines.size;
+        // item.static_position = Point {
+        //     x: content_box_inset.left + item.padding.left + item.margin.left,
+        //     y: content_box_inset.top + item.padding.top + item.margin.top,
+        // };
+        // item.can_be_collapsed_through = own_margins_collapse_with_children.all();
+
+        // // Update the first and last child margin sets
+        // if item.order == 0 {
+        //     first_child_top_margin_set.set(item.node_id, item.margin.top);
+        // }
+        // if item.order == items.len() as u32 - 1 {
+        //     last_child_bottom_margin_set.set(item.node_id, item.margin.bottom);
+        // }
+    }
+
+    // Compute the total content size
+    let content_size = Size {
+        width: container_outer_width,
+        height: items.iter().map(|item| item.computed_size.height).sum(),
+    };
+
+    // Compute the intrinsic outer height
+    let intrinsic_outer_height = content_size.height;
+
+    (
+        content_size,
+        intrinsic_outer_height,
+        CollapsibleMarginSet::ZERO,
+        CollapsibleMarginSet::ZERO,
+    )
 }

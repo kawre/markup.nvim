@@ -13,7 +13,7 @@ function M.call(dom, type, name, props)
 	if type == "element" then
 		return dom:create_element(name, props)
 	elseif type == "text" then
-		return dom:create_text_node(name)
+		return M.from_text(dom, name)
 	else
 		error("Unknown node type: " .. vim.inspect(type))
 	end
@@ -28,7 +28,11 @@ end
 ---@param dom markup.dom
 ---@param content string|number
 function M.from_text(dom, content)
-	return M.call(dom, "text", content)
+	local chunks = {}
+	for chunk in vim.gsplit(tostring(content), "%s+") do
+		table.insert(chunks, { chunk = chunk, display_width = vim.fn.strdisplaywidth(chunk) })
+	end
+	return dom:create_text_node(chunks)
 end
 
 ---@param dom markup.dom
