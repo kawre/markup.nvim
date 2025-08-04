@@ -55,6 +55,8 @@ impl LuaUserData for LuaTree {
             let node = Node::new_text(TextContext {
                 chunks,
                 writing_mode: WritingMode::Horizontal,
+                computed_text_content: None,
+                computed_display_width: None,
             });
             let node_id = this.0.borrow_mut().add_node(node);
 

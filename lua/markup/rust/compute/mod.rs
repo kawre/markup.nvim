@@ -1,18 +1,18 @@
-mod text;
+mod inline;
 
 use taffy::{LayoutPartialTree, NodeId};
-pub use text::*;
+pub use inline::*;
 
-use crate::style::{TextContainerStyle, TextItemStyle};
+use crate::style::{InlineContainerStyle, InlineItemStyle};
 
-pub trait LayoutTextContainer: LayoutPartialTree {
+pub trait LayoutInlineContainer: LayoutPartialTree {
     /// The style type representing the text container's styles
-    type TextContainerStyle<'a>: TextContainerStyle
+    type TextContainerStyle<'a>: InlineContainerStyle
     where
         Self: 'a;
 
     /// The style type representing each CSS Grid item's styles
-    type TextItemStyle<'a>: TextItemStyle
+    type TextItemStyle<'a>: InlineItemStyle
     where
         Self: 'a;
 

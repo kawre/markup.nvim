@@ -3,7 +3,7 @@
 use taffy::{CoreStyle, Style};
 
 /// The set of styles required for a Block layout container
-pub trait TextContainerStyle: CoreStyle {
+pub trait InlineContainerStyle: CoreStyle {
     /// Defines buffer highlighting for the container.
     #[inline(always)]
     fn highlight(&self) -> Option<&'static str> {
@@ -12,7 +12,7 @@ pub trait TextContainerStyle: CoreStyle {
 }
 
 /// The set of styles required for a Block layout item (child of a Block container)
-pub trait TextItemStyle: CoreStyle {
+pub trait InlineItemStyle: CoreStyle {
     /// Whether the item is a table. Table children are handled specially in block layout.
     #[inline(always)]
     fn is_table(&self) -> bool {

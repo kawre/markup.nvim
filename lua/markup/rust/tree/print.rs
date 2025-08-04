@@ -1,26 +1,36 @@
-use taffy::{NodeId, PrintTree};
+use taffy::{NodeId, PrintTree, TraversePartialTree};
 
-pub fn print_tree_to_string(tree: &impl PrintTree, root: NodeId) -> String {
+use crate::{node::NodeKind, tree::Tree};
+
+pub fn print_tree_to_string(tree: &Tree, root: NodeId) -> String {
     let mut output = String::new();
     output.push_str("TREE\n");
     print_node(tree, root, false, String::new(), &mut output);
 
     fn print_node(
-        tree: &impl PrintTree,
+        tree: &Tree,
         node_id: NodeId,
         has_sibling: bool,
         lines_string: String,
         output: &mut String,
     ) {
         let layout = &tree.get_final_layout(node_id);
-        let display = tree.get_debug_label(node_id);
         let num_children = tree.child_count(node_id);
-
-        let fork_string = if has_sibling {
-            "├── "
-        } else {
-            "└── "
+        let node = tree.node_from_id(node_id);
+        let display = match node.kind {
+            NodeKind::Text => format!(
+                "#[{}]",
+                node.text_data
+                    .as_ref()
+                    .unwrap()
+                    .computed_text_content
+                    .as_deref()
+                    .unwrap_or("empty")
+            ),
+            _ => tree.get_debug_label(node_id).to_string(),
         };
+
+        let fork_string = if has_sibling { "├╴" } else { "└╴" };
 
         #[cfg(feature = "content_size")]
         {
@@ -51,6 +61,7 @@ pub fn print_tree_to_string(tree: &impl PrintTree, root: NodeId) -> String {
         #[cfg(not(feature = "content_size"))]
         {
             use std::fmt::Write as FmtWrite;
+
             let _ = writeln!(
                 output,
                 "{lines}{fork} {display} [x: {x:<4} y: {y:<4} width: {width:<4} height: {height:<4}] ({key:?})",
@@ -65,7 +76,7 @@ pub fn print_tree_to_string(tree: &impl PrintTree, root: NodeId) -> String {
             );
         }
 
-        let bar = if has_sibling { "│   " } else { "    " };
+        let bar = if has_sibling { " │" } else { "  " };
         let new_string = lines_string + bar;
 
         for (index, child) in tree.child_ids(node_id).enumerate() {

@@ -1,17 +1,19 @@
 use crate::tree::traits::LayoutPartialTreeExt;
 use std::cell::RefCell;
+use std::iter::Sum;
 use std::rc::Rc;
 
-use crate::compute::{compute_text_layout, LayoutTextContainer, TextContext, WritingMode};
-use crate::node::{node, LuaNode, LuaProps, Node, NodeKind};
+use crate::compute::{LayoutInlineContainer, TextContext, WritingMode, compute_inline_layout};
+use crate::node::{LuaNode, LuaProps, Node, NodeKind, node};
 use crate::tree::print::print_tree_to_string;
 
 use mlua::prelude::*;
 use taffy::util::print_tree;
 use taffy::{
-    compute_block_layout, compute_cached_layout, compute_flexbox_layout, compute_grid_layout,
-    compute_leaf_layout, compute_root_layout, prelude::*, round_layout, AbsoluteAxis, Cache,
-    CacheTree, LayoutInput, LayoutOutput, RequestedAxis, RunMode, SizingMode,
+    AbsoluteAxis, Cache, CacheTree, CollapsibleMarginSet, LayoutInput, LayoutOutput, Point,
+    RequestedAxis, RunMode, SizingMode, compute_block_layout, compute_cached_layout,
+    compute_flexbox_layout, compute_grid_layout, compute_leaf_layout, compute_root_layout,
+    prelude::*, round_layout,
 };
 
 #[derive(Default)]
@@ -280,7 +282,7 @@ impl taffy::LayoutGridContainer for Tree {
     }
 }
 
-impl LayoutTextContainer for Tree {
+impl LayoutInlineContainer for Tree {
     type TextContainerStyle<'a>
         = &'a Style
     where
@@ -334,16 +336,37 @@ impl taffy::LayoutPartialTree for Tree {
                 NodeKind::Flexbox => compute_flexbox_layout(tree, node_id, inputs),
                 NodeKind::Grid => compute_grid_layout(tree, node_id, inputs),
                 NodeKind::Block => compute_block_layout(tree, node_id, inputs),
-                NodeKind::Inline => compute_text_layout(tree, node_id, inputs),
-                NodeKind::Text => compute_text_layout(tree, node_id, inputs),
-                // NodeKind::Text => compute_leaf_layout(
-                //     inputs,
-                //     &node.style,
-                //     |_val, _basis| 0.0,
-                //     |known_dimensions, available_space| {
-                //         text_measure_function(known_dimensions, available_space, node)
-                //     },
-                // ),
+                NodeKind::Inline => compute_inline_layout(tree, node_id, inputs),
+                NodeKind::Text => {
+                    let text_data = node.text_data.as_mut().unwrap();
+                    let chunks = &text_data.chunks;
+
+                    let final_width = chunks.iter().map(|c| c.display_width).sum::<f32>()
+                        + (chunks.len().saturating_sub(1)) as f32;
+
+                    let final_str = chunks
+                        .iter()
+                        .map(|c| c.text_content.to_string())
+                        .collect::<Vec<_>>()
+                        .join(" ");
+
+                    text_data.computed_text_content = Some(final_str);
+                    text_data.computed_display_width = Some(final_width);
+
+                    let final_size = Size {
+                        width: final_width,
+                        height: 1.0,
+                    };
+
+                    LayoutOutput {
+                        size: final_size,
+                        content_size: final_size,
+                        top_margin: CollapsibleMarginSet::ZERO,
+                        bottom_margin: CollapsibleMarginSet::ZERO,
+                        first_baselines: Point::NONE,
+                        margins_can_collapse_through: false,
+                    }
+                }
             }
         })
     }

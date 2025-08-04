@@ -1,12 +1,11 @@
-// mod common;
 mod compute;
 mod node;
 mod style;
 mod tree;
-use std::{cell::RefCell, rc::Rc};
 
 use crate::tree::{LuaTree, Tree};
 use mlua::prelude::*;
+use std::{cell::RefCell, rc::Rc};
 pub use taffy::prelude::*;
 
 pub fn create_dom(_: &Lua, _: ()) -> LuaResult<LuaTree> {

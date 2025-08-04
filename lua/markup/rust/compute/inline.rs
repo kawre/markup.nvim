@@ -1,14 +1,14 @@
 use crate::{
-    compute::LayoutTextContainer,
+    compute::LayoutInlineContainer,
     node::Node,
-    style::{TextContainerStyle, TextItemStyle},
-    tree::{tree, LayoutPartialTreeExt, Tree},
+    style::{InlineContainerStyle, InlineItemStyle},
+    tree::{LayoutPartialTreeExt, Tree, tree},
 };
 
 use taffy::{
-    prelude::*, BoxGenerationMode, BoxSizing, CollapsibleMarginSet, CoreStyle, Layout, LayoutInput,
+    BoxGenerationMode, BoxSizing, CollapsibleMarginSet, CoreStyle, Layout, LayoutInput,
     LayoutOutput, LayoutPartialTree, LengthPercentageAuto, MaybeMath, NodeId, Overflow, Point,
-    Position, Rect, ResolveOrZero, RunMode, Size, SizingMode,
+    Position, Rect, ResolveOrZero, RunMode, Size, SizingMode, prelude::*,
 };
 
 #[allow(dead_code)]
@@ -25,10 +25,14 @@ pub struct TextChunk {
 pub struct TextContext {
     pub chunks: Vec<TextChunk>,
     pub writing_mode: WritingMode,
+
+    // Available for use after layout
+    pub computed_text_content: Option<String>,
+    pub computed_display_width: Option<f32>,
 }
 
 /// Per-child data that is accumulated and modified over the course of the layout algorithm
-struct TextItem {
+struct InlineItem {
     /// The identifier for the associated node
     node_id: NodeId,
 
@@ -143,8 +147,8 @@ pub fn text_measure_function(
 }
 
 /// Computes the layout of [`LayoutPartialTree`] according to the block layout algorithm
-pub fn compute_text_layout(
-    tree: &mut impl LayoutTextContainer,
+pub fn compute_inline_layout(
+    tree: &mut impl LayoutInlineContainer,
     node_id: NodeId,
     inputs: LayoutInput,
 ) -> LayoutOutput {
@@ -168,7 +172,7 @@ pub fn compute_text_layout(
 }
 
 fn compute_inner(
-    tree: &mut impl LayoutTextContainer,
+    tree: &mut impl LayoutInlineContainer,
     node_id: NodeId,
     inputs: LayoutInput,
 ) -> LayoutOutput {
@@ -267,7 +271,7 @@ fn compute_inner(
 }
 
 #[inline]
-fn generate_item_list(tree: &impl LayoutTextContainer, node: NodeId) -> Vec<TextItem> {
+fn generate_item_list(tree: &impl LayoutInlineContainer, node: NodeId) -> Vec<InlineItem> {
     tree.child_ids(node)
         .map(|child_node_id| (child_node_id, tree.get_text_child_style(child_node_id)))
         .filter(|(_, style)| style.box_generation_mode() != BoxGenerationMode::None)
@@ -276,7 +280,7 @@ fn generate_item_list(tree: &impl LayoutTextContainer, node: NodeId) -> Vec<Text
             let padding = child_style.padding();
             let margin = child_style.margin();
 
-            TextItem {
+            InlineItem {
                 node_id: child_node_id,
                 order: order as u32,
                 is_table: child_style.is_table(),
@@ -298,7 +302,7 @@ fn generate_item_list(tree: &impl LayoutTextContainer, node: NodeId) -> Vec<Text
 #[inline]
 fn determine_content_based_container_width(
     tree: &mut impl LayoutPartialTree,
-    items: &[TextItem],
+    items: &[InlineItem],
     available_width: AvailableSpace,
 ) -> f32 {
     let available_space = Size {
@@ -340,7 +344,7 @@ fn determine_content_based_container_width(
 #[inline]
 fn perform_final_layout_on_in_flow_children(
     tree: &mut impl LayoutPartialTree,
-    items: &mut [TextItem],
+    items: &mut [InlineItem],
     container_outer_width: f32,
 ) -> (Size<f32>, f32, CollapsibleMarginSet, CollapsibleMarginSet) {
     // let mut first_child_top_margin_set = CollapsibleMarginSet::default();
