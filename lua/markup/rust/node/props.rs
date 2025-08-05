@@ -7,6 +7,42 @@ pub struct LuaProps {
     base: LuaTable,
 }
 
+pub struct LuaDimension(pub Dimension);
+
+impl FromLua for LuaDimension {
+    fn from_lua(value: LuaValue, _: &Lua) -> LuaResult<Self> {
+        match value {
+            LuaValue::Number(n) => {
+                let dim = if n < 1.0 {
+                    Dimension::from_percent(n as f32)
+                } else {
+                    Dimension::from_length(n as f32)
+                };
+                Ok(LuaDimension(dim))
+            }
+            LuaValue::String(s) => {
+                if let Ok(str_val) = s.to_str() {
+                    match str_val.as_ref() {
+                        "auto" => Ok(LuaDimension(Dimension::auto())),
+                        _ => Err(mlua::Error::FromLuaConversionError {
+                            from: "string",
+                            to: "Dimension".to_string(),
+                            message: Some(format!("unsupported string value: {}", str_val)),
+                        }),
+                    }
+                } else {
+                    Err(mlua::Error::FromLuaConversionError {
+                        from: "Value",
+                        to: "Dimension".to_string(),
+                        message: Some("expected a valid UTF-8 string".into()),
+                    })
+                }
+            }
+            _ => Err(mlua::Error::external("Unsupported LuaValue for Dimension")),
+        }
+    }
+}
+
 trait HasLength: Sized {
     fn from_lua_value(value: LuaValue) -> Self;
 }
@@ -170,6 +206,37 @@ impl LuaProps {
         if let Some(pr) = self.get_prop("padding_right") {
             style.margin.right = HasLength::from_lua_value(pr);
         }
+
+        // // Size
+        // if let Some(size) = self.get_prop("size") {
+        //     // style.size = Size {
+        //     //     width: Ok(LuaDimension::from_lua(size)),
+        //     //     width: Ok(LuaDimension::from_lua(size)),
+        //     // }
+        //     match size {
+        //         LuaValue::Table(t) => {
+        //             let width = t
+        //                 .get("width")
+        //                 .and_then(|v| LuaDimension::from_lua(v, &()).ok());
+        //             let height = t
+        //                 .get("height")
+        //                 .and_then(|v| LuaDimension::from_lua(v, &()).ok());
+        //             style.size = Size {
+        //                 width: width.unwrap_or(Dimension::auto()),
+        //                 height: height.unwrap_or(Dimension::auto()),
+        //             };
+        //         }
+        //         LuaValue::Number(n) => {
+        //             style.size = Size {
+        //                 width: Dimension::from_length(n as f32),
+        //                 height: Dimension::from_length(n as f32),
+        //             };
+        //         }
+        //         _ => {
+        //             panic!("Unsupported LuaValue for size: {:?}", size);
+        //         }
+        //     }
+        // }
 
         // Justify
         // if let Some(justify) = self.get_prop("justify") {

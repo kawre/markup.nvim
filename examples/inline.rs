@@ -4,7 +4,7 @@ use markup::{node::Node, tree::Tree, *};
 fn main() {
     let mut tree = Tree::new();
 
-    let root = Node::new_from_kind_str("inline".to_string(), Style::DEFAULT);
+    let root = Node::new_from_kind_str("flex".to_string(), Style::DEFAULT);
     let node1 = Node::new_from_str("i'm inline");
     let node2 = Node::new_from_str("ffffffff");
     let node3 = Node::new_from_str("also");
@@ -29,7 +29,7 @@ fn main() {
         height: AvailableSpace::MIN_CONTENT,
     };
 
-    tree.compute_layout(root_id, available_space, true);
+    tree.compute_layout(root_id, available_space);
 
     tree.print_tree(root_id);
 }

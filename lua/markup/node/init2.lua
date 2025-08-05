@@ -4,15 +4,9 @@ local normalizer = require("markup.node.normalizer")
 
 ---@class Style
 ---@field display string
----@field item_is_table boolean
----@field item_is_replaced boolean
 ---@field box_sizing string
----@field overflow Point<string>
----@field scrollbar_width number
----@field position string
----@field inset Rect<LengthPercentageAuto>
----@field size Size<Dimension>
----@field min_size Size<Dimension>
+---@field width integer
+---@field height integer
 ---@field max_size Size<Dimension>
 ---@field aspect_ratio number|nil
 ---@field margin Rect<LengthPercentageAuto>

@@ -95,8 +95,6 @@ fn compute_inner(tree: &mut Tree, node_id: NodeId, inputs: LayoutInput) -> Layou
     perform_final_layout(tree, node_id, &items, available_space.width)
 }
 
-// struct
-
 fn perform_final_layout(
     tree: &mut Tree,
     node_id: NodeId,
@@ -119,6 +117,9 @@ fn perform_final_layout(
         width: builder.width() as f32,
         height: builder.height() as f32,
     };
+
+    let node = tree.node_from_id_mut(node_id);
+    node.computed_lines = Some(builder.finish());
 
     LayoutOutput {
         size: final_size,

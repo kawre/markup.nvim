@@ -3,7 +3,9 @@ use std::cell::RefCell;
 use std::iter::Sum;
 use std::rc::Rc;
 
-use crate::compute::{LayoutInlineContainer, TextContext, WritingMode, compute_inline_layout};
+use crate::compute::{
+    ComputedLine, LayoutInlineContainer, TextContext, WritingMode, compute_inline_layout,
+};
 use crate::node::{LuaNode, LuaProps, Node, NodeKind, node};
 use crate::tree::print::print_tree_to_string;
 
@@ -18,7 +20,7 @@ use taffy::{
 
 #[derive(Default)]
 pub struct Tree {
-    pub(super) nodes: Vec<Node>,
+    pub nodes: Vec<Node>,
 }
 
 impl Tree {
@@ -63,16 +65,9 @@ impl Tree {
         &mut self.nodes[usize::from(node_id)]
     }
 
-    pub fn compute_layout(
-        &mut self,
-        root: usize,
-        available_space: Size<AvailableSpace>,
-        use_rounding: bool,
-    ) {
+    pub fn compute_layout(&mut self, root: usize, available_space: Size<AvailableSpace>) {
         compute_root_layout(self, NodeId::from(root), available_space);
-        if use_rounding {
-            round_layout(self, NodeId::from(root))
-        }
+        round_layout(self, NodeId::from(root));
     }
 
     pub fn print_tree(&self, root: usize) {

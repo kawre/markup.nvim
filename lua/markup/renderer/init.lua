@@ -88,15 +88,18 @@ function M:rerender()
 	local e1 = Markup.util.benchmark(function()
 		self.rootf = Markup.reconciler(self.rootf)
 	end)
-	-- local e2 = Markup.util.benchmark(function()
-	-- 	self:reflow()
-	-- 	self:layout()
-	-- end)
-	-- local e3 = Markup.util.benchmark(function()
-	-- 	self:paint()
-	-- end)
 
-	-- self:track_stats(e1, e2, e3)
+	local win_width = vim.api.nvim_win_get_width(self.win.win)
+	local win_height = vim.api.nvim_win_get_height(self.win.win)
+	local final_layout
+	local e2 = Markup.util.benchmark(function()
+		final_layout = self.rootf.state_node:compute_layout(win_width, win_height)
+	end)
+	local e3 = Markup.util.benchmark(function()
+		self:paint(final_layout)
+	end)
+
+	self:track_stats(e1, e2, e3)
 
 	vim.api.nvim_exec_autocmds("User", { pattern = "MarkupRender" .. self.win.id })
 	M.current = nil
@@ -135,30 +138,30 @@ function M:layout()
 	self:render_root():layout({ available_width = vim.api.nvim_win_get_width(self.win.win) })
 end
 
-function M:paint()
+function M:paint(layout)
 	vim.api.nvim_buf_call(self.win.buf, function()
 		-- vim.api.nvim_buf_clear_namespace(0, self.ns, 0, -1)
 		-- vim.api.nvim_buf_clear_namespace(0, self.debug_ns, 0, -1)
 
-		local mbox = self:render_root():get_box_size("margin")
+		-- local mbox = self:render_root():get_box_size("margin")
+		--
+		-- self.lines = {}
+		-- for i = 1, mbox.height do
+		-- 	self.lines[i] = require("markup.renderer.line")()
+		-- end
+		--
+		-- self:traverse_and_paint(0, 0, self:render_root())
+		--
+		-- local lines = {}
+		-- for _, line in pairs(self.lines) do
+		-- 	lines[#lines + 1] = line:build(mbox.width)
+		-- end
 
-		self.lines = {}
-		for i = 1, mbox.height do
-			self.lines[i] = require("markup.renderer.line")()
-		end
+		vim.api.nvim_buf_set_lines(0, 0, -1, false, layout.lines)
 
-		self:traverse_and_paint(0, 0, self:render_root())
-
-		local lines = {}
-		for _, line in pairs(self.lines) do
-			lines[#lines + 1] = line:build(mbox.width)
-		end
-
-		vim.api.nvim_buf_set_lines(0, 0, -1, false, lines)
-
-		for y, line in pairs(self.lines) do
-			line:paint(y, self.ns)
-		end
+		-- for y, line in pairs(layout.lines) do
+		-- 	line:paint(y, self.ns)
+		-- end
 
 		vim.api.nvim__redraw({ buf = 0, flush = true })
 	end)

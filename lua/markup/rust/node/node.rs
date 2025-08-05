@@ -52,7 +52,7 @@ impl Default for Node {
 impl Node {
     pub fn new_from_kind_str(kind_str: String, style: Style) -> Node {
         match kind_str.as_str() {
-            "flexbox" => Node::new_column(style),
+            "flex" => Node::new_column(style),
             "grid" => Node::new_grid(style),
             "block" => Node::new_block(style),
             "inline" => Node::new_inline(style),

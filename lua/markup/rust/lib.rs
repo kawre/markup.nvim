@@ -19,6 +19,7 @@ fn markup_module(lua: &Lua) -> LuaResult<LuaTable> {
     let exports = lua.create_table()?;
 
     exports.set("create_dom", lua.create_function(create_dom)?)?;
+    // exports.set("create_lsx", lua.create_function(create_lsx)?)?;
 
     Ok(exports)
 }

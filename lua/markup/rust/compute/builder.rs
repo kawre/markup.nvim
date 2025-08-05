@@ -8,6 +8,7 @@ pub struct ComputedLineHighlight {
     pub col_start: usize,
     pub col_end: usize,
     pub highlight: String,
+    pub zindex: Option<usize>,
 }
 
 #[derive(Clone)]
@@ -57,6 +58,7 @@ impl ComputedLinesBuilder {
                 col_start: self.current_highlight_start,
                 col_end: self.current_line_width as usize,
                 highlight: self.current_highlight.clone().unwrap(),
+                zindex: None,
             });
             self.current_highlight = None;
         } else if chunk_highlight.is_some() {
@@ -70,6 +72,7 @@ impl ComputedLinesBuilder {
                     col_start: self.current_highlight_start,
                     col_end: self.current_line_width as usize,
                     highlight: self.current_highlight.clone().unwrap(),
+                    zindex: None,
                 });
                 self.current_highlight_start = self.current_line_width as usize;
                 self.current_highlight = Some(chunk_highlight.unwrap().clone());
@@ -87,6 +90,7 @@ impl ComputedLinesBuilder {
                     col_start: self.current_highlight_start,
                     col_end: self.current_line_width as usize,
                     highlight: self.current_highlight.clone().unwrap(),
+                    zindex: None,
                 });
             };
 
@@ -108,6 +112,27 @@ impl ComputedLinesBuilder {
 
         self.current_line_text += &text;
         self.max_line_width = self.max_line_width.max(self.current_line_width);
+    }
+
+    pub fn finish(mut self) -> Vec<ComputedLine> {
+        if !self.current_line_text.is_empty() {
+            if self.current_highlight.is_some() {
+                self.highlights.push(ComputedLineHighlight {
+                    col_start: self.current_highlight_start,
+                    col_end: self.current_line_width as usize,
+                    highlight: self.current_highlight.clone().unwrap(),
+                    zindex: None,
+                });
+            }
+
+            let computed_line = ComputedLine {
+                text: self.current_line_text,
+                display_width: self.current_line_width,
+                highlights: self.highlights,
+            };
+            self.items.push(computed_line);
+        }
+        self.items
     }
 
     pub fn width(&self) -> i32 {

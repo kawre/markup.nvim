@@ -4,9 +4,9 @@ use mlua::prelude::*;
 pub use node::*;
 pub use props::LuaProps;
 use std::{cell::RefCell, rc::Rc};
-use taffy::{AvailableSpace, Size};
+use taffy::{AvailableSpace, NodeId, PrintTree, Size, TraversePartialTree};
 
-use crate::tree::Tree;
+use crate::tree::{LineRenderer, Tree, renderer};
 
 #[derive(Clone)]
 pub struct LuaNode {
@@ -53,7 +53,7 @@ impl LuaUserData for LuaNode {
 
         methods.add_method_mut(
             "compute_layout",
-            |_, this, (available_width, available_height): (LuaInteger, LuaInteger)| {
+            |lua, this, (available_width, available_height): (LuaInteger, LuaInteger)| {
                 let mut tree = this.tree.borrow_mut();
 
                 tree.compute_layout(
@@ -62,10 +62,16 @@ impl LuaUserData for LuaNode {
                         width: AvailableSpace::from(available_width as f32),
                         height: AvailableSpace::from(available_height as f32),
                     },
-                    true,
                 );
 
-                Ok(())
+                let mut renderer = LineRenderer::new(available_width as usize);
+                let (lines, highlights) = renderer.render(&tree, NodeId::from(this.node_id));
+
+                let result = lua.create_table()?;
+                result.set("lines", lines)?;
+                result.set("extmarks", highlights)?;
+
+                Ok(result)
             },
         );
 
