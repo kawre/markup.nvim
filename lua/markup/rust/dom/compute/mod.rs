@@ -3,9 +3,10 @@ mod inline;
 
 pub use builder::*;
 pub use inline::*;
-use taffy::{LayoutPartialTree, NodeId};
 
-use crate::style::{InlineContainerStyle, InlineItemStyle};
+use crate::prelude::*;
+
+use taffy::{LayoutPartialTree, NodeId};
 
 pub trait LayoutInlineContainer: LayoutPartialTree {
     /// The style type representing the text container's styles

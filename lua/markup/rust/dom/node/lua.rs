@@ -1,21 +1,16 @@
-pub mod node;
-mod props;
+use crate::prelude::*;
 use mlua::prelude::*;
-pub use node::*;
-pub use props::LuaProps;
 use std::{cell::RefCell, rc::Rc};
-use taffy::{AvailableSpace, NodeId, PrintTree, Size, TraversePartialTree};
-
-use crate::tree::{LineRenderer, Tree, renderer};
+use taffy::prelude::*;
 
 #[derive(Clone)]
 pub struct LuaNode {
-    tree: Rc<RefCell<Tree>>,
+    tree: Rc<RefCell<Dom>>,
     node_id: usize,
 }
 
 impl LuaNode {
-    pub fn new(tree: Rc<RefCell<Tree>>, node_id: usize) -> Self {
+    pub fn new(tree: Rc<RefCell<Dom>>, node_id: usize) -> Self {
         LuaNode { tree, node_id }
     }
 }

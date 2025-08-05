@@ -1,14 +1,14 @@
 use taffy::{NodeId, PrintTree, TraversePartialTree};
 
-use crate::{node::NodeKind, tree::Tree};
+use crate::prelude::*;
 
-pub fn print_tree_to_string(tree: &Tree, root: NodeId) -> String {
+pub fn print_tree_to_string(tree: &Dom, root: NodeId) -> String {
     let mut output = String::new();
     output.push_str("TREE\n");
     print_node(tree, root, false, String::new(), &mut output);
 
     fn print_node(
-        tree: &Tree,
+        tree: &Dom,
         node_id: NodeId,
         has_sibling: bool,
         lines_string: String,

@@ -1,31 +1,37 @@
-use crate::tree::traits::LayoutPartialTreeExt;
-use std::cell::RefCell;
-use std::iter::Sum;
-use std::rc::Rc;
+mod compute;
+mod lua;
+mod node;
+mod print;
+mod renderer;
+mod style;
+mod traits;
 
-use crate::compute::{
-    ComputedLine, LayoutInlineContainer, TextContext, WritingMode, compute_inline_layout,
-};
-use crate::node::{LuaNode, LuaProps, Node, NodeKind, node};
-use crate::tree::print::print_tree_to_string;
+pub use compute::*;
+pub use lua::*;
+pub use node::*;
+pub use print::*;
+pub use renderer::*;
+pub use style::*;
+pub use traits::*;
 
+use crate::prelude::*;
 use mlua::prelude::*;
+use taffy::Style;
 use taffy::util::print_tree;
 use taffy::{
-    AbsoluteAxis, Cache, CacheTree, CollapsibleMarginSet, LayoutInput, LayoutOutput, Point,
-    RequestedAxis, RunMode, SizingMode, compute_block_layout, compute_cached_layout,
-    compute_flexbox_layout, compute_grid_layout, compute_leaf_layout, compute_root_layout,
-    prelude::*, round_layout,
+    AbsoluteAxis, CacheTree, LayoutInput, LayoutOutput, RequestedAxis, RunMode, SizingMode,
+    compute_block_layout, compute_cached_layout, compute_flexbox_layout, compute_grid_layout,
+    compute_root_layout, prelude::*, round_layout,
 };
 
 #[derive(Default)]
-pub struct Tree {
+pub struct Dom {
     pub nodes: Vec<Node>,
 }
 
-impl Tree {
-    pub fn new() -> Tree {
-        Tree { nodes: Vec::new() }
+impl Dom {
+    pub fn new() -> Dom {
+        Dom { nodes: Vec::new() }
     }
 
     pub fn add_node(&mut self, node: Node) -> usize {
@@ -138,7 +144,7 @@ impl Tree {
     }
 }
 
-impl taffy::LayoutBlockContainer for Tree {
+impl taffy::LayoutBlockContainer for Dom {
     type BlockContainerStyle<'a> = &'a Style;
     type BlockItemStyle<'a> = &'a Style;
 
@@ -151,7 +157,7 @@ impl taffy::LayoutBlockContainer for Tree {
     }
 }
 
-impl taffy::RoundTree for Tree {
+impl taffy::RoundTree for Dom {
     fn get_unrounded_layout(&self, node_id: NodeId) -> &Layout {
         &self.node_from_id(node_id).unrounded_layout
     }
@@ -161,7 +167,7 @@ impl taffy::RoundTree for Tree {
     }
 }
 
-impl taffy::PrintTree for Tree {
+impl taffy::PrintTree for Dom {
     fn get_debug_label(&self, node_id: NodeId) -> &'static str {
         let node = self.node_from_id(node_id);
         match node.kind {
@@ -187,7 +193,7 @@ impl Iterator for ChildIter<'_> {
     }
 }
 
-impl taffy::TraversePartialTree for Tree {
+impl taffy::TraversePartialTree for Dom {
     type ChildIter<'a> = ChildIter<'a>;
 
     fn child_ids(&self, node_id: NodeId) -> Self::ChildIter<'_> {
@@ -203,7 +209,7 @@ impl taffy::TraversePartialTree for Tree {
     }
 }
 
-impl CacheTree for Tree {
+impl CacheTree for Dom {
     fn cache_get(
         &self,
         node_id: NodeId,
@@ -237,7 +243,7 @@ impl CacheTree for Tree {
     }
 }
 
-impl taffy::LayoutFlexboxContainer for Tree {
+impl taffy::LayoutFlexboxContainer for Dom {
     type FlexboxContainerStyle<'a>
         = &'a Style
     where
@@ -257,7 +263,7 @@ impl taffy::LayoutFlexboxContainer for Tree {
     }
 }
 
-impl taffy::LayoutGridContainer for Tree {
+impl taffy::LayoutGridContainer for Dom {
     type GridContainerStyle<'a>
         = &'a Style
     where
@@ -277,7 +283,7 @@ impl taffy::LayoutGridContainer for Tree {
     }
 }
 
-impl LayoutInlineContainer for Tree {
+impl LayoutInlineContainer for Dom {
     type TextContainerStyle<'a>
         = &'a Style
     where
@@ -297,9 +303,9 @@ impl LayoutInlineContainer for Tree {
     }
 }
 
-impl taffy::TraverseTree for Tree {}
+impl taffy::TraverseTree for Dom {}
 
-impl taffy::LayoutPartialTree for Tree {
+impl taffy::LayoutPartialTree for Dom {
     // type CustomIdent = String;
 
     type CoreContainerStyle<'a>

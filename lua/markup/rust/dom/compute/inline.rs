@@ -1,9 +1,4 @@
-use crate::{
-    compute::{LayoutInlineContainer, builder::ComputedLinesBuilder},
-    node::{Node, NodeKind},
-    style::{InlineContainerStyle, InlineItemStyle},
-    tree::{LayoutPartialTreeExt, Tree, tree},
-};
+use crate::prelude::*;
 
 use taffy::{
     AbsoluteAxis, BoxGenerationMode, BoxSizing, CollapsibleMarginSet, CoreStyle, Layout,
@@ -44,7 +39,7 @@ pub struct InlineItem {
 
 /// Computes the layout of [`LayoutPartialTree`] according to the block layout algorithm
 pub fn compute_inline_layout(
-    tree: &mut Tree,
+    tree: &mut Dom,
     node_id: NodeId,
     inputs: LayoutInput,
 ) -> LayoutOutput {
@@ -67,7 +62,7 @@ pub fn compute_inline_layout(
     compute_inner(tree, node_id, inputs)
 }
 
-fn compute_inner(tree: &mut Tree, node_id: NodeId, inputs: LayoutInput) -> LayoutOutput {
+fn compute_inner(tree: &mut Dom, node_id: NodeId, inputs: LayoutInput) -> LayoutOutput {
     let LayoutInput {
         available_space,
         run_mode,
@@ -96,7 +91,7 @@ fn compute_inner(tree: &mut Tree, node_id: NodeId, inputs: LayoutInput) -> Layou
 }
 
 fn perform_final_layout(
-    tree: &mut Tree,
+    tree: &mut Dom,
     node_id: NodeId,
     items: &[InlineItem],
     available_width: AvailableSpace,
@@ -132,9 +127,9 @@ fn perform_final_layout(
 }
 
 #[inline]
-fn generate_item_list(tree: &Tree, node_id: NodeId) -> Vec<InlineItem> {
+fn generate_item_list(tree: &Dom, node_id: NodeId) -> Vec<InlineItem> {
     fn gather_inline_items(
-        tree: &Tree,
+        tree: &Dom,
         node_id: NodeId,
         inherited_highlight: Option<String>,
     ) -> Vec<InlineItem> {

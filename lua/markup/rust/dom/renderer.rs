@@ -1,13 +1,7 @@
-use std::collections::BTreeMap;
-
+use crate::prelude::*;
 use mlua::prelude::*;
+use std::collections::BTreeMap;
 use taffy::{NodeId, TraversePartialTree};
-
-use crate::{
-    compute::{ComputedLine, ComputedLineHighlight, ComputedLinesBuilder},
-    node::NodeKind,
-    tree::Tree,
-};
 
 pub struct HighlightRange {
     col_start: usize,
@@ -66,7 +60,7 @@ impl<'a> LineRenderer<'a> {
         }
     }
 
-    fn traverse_tree(&mut self, tree: &'a Tree, node_id: NodeId, zindex: usize) {
+    fn traverse_tree(&mut self, tree: &'a Dom, node_id: NodeId, zindex: usize) {
         let node = tree.node_from_id(node_id);
 
         match node.kind {
@@ -92,7 +86,7 @@ impl<'a> LineRenderer<'a> {
 
     pub fn render(
         &mut self,
-        tree: &'a Tree,
+        tree: &'a Dom,
         root_id: NodeId,
     ) -> (Vec<String>, Vec<HighlightRange>) {
         self.traverse_tree(tree, root_id, 1);

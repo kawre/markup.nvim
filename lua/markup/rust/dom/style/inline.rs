@@ -1,6 +1,6 @@
 //! Style types for Block layout
 
-use taffy::{CoreStyle, Style};
+use taffy::CoreStyle;
 
 pub enum TextHighlight {
     Inherit,

@@ -11,3 +11,4 @@ crate-type = ["rlib", "cdylib"]
 taffy = { version = "0.8.3", features = ["content_size", "serde"] }
 serde = { version = "1.0.216", features = ["derive"] }
 mlua = { version = "0.11.1", features = ["module", "luajit", "serialize"] }
+bitflags = "2.9.1"

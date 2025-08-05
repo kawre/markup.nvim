@@ -1,7 +1,4 @@
-use crate::{
-    compute::{InlineItem, TextChunk},
-    node::Node,
-};
+use crate::prelude::*;
 
 #[derive(Clone)]
 pub struct ComputedLineHighlight {
