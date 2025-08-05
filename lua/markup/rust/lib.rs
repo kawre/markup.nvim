@@ -1,7 +1,7 @@
-mod compute;
-mod node;
-mod style;
-mod tree;
+pub mod compute;
+pub mod node;
+pub mod style;
+pub mod tree;
 
 use crate::tree::{LuaTree, Tree};
 use mlua::prelude::*;

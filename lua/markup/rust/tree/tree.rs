@@ -330,43 +330,44 @@ impl taffy::LayoutPartialTree for Tree {
         inputs: taffy::tree::LayoutInput,
     ) -> taffy::tree::LayoutOutput {
         compute_cached_layout(self, node_id, inputs, |tree, node_id, inputs| {
-            let node = &mut tree.nodes[usize::from(node_id)];
+            let node = tree.node_from_id_mut(node_id);
 
             match node.kind {
                 NodeKind::Flexbox => compute_flexbox_layout(tree, node_id, inputs),
                 NodeKind::Grid => compute_grid_layout(tree, node_id, inputs),
                 NodeKind::Block => compute_block_layout(tree, node_id, inputs),
                 NodeKind::Inline => compute_inline_layout(tree, node_id, inputs),
-                NodeKind::Text => {
-                    let text_data = node.text_data.as_mut().unwrap();
-                    let chunks = &text_data.chunks;
-
-                    let final_width = chunks.iter().map(|c| c.display_width).sum::<f32>()
-                        + (chunks.len().saturating_sub(1)) as f32;
-
-                    let final_str = chunks
-                        .iter()
-                        .map(|c| c.text_content.to_string())
-                        .collect::<Vec<_>>()
-                        .join(" ");
-
-                    text_data.computed_text_content = Some(final_str);
-                    text_data.computed_display_width = Some(final_width);
-
-                    let final_size = Size {
-                        width: final_width,
-                        height: 1.0,
-                    };
-
-                    LayoutOutput {
-                        size: final_size,
-                        content_size: final_size,
-                        top_margin: CollapsibleMarginSet::ZERO,
-                        bottom_margin: CollapsibleMarginSet::ZERO,
-                        first_baselines: Point::NONE,
-                        margins_can_collapse_through: false,
-                    }
-                }
+                _ => panic!("not allowed"),
+                // NodeKind::Text => {
+                //     let text_data = node.text_data.as_mut().unwrap();
+                //     let chunks = &text_data.chunks;
+                //
+                //     let final_str = chunks
+                //         .iter()
+                //         .map(|c| c.text_content.to_string())
+                //         .collect::<Vec<_>>()
+                //         .join(" ");
+                //
+                //     let final_width = chunks.iter().map(|c| c.display_width).sum::<f32>()
+                //         + (chunks.len().saturating_sub(1)) as f32;
+                //
+                //     text_data.computed_text_content = Some(final_str);
+                //     text_data.computed_display_width = Some(final_width);
+                //
+                //     let final_size = Size {
+                //         width: final_width,
+                //         height: 1.0, // delegate wrapping to the inline parent
+                //     };
+                //
+                //     LayoutOutput {
+                //         size: final_size,
+                //         content_size: final_size,
+                //         top_margin: CollapsibleMarginSet::ZERO,
+                //         bottom_margin: CollapsibleMarginSet::ZERO,
+                //         first_baselines: Point::NONE,
+                //         margins_can_collapse_through: false,
+                //     }
+                // }
             }
         })
     }

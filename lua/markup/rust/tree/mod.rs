@@ -30,7 +30,10 @@ impl LuaUserData for LuaTree {
                 let lua_props = LuaProps::new(props_table);
 
                 let style: Style = lua_props.to_style();
-                let node = Node::new_from_kind_str(kind_str, style);
+                let mut node = Node::new_from_kind_str(kind_str, style);
+                if let Some(highlight) = lua_props.get_prop("highlight") {
+                    node.highlight = highlight.to_string().ok();
+                }
                 let node_id = this.0.borrow_mut().add_node(node);
 
                 let lua_node = LuaNode::new(this.0.clone(), node_id);
@@ -44,10 +47,10 @@ impl LuaUserData for LuaTree {
                 .map(|pair| {
                     let chunk = pair?;
                     let text: String = chunk.get("chunk")?;
-                    let width: i64 = chunk.get("display_width")?;
+                    let width: i32 = chunk.get("display_width")?;
                     Ok(TextChunk {
                         text_content: text,
-                        display_width: width as f32,
+                        display_width: width,
                     })
                 })
                 .collect::<LuaResult<Vec<TextChunk>>>()?;
@@ -55,8 +58,6 @@ impl LuaUserData for LuaTree {
             let node = Node::new_text(TextContext {
                 chunks,
                 writing_mode: WritingMode::Horizontal,
-                computed_text_content: None,
-                computed_display_width: None,
             });
             let node_id = this.0.borrow_mut().add_node(node);
 

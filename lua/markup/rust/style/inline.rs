@@ -2,6 +2,10 @@
 
 use taffy::{CoreStyle, Style};
 
+pub enum TextHighlight {
+    Inherit,
+}
+
 /// The set of styles required for a Block layout container
 pub trait InlineContainerStyle: CoreStyle {
     /// Defines buffer highlighting for the container.

@@ -17,18 +17,7 @@ pub fn print_tree_to_string(tree: &Tree, root: NodeId) -> String {
         let layout = &tree.get_final_layout(node_id);
         let num_children = tree.child_count(node_id);
         let node = tree.node_from_id(node_id);
-        let display = match node.kind {
-            NodeKind::Text => format!(
-                "#[{}]",
-                node.text_data
-                    .as_ref()
-                    .unwrap()
-                    .computed_text_content
-                    .as_deref()
-                    .unwrap_or("empty")
-            ),
-            _ => tree.get_debug_label(node_id).to_string(),
-        };
+        let display = tree.get_debug_label(node_id).to_string();
 
         let fork_string = if has_sibling { "├╴" } else { "└╴" };
 
@@ -76,7 +65,7 @@ pub fn print_tree_to_string(tree: &Tree, root: NodeId) -> String {
             );
         }
 
-        let bar = if has_sibling { " │" } else { "  " };
+        let bar = if has_sibling { "│ " } else { "  " };
         let new_string = lines_string + bar;
 
         for (index, child) in tree.child_ids(node_id).enumerate() {

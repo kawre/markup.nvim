@@ -1,7 +1,9 @@
+mod builder;
 mod inline;
 
-use taffy::{LayoutPartialTree, NodeId};
+pub use builder::*;
 pub use inline::*;
+use taffy::{LayoutPartialTree, NodeId};
 
 use crate::style::{InlineContainerStyle, InlineItemStyle};
 

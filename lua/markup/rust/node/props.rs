@@ -135,18 +135,6 @@ impl LuaProps {
     pub fn to_style(&self) -> Style {
         let mut style = Style::default();
 
-        // // Display
-        // if let Ok(display) = self.get_prop("display") {
-        //     if let LuaValue::String(s) = display {
-        //         style.display = match s.to_str().unwrap() {
-        //             "flex" => taffy::style::Display::Flex,
-        //             "block" => taffy::style::Display::Block,
-        //             "grid" => taffy::style::Display::Grid,
-        //             _ => taffy::style::Display::None,
-        //         };
-        //     }
-        // }
-
         // Margin
         if let Some(margin) = self.get_prop("margin") {
             style.margin = expand_lua_rect(margin);
