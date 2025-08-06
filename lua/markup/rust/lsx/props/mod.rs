@@ -4,7 +4,6 @@ pub use lua::*;
 
 use crate::prelude::*;
 use mlua::prelude::*;
-use std::rc::Rc;
 
 #[derive(Debug, Clone, Default)]
 pub struct ElementProps {
@@ -15,8 +14,8 @@ pub struct ElementProps {
 impl From<String> for ElementProps {
     fn from(text: String) -> Self {
         ElementProps {
-            base: None,
             children: ElementChildren::Text(text),
+            ..Default::default()
         }
     }
 }
@@ -32,7 +31,7 @@ pub enum ElementChildren {
 #[derive(Debug, Clone)]
 pub enum ElementChild {
     Text(String),
-    Element(Rc<Element>),
+    Element(ElementRef),
     Table(LuaTable),
 }
 

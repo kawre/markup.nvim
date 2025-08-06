@@ -25,6 +25,15 @@ pub fn create_element(
     Ok(LuaElement::new(lsx))
 }
 
+// pub fn reconcile(
+//     lua: &Lua,
+//     (fiber_root): (LuaDom, LuaElement, LuaElement),
+// ) -> LuaResult<LuaTable> {
+//     let reconciler = Reconciler::new(lua, dom.0.clone());
+//     let result = reconciler.reconcile(old_root.0.clone(), new_root.0.clone())?;
+//     Ok(result)
+// }
+
 // pub fn create_text_node(_: &Lua, text: String) -> LuaResult<LuaElement> {
 //     let text_node = Element::new()
 //     Ok(LuaTextNode::new(text_node))
@@ -38,6 +47,7 @@ fn markup_module(lua: &Lua) -> LuaResult<LuaTable> {
 
     exports.set("create_dom", lua.create_function(create_dom)?)?;
     exports.set("create_lsx", lua.create_function(create_element)?)?;
+    // exports.set("reconcile", lua.create_function(reconcile)?)?;
 
     Ok(exports)
 }

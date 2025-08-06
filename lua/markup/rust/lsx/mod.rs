@@ -2,14 +2,14 @@ mod lua;
 mod props;
 
 use core::fmt;
-use std::rc::Rc;
+use std::{default, rc::Rc};
 
 pub use lua::*;
 pub use props::*;
 
 use mlua::prelude::*;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct Element {
     pub kind: ElementKind,
     pub props: ElementProps,
@@ -40,11 +40,12 @@ impl From<String> for Element {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub enum ElementKind {
     Element(String),
     Component(LuaFunction),
     Fragment(LuaTable),
+    #[default]
     Text,
 }
 

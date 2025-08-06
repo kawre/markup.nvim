@@ -25,7 +25,10 @@ fn main() -> LuaResult<()> {
         )
         .eval()?;
 
-    print!("Result: {:?}", res);
+    let fiber = Fiber::from(&res);
+    let fiber_ref = fiber.into_ref();
+    reconcile(fiber_ref.clone());
+    fiber_ref.borrow().print_tree();
 
     Ok(())
 }
