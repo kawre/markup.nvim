@@ -43,8 +43,6 @@ pub struct LuaProps {
     pub justify_content: Option<String>,
 }
 
-// impl LuaUserData for LuaProps {}
-
 #[derive(Debug, Clone)]
 pub struct LuaBoxSizing(BoxSizing);
 
@@ -120,31 +118,40 @@ impl FromLua for LuaDisplay {
     }
 }
 
+// pub struct LuaPropsChildren(Vec<LuaPropsChild>);
 #[derive(Debug, Clone)]
-pub struct LuaPropsChildren(Vec<LuaPropsChild>);
+pub enum LuaPropsChildren {
+    Text(String),
+    Sequence(Vec<LuaPropsChild>),
+    Empty,
+}
 
 impl FromLua for LuaPropsChildren {
     fn from_lua(value: LuaValue, lua: &Lua) -> LuaResult<Self> {
         match value {
-            LuaValue::Table(tbl) => {
-                // check if array-like (sequence)
-                if tbl.clone().len()? > 0 {
-                    let mut children = Vec::new();
-                    for val in tbl.sequence_values::<LuaValue>() {
-                        let val = val?;
-                        let child = LuaPropsChild::from_lua(val, lua)?;
-                        children.push(child);
-                    }
-                    Ok(LuaPropsChildren(children))
-                } else {
-                    // empty table? treat as empty children list
-                    Ok(LuaPropsChildren(Vec::new()))
-                }
+            LuaValue::Table(t) => {
+                let children = t
+                    .pairs::<LuaValue, LuaPropsChild>()
+                    .filter_map(|res| {
+                        match res {
+                            Ok((LuaValue::Integer(_), LuaPropsChild::Empty)) => None, // skip empty
+                            Ok((LuaValue::Integer(_), child)) => Some(Ok(child)),
+                            Ok(_) => None, // skip non-integer keys
+                            Err(e) => Some(Err(e)),
+                        }
+                    })
+                    .collect::<LuaResult<Vec<_>>>()?;
+
+                Ok(LuaPropsChildren::Sequence(children))
             }
+            LuaValue::String(s) => Ok(LuaPropsChildren::Text(s.to_str()?.to_string())),
+            LuaValue::Integer(i) => Ok(LuaPropsChildren::Text(i.to_string())),
+            LuaValue::Number(n) => Ok(LuaPropsChildren::Text(n.to_string())),
+            LuaValue::Boolean(true) => Ok(LuaPropsChildren::Text("true".to_string())),
+            LuaValue::Boolean(false) | LuaValue::Nil => Ok(LuaPropsChildren::Empty),
             _ => {
-                // single child
                 let child = LuaPropsChild::from_lua(value, lua)?;
-                Ok(LuaPropsChildren(vec![child]))
+                Ok(LuaPropsChildren::Sequence(vec![child]))
             }
         }
     }
@@ -153,16 +160,20 @@ impl FromLua for LuaPropsChildren {
 #[derive(Debug, Clone)]
 pub enum LuaPropsChild {
     Text(String),
-    Number(i64),
+    Table(LuaTable),
     Lsx(LuaLsx),
+    Empty,
 }
 
 impl FromLua for LuaPropsChild {
     fn from_lua(value: LuaValue, _: &Lua) -> LuaResult<Self> {
         match value {
             LuaValue::String(s) => Ok(LuaPropsChild::Text(s.to_str()?.to_string())),
-            LuaValue::Integer(i) => Ok(LuaPropsChild::Number(i)),
-            LuaValue::Number(n) => Ok(LuaPropsChild::Number(n as i64)),
+            LuaValue::Integer(i) => Ok(LuaPropsChild::Text(i.to_string())),
+            LuaValue::Number(n) => Ok(LuaPropsChild::Text(n.to_string())),
+            LuaValue::Boolean(true) => Ok(LuaPropsChild::Text("true".to_string())),
+            LuaValue::Boolean(false) | LuaValue::Nil => Ok(LuaPropsChild::Empty),
+            LuaValue::Table(t) => Ok(LuaPropsChild::Table(t)),
             LuaValue::UserData(ud) => {
                 if let Ok(lsx_ref) = ud.borrow::<LuaLsx>() {
                     Ok(LuaPropsChild::Lsx(lsx_ref.clone()))
@@ -220,7 +231,6 @@ impl FromLua for LuaProps {
 
 impl PartialEq for LuaProps {
     fn eq(&self, other: &Self) -> bool {
-        // Compare the Lua table pointers for identity
         self.base.to_pointer() == other.base.to_pointer()
     }
 }

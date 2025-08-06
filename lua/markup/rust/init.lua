@@ -14,9 +14,9 @@ local function get_lib_extension()
 	return ".so"
 end
 
--- package.cpath = package.cpath
--- 	.. ";/home/kawre/projects/markup.nvim/target/release/libmarkup"
--- 	.. get_lib_extension()
+package.cpath = package.cpath
+	.. ";/home/kawre/projects/markup.nvim/target/release/libmarkup"
+	.. get_lib_extension()
 -- .. ";"
 -- .. debug.getinfo(1).source:match("@?(.*/)")
 -- .. "../../../../../target/release/lib?"
@@ -26,4 +26,4 @@ end
 -- .. "../../../../../target/release/?"
 -- .. get_lib_extension()
 
--- return require("markup_module")
+return require("markup_module")

@@ -12,6 +12,18 @@ pub struct Lsx {
     pub props: Option<LuaProps>,
 }
 
+impl Lsx {
+    pub fn new(kind: LsxKind, props: Option<LuaProps>) -> Self {
+        Lsx { kind, props }
+    }
+}
+
+impl From<LuaLsx> for Lsx {
+    fn from(lua_lsx: LuaLsx) -> Self {
+        (*lua_lsx.0).clone()
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum LsxKind {
     Element(LuaLsx),
@@ -23,12 +35,6 @@ pub enum LsxKind {
 impl Default for LsxKind {
     fn default() -> Self {
         LsxKind::Text(String::new())
-    }
-}
-
-impl Lsx {
-    pub fn new(kind: LsxKind, props: Option<LuaProps>) -> Self {
-        Lsx { kind, props }
     }
 }
 

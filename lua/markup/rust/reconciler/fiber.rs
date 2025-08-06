@@ -23,6 +23,7 @@ pub enum FiberTag {
     Context,
 }
 
+#[derive(Clone, PartialEq)]
 pub enum FiberType {
     HostComponent,
     HostText,
@@ -34,9 +35,7 @@ pub enum FiberType {
 }
 
 pub type FiberRef = Rc<RefCell<Fiber>>;
-
 pub type FiberProps = Rc<LuaProps>;
-
 pub type FiberStateNode = Rc<Node>;
 
 pub struct Fiber {
@@ -73,6 +72,10 @@ impl Fiber {
     pub fn new_root(lsx: Rc<Lsx>) -> Self {
         let root_fiber = Fiber::new(FiberTag::Root, None);
         root_fiber
+    }
+
+    pub fn into_ref(self) -> FiberRef {
+        Rc::new(RefCell::new(self))
     }
 
     pub fn set_flags(&mut self, flags: Flag) {
@@ -118,6 +121,18 @@ impl Fiber {
 
             wip_ref
         }
+    }
+}
+
+impl From<Lsx> for Fiber {
+    fn from(lsx: Lsx) -> Self {
+        Fiber::new(FiberTag::Element, None)
+    }
+}
+
+impl From<LuaLsx> for Fiber {
+    fn from(lua_lsx: LuaLsx) -> Self {
+        Fiber::from(Lsx::from(lua_lsx))
     }
 }
 

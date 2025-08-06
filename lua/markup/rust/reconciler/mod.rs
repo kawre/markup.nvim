@@ -2,7 +2,7 @@ mod fiber;
 
 pub use fiber::*;
 
-use crate::prelude::*;
+use crate::{dom, prelude::*};
 use std::{cell::RefCell, collections::HashSet, rc::Rc};
 
 #[derive(Default)]
@@ -131,15 +131,40 @@ fn update_element_component(
     rec: &mut Reconciler,
     current: Option<&FiberRef>,
     work_in_progress: &FiberRef,
-) -> FiberRef {
-    todo!()
+) -> Option<FiberRef> {
+    let mut wip_borrow = work_in_progress.borrow_mut();
+
+    let next_props = wip_borrow.pending_props.clone();
+    let next_children = next_props.and_then(|p| p.children.clone());
+
+    match current {
+        None => wip_borrow.set_flags(Flag::PLACEMENT),
+        Some(curr) => {
+            let curr_borrow = curr.borrow();
+            if wip_borrow.state_node.is_some()
+                && curr_borrow.memoized_props != wip_borrow.pending_props
+            {
+                wip_borrow.set_flags(Flag::UPDATE);
+            }
+        }
+    };
+
+    drop(wip_borrow);
+
+    if let Some(LuaPropsChildren::Text(_)) = next_children {
+        reconcile_child_fibers(rec, current, work_in_progress, None);
+    } else {
+        reconcile_child_fibers(rec, current, work_in_progress, next_children);
+    }
+
+    work_in_progress.borrow().child.clone()
 }
 
 fn update_text_component(
     rec: &mut Reconciler,
     current: Option<&FiberRef>,
     work_in_progress: &FiberRef,
-) -> FiberRef {
+) -> Option<FiberRef> {
     todo!()
 }
 
@@ -147,7 +172,7 @@ fn update_function_component(
     rec: &mut Reconciler,
     current: Option<&FiberRef>,
     work_in_progress: &FiberRef,
-) -> FiberRef {
+) -> Option<FiberRef> {
     todo!()
 }
 
@@ -155,7 +180,7 @@ fn update_root_component(
     rec: &mut Reconciler,
     current: Option<&FiberRef>,
     work_in_progress: &FiberRef,
-) -> FiberRef {
+) -> Option<FiberRef> {
     todo!()
 }
 
@@ -163,7 +188,7 @@ fn update_context_component(
     rec: &mut Reconciler,
     current: Option<&FiberRef>,
     work_in_progress: &FiberRef,
-) -> FiberRef {
+) -> Option<FiberRef> {
     todo!()
 }
 
@@ -171,7 +196,7 @@ fn update_fragment_component(
     rec: &mut Reconciler,
     current: Option<&FiberRef>,
     work_in_progress: &FiberRef,
-) -> FiberRef {
+) -> Option<FiberRef> {
     todo!()
 }
 
@@ -225,5 +250,33 @@ fn clone_child_fibers(current: Option<&FiberRef>, work_in_progress: &FiberRef) {
             new_child_iter.borrow_mut().sibling = None;
             break;
         }
+    }
+}
+
+fn reconcile_child_fibers(
+    rec: &mut Reconciler,
+    current: Option<&FiberRef>,
+    work_in_progress: &FiberRef,
+    next_children: Option<LuaPropsChildren>,
+) -> FiberRef {
+    todo!()
+}
+
+fn delete_child(return_fiber: &FiberRef, child: &FiberRef) {
+    let mut returnf_borrow_mut = return_fiber.borrow_mut();
+    let deletions = returnf_borrow_mut.deletions.as_mut();
+
+    if let Some(deletions) = deletions {
+        deletions.push(child.clone());
+        returnf_borrow_mut.set_flags(Flag::CHILD_DELETE);
+    } else {
+        returnf_borrow_mut.deletions = Some(vec![child.clone()]);
+    }
+}
+
+fn delete_remaining_children(return_fiber: &FiberRef, mut current_first_child: Option<FiberRef>) {
+    while let Some(child) = current_first_child {
+        delete_child(return_fiber, &child);
+        current_first_child = child.borrow().sibling.clone();
     }
 }

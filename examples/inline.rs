@@ -1,8 +1,8 @@
-use markup::compute::TextContext;
-use markup::{node::Node, tree::Tree, *};
+use markup::prelude::*;
+use taffy::prelude::*;
 
 fn main() {
-    let mut tree = Tree::new();
+    let mut tree = Dom::new();
 
     let root = Node::new_from_kind_str("flex".to_string(), Style::DEFAULT);
     let node1 = Node::new_from_str("i'm inline");
