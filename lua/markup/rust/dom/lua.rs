@@ -10,7 +10,7 @@ impl LuaUserData for LuaDom {
     fn add_methods<M: mlua::UserDataMethods<Self>>(methods: &mut M) {
         methods.add_method_mut(
             "create_element",
-            |lua, this, (kind_str, props): (String, Option<LuaProps>)| {
+            |lua, this, (kind_str, props): (String, Option<ElementProps>)| {
                 // let style: Style = props.to_style();
                 let node = Node::new_from_kind_str(
                     kind_str,

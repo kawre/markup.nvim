@@ -1,66 +1,60 @@
 mod lua;
 mod props;
 
+use core::fmt;
+use std::rc::Rc;
+
 pub use lua::*;
 pub use props::*;
 
 use mlua::prelude::*;
 
-#[derive(Debug, Clone, Default)]
-pub struct Lsx {
-    pub kind: LsxKind,
-    pub props: Option<LuaProps>,
+#[derive(Debug, Clone)]
+pub struct Element {
+    pub kind: ElementKind,
+    pub props: ElementProps,
+    pub key: Option<String>,
 }
 
-impl Lsx {
-    pub fn new(kind: LsxKind, props: Option<LuaProps>) -> Self {
-        Lsx { kind, props }
+pub type ElementRef = Rc<Element>;
+
+impl Element {
+    pub fn new(kind: ElementKind, props: ElementProps, key: Option<String>) -> Self {
+        Element { kind, props, key }
     }
 }
 
-impl From<LuaLsx> for Lsx {
-    fn from(lua_lsx: LuaLsx) -> Self {
+impl From<LuaElement> for Element {
+    fn from(lua_lsx: LuaElement) -> Self {
         (*lua_lsx.0).clone()
     }
 }
 
-#[derive(Debug, Clone)]
-pub enum LsxKind {
-    Element(LuaLsx),
-    Text(String),
-    Component(LuaFunction),
-    // Fragment(LuaTable),
-}
-
-impl Default for LsxKind {
-    fn default() -> Self {
-        LsxKind::Text(String::new())
-    }
-}
-
-impl FromLua for LsxKind {
-    fn from_lua(value: LuaValue, _: &Lua) -> LuaResult<Self> {
-        match value {
-            LuaValue::Function(f) => Ok(LsxKind::Component(f)),
-            LuaValue::String(s) => Ok(LsxKind::Text(s.to_str()?.to_string())),
-            LuaValue::UserData(ud) => {
-                if let Ok(lsx_ref) = ud.borrow::<LuaLsx>() {
-                    Ok(LsxKind::Element(lsx_ref.clone()))
-                } else {
-                    Err(LuaError::external("Expected LuaLsx user data"))
-                }
-            }
-            _ => Err(LuaError::external("Invalid LsxKind type")),
+impl From<String> for Element {
+    fn from(text: String) -> Self {
+        Element {
+            kind: ElementKind::Text,
+            props: ElementProps::from(text),
+            key: None,
         }
     }
 }
 
-impl IntoLua for LsxKind {
-    fn into_lua(self, lua: &Lua) -> LuaResult<LuaValue> {
+#[derive(Debug, Clone)]
+pub enum ElementKind {
+    Element(String),
+    Component(LuaFunction),
+    Fragment(LuaTable),
+    Text,
+}
+
+impl fmt::Display for ElementKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            LsxKind::Element(lsx) => Ok(LuaValue::UserData(lua.create_userdata(lsx)?)),
-            LsxKind::Text(text) => Ok(LuaValue::String(lua.create_string(&text)?)),
-            LsxKind::Component(func) => Ok(LuaValue::Function(func)),
+            ElementKind::Element(name) => write!(f, "Element({})", name),
+            ElementKind::Component(_) => write!(f, "Component(<LuaFunction>)"),
+            ElementKind::Fragment(_) => write!(f, "Fragment(<LuaTable>)"),
+            ElementKind::Text => write!(f, "Text"),
         }
     }
 }

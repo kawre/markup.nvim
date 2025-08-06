@@ -5,42 +5,7 @@ use taffy::prelude::*;
 #[derive(Debug, Clone)]
 pub struct LuaProps {
     base: LuaTable,
-    pub children: Option<LuaPropsChildren>,
-
-    // General
-    pub display: Option<LuaDisplay>,
-    pub width: Option<LuaDimension>,
-    pub height: Option<LuaDimension>,
-    pub min_width: Option<LuaDimension>,
-    pub min_height: Option<LuaDimension>,
-    pub max_width: Option<LuaDimension>,
-    pub max_height: Option<LuaDimension>,
-    pub aspect_ratio: Option<f32>,
-
-    // Margin
-    pub margin_left: Option<u32>,
-    pub margin_right: Option<u32>,
-    pub margin_top: Option<u32>,
-    pub margin_bottom: Option<u32>,
-
-    // Padding
-    pub padding_left: Option<u32>,
-    pub padding_right: Option<u32>,
-    pub padding_top: Option<u32>,
-    pub padding_bottom: Option<u32>,
-
-    // Flexbox
-    pub flex_direction: Option<String>,
-    pub flex_wrap: Option<String>,
-    pub flex_basis: Option<LuaDimension>,
-    pub flex_grow: Option<f32>,
-    pub flex_shrink: Option<f32>,
-
-    // Alignment
-    pub align_items: Option<String>,
-    pub align_self: Option<String>,
-    pub align_content: Option<String>,
-    pub justify_content: Option<String>,
+    pub children: LuaPropsChildren,
 }
 
 #[derive(Debug, Clone)]
@@ -119,36 +84,58 @@ impl FromLua for LuaDisplay {
 }
 
 // pub struct LuaPropsChildren(Vec<LuaPropsChild>);
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub enum LuaPropsChildren {
+    #[default]
+    None,
     Text(String),
     Sequence(Vec<LuaPropsChild>),
-    Empty,
 }
 
 impl FromLua for LuaPropsChildren {
     fn from_lua(value: LuaValue, lua: &Lua) -> LuaResult<Self> {
         match value {
             LuaValue::Table(t) => {
-                let children = t
-                    .pairs::<LuaValue, LuaPropsChild>()
-                    .filter_map(|res| {
-                        match res {
-                            Ok((LuaValue::Integer(_), LuaPropsChild::Empty)) => None, // skip empty
-                            Ok((LuaValue::Integer(_), child)) => Some(Ok(child)),
-                            Ok(_) => None, // skip non-integer keys
-                            Err(e) => Some(Err(e)),
-                        }
-                    })
-                    .collect::<LuaResult<Vec<_>>>()?;
+                // let children = t
+                //     .pairs::<LuaValue, LuaPropsChild>()
+                //     .filter_map(|res| {
+                //         match res {
+                //             Ok((LuaValue::Integer(_), LuaPropsChild::None)) => None, // skip empty
+                //             Ok((LuaValue::Integer(_), child)) => Some(Ok(child)),
+                //             //                          Ok((LuaValue::Integer(_), v)) => LuaPropsChild::from_lua(v, lua).ok(),
+                //             // _ => None,
+                //             Ok(_) => None, // skip non-integer keys
+                //             Err(e) => Some(Err(e)),
+                //         }
+                //     })
+                //     .collect::<LuaResult<Vec<_>>>()?;
 
-                Ok(LuaPropsChildren::Sequence(children))
+                let mut children = Vec::new();
+
+                for pair in t.pairs::<LuaValue, LuaValue>() {
+                    if let Ok((LuaValue::Integer(_), value)) = pair {
+                        match value {
+                            LuaValue::Nil | LuaValue::Boolean(false) => continue,
+                            _ => {
+                                if let Ok(child) = LuaPropsChild::from_lua(value, lua) {
+                                    children.push(child);
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if children.is_empty() {
+                    Ok(LuaPropsChildren::None)
+                } else {
+                    Ok(LuaPropsChildren::Sequence(children))
+                }
             }
             LuaValue::String(s) => Ok(LuaPropsChildren::Text(s.to_str()?.to_string())),
             LuaValue::Integer(i) => Ok(LuaPropsChildren::Text(i.to_string())),
             LuaValue::Number(n) => Ok(LuaPropsChildren::Text(n.to_string())),
             LuaValue::Boolean(true) => Ok(LuaPropsChildren::Text("true".to_string())),
-            LuaValue::Boolean(false) | LuaValue::Nil => Ok(LuaPropsChildren::Empty),
+            LuaValue::Boolean(false) | LuaValue::Nil => Ok(LuaPropsChildren::None),
             _ => {
                 let child = LuaPropsChild::from_lua(value, lua)?;
                 Ok(LuaPropsChildren::Sequence(vec![child]))
@@ -160,9 +147,8 @@ impl FromLua for LuaPropsChildren {
 #[derive(Debug, Clone)]
 pub enum LuaPropsChild {
     Text(String),
-    Table(LuaTable),
-    Lsx(LuaLsx),
-    Empty,
+    Table(LuaTable), // table to treat as a fragment
+    Element(LuaElement),
 }
 
 impl FromLua for LuaPropsChild {
@@ -172,11 +158,10 @@ impl FromLua for LuaPropsChild {
             LuaValue::Integer(i) => Ok(LuaPropsChild::Text(i.to_string())),
             LuaValue::Number(n) => Ok(LuaPropsChild::Text(n.to_string())),
             LuaValue::Boolean(true) => Ok(LuaPropsChild::Text("true".to_string())),
-            LuaValue::Boolean(false) | LuaValue::Nil => Ok(LuaPropsChild::Empty),
             LuaValue::Table(t) => Ok(LuaPropsChild::Table(t)),
             LuaValue::UserData(ud) => {
-                if let Ok(lsx_ref) = ud.borrow::<LuaLsx>() {
-                    Ok(LuaPropsChild::Lsx(lsx_ref.clone()))
+                if let Ok(lsx_ref) = ud.borrow::<LuaElement>() {
+                    Ok(LuaPropsChild::Element(lsx_ref.clone()))
                 } else {
                     Err(LuaError::external("Expected LuaLsx user data"))
                 }
@@ -186,46 +171,13 @@ impl FromLua for LuaPropsChild {
     }
 }
 
-impl FromLua for LuaProps {
+impl FromLua for LuaElementProps {
     fn from_lua(value: LuaValue, lua: &Lua) -> LuaResult<Self> {
-        let table = match value {
-            LuaValue::Table(t) => t,
-            _ => lua.create_table()?,
-        };
-
-        Ok(LuaProps {
-            base: table.clone(),
-            children: table.get("children")?,
-            display: table.get("display")?,
-            width: table.get("width")?,
-            height: table.get("height")?,
-            min_width: table.get("min_width")?,
-            min_height: table.get("min_height")?,
-            max_width: table.get("max_width")?,
-            max_height: table.get("max_height")?,
-            aspect_ratio: table.get("aspect_ratio")?,
-
-            margin_left: table.get("margin_left")?,
-            margin_right: table.get("margin_right")?,
-            margin_top: table.get("margin_top")?,
-            margin_bottom: table.get("margin_bottom")?,
-
-            padding_left: table.get("padding_left")?,
-            padding_right: table.get("padding_right")?,
-            padding_top: table.get("padding_top")?,
-            padding_bottom: table.get("padding_bottom")?,
-
-            flex_direction: table.get("flex_direction")?,
-            flex_wrap: table.get("flex_wrap")?,
-            flex_basis: table.get("flex_basis")?,
-            flex_grow: table.get("flex_grow")?,
-            flex_shrink: table.get("flex_shrink")?,
-
-            align_items: table.get("align_items")?,
-            align_self: table.get("align_self")?,
-            align_content: table.get("align_content")?,
-            justify_content: table.get("justify_content")?,
-        })
+        match value {
+            LuaValue::String(s) => Ok(LuaPropsChild::Text(s.to_str()?.to_string())),
+            LuaValue::Integer(i) => Ok(LuaPropsChild::Text(i.to_string())),
+            LuaValue::Number(n) => Ok(LuaPropsChild::Text(n.to_string())),
+        }
     }
 }
 
