@@ -6,8 +6,8 @@ use crate::prelude::*;
 #[derive(Debug, Clone)]
 pub struct LuaElement(pub Rc<Element>);
 
-impl LuaElement {
-    pub fn new(lsx: Element) -> Self {
+impl From<Element> for LuaElement {
+    fn from(lsx: Element) -> Self {
         LuaElement(Rc::new(lsx))
     }
 }

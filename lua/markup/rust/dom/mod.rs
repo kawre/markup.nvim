@@ -6,6 +6,9 @@ mod renderer;
 mod style;
 mod traits;
 
+use std::cell::RefCell;
+use std::rc::Rc;
+
 pub use compute::*;
 pub use lua::*;
 pub use node::*;
@@ -23,6 +26,8 @@ use taffy::{
     compute_block_layout, compute_cached_layout, compute_flexbox_layout, compute_grid_layout,
     compute_root_layout, prelude::*, round_layout,
 };
+
+pub type DomRef = Rc<RefCell<Dom>>;
 
 #[derive(Default)]
 pub struct Dom {

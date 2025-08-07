@@ -1,26 +1,24 @@
 mod lua;
-mod style;
-
-use std::str::FromStr;
 
 pub use lua::*;
-pub use style::*;
 
 use crate::prelude::*;
 use mlua::prelude::*;
+use std::str::FromStr;
 use taffy::{Cache, prelude::*};
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Default)]
 #[allow(dead_code)]
 pub enum NodeKind {
     Flexbox,
     Grid,
+    #[default]
     Block,
     Inline,
     Text,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct Node {
     pub kind: NodeKind,
     pub style: Style,
@@ -33,35 +31,17 @@ pub struct Node {
     pub children: Vec<usize>,
 }
 
-impl Default for Node {
-    fn default() -> Self {
-        Node {
-            kind: NodeKind::Flexbox,
-            style: Style::default(),
-            text_data: None,
-            cache: Cache::new(),
-            unrounded_layout: Layout::with_order(0),
-            final_layout: Layout::with_order(0),
-            highlight: None,
-            children: Vec::new(),
-            computed_lines: None,
-        }
+impl FromStr for Node {
+    type Err = mlua::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let kind = NodeKind::from_str(s)?;
+        Ok(Node {
+            kind,
+            ..Node::default()
+        })
     }
 }
-
-// impl FromStr for Node {
-//     type Err;
-
-//     fn from_str(s: &str) -> Result<Self, Self::Err> {
-//         match s {
-//             "flex" => Node::new_column(style),
-//             "grid" => Node::new_grid(style),
-//             "block" => Node::new_block(style),
-//             "inline" => Node::new_inline(style),
-//             _ => Node::new_block(style),
-//         }
-//     }
-// }
 
 impl FromStr for NodeKind {
     type Err = mlua::Error;
@@ -98,7 +78,7 @@ impl TryFrom<Element> for Node {
 
     fn try_from(element: Element) -> Result<Self, Self::Error> {
         let kind = NodeKind::try_from(element.kind)?;
-        let style = Style::from(element.props);
+        let style = Style::try_from(element.props)?;
 
         Ok(Node {
             kind,
@@ -110,39 +90,14 @@ impl TryFrom<Element> for Node {
 
 #[allow(dead_code)]
 impl Node {
-    // pub fn new_from_kind_str(kind_str: String, style: Style) -> Node {
-    //     match kind_str.as_str() {
-    //         "flex" => Node::new_column(style),
-    //         "grid" => Node::new_grid(style),
-    //         "block" => Node::new_block(style),
-    //         "inline" => Node::new_inline(style),
-    //         _ => Node::new_block(style),
-    //     }
-    // }
-    // pub fn new_from_kind(kind: NodeKind, style: Style) -> Node {
-    //     match kind {
-    //         NodeKind::Flexbox => Node::new_column(style),
-    //         NodeKind::Grid => Node::new_grid(style),
-    //         NodeKind::Block => Node::new_block(style),
-    //         NodeKind::Inline => Node::new_inline(style),
-    //         _ => panic!("Unsupported node kind: {:?}", kind),
-    //     }
-    // }
-    // pub fn new_from_str(str: &str) -> Node {
-    //     let chunks = str
-    //         .split_whitespace()
-    //         .into_iter()
-    //         .map(|x| TextChunk {
-    //             text_content: x.to_string(),
-    //             display_width: x.len() as i32,
-    //         })
-    //         .collect::<Vec<TextChunk>>();
-    //
-    //     Node::new_text(TextContext {
-    //         chunks,
-    //         ..TextContext::default()
-    //     })
-    // }
+    pub fn new(kind: NodeKind, style: Option<Style>) -> Node {
+        Node {
+            kind,
+            style: style.unwrap_or_default(),
+            ..Node::default()
+        }
+    }
+
     pub fn new_row(style: Style) -> Node {
         Node {
             kind: NodeKind::Flexbox,

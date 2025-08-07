@@ -2,7 +2,7 @@ mod lua;
 mod props;
 
 use core::fmt;
-use std::{default, rc::Rc};
+use std::rc::Rc;
 
 pub use lua::*;
 pub use props::*;
@@ -21,6 +21,15 @@ pub type ElementRef = Rc<Element>;
 impl Element {
     pub fn new(kind: ElementKind, props: ElementProps, key: Option<String>) -> Self {
         Element { kind, props, key }
+    }
+
+    pub fn highlight(&self) -> Option<String> {
+        if let Some(tbl) = &self.props.base {
+            if let Ok(highlight) = tbl.raw_get::<String>("highlight") {
+                return Some(highlight);
+            }
+        }
+        None
     }
 }
 

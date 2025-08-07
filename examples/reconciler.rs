@@ -9,7 +9,7 @@ pub fn create_lsx(
     (kind, props, key): (ElementKind, ElementProps, Option<String>),
 ) -> LuaResult<LuaElement> {
     let lsx = Element::new(kind, props, key);
-    Ok(LuaElement::new(lsx))
+    Ok(LuaElement::from(lsx))
 }
 
 fn main() -> LuaResult<()> {
@@ -28,7 +28,7 @@ fn main() -> LuaResult<()> {
         )
         .eval()?;
 
-    let style: Style = Style::from(res.clone());
+    let style: Style = Style::try_from(res.clone())?;
     print!("{}", serde_json::to_string_pretty(&style).unwrap());
     // let fiber = Fiber::from(&res);
     // let fiber_ref = fiber.into_ref();

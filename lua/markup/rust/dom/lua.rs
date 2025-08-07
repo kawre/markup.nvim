@@ -1,6 +1,6 @@
 use crate::prelude::*;
 use mlua::prelude::*;
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::RefCell, rc::Rc, str::FromStr};
 use taffy::Style;
 
 /// LuaTree is a Lua user data type that wraps the Tree structure.
@@ -10,17 +10,8 @@ impl LuaUserData for LuaDom {
     fn add_methods<M: mlua::UserDataMethods<Self>>(methods: &mut M) {
         methods.add_method_mut(
             "create_element",
-            |lua, this, (kind_str, props): (String, Option<ElementProps>)| {
-                // let style: Style = props.to_style();
-                let node = Node::new_from_kind_str(
-                    kind_str,
-                    Style {
-                        ..Default::default()
-                    },
-                );
-                // if let Some(highlight) = props.get_prop("highlight") {
-                //     node.highlight = highlight.to_string().ok();
-                // }
+            |_, this, (kind_str, props): (String, Option<ElementProps>)| {
+                let node = Node::from_str(&kind_str)?;
                 let node_id = this.0.borrow_mut().add_node(node);
 
                 let lua_node = LuaNode::new(this.0.clone(), node_id);
