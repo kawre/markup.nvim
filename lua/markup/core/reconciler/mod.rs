@@ -68,6 +68,7 @@ fn work_loop() -> FiberRef {
     unit.expect("No unit of work processed")
 }
 
+#[inline(always)]
 fn process_unit_of_work(unit: &FiberRef) {
     let raw_ptr = Rc::as_ptr(unit) as *const ();
 
@@ -100,6 +101,7 @@ fn process_unit_of_work(unit: &FiberRef) {
     });
 }
 
+#[inline(always)]
 fn complete_unit_of_work(unit: &FiberRef) {
     let mut wip_borrow = unit.borrow_mut();
     let mut curr_borrow = wip_borrow.alternate.clone();
@@ -125,6 +127,7 @@ fn complete_unit_of_work(unit: &FiberRef) {
     }
 }
 
+#[inline(always)]
 fn begin_work(current: Option<&FiberRef>, work_in_progress: &FiberRef) -> Option<FiberRef> {
     // let current_ref = current;
     // if check_early_bailout(current_ref, work_in_progress) {

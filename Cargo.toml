@@ -4,7 +4,8 @@ version = "0.1.0"
 edition = "2024"
 
 [lib]
-path = "lua/markup/rust/lib.rs"
+path = "lua/markup/core/lib.rs"
+name = "markup_core"
 crate-type = ["rlib", "cdylib"]
 
 [profile.dev]

@@ -35,7 +35,7 @@ function M:new(win)
 	self.keys = {} ---@type table<markup.node, { key: string, cb: function }[]>
 	self.cursor = {}
 	self.lines = {}
-	self.dom = Markup.rust.create_dom()
+	self.dom = Markup.core.create_dom()
 
 	self.win:on("WinResized", function()
 		if self:valid() and vim.tbl_contains(vim.v.event.windows, self.win.win) then

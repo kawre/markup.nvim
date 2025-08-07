@@ -1,4 +1,4 @@
----@class markup.rust
+---@class markup.core
 ---@field create_dom fun(): markup.dom
 ---@field create_lsx fun(...): markup.element
 
@@ -18,15 +18,13 @@ local function get_lib_extension()
 end
 
 package.cpath = package.cpath
-	.. ";/home/kawre/projects/markup.nvim/target/release/libmarkup"
+	.. ";"
+	.. debug.getinfo(1).source:match("@?(.*/)")
+	.. "../../../target/release/lib?"
 	.. get_lib_extension()
--- .. ";"
--- .. debug.getinfo(1).source:match("@?(.*/)")
--- .. "../../../../../target/release/lib?"
--- .. get_lib_extension()
--- .. ";"
--- .. debug.getinfo(1).source:match("@?(.*/)")
--- .. "../../../../../target/release/?"
--- .. get_lib_extension()
+	.. ";"
+	.. debug.getinfo(1).source:match("@?(.*/)")
+	.. "../../../target/release/?"
+	.. get_lib_extension()
 
-return require("markup_module")
+return require("markup_core")

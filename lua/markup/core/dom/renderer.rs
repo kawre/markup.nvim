@@ -84,11 +84,7 @@ impl<'a> LineRenderer<'a> {
         }
     }
 
-    pub fn render(
-        &mut self,
-        tree: &'a Dom,
-        root_id: NodeId,
-    ) -> (Vec<String>, Vec<HighlightRange>) {
+    pub fn render(&mut self, tree: &'a Dom, root_id: NodeId) -> (Vec<String>, Vec<HighlightRange>) {
         self.traverse_tree(tree, root_id, 1);
         let mut result_lines = Vec::new();
 
