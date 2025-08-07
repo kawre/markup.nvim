@@ -1,6 +1,6 @@
 use crate::prelude::*;
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct ComputedLineHighlight {
     pub col_start: usize,
     pub col_end: usize,
@@ -8,7 +8,7 @@ pub struct ComputedLineHighlight {
     pub zindex: Option<usize>,
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct ComputedLine {
     pub text: String,
     pub display_width: i32,

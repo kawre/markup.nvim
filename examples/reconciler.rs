@@ -20,7 +20,8 @@ fn main() -> LuaResult<()> {
     let res: LuaElement = lua
         .load(
             r#"
-            return create_lsx("inline", create_lsx("i'm inline"))
+            --return create_lsx("inline", { 1, 2, create_lsx("i'm inline", {1}) })
+            return create_lsx("inline", {1, 2})
         "#,
         )
         .eval()?;
@@ -28,7 +29,8 @@ fn main() -> LuaResult<()> {
     let fiber = Fiber::from(&res);
     let fiber_ref = fiber.into_ref();
     reconcile(fiber_ref.clone());
-    fiber_ref.borrow().print_tree();
+    let alterante = fiber_ref.borrow().alternate.clone().unwrap();
+    print!("{}", alterante.borrow().print_tree());
 
     Ok(())
 }

@@ -16,6 +16,7 @@ pub enum NodeKind {
     Text,
 }
 
+#[derive(Debug, Clone)]
 pub struct Node {
     pub kind: NodeKind,
     pub style: Style,

@@ -1,6 +1,7 @@
 mod dom;
 mod lsx;
 mod reconciler;
+mod util;
 
 pub mod prelude {
     pub use crate::dom::*;
@@ -25,14 +26,13 @@ pub fn create_element(
     Ok(LuaElement::new(lsx))
 }
 
-// pub fn reconcile(
-//     lua: &Lua,
-//     (fiber_root): (LuaDom, LuaElement, LuaElement),
-// ) -> LuaResult<LuaTable> {
-//     let reconciler = Reconciler::new(lua, dom.0.clone());
-//     let result = reconciler.reconcile(old_root.0.clone(), new_root.0.clone())?;
-//     Ok(result)
-// }
+pub fn lua_reconcile(_: &Lua, element: LuaElement) -> LuaResult<String> {
+    let fiber = Fiber::from(&element);
+    let fiber_ref = fiber.into_ref();
+    reconcile(fiber_ref.clone());
+    let alterante = fiber_ref.borrow().alternate.clone().unwrap();
+    Ok(alterante.borrow().print_tree())
+}
 
 // pub fn create_text_node(_: &Lua, text: String) -> LuaResult<LuaElement> {
 //     let text_node = Element::new()
@@ -47,7 +47,7 @@ fn markup_module(lua: &Lua) -> LuaResult<LuaTable> {
 
     exports.set("create_dom", lua.create_function(create_dom)?)?;
     exports.set("create_lsx", lua.create_function(create_element)?)?;
-    // exports.set("reconcile", lua.create_function(reconcile)?)?;
+    exports.set("reconcile", lua.create_function(lua_reconcile)?)?;
 
     Ok(exports)
 }

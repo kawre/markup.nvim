@@ -7,16 +7,19 @@ use taffy::{
 };
 
 #[allow(dead_code)]
+#[derive(Debug, Copy, Clone)]
 pub enum WritingMode {
     Horizontal,
     Vertical,
 }
 
+#[derive(Debug, Clone)]
 pub struct TextChunk {
     pub text_content: String,
     pub display_width: i32,
 }
 
+#[derive(Debug, Clone)]
 pub struct TextContext {
     pub chunks: Vec<TextChunk>,
     pub writing_mode: WritingMode,
@@ -38,11 +41,7 @@ pub struct InlineItem {
 }
 
 /// Computes the layout of [`LayoutPartialTree`] according to the block layout algorithm
-pub fn compute_inline_layout(
-    tree: &mut Dom,
-    node_id: NodeId,
-    inputs: LayoutInput,
-) -> LayoutOutput {
+pub fn compute_inline_layout(tree: &mut Dom, node_id: NodeId, inputs: LayoutInput) -> LayoutOutput {
     let LayoutInput {
         known_dimensions,
         run_mode,

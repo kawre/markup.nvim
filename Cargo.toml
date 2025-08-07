@@ -7,6 +7,9 @@ edition = "2024"
 path = "lua/markup/rust/lib.rs"
 crate-type = ["rlib", "cdylib"]
 
+[profile.dev]
+debug = true
+
 [dependencies]
 taffy = { version = "0.8.3", features = ["content_size", "serde"] }
 serde = { version = "1.0.216", features = ["derive"] }
