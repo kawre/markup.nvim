@@ -28,14 +28,6 @@ pub fn create_element(
     Ok(LuaElement::from(lsx))
 }
 
-// pub fn print_props(lua: &Lua, props: ElementProps) -> LuaResult<String> {
-//     // let style = Style::from(props);
-//     let style: Style = Style::try_from(props)?;
-//     let json_str = serde_json::to_string_pretty(&style).unwrap();
-//
-//     Ok(json_str)
-// }
-
 // NOTE: skip_memory_check greatly improves performance
 // https://github.com/mlua-rs/mlua/issues/318
 #[mlua::lua_module(skip_memory_check)]
@@ -44,8 +36,6 @@ fn markup_module(lua: &Lua) -> LuaResult<LuaTable> {
 
     exports.set("create_dom", lua.create_function(create_dom)?)?;
     exports.set("create_lsx", lua.create_function(create_element)?)?;
-    // exports.set("print_props", lua.create_function(print_props)?)?;
-    // exports.set("reconcile", lua.create_function(lua_reconcile)?)?;
 
     Ok(exports)
 }

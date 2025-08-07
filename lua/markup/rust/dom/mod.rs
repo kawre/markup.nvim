@@ -6,9 +6,6 @@ mod renderer;
 mod style;
 mod traits;
 
-use std::cell::RefCell;
-use std::rc::Rc;
-
 pub use compute::*;
 pub use lua::*;
 pub use node::*;
@@ -19,6 +16,8 @@ pub use traits::*;
 
 use crate::prelude::*;
 use mlua::prelude::*;
+use std::cell::RefCell;
+use std::rc::Rc;
 use taffy::Style;
 use taffy::util::print_tree;
 use taffy::{
@@ -29,14 +28,16 @@ use taffy::{
 
 pub type DomRef = Rc<RefCell<Dom>>;
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct Dom {
     pub nodes: Vec<Node>,
 }
 
 impl Dom {
     pub fn new() -> Dom {
-        Dom { nodes: Vec::new() }
+        Dom {
+            ..Default::default()
+        }
     }
 
     pub fn add_node(&mut self, node: Node) -> usize {

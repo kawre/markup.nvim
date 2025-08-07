@@ -1,7 +1,10 @@
----@class markup.dom
-
 ---@class markup.rust
 ---@field create_dom fun(): markup.dom
+---@field create_lsx fun(...): markup.element
+
+---@class markup.dom
+---@field create_element fun(dom: markup.dom, tag: string, props: table?, ...?): markup.node
+---@field create_text_node fun(dom: markup.dom, text: table|string): markup.node
 
 --- @return string
 local function get_lib_extension()

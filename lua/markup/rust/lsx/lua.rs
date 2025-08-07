@@ -29,23 +29,36 @@ impl LuaUserData for LuaElement {
 
     fn add_methods<M: LuaUserDataMethods<Self>>(methods: &mut M) {
         methods.add_meta_method(LuaMetaMethod::ToString, |_, this, ()| {
-            let kind_str = this.0.kind.to_string();
+            let mut out = String::new();
 
-            match this.0.props.children.clone() {
-                ElementChildren::None => Ok(kind_str),
-                ElementChildren::Text(text) => Ok(format!("{}: #[{}]", kind_str, text)),
-                ElementChildren::Sequence(children) => {
-                    let children_str: Vec<String> = children
-                        .iter()
-                        .map(|child| match child {
-                            ElementChild::Element(e) => e.kind.to_string(),
-                            ElementChild::Text(t) => t.into(),
-                            _ => "Unknown".to_string(),
-                        })
-                        .collect();
-                    Ok(format!("{}:\n - {}", kind_str, children_str.join("\n - ")))
+            fn print_rec(child: &ElementChild, indent: usize, out: &mut String) {
+                match child {
+                    ElementChild::Text(str) => {
+                        out.push_str(&format!("{}#[{}]\n", " ".repeat(indent), str))
+                    }
+                    ElementChild::Element(el) => match el.props.children.clone() {
+                        ElementChildren::Text(str) => {
+                            out.push_str(&format!(
+                                "{}{} #[{}]\n",
+                                " ".repeat(indent),
+                                el.kind,
+                                str
+                            ));
+                        }
+                        ElementChildren::Sequence(ref seq) => {
+                            out.push_str(&format!("{}{}\n", " ".repeat(indent), el.kind));
+                            for child in seq {
+                                print_rec(child, indent + 2, out);
+                            }
+                        }
+                        ElementChildren::None => {}
+                    },
+                    ElementChild::Table(tbl) => {}
                 }
             }
+
+            print_rec(&ElementChild::Element(Rc::clone(&this.0)), 0, &mut out);
+            Ok(out)
         });
     }
 }

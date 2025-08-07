@@ -4,7 +4,7 @@ pub use lua::*;
 
 use crate::prelude::*;
 use mlua::prelude::*;
-use std::str::FromStr;
+use std::{rc::Rc, str::FromStr};
 use taffy::{Cache, prelude::*};
 
 #[derive(Debug, Copy, Clone, Default)]
@@ -30,6 +30,8 @@ pub struct Node {
     pub final_layout: Layout,
     pub children: Vec<usize>,
 }
+
+pub type NodeRef = Rc<Node>;
 
 impl FromStr for Node {
     type Err = mlua::Error;
@@ -153,5 +155,11 @@ impl Node {
             text_data: Some(text_data),
             ..Node::default()
         }
+    }
+}
+
+impl Node {
+    pub fn into_ref(self) -> NodeRef {
+        Rc::new(self)
     }
 }

@@ -78,8 +78,25 @@ impl LuaUserData for LuaNode {
         });
 
         methods.add_meta_method(LuaMetaMethod::ToString, |_, this, ()| {
-            let tree = this.dom.borrow();
-            Ok(tree.to_string(this.node_id))
+            let mut out = String::new();
+
+            fn print_rec(node_id: NodeId, dom: &DomRef, indent: usize, out: &mut String) {
+                let dom_borrow = dom.borrow();
+                out.push_str(&format!(
+                    "{}Kind: {:?}\n",
+                    " ".repeat(indent),
+                    dom_borrow.node_from_id(node_id).kind
+                ));
+
+                for child_id in dom_borrow.child_ids(node_id) {
+                    print_rec(child_id, dom, indent + 2, out);
+                }
+            }
+
+            let node_id = NodeId::from(this.node_id);
+            let dom = this.dom.clone();
+            print_rec(node_id, &dom, 0, &mut out);
+            Ok(out)
         });
     }
 }

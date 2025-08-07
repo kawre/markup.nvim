@@ -1,4 +1,5 @@
 use crate::prelude::*;
+use mlua::prelude::*;
 
 use taffy::{
     AbsoluteAxis, BoxGenerationMode, BoxSizing, CollapsibleMarginSet, CoreStyle, Layout,
@@ -30,6 +31,42 @@ impl Default for TextContext {
         Self {
             chunks: Vec::new(),
             writing_mode: WritingMode::Horizontal,
+        }
+    }
+}
+
+pub struct TextChunks(pub Vec<TextChunk>);
+
+impl FromLua for TextChunks {
+    fn from_lua(value: LuaValue, _: &Lua) -> LuaResult<Self> {
+        match value {
+            LuaValue::Table(table) => {
+                let chunks = table
+                    .sequence_values::<LuaTable>()
+                    .map(|chunk| {
+                        let chunk = chunk?;
+                        let text: String = chunk.get("chunk")?;
+                        let width: i32 = chunk.get("display_width")?;
+                        Ok(TextChunk {
+                            text_content: text,
+                            display_width: width,
+                        })
+                    })
+                    .collect::<LuaResult<Vec<TextChunk>>>()?;
+                Ok(TextChunks(chunks))
+            }
+            LuaValue::String(s) => {
+                let chunks = s
+                    .to_str()?
+                    .split_whitespace()
+                    .map(|chunk| TextChunk {
+                        text_content: chunk.to_string(),
+                        display_width: chunk.len() as i32, // Simplified width calculation
+                    })
+                    .collect();
+                Ok(TextChunks(chunks))
+            }
+            _ => Err(LuaError::external("Expected a table of text chunks")),
         }
     }
 }

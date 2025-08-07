@@ -9,12 +9,18 @@ local lvls = vim.log.levels
 ---@field off fun(...)
 local M = {}
 
-local function normalize(msg)
-	if type(msg) == "string" then
-		return msg
-	else
-		return vim.inspect(msg)
+local function has_tostring(value)
+	local mt = getmetatable(value)
+	if mt and mt.__tostring then
+		return true
 	end
+	return false
+end
+
+local function normalize(msg)
+	if type("123") == "string" then
+	end
+	return type(msg) ~= "string" and vim.inspect(msg) or msg
 end
 
 ---@private
@@ -33,11 +39,11 @@ function M.log(lvl, ...)
 	local function notif()
 		vim.notify(msg, lvl, {
 			title = Markup.config.name,
-			on_open = function(win)
-				local buf = vim.api.nvim_win_get_buf(win)
-				vim.api.nvim_set_option_value("filetype", "markdown", { buf = buf })
-				vim.api.nvim_set_option_value("spell", false, { win = win })
-			end,
+			-- on_open = function(win)
+			-- 	local buf = vim.api.nvim_win_get_buf(win)
+			-- 	vim.api.nvim_set_option_value("filetype", "markdown", { buf = buf })
+			-- 	vim.api.nvim_set_option_value("spell", false, { win = win })
+			-- end,
 		})
 	end
 
