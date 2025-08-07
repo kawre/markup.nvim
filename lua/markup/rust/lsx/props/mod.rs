@@ -1,13 +1,16 @@
+mod convert;
 mod lua;
 
+pub use convert::*;
 pub use lua::*;
 
 use crate::prelude::*;
 use mlua::prelude::*;
+use taffy::prelude::*;
 
 #[derive(Debug, Clone, Default)]
 pub struct ElementProps {
-    base: Option<LuaTable>, // keep for later to extract properties during node creation
+    pub base: Option<LuaTable>, // keep for later to extract properties during node creation
     pub children: ElementChildren,
 }
 
@@ -52,3 +55,17 @@ impl PartialEq for ElementProps {
         }
     }
 }
+
+// impl From<ElementProps> for Style {
+//     fn from(value: ElementProps) -> Self {
+//         let base = value.base;
+//
+//         match base {
+//             Some(t) => Style {
+//                 display: t.get::<LuaDisplay>("display").unwrap().0,
+//                 ..Default::default()
+//             },
+//             None => Style::default(),
+//         }
+//     }
+// }

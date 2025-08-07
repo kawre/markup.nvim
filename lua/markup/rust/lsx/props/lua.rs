@@ -82,7 +82,10 @@ impl FromLua for ElementProps {
                 }
 
                 Ok(match children_list.len() {
-                    0 => Self::default(),
+                    0 => Self {
+                        base: Some(t),
+                        children: ElementChildren::None,
+                    },
                     1 => Self {
                         base: Some(t),
                         children: ElementChildren::from_child(children_list.remove(0)),

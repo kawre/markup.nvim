@@ -8,6 +8,73 @@ pub struct LuaProps {
     pub children: LuaPropsChildren,
 }
 
+pub struct LuaStyle {
+    pub display: Option<LuaDisplay>,
+    pub box_sizing: Option<LuaBoxSizing>,
+    pub width: Option<LuaDimension>,
+    pub height: Option<LuaDimension>,
+    pub min_width: Option<LuaDimension>,
+    pub min_height: Option<LuaDimension>,
+    pub max_width: Option<LuaDimension>,
+    pub max_height: Option<LuaDimension>,
+    pub flex_grow: Option<f32>,
+    pub flex_shrink: Option<f32>,
+    pub flex_basis: Option<LuaDimension>,
+    pub align_self: Option<AlignSelf>,
+    pub align_items: Option<AlignItems>,
+    pub align_content: Option<AlignContent>,
+    pub justify_content: Option<JustifyContent>,
+    pub gap: Option<LuaDimension>,
+    pub margin_left: Option<LuaDimension>,
+    pub margin_right: Option<LuaDimension>,
+    pub margin_top: Option<LuaDimension>,
+    pub margin_bottom: Option<LuaDimension>,
+    pub padding_left: Option<LuaDimension>,
+    pub padding_right: Option<LuaDimension>,
+    pub padding_top: Option<LuaDimension>,
+    pub padding_bottom: Option<LuaDimension>,
+}
+
+impl From<LuaStyle> for Style {
+    fn from(value: LuaStyle) -> Self {
+        todo!()
+    }
+}
+
+impl FromLua for LuaStyle {
+    fn from_lua(value: LuaValue, lua: &Lua) -> LuaResult<Self> {
+        match value {
+            LuaValue::Table(t) => Ok(LuaStyle {
+                display: t.get("display").ok(),
+                box_sizing: t.get("box_sizing").ok(),
+                width: t.get("width").ok(),
+                height: t.get("height").ok(),
+                min_width: t.get("min_width").ok(),
+                min_height: t.get("min_height").ok(),
+                max_width: t.get("max_width").ok(),
+                max_height: t.get("max_height").ok(),
+                flex_grow: t.get("flex_grow").unwrap_or(Ok(None))?,
+                flex_shrink: t.get("flex_shrink").unwrap_or(Ok(None))?,
+                flex_basis: t.get("flex_basis").ok(),
+                align_self: t.get("align_self").ok(),
+                align_items: t.get("align_items").ok(),
+                align_content: t.get("align_content").ok(),
+                justify_content: t.get("justify_content").ok(),
+                gap: t.get("gap").ok(),
+                margin_left: t.get("margin_left").ok(),
+                margin_right: t.get("margin_right").ok(),
+                margin_top: t.get("margin_top").ok(),
+                margin_bottom: t.get("margin_bottom").ok(),
+                padding_left: t.get("padding_left").ok(),
+                padding_right: t.get("padding_right").ok(),
+                padding_top: t.get("padding_top").ok(),
+                padding_bottom: t.get("padding_bottom").ok(),
+            }),
+            _ => Err(LuaError::external("Expected a table for style")),
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct LuaBoxSizing(BoxSizing);
 
@@ -65,7 +132,7 @@ impl FromLua for LuaDimension {
 }
 
 #[derive(Debug, Clone)]
-pub struct LuaDisplay(Display);
+pub struct LuaDisplay(pub Display);
 
 impl FromLua for LuaDisplay {
     fn from_lua(value: LuaValue, _: &Lua) -> LuaResult<Self> {
