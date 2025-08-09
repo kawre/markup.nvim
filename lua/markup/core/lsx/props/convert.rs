@@ -13,10 +13,10 @@ where
     }
 }
 
-impl TryFrom<ElementProps> for Style {
+impl TryFrom<PendingProps> for Style {
     type Error = LuaError;
 
-    fn try_from(value: ElementProps) -> Result<Self, Self::Error> {
+    fn try_from(value: PendingProps) -> Result<Self, Self::Error> {
         let base = value.base;
 
         match base {

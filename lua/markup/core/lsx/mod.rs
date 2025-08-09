@@ -1,70 +1,69 @@
-mod lua;
 mod props;
 
 use core::fmt;
 use std::rc::Rc;
 
-pub use lua::*;
 pub use props::*;
 
 use mlua::prelude::*;
+use serde::Serialize;
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug)]
 pub struct Element {
     pub kind: ElementKind,
-    pub props: ElementProps,
+    pub props: PendingProps,
     pub key: Option<String>,
 }
 
-pub type ElementRef = Rc<Element>;
-
 impl Element {
-    pub fn new(kind: ElementKind, props: ElementProps, key: Option<String>) -> Self {
+    pub fn new(kind: ElementKind, props: PendingProps, key: Option<String>) -> Self {
         Element { kind, props, key }
     }
+}
 
-    pub fn highlight(&self) -> Option<String> {
-        if let Some(tbl) = &self.props.base {
-            if let Ok(highlight) = tbl.raw_get::<String>("highlight") {
-                return Some(highlight);
+impl FromLua for Element {
+    fn from_lua(value: LuaValue, lua: &Lua) -> LuaResult<Self> {
+        match value {
+            LuaValue::Table(t) => {
+                let kind: ElementKind = t.get("kind")?;
+                let props: PendingProps = t.get("props")?;
+                let key: Option<String> = t.get("key").ok();
+
+                Ok(Element::new(kind, props, key))
             }
-        }
-        None
-    }
-}
-
-impl From<LuaElement> for Element {
-    fn from(lua_lsx: LuaElement) -> Self {
-        (*lua_lsx.0).clone()
-    }
-}
-
-impl From<String> for Element {
-    fn from(text: String) -> Self {
-        Element {
-            kind: ElementKind::Text,
-            props: ElementProps::from(text),
-            key: None,
+            _ => Err(LuaError::external("Expected LuaElement user data")),
         }
     }
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Default)]
 pub enum ElementKind {
-    Element(String),
-    Component(LuaFunction),
+    Element(String), // represents a tag name like "div", "span", etc.
+    Component(LuaRegistryKey),
     Fragment(LuaTable),
     #[default]
     Text,
 }
 
-impl fmt::Display for ElementKind {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            ElementKind::Element(name) => write!(f, "Element({})", name),
-            ElementKind::Component(_) => write!(f, "Component(<LuaFunction>)"),
-            ElementKind::Fragment(_) => write!(f, "Fragment(<LuaTable>)"),
-            ElementKind::Text => write!(f, "Text"),
+impl FromLua for ElementKind {
+    fn from_lua(value: LuaValue, lua: &Lua) -> LuaResult<Self> {
+        match value {
+            LuaValue::String(s) => Ok(ElementKind::Element(s.to_str()?.to_string())),
+            LuaValue::Function(f) => {
+                let key = lua.create_registry_value(f)?;
+                Ok(ElementKind::Component(key))
+            }
+            LuaValue::Table(t) => {
+                if t.is_empty() {
+                    return Ok(ElementKind::Fragment(t));
+                }
+                Err(LuaError::external(
+                    "Expected a string, function, or empty table for ElementKind",
+                ))
+            }
+            _ => Err(LuaError::external(
+                "Expected a string, function, or table for ElementKind",
+            )),
         }
     }
 }

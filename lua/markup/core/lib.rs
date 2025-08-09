@@ -15,18 +15,9 @@ use std::{cell::RefCell, rc::Rc};
 pub use taffy::prelude::*;
 
 // creates a new LuaDom instance which can be used to create nodes
-pub fn create_dom(_: &Lua, _: ()) -> LuaResult<LuaDom> {
-    Ok(LuaDom(Rc::new(RefCell::new(Dom::new()))))
-}
-
-// creates lsx-like elements
-pub fn create_element(
-    _: &Lua,
-    (kind, props, key): (ElementKind, ElementProps, Option<String>),
-) -> LuaResult<LuaElement> {
-    let lsx = Element::new(kind, props, key);
-    Ok(LuaElement::from(lsx))
-}
+// pub fn create_dom(_: &Lua, _: ()) -> LuaResult<LuaDom> {
+//     Ok(LuaDom(Rc::new(RefCell::new(Dom::new()))))
+// }
 
 // NOTE: skip_memory_check greatly improves performance
 // https://github.com/mlua-rs/mlua/issues/318
@@ -34,8 +25,8 @@ pub fn create_element(
 fn markup_core(lua: &Lua) -> LuaResult<LuaTable> {
     let exports = lua.create_table()?;
 
-    exports.set("create_dom", lua.create_function(create_dom)?)?;
-    exports.set("create_lsx", lua.create_function(create_element)?)?;
+    // exports.set("create_dom", lua.create_function(create_dom)?)?;
+    // exports.set("render", lua.create_function(create_element)?)?;
 
     Ok(exports)
 }

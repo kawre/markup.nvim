@@ -5,7 +5,7 @@ use std::rc::Rc;
 
 #[derive(Debug, Clone, PartialEq, Default)]
 pub enum FiberKind {
-    Function(LuaFunction),
+    Function,
     Fragment,
     Element,
     #[default]
@@ -14,28 +14,17 @@ pub enum FiberKind {
     Context,
 }
 
-bitflags::bitflags! {
-    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-    pub struct Flag: u8 {
-        const NONE = 0;
-        const PLACEMENT = 1 << 0;
-        const UPDATE = 1 << 1;
-        const DELETE = 1 << 2;
-        const CHILD_DELETE = 1 <<3;
-    }
-}
-
 pub type FiberRef = Rc<RefCell<Fiber>>;
 pub type FiberStateNode = Rc<Node>;
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Fiber {
-    pub pending_props: ElementProps,
-    pub memoized_props: Option<ElementProps>,
+    pub pending_props: PendingProps,
+    pub memoized_props: Option<MemoizedProps>,
     pub kind: FiberKind,
     pub element_kind: Option<ElementKind>,
-    pub return_fiber: Option<FiberRef>,
     pub state_node: Option<FiberStateNode>,
+    pub parent: Option<FiberRef>,
     pub alternate: Option<FiberRef>,
     pub child: Option<FiberRef>,
     pub sibling: Option<FiberRef>,
@@ -46,15 +35,22 @@ pub struct Fiber {
     pub key: Option<String>,
 }
 
-impl Default for Fiber {
-    fn default() -> Self {
+// impl Default for Fiber {
+//     fn default() -> Self {
+//         Self {
+//         }
+//     }
+// }
+
+impl Fiber {
+    pub fn new(kind: FiberKind, props: PendingProps) -> Self {
         Self {
+            pending_props: props,
+            kind,
             id: util::gen_id(),
-            pending_props: ElementProps::default(),
             memoized_props: None,
-            kind: FiberKind::default(),
             element_kind: None,
-            return_fiber: None,
+            parent: None,
             state_node: None,
             alternate: None,
             child: None,
@@ -65,20 +61,17 @@ impl Default for Fiber {
             key: None,
         }
     }
-}
 
-impl Fiber {
-    pub fn new(kind: FiberKind, props: ElementProps) -> Self {
-        Self {
-            pending_props: props,
-            kind,
-            ..Default::default()
-        }
-    }
-
-    pub fn new_root(lsx: Rc<Element>) -> Self {
-        let root_fiber = Fiber::new(FiberKind::Root, ElementProps::default());
-        root_fiber
+    pub fn new_root(lua: &Lua, element: LuaValue) -> LuaResult<Self> {
+        let new_props = lua.create_table()?;
+        let children = lua.create_table()?;
+        children.push(&element)?;
+        new_props.set("children", children)?;
+        let root_fiber = Fiber::new(
+            FiberKind::Root,
+            PendingProps::from_lua(LuaValue::Table(new_props), lua)?,
+        );
+        Ok(root_fiber)
     }
 
     pub fn into_ref(self) -> FiberRef {
@@ -86,7 +79,7 @@ impl Fiber {
     }
 
     // This is used to create an alternate fiber to do work on.
-    pub fn create_work_in_progress(current: &FiberRef, pending_props: ElementProps) -> FiberRef {
+    pub fn create_work_in_progress(current: &FiberRef, pending_props: PendingProps) -> FiberRef {
         let mut current_borrow = current.borrow_mut();
 
         if let Some(alternate) = &current_borrow.alternate {
@@ -124,6 +117,17 @@ impl Fiber {
     }
 }
 
+bitflags::bitflags! {
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    pub struct Flag: u8 {
+        const NONE = 0;
+        const PLACEMENT = 1 << 0;
+        const UPDATE = 1 << 1;
+        const DELETE = 1 << 2;
+        const CHILD_DELETE = 1 <<3;
+    }
+}
+
 impl Fiber {
     pub fn set_flags(&mut self, flags: Flag) {
         self.flags |= flags;
@@ -142,153 +146,127 @@ impl Fiber {
     }
 }
 
-impl From<&ElementRef> for Fiber {
-    fn from(lsx: &ElementRef) -> Self {
-        let kind = match lsx.kind.clone() {
-            ElementKind::Component(func) => FiberKind::Function(func),
-            ElementKind::Fragment(_) => FiberKind::Fragment,
-            ElementKind::Element(_) => FiberKind::Element,
-            ElementKind::Text => FiberKind::Text,
-        };
-        let lsx_borrow = lsx.as_ref();
+// impl PartialEq<ElementKind> for FiberKind {
+//     fn eq(&self, other: &ElementKind) -> bool {
+//         match self {
+//             FiberKind::Function(_) => matches!(other, ElementKind::Component(_)),
+//             FiberKind::Fragment => matches!(other, ElementKind::Fragment(_)),
+//             FiberKind::Element => matches!(other, ElementKind::Element(_)),
+//             FiberKind::Text => matches!(other, ElementKind::Element(_)),
+//             FiberKind::Root => matches!(other, ElementKind::Element(_)),
+//             FiberKind::Context => false, // Context is not directly comparable to LsxKind
+//         }
+//     }
+// }
 
-        Fiber {
-            pending_props: lsx_borrow.props.clone(),
-            kind,
-            element_kind: Some(lsx_borrow.kind.clone()),
-            key: lsx_borrow.key.clone(),
-            ..Default::default()
-        }
-    }
-}
-
-impl From<&LuaElement> for Fiber {
-    fn from(lua_lsx: &LuaElement) -> Self {
-        Fiber::from(&lua_lsx.0.clone())
-    }
-}
-
-impl PartialEq<ElementKind> for FiberKind {
-    fn eq(&self, other: &ElementKind) -> bool {
-        match self {
-            FiberKind::Function(_) => matches!(other, ElementKind::Component(_)),
-            FiberKind::Fragment => matches!(other, ElementKind::Fragment(_)),
-            FiberKind::Element => matches!(other, ElementKind::Element(_)),
-            FiberKind::Text => matches!(other, ElementKind::Element(_)),
-            FiberKind::Root => matches!(other, ElementKind::Element(_)),
-            FiberKind::Context => false, // Context is not directly comparable to LsxKind
-        }
-    }
-}
-
-impl Fiber {
-    pub fn print_tree(&self) -> String {
-        self.print_tree_with_depth(0, "", true)
-    }
-
-    fn print_tree_with_depth(&self, depth: usize, prefix: &str, is_last: bool) -> String {
-        let mut result = String::new();
-
-        // Create the tree structure markers
-        let mark = if is_last { "└╴" } else { "├╴" };
-        let indent = if depth > 0 {
-            format!("{}{}", prefix, mark)
-        } else {
-            String::new()
-        };
-
-        result.push_str(&indent);
-
-        // Add the fiber content based on its kind
-        match &self.kind {
-            FiberKind::Root => {
-                result.push_str(" fiber root");
-            }
-            FiberKind::Element => {
-                result.push_str(&format!(" {:?}", &self.kind,));
-
-                // Add text content if it's a text element
-                if let ElementChildren::Text(text) = &self.pending_props.children {
-                    result.push_str(&format!(" #[{}]", text));
-                }
-            }
-            FiberKind::Text => {
-                if let ElementChildren::Text(text) = &self.pending_props.children {
-                    result.push_str(&format!(" #[{}]", text));
-                } else {
-                    result.push_str(" text");
-                }
-            }
-            FiberKind::Function(func_name) => {
-                result.push_str(&format!(" 󰊕 Component({})", "any"));
-            }
-            FiberKind::Context => {
-                result.push_str(" 󰨾 context");
-            }
-            FiberKind::Fragment => {
-                result.push_str(" fragment");
-            }
-        }
-
-        // Add key if present
-        if let Some(key) = &self.key {
-            result.push_str(&format!(" [key = {}]", key));
-        }
-
-        // Add fiber kind tag
-        result.push_str(&format!(
-            " ({})",
-            match self.kind {
-                FiberKind::Root => "ROOT",
-                FiberKind::Element => "ELEMENT",
-                FiberKind::Text => "TEXT",
-                FiberKind::Function(_) => "FUNCTION",
-                FiberKind::Context => "CONTEXT",
-                FiberKind::Fragment => "FRAGMENT",
-            }
-        ));
-
-        // Add fiber ID
-        result.push_str(&format!("  {} ", &self.id));
-
-        result.push('\n');
-
-        // Print children
-        if let Some(child) = &self.child {
-            let child_borrow = child.borrow();
-            let has_sibling = child_borrow.sibling.is_some();
-            drop(child_borrow);
-
-            let new_prefix = if depth > 0 {
-                format!("{}│ ", prefix)
-            } else {
-                String::new()
-            };
-
-            result.push_str(&child.borrow().print_tree_with_depth(
-                depth + 1,
-                &new_prefix,
-                !has_sibling,
-            ));
-
-            // Print siblings
-            let mut current_sibling = child.borrow().sibling.clone();
-            while let Some(sibling) = current_sibling {
-                let sibling_borrow = sibling.borrow();
-                let has_next_sibling = sibling_borrow.sibling.is_some();
-                let next_sibling = sibling_borrow.sibling.clone();
-                drop(sibling_borrow);
-
-                result.push_str(&sibling.borrow().print_tree_with_depth(
-                    depth + 1,
-                    &new_prefix,
-                    !has_next_sibling,
-                ));
-
-                current_sibling = next_sibling;
-            }
-        }
-
-        result
-    }
-}
+// impl Fiber {
+//     pub fn print_tree(&self) -> String {
+//         self.print_tree_with_depth(0, "", true)
+//     }
+//
+//     fn print_tree_with_depth(&self, depth: usize, prefix: &str, is_last: bool) -> String {
+//         let mut result = String::new();
+//
+//         // Create the tree structure markers
+//         let mark = if is_last { "└╴" } else { "├╴" };
+//         let indent = if depth > 0 {
+//             format!("{}{}", prefix, mark)
+//         } else {
+//             String::new()
+//         };
+//
+//         result.push_str(&indent);
+//
+//         // Add the fiber content based on its kind
+//         match &self.kind {
+//             FiberKind::Root => {
+//                 result.push_str(" fiber root");
+//             }
+//             FiberKind::Element => {
+//                 result.push_str(&format!(" {:?}", &self.kind,));
+//
+//                 // Add text content if it's a text element
+//                 if let ElementChildren::Text(text) = &self.pending_props.children {
+//                     result.push_str(&format!(" #[{}]", text));
+//                 }
+//             }
+//             FiberKind::Text => {
+//                 if let ElementChildren::Text(text) = &self.pending_props.children {
+//                     result.push_str(&format!(" #[{}]", text));
+//                 } else {
+//                     result.push_str(" text");
+//                 }
+//             }
+//             FiberKind::Function(func_name) => {
+//                 result.push_str(&format!(" 󰊕 Component({})", "any"));
+//             }
+//             FiberKind::Context => {
+//                 result.push_str(" 󰨾 context");
+//             }
+//             FiberKind::Fragment => {
+//                 result.push_str(" fragment");
+//             }
+//         }
+//
+//         // Add key if present
+//         if let Some(key) = &self.key {
+//             result.push_str(&format!(" [key = {}]", key));
+//         }
+//
+//         // Add fiber kind tag
+//         result.push_str(&format!(
+//             " ({})",
+//             match self.kind {
+//                 FiberKind::Root => "ROOT",
+//                 FiberKind::Element => "ELEMENT",
+//                 FiberKind::Text => "TEXT",
+//                 FiberKind::Function(_) => "FUNCTION",
+//                 FiberKind::Context => "CONTEXT",
+//                 FiberKind::Fragment => "FRAGMENT",
+//             }
+//         ));
+//
+//         // Add fiber ID
+//         result.push_str(&format!("  {} ", &self.id));
+//
+//         result.push('\n');
+//
+//         // Print children
+//         if let Some(child) = &self.child {
+//             let child_borrow = child.borrow();
+//             let has_sibling = child_borrow.sibling.is_some();
+//             drop(child_borrow);
+//
+//             let new_prefix = if depth > 0 {
+//                 format!("{}│ ", prefix)
+//             } else {
+//                 String::new()
+//             };
+//
+//             result.push_str(&child.borrow().print_tree_with_depth(
+//                 depth + 1,
+//                 &new_prefix,
+//                 !has_sibling,
+//             ));
+//
+//             // Print siblings
+//             let mut current_sibling = child.borrow().sibling.clone();
+//             while let Some(sibling) = current_sibling {
+//                 let sibling_borrow = sibling.borrow();
+//                 let has_next_sibling = sibling_borrow.sibling.is_some();
+//                 let next_sibling = sibling_borrow.sibling.clone();
+//                 drop(sibling_borrow);
+//
+//                 result.push_str(&sibling.borrow().print_tree_with_depth(
+//                     depth + 1,
+//                     &new_prefix,
+//                     !has_next_sibling,
+//                 ));
+//
+//                 current_sibling = next_sibling;
+//             }
+//         }
+//
+//         result
+//     }
+// }

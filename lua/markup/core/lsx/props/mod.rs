@@ -1,71 +1,86 @@
-mod convert;
-mod lua;
+// mod convert;
+// mod lua;
 
-pub use convert::*;
-pub use lua::*;
+// pub use convert::*;
+// pub use lua::*;
 
 use crate::prelude::*;
 use mlua::prelude::*;
 use taffy::prelude::*;
 
-#[derive(Debug, Clone, Default)]
-pub struct ElementProps {
-    pub base: Option<LuaTable>, // keep for later to extract properties during node creation
-    pub children: ElementChildren,
+#[derive(Debug)]
+pub enum PendingProps {
+    Text(String),
+    Table(LuaTable, ElementChildren),
 }
 
-impl From<String> for ElementProps {
-    fn from(text: String) -> Self {
-        ElementProps {
-            children: ElementChildren::Text(text),
-            ..Default::default()
+#[derive(Debug)]
+pub enum MemoizedProps {
+    Text(String),
+    Table(LuaRegistryKey),
+}
+
+impl FromLua for PendingProps {
+    fn from_lua(value: LuaValue, _: &Lua) -> LuaResult<Self> {
+        match value {
+            LuaValue::Table(tbl) => {
+                let children: ElementChildren = tbl.get("children")?;
+                Ok(PendingProps::Table(tbl, children))
+            }
+            LuaValue::String(s) => Ok(PendingProps::Text(s.to_str()?.to_string())),
+            _ => Err(LuaError::external("Expected LuaTable for PendingProps")),
         }
     }
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug)]
 pub enum ElementChildren {
-    #[default]
-    None,
-    Text(String),
+    Single(ElementChild),
     Sequence(Vec<ElementChild>),
 }
 
-#[derive(Debug, Clone)]
+impl FromLua for ElementChildren {
+    fn from_lua(value: LuaValue, lua: &Lua) -> LuaResult<Self> {
+        match value {
+            LuaValue::Table(t) => {
+                let seq = t
+                    .sequence_values::<ElementChild>()
+                    .collect::<LuaResult<Vec<_>>>()?;
+                Ok(ElementChildren::Sequence(seq))
+            }
+            value => {
+                let child = ElementChild::from_lua(value, lua)?;
+                Ok(ElementChildren::Single(child))
+            }
+        }
+    }
+}
+
+#[derive(Debug)]
 pub enum ElementChild {
     Text(String),
-    Element(ElementRef),
-    Table(LuaTable),
+    // store only the registry key for the table
+    // this is done to ensure that only a few references are kept on lua stack
+    // and to avoid auxiliary stack overflow when processing large number of children
+    Table(LuaRegistryKey),
 }
 
-impl ElementChildren {
-    pub fn from_child(child: ElementChild) -> Self {
-        match child {
-            ElementChild::Text(s) => ElementChildren::Text(s),
-            _ => ElementChildren::Sequence(vec![child]),
+impl FromLua for ElementChild {
+    fn from_lua(value: LuaValue, lua: &Lua) -> LuaResult<Self> {
+        match value {
+            LuaValue::Table(t) => {
+                let key = lua.create_registry_value(t)?;
+                Ok(ElementChild::Table(key))
+            }
+            value => match lua.coerce_string(value) {
+                Ok(s) => Ok(ElementChild::Text(match s {
+                    Some(s) => s.to_str()?.to_string(),
+                    None => return Err(LuaError::external("Expected a string")),
+                })),
+                Err(_) => Err(LuaError::external(
+                    "Expected LuaTable, String, or UserData for ElementChild",
+                )),
+            },
         }
     }
 }
-
-impl PartialEq for ElementProps {
-    fn eq(&self, other: &Self) -> bool {
-        match (&self.base, &other.base) {
-            (Some(b1), Some(b2)) => b1.to_pointer() == b2.to_pointer(),
-            _ => true,
-        }
-    }
-}
-
-// impl From<ElementProps> for Style {
-//     fn from(value: ElementProps) -> Self {
-//         let base = value.base;
-//
-//         match base {
-//             Some(t) => Style {
-//                 display: t.get::<LuaDisplay>("display").unwrap().0,
-//                 ..Default::default()
-//             },
-//             None => Style::default(),
-//         }
-//     }
-// }

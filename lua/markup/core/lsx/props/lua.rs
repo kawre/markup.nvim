@@ -36,7 +36,7 @@ fn extract_children_sequence(table: &LuaTable, lua: &Lua) -> LuaResult<ElementCh
     }
 }
 
-impl FromLua for ElementProps {
+impl FromLua for PendingProps {
     fn from_lua(value: LuaValue, lua: &Lua) -> LuaResult<Self> {
         match value {
             LuaValue::Boolean(false) | LuaValue::Nil => Ok(Self::default()),
@@ -97,7 +97,7 @@ impl FromLua for ElementProps {
                 })
             }
             value => match lua_value_to_text(&value) {
-                Some(text) => Ok(ElementProps {
+                Some(text) => Ok(PendingProps {
                     base: None,
                     children: ElementChildren::Text(text),
                 }),
