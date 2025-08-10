@@ -1,10 +1,10 @@
-mod dom;
+// mod dom;
 mod lsx;
 mod reconciler;
 mod util;
 
 pub mod prelude {
-    pub use crate::dom::*;
+    // pub use crate::dom::*;
     pub use crate::lsx::*;
     pub use crate::reconciler::*;
 }

@@ -3,6 +3,7 @@ mod fiber;
 pub use fiber::*;
 
 use crate::prelude::*;
+use mlua::prelude::*;
 use std::{
     cell::RefCell,
     collections::{HashMap, HashSet},
@@ -11,9 +12,25 @@ use std::{
 
 #[derive(Default)]
 pub struct Reconciler {
-    current_fiber: Option<FiberRef>,
-    work_stack: Vec<FiberRef>,
-    work_stack_visited: HashSet<*const ()>,
+    pub current_root: Option<FiberRef>,
+    pub work_in_progress_root: Option<FiberRef>,
+    pub next_unit_of_work: Option<FiberRef>,
+    pub current_fiber: Option<FiberRef>,
+    pub work_stack: Vec<FiberRef>,
+    pub work_stack_visited: HashSet<*const ()>,
+}
+
+impl Reconciler {
+    pub fn new() -> Self {
+        Reconciler {
+            current_root: None,
+            work_in_progress_root: None,
+            next_unit_of_work: None,
+            current_fiber: None,
+            work_stack: Vec::new(),
+            work_stack_visited: HashSet::new(),
+        }
+    }
 }
 
 thread_local! {
@@ -30,656 +47,763 @@ where
     })
 }
 
-pub fn reconcile(root_fiber: FiberRef) -> FiberRef {
+/// Main reconcile function - equivalent to M.call() in Lua
+pub fn reconcile(lua: &Lua, root_fiber: FiberRef) -> FiberRef {
     with_reconciler(|rec| {
         rec.current_fiber = None;
         rec.work_stack.clear();
         rec.work_stack_visited.clear();
     });
 
-    prepare_stack(&root_fiber);
+    let new_root = work_loop(lua, root_fiber);
+    commit(lua, &new_root);
 
-    let new_root = work_loop();
-    // commit(&rec, &new_root);
+    // Print the complete fiber tree structure
+    print_complete_fiber_tree(&new_root);
+
     new_root
 }
 
-fn prepare_stack(root_fiber: &FiberRef) {
-    let props = root_fiber.borrow().pending_props.clone();
-    let work_in_progress = Fiber::create_work_in_progress(root_fiber, props);
-    with_reconciler(|rec| rec.work_stack.push(work_in_progress.clone()));
+/// Create a fresh work stack with root WIP fiber - equivalent to M.fresh_stack()
+fn fresh_stack(lua: &Lua, root_fiber: FiberRef) -> FiberRef {
+    with_reconciler(|rec| {
+        rec.work_stack.clear();
+        rec.work_stack.push(root_fiber.clone());
+        rec.work_stack_visited.clear();
+    });
+
+    root_fiber
 }
 
-fn work_loop() -> FiberRef {
-    let mut unit: Option<FiberRef> = None;
+/// DFS reconciliation work loop - equivalent to M.work_loop()
+fn work_loop(lua: &Lua, root_fiber: FiberRef) -> FiberRef {
+    let mut unit = fresh_stack(lua, root_fiber);
 
     loop {
         let maybe_fiber = with_reconciler(|rec| rec.work_stack.pop());
 
         match maybe_fiber {
             Some(fiber_ref) => {
-                unit = Some(fiber_ref.clone());
-                process_unit_of_work(&fiber_ref);
+                unit = fiber_ref.clone();
+                process_unit_of_work(lua, &fiber_ref);
             }
             None => break,
         }
     }
 
-    unit.expect("No unit of work processed")
+    unit
 }
 
-#[inline(always)]
-fn process_unit_of_work(unit: &FiberRef) {
+/// Process a single unit of work - equivalent to M.process_unit()
+fn process_unit_of_work(lua: &Lua, unit: &FiberRef) {
     let raw_ptr = Rc::as_ptr(unit) as *const ();
 
-    let maybe_visited = with_reconciler(|rec| rec.work_stack_visited.contains(&raw_ptr));
-    if maybe_visited {
-        complete_unit_of_work(unit);
+    let is_visited = with_reconciler(|rec| rec.work_stack_visited.contains(&raw_ptr));
+    if is_visited {
+        complete_unit_of_work(lua, unit);
         return;
     }
 
     with_reconciler(|rec| rec.current_fiber = Some(unit.clone()));
 
     let alternate = unit.borrow().alternate.clone();
-    let next = begin_work(alternate.as_ref(), unit);
-
-    // let pending_props = next.borrow().pending_props.clone(); // extract before mutable borrow
-
-    // drop(alternate);
+    let next = begin_work(lua, alternate.as_ref(), unit);
 
     with_reconciler(|rec| {
         rec.current_fiber = None;
-
-        // unit.borrow_mut().memoized_props = next.borrow().pending_props.clone();
-
         rec.work_stack.push(unit.clone());
         if let Some(next_unit) = next {
             rec.work_stack.push(next_unit);
         }
-
         rec.work_stack_visited.insert(raw_ptr);
     });
 }
 
-#[inline(always)]
-fn complete_unit_of_work(unit: &FiberRef) {
-    let mut wip_borrow = unit.borrow_mut();
-    let mut curr_borrow = wip_borrow.alternate.clone();
-
-    match wip_borrow.kind {
-        FiberKind::Element => {
-            if let Some(curr) = curr_borrow {
-                //
-            }
-        }
-        FiberKind::Text => {
-            if let Some(curr) = curr_borrow {
-                // curr.borrow_mut().memoized_props = wip_borrow.pending_props.clone();
-            }
-        }
-        _ => {
-            // Handle other kinds of fibers if necessary
+/// Begin work on a fiber - equivalent to M.begin_work()
+fn begin_work(lua: &Lua, current: Option<&FiberRef>, wip: &FiberRef) -> Option<FiberRef> {
+    // Check for bailout conditions
+    if let Some(current) = current {
+        if can_bailout(current, wip) {
+            return bailout(current, wip);
         }
     }
 
-    if let Some(sibling) = &wip_borrow.sibling {
-        with_reconciler(|rec| rec.work_stack.push(sibling.clone()))
-    }
-}
-
-#[inline(always)]
-fn begin_work(current: Option<&FiberRef>, work_in_progress: &FiberRef) -> Option<FiberRef> {
-    // let current_ref = current;
-    // if check_early_bailout(current_ref, work_in_progress) {
-    //     return {
-    //         // early bailout
-    //         clone_child_fibers(current_ref, work_in_progress);
-    //         work_in_progress.clone()
-    //     };
-    // }
-
-    let new_child = {
-        let kind = work_in_progress.borrow().kind.clone();
-        // dbg!(&kind);
+    let child = {
+        let kind = &wip.borrow().kind;
 
         match kind {
-            FiberKind::Function(_) => update_function_component(current, work_in_progress),
-            FiberKind::Element => update_element_component(current, work_in_progress),
-            FiberKind::Text => update_text_component(current, work_in_progress),
-            FiberKind::Root => update_root_component(current, work_in_progress),
-            FiberKind::Context => update_context_component(current, work_in_progress),
-            FiberKind::Fragment => update_fragment_component(current, work_in_progress),
+            FiberKind::Element(e) => {
+                if current.is_none() {
+                    // wip.borrow_mut().set_flags(Flag::PLACEMENT);
+                } else if let Some(current) = current {
+                    // Check if props changed
+                    todo!()
+                    // if props_changed(current, wip) {
+                    //     wip.borrow_mut().set_flags(Flag::UPDATE);
+                    // }
+                }
+
+                reconcile_children(lua, current, wip, &e.pending_props)
+            }
+            FiberKind::Function(_) => todo!(),
+            FiberKind::Text(str) => {
+                if current.is_none() {
+                    // wip.borrow_mut().set_flags(Flag::PLACEMENT);
+                } else if let Some(current) = current {
+                    todo!()
+                    // if text_content_changed(current, wip) {
+                    //     wip.borrow_mut().set_flags(Flag::UPDATE);
+                    // }
+                }
+                None // Text nodes have no children
+            }
+            FiberKind::Fragment(_) => todo!(),
+            FiberKind::Root(key) => reconcile_children(lua, current, wip, key),
+            FiberKind::Context(_) => todo!(),
         }
-    }; // wip_borrow is dropped here
+    };
 
-    let mut wip_borrow = work_in_progress.borrow_mut();
-    wip_borrow.child = new_child;
-    wip_borrow.child.clone()
+    wip.borrow_mut().child = child.clone();
+
+    child
 }
 
-fn check_early_bailout(current: Option<&FiberRef>, work_in_progress: &FiberRef) -> bool {
-    // if let Some(current) = current {
-    //     let current_borrow = current.borrow();
-    //     let wip_borrow = work_in_progress.borrow();
-    //     let old_props_ref = current_borrow.pending_props;
-    //     let new_props_ref = wip_borrow.pending_props;
-    //
-    //     if current_borrow.kind == wip_borrow.kind {
-    //         if let (Some(old_props), Some(new_props)) = (old_props_ref, new_props_ref) {
-    //             if old_props == new_props && wip_borrow.check_flags(Flag::NONE) {
-    //                 return true;
-    //             }
-    //         }
-    //     };
-    // }
-    false
+/// Complete work on a unit - equivalent to M.complete_unit()
+fn complete_unit_of_work(lua: &Lua, unit: &FiberRef) {
+    let (tag, has_state_node) = {
+        let unit_borrow = unit.borrow();
+        let tag = match &unit_borrow.kind {
+            FiberKind::Element(_) => "element",
+            FiberKind::Text(_) => "text",
+            FiberKind::Function(_) => "function",
+            FiberKind::Root(_) => "root",
+            FiberKind::Fragment(_) => "fragment",
+            FiberKind::Context(_) => "context",
+        };
+        println!(
+            "COMPLETE_WORK: Completing {}, id: {}, flags: {:?}",
+            tag, unit_borrow.id, unit_borrow.flags
+        );
+        (tag, unit_borrow.kind.has_state_node())
+    };
+
+    match tag {
+        "element" => {
+            let current = unit.borrow().alternate.clone();
+            if current.is_some() && has_state_node {
+                update_single_node(unit);
+            } else {
+                place_single_node(lua, unit);
+                populate_state_node(unit);
+            }
+        }
+        "text" => {
+            let current = unit.borrow().alternate.clone();
+            if current.is_some() && has_state_node {
+                update_node_text(unit);
+            } else {
+                place_single_node(lua, unit);
+            }
+        }
+        "function" => {
+            let mut unit_borrow = unit.borrow_mut();
+            unit_borrow.clear_flags(Flag::PLACEMENT);
+            unit_borrow.clear_flags(Flag::UPDATE);
+        }
+        "root" => {
+            if unit.borrow().check_flags(Flag::PLACEMENT) {
+                populate_state_node(unit);
+                unit.borrow_mut().clear_flags(Flag::PLACEMENT);
+            }
+        }
+        _ => {}
+    }
+
+    let sibling = unit.borrow().sibling.clone();
+    if let Some(sibling) = sibling {
+        with_reconciler(|rec| rec.work_stack.push(sibling));
+    }
 }
 
-fn update_element_component(
-    current: Option<&FiberRef>,
-    work_in_progress: &FiberRef,
-) -> Option<FiberRef> {
-    let mut wip_borrow = work_in_progress.borrow_mut();
+/// Check if we can bailout early - equivalent to bailout conditions in M.begin_work()
+fn can_bailout(current: &FiberRef, wip: &FiberRef) -> bool {
+    let current_borrow = current.borrow();
+    let wip_borrow = wip.borrow();
 
-    let next_props = wip_borrow.pending_props.clone();
-    let next_children = next_props.children.clone();
+    // Compare fiber types and props for bailout
+    match (&current_borrow.kind, &wip_borrow.kind) {
+        (FiberKind::Element(c), FiberKind::Element(w)) => {
+            c.element_tag == w.element_tag && wip_borrow.check_flags(Flag::NONE)
+        }
+        (FiberKind::Text(c), FiberKind::Text(w)) => c == w && wip_borrow.check_flags(Flag::NONE),
+        _ => false,
+    }
+}
 
-    match current {
-        None => wip_borrow.set_flags(Flag::PLACEMENT),
-        Some(curr) => {
-            let curr_borrow = curr.borrow();
-            if wip_borrow.state_node.is_some()
-                && curr_borrow.memoized_props != Some(wip_borrow.pending_props.clone())
+/// Bailout by cloning child fibers - equivalent to M.bailout()
+fn bailout(current: &FiberRef, wip: &FiberRef) -> Option<FiberRef> {
+    clone_child_fibers(current, wip);
+    wip.borrow().child.clone()
+}
+
+/// Clone child fibers - equivalent to M.clone_child_fibers()
+fn clone_child_fibers(current: &FiberRef, wip: &FiberRef) {
+    let current_child = current.borrow().child.clone();
+
+    if let Some(child) = current_child {
+        let new_child = create_work_in_progress_from_fiber(&child);
+
+        {
+            let mut wip_borrow = wip.borrow_mut();
+            wip_borrow.child = Some(new_child.clone());
+        }
+
+        {
+            let mut new_child_borrow = new_child.borrow_mut();
+            new_child_borrow.parent = Some(wip.clone());
+        }
+
+        let mut current_sibling = child.borrow().sibling.clone();
+        let mut last_new_child = new_child;
+
+        while let Some(sibling) = current_sibling {
+            let new_sibling = create_work_in_progress_from_fiber(&sibling);
+
             {
-                wip_borrow.set_flags(Flag::UPDATE);
+                let mut last_borrow = last_new_child.borrow_mut();
+                last_borrow.sibling = Some(new_sibling.clone());
+            }
+
+            {
+                let mut new_sibling_borrow = new_sibling.borrow_mut();
+                new_sibling_borrow.parent = Some(wip.clone());
+            }
+
+            last_new_child = new_sibling;
+            current_sibling = sibling.borrow().sibling.clone();
+        }
+
+        last_new_child.borrow_mut().sibling = None;
+    }
+}
+
+/// Create WIP from existing fiber
+fn create_work_in_progress_from_fiber(current: &FiberRef) -> FiberRef {
+    // Since LuaRegistryKey doesn't implement Clone, we need to create new fibers differently
+    // For now, create a simple new fiber with basic kind
+    let (tag, key, index) = {
+        let current_borrow = current.borrow();
+        let tag = match &current_borrow.kind {
+            FiberKind::Root(_) => "root",
+            FiberKind::Element(_) => "element",
+            FiberKind::Text(_) => "text",
+            FiberKind::Function(_) => "function",
+            FiberKind::Context(_) => "context",
+            FiberKind::Fragment(_) => "fragment",
+        };
+        (tag, current_borrow.key.clone(), current_borrow.index)
+    };
+
+    // Create a basic fiber - the actual implementation would need to properly
+    // handle LuaRegistryKey copying/sharing
+    let new_fiber = match tag {
+        "text" => {
+            if let FiberKind::Text(content) = &current.borrow().kind {
+                Fiber::new(FiberKind::Text(content.clone()))
+            } else {
+                Fiber::new(FiberKind::Text("".to_string()))
             }
         }
+        _ => Fiber::new(FiberKind::Text("placeholder".to_string())), // Simplified
     };
 
-    drop(wip_borrow);
-
-    if let ElementChildren::Text(_) = next_children {
-        reconcile_children(current, work_in_progress, &ElementChildren::None);
-    } else {
-        reconcile_children(current, work_in_progress, &next_children);
-    }
-
-    let wip_borrow = work_in_progress.borrow();
-    wip_borrow.child.clone()
-}
-
-fn update_text_component(
-    current: Option<&FiberRef>,
-    work_in_progress: &FiberRef,
-) -> Option<FiberRef> {
-    if current.is_some() {
-        work_in_progress.borrow_mut().set_flags(Flag::UPDATE);
-    } else {
-        work_in_progress.borrow_mut().set_flags(Flag::PLACEMENT);
-    }
-
-    None // leaf node, no children to reconcile
-}
-
-fn update_function_component(
-    current: Option<&FiberRef>,
-    work_in_progress: &FiberRef,
-) -> Option<FiberRef> {
-    todo!()
-}
-
-fn update_root_component(
-    current: Option<&FiberRef>,
-    work_in_progress: &FiberRef,
-) -> Option<FiberRef> {
-    todo!()
-}
-
-fn update_context_component(
-    current: Option<&FiberRef>,
-    work_in_progress: &FiberRef,
-) -> Option<FiberRef> {
-    todo!()
-}
-
-fn update_fragment_component(
-    current: Option<&FiberRef>,
-    work_in_progress: &FiberRef,
-) -> Option<FiberRef> {
-    todo!()
-}
-
-fn clone_child_fibers(current: Option<&FiberRef>, work_in_progress: &FiberRef) {
-    if let Some(current) = current {
-        let current_child = current.borrow().child.clone();
-        let wip_child = work_in_progress.borrow().child.clone();
-
-        if let (Some(c), Some(w)) = (current_child, wip_child) {
-            if !Rc::ptr_eq(&c, &w) {
-                panic!("Resuming work not yet implemented.");
-            }
-        }
-    };
-
-    let current_child = work_in_progress.borrow().child.clone();
-
-    let Some(current_child) = current_child else {
-        return;
-    };
-
-    // Clone the first child
-    let new_child = Fiber::create_work_in_progress(
-        &current_child,
-        current_child.borrow().pending_props.clone(),
-    );
+    let fiber_ref = new_fiber.into_ref();
 
     {
-        work_in_progress.borrow_mut().child = Some(new_child.clone());
-        new_child.borrow_mut().return_fiber = Some(work_in_progress.clone());
+        let mut new_borrow = fiber_ref.borrow_mut();
+        new_borrow.alternate = Some(current.clone());
+        new_borrow.key = key;
+        new_borrow.index = index;
     }
 
-    let mut current_child_iter = current_child;
-    let mut new_child_iter = new_child;
+    fiber_ref
+}
 
-    loop {
-        let next_sibling = { current_child_iter.borrow().sibling.clone() };
+/// Render function component with hooks - equivalent to M.render_with_hooks()
+fn render_with_hooks(lua: &Lua, _current: Option<&FiberRef>, wip: &FiberRef) -> ElementChildren {
+    if let FiberKind::Function(key) = &wip.borrow().kind {
+        let func: LuaFunction = lua
+            .registry_value(key)
+            .expect("Failed to get function from registry");
 
-        if let Some(sibling) = next_sibling {
-            let wip_sibling =
-                Fiber::create_work_in_progress(&sibling, sibling.borrow().pending_props.clone());
+        // Get props (simplified - in full implementation this would be more complex)
+        let props = lua.create_table().unwrap();
 
-            {
-                wip_sibling.borrow_mut().return_fiber = Some(work_in_progress.clone());
-                new_child_iter.borrow_mut().sibling = Some(wip_sibling.clone());
-            }
+        // Call the function component
+        let result: ElementChildren = func.call(props).unwrap();
 
-            current_child_iter = sibling;
-            new_child_iter = wip_sibling;
-        } else {
-            new_child_iter.borrow_mut().sibling = None;
-            break;
-        }
+        // Return children (simplified)
+        result
+    } else {
+        panic!("Expected Function kind for render_with_hooks");
     }
 }
 
-// fn prepare_new_child(mut new_child: LuaPropsChild) -> FiberRef {
-//     while let (LuaPropsChild::Lsx(lsx), Lsx) {
-//         new_child = tbl
-//             .get("children")
-//             .and_then(|v| v.try_into().ok())
-//             .unwrap_or(LuaPropsChild::None);
-//     }
-//
-//     new_child
-// }
-
+/// Reconcile children - equivalent to M.reconcile_children()
 fn reconcile_children(
+    lua: &Lua,
     current: Option<&FiberRef>,
-    work_in_progress: &FiberRef,
-    next_children: &ElementChildren,
-) {
+    wip: &FiberRef,
+    children: &LuaRegistryKey,
+) -> Option<FiberRef> {
+    // Get children and reconcile
+    let children = lua
+        .registry_value::<LuaTable>(children)
+        .expect("Failed to get children from registry")
+        .get::<ElementChildren>("children")
+        .expect("Failed to get children from table");
+
     let current_first_child = current.and_then(|c| c.borrow().child.clone());
-    reconcile_child_fibers(
-        work_in_progress,
-        current_first_child.as_ref(),
-        next_children,
-    );
+    reconcile_child_fibers(lua, wip, current_first_child, children)
 }
 
+/// Reconcile child fibers - equivalent to M.reconcile_child_fibers()
 fn reconcile_child_fibers(
+    lua: &Lua,
     return_fiber: &FiberRef,
-    current_first_child: Option<&FiberRef>,
-    new_child: &ElementChildren,
-) {
-    match new_child {
-        ElementChildren::Text(str) => {
-            reconcile_single_text(return_fiber, current_first_child, str);
+    current_first_child: Option<FiberRef>,
+    new_children: ElementChildren,
+) -> Option<FiberRef> {
+    match new_children {
+        ElementChildren::Single(child) => {
+            reconcile_single_element_child(lua, return_fiber, current_first_child, child)
         }
-        ElementChildren::Sequence(children) => match children.as_slice() {
-            [ElementChild::Element(element)] => {
-                reconcile_single_element(return_fiber, current_first_child, element);
-            }
-            _ => {
-                reconcile_children_list(return_fiber, current_first_child, children);
-            }
-        },
-        ElementChildren::None => {}
+        ElementChildren::Sequence(seq) => {
+            reconcile_children_list(lua, return_fiber, current_first_child, seq)
+        }
     }
+}
 
-    delete_remaining_children(return_fiber, current_first_child);
+fn reconcile_single_element_child(
+    lua: &Lua,
+    return_fiber: &FiberRef,
+    current_first_child: Option<FiberRef>,
+    element_child: ElementChild,
+) -> Option<FiberRef> {
+    match &element_child {
+        ElementChild::Text(_) => {
+            if let Some(current) = &current_first_child {
+                if let FiberKind::Text(_) = current.borrow().kind {
+                    delete_remaining_children(return_fiber, Some(current.clone()));
+                    let mut existing = Fiber::create_work_in_progress(lua, current, element_child);
+
+                    existing.parent = Some(return_fiber.clone());
+
+                    return Some(existing.into_ref());
+                }
+            }
+
+            delete_remaining_children(return_fiber, current_first_child);
+            let mut fiber = Fiber::from_child(lua, element_child);
+
+            fiber.parent = Some(return_fiber.clone());
+            fiber.set_flags(Flag::PLACEMENT);
+
+            Some(fiber.into_ref())
+        }
+        ElementChild::Element(el) => {
+            let element: Element = lua
+                .registry_value(el)
+                .expect("Failed to get element from registry");
+
+            let mut child = current_first_child.clone();
+
+            while let Some(current_child) = &child {
+                let sibling = {
+                    let curr_borrow = current_child.borrow();
+
+                    if curr_borrow.key == element.key {
+                        if element.kind == curr_borrow.kind {
+                            delete_remaining_children(return_fiber, curr_borrow.sibling.clone());
+                            let mut existing =
+                                Fiber::create_work_in_progress(lua, current_child, element_child);
+
+                            existing.parent = Some(return_fiber.clone());
+
+                            return Some(existing.into_ref());
+                        }
+
+                        delete_remaining_children(return_fiber, None);
+                        break;
+                    } else {
+                        delete_child(return_fiber, current_child);
+                    }
+
+                    curr_borrow.sibling.clone()
+                };
+
+                child = sibling;
+            }
+
+            let mut created = Fiber::from_child(lua, element_child);
+
+            created.parent = Some(return_fiber.clone());
+
+            Some(created.into_ref())
+        }
+        ElementChild::Table(_) => panic!("Unexpected table child in reconcile_child_fibers"),
+    }
 }
 
 fn reconcile_children_list(
+    lua: &Lua,
     return_fiber: &FiberRef,
-    current: Option<&FiberRef>,
-    new_children: &[ElementChild],
-) {
-    let mut result_first_child: Option<FiberRef> = None;
-    let mut previous_new_fiber: Option<FiberRef> = None;
-
-    let mut old_fiber = current.cloned();
+    current_first_child: Option<FiberRef>,
+    new_children: Vec<ElementChild>,
+) -> Option<FiberRef> {
+    let mut new_index = 0;
     let mut last_placed_index = 0;
-    let mut new_idx = 0;
 
-    // First pass: handle updates and moves
-    while old_fiber.is_some() && new_idx < new_children.len() {
-        let old_fiber_ref = old_fiber.as_ref().unwrap();
-        let new_child = &new_children[new_idx];
+    let mut old_fiber = current_first_child;
+    let mut prev_new_fiber: Option<FiberRef> = None;
+    let mut result_first_child: Option<FiberRef> = None;
 
-        let next_old_fiber = if old_fiber_ref.borrow().index > new_idx {
-            old_fiber.clone()
-        } else {
-            old_fiber_ref.borrow().sibling.clone()
-        };
+    let mut children_iter = new_children.into_iter().peekable();
 
-        let new_fiber = update_slot(return_fiber, old_fiber.as_ref(), new_child, new_idx);
+    // First pass: update existing fibers in place
+    while let Some(current_old) = old_fiber.clone() {
+        if children_iter.peek().is_none() || current_old.borrow().index > new_index {
+            break;
+        }
+
+        // Now safely consume the child
+        let child = children_iter.next().unwrap();
+
+        let next_old_fiber = current_old.borrow().sibling.clone();
+
+        let new_fiber = update_slot(lua, return_fiber, Some(&current_old), &child);
 
         if new_fiber.is_none() {
-            if old_fiber.is_none() {
-                old_fiber = next_old_fiber;
+            if current_old.borrow().index == new_index {
+                old_fiber = Some(current_old);
             }
             break;
         }
 
         let new_fiber = new_fiber.unwrap();
 
-        if old_fiber.is_some() && new_fiber.borrow().alternate.is_none() {
-            // This is a new fiber, delete the old one
-            delete_child(return_fiber, old_fiber.as_ref().unwrap());
+        if new_fiber.borrow().alternate.is_none() {
+            delete_child(return_fiber, &current_old);
         }
 
-        last_placed_index = place_child(&new_fiber, last_placed_index, new_idx);
+        last_placed_index = place_child(&new_fiber, last_placed_index, new_index);
 
-        if result_first_child.is_none() {
+        if prev_new_fiber.is_none() {
             result_first_child = Some(new_fiber.clone());
-        } else if let Some(ref prev) = previous_new_fiber {
-            prev.borrow_mut().sibling = Some(new_fiber.clone());
+        } else {
+            prev_new_fiber.as_ref().unwrap().borrow_mut().sibling = Some(new_fiber.clone());
         }
 
-        previous_new_fiber = Some(new_fiber);
+        prev_new_fiber = Some(new_fiber);
+        new_index += 1;
         old_fiber = next_old_fiber;
-        new_idx += 1;
     }
 
-    // If we've exhausted new children, delete remaining old children
-    if new_idx == new_children.len() {
-        delete_remaining_children(return_fiber, old_fiber.as_ref());
-        return_fiber.borrow_mut().child = result_first_child;
-        return;
+    // All new children processed, delete remaining old fibers
+    if children_iter.len() == 0 {
+        delete_remaining_children(return_fiber, old_fiber);
+        return result_first_child;
     }
 
-    // If we've exhausted old children, create remaining new children
+    // If there are no more old fibers, create new ones for remaining children
     if old_fiber.is_none() {
-        while new_idx < new_children.len() {
-            let new_child = &new_children[new_idx];
-            let new_fiber = create_child(return_fiber, new_child, new_idx);
+        for child in children_iter {
+            if let Some(new_fiber) = create_child(lua, return_fiber, child) {
+                last_placed_index = place_child(&new_fiber, last_placed_index, new_index);
 
-            if let Some(new_fiber) = new_fiber {
-                last_placed_index = place_child(&new_fiber, last_placed_index, new_idx);
-
-                if result_first_child.is_none() {
-                    result_first_child = Some(new_fiber.clone());
-                } else if let Some(ref prev) = previous_new_fiber {
+                if let Some(prev) = &prev_new_fiber {
                     prev.borrow_mut().sibling = Some(new_fiber.clone());
+                } else {
+                    result_first_child = Some(new_fiber.clone());
                 }
 
-                previous_new_fiber = Some(new_fiber);
+                prev_new_fiber = Some(new_fiber);
             }
 
-            new_idx += 1;
+            new_index += 1;
         }
 
-        return_fiber.borrow_mut().child = result_first_child;
-        return;
+        return result_first_child;
     }
 
-    // Create a map of remaining old children by key
-    let existing_children = map_remaining_children(old_fiber.as_ref());
+    // Create a map of remaining old fibers for efficient lookup
+    let existing_children = map_remaining_children(old_fiber);
 
-    // Handle remaining children with potential reordering
-    while new_idx < new_children.len() {
-        let new_child = &new_children[new_idx];
-        let new_fiber = update_from_map(&existing_children, return_fiber, new_idx, new_child);
+    // Process remaining new children using the map
+    for child in children_iter {
+        let new_fiber = update_from_map(lua, &existing_children, return_fiber, new_index, child);
 
         if let Some(new_fiber) = new_fiber {
             if new_fiber.borrow().alternate.is_some() {
-                // This fiber was reused from existing children
-                let key = get_child_key(new_child);
-                if let Some(key) = key {
-                    existing_children.borrow_mut().remove(&key);
-                }
+                // Would normally remove from existing_children map here
             }
 
-            last_placed_index = place_child(&new_fiber, last_placed_index, new_idx);
+            last_placed_index = place_child(&new_fiber, last_placed_index, new_index);
 
-            if result_first_child.is_none() {
-                result_first_child = Some(new_fiber.clone());
-            } else if let Some(ref prev) = previous_new_fiber {
+            if let Some(prev) = &prev_new_fiber {
                 prev.borrow_mut().sibling = Some(new_fiber.clone());
+            } else {
+                result_first_child = Some(new_fiber.clone());
             }
 
-            previous_new_fiber = Some(new_fiber);
+            prev_new_fiber = Some(new_fiber);
         }
 
-        new_idx += 1;
+        new_index += 1;
     }
 
-    // Delete any remaining old children that weren't reused
-    for (_, old_child) in existing_children.borrow().iter() {
-        delete_child(return_fiber, old_child);
+    // Delete remaining children that weren't reused
+    for fiber in existing_children.values() {
+        delete_child(return_fiber, fiber);
     }
 
-    return_fiber.borrow_mut().child = result_first_child;
+    result_first_child
 }
 
-fn reconcile_single_text(return_fiber: &FiberRef, current: Option<&FiberRef>, text_content: &str) {
-    todo!()
-}
+// fn can_reuse_fiber(fiber: &FiberRef, element: &LuaValue) -> bool {
+//     // Check if we can reuse the fiber for the given element
+//     if let LuaValue::Table(table) = element {
+//         if let Ok(kind) = table.get::<LuaValue>("kind") {
+//             match (&fiber.borrow().kind, kind) {
+//                 (FiberKind::Text(_), LuaValue::String(s)) if s.to_str().unwrap() == "text" => true,
+//                 (FiberKind::Element(ef), LuaValue::String(s)) => {
+//                     ef.element_tag == s.to_str().unwrap().to_string()
+//                 }
+//                 _ => false,
+//             }
+//         } else {
+//             false
+//         }
+//     } else {
+//         false
+//     }
+// }
 
-fn reconcile_single_element(
+fn update_slot(
+    lua: &Lua,
     return_fiber: &FiberRef,
-    current_first_child: Option<&FiberRef>,
-    element: &ElementRef,
-) -> FiberRef {
-    let mut child = current_first_child.cloned();
-    let props = element.props.clone();
-    let maybe_key = element.key.as_ref();
-
-    while let Some(curr_child) = child {
-        let curr_borrow = curr_child.borrow();
-
-        if curr_borrow.key.as_ref() == maybe_key {
-            if curr_borrow.kind == element.kind {
-                delete_remaining_children(return_fiber, curr_borrow.sibling.as_ref());
-                let existing = Fiber::use_other(&curr_child, props.clone());
-                existing.borrow_mut().return_fiber = Some(return_fiber.clone());
-                return existing;
-            };
-
-            delete_remaining_children(return_fiber, Some(&curr_child));
-            break;
-        } else {
-            delete_child(return_fiber, &curr_child);
-        }
-
-        child = curr_borrow.sibling.clone();
-    }
-
-    let mut created = Fiber::from(element);
-    created.return_fiber = Some(return_fiber.clone());
-
-    created.into_ref()
-}
-
-// Helper functions for reconcile_children_list
-
-fn get_child_key(child: &ElementChild) -> Option<String> {
-    match child {
-        ElementChild::Element(element) => element.key.clone(),
-        ElementChild::Text(_) => None,
-        ElementChild::Table(_) => None, // Tables don't have keys for reconciliation
-    }
-}
-
-fn create_child(
-    return_fiber: &FiberRef,
+    old_fiber: Option<&FiberRef>,
     new_child: &ElementChild,
-    index: usize,
 ) -> Option<FiberRef> {
+    let key = old_fiber.and_then(|f| f.borrow().key.clone());
+
     match new_child {
-        ElementChild::Element(element) => {
-            let mut fiber = Fiber::from(element);
-            fiber.index = index;
-            fiber.return_fiber = Some(return_fiber.clone());
-            Some(fiber.into_ref())
+        ElementChild::Text(content) => {
+            if key.is_some() {
+                return None; // Text nodes can't have keys
+            }
+            update_text_node(lua, return_fiber, old_fiber, content)
         }
-        ElementChild::Text(text) => {
-            let mut fiber = Fiber::new(FiberKind::Text, ElementProps::from(text.clone()));
-            fiber.index = index;
-            fiber.return_fiber = Some(return_fiber.clone());
-            Some(fiber.into_ref())
+        ElementChild::Element(element_key) => {
+            let element: Element = lua
+                .registry_value(element_key)
+                .expect("Failed to get element from registry");
+
+            if element.key == key {
+                update_element_node(lua, return_fiber, old_fiber, &element)
+            } else {
+                None
+            }
         }
         ElementChild::Table(_) => {
-            // Tables are not directly renderable, skip them for now
-            // In a full implementation, you might want to convert them to elements first
+            // For now, treat tables as fragments
             None
         }
     }
 }
 
-fn update_slot(
-    _return_fiber: &FiberRef,
-    old_fiber: Option<&FiberRef>,
-    new_child: &ElementChild,
-    index: usize,
-) -> Option<FiberRef> {
-    let key = get_child_key(new_child);
-
-    if let Some(old_fiber) = old_fiber {
-        let old_borrow = old_fiber.borrow();
-        if old_borrow.key == key {
-            match new_child {
-                ElementChild::Element(element) => {
-                    if old_borrow.kind == element.kind {
-                        let existing = Fiber::use_other(old_fiber, element.props.clone());
-                        existing.borrow_mut().index = index;
-                        return Some(existing);
-                    }
-                }
-                ElementChild::Text(text) => {
-                    if matches!(old_borrow.kind, FiberKind::Text) {
-                        let existing =
-                            Fiber::use_other(old_fiber, ElementProps::from(text.clone()));
-                        existing.borrow_mut().index = index;
-                        return Some(existing);
-                    }
-                }
-                ElementChild::Table(_) => {
-                    // Tables are not directly comparable to fibers
-                    return None;
-                }
-            }
-        }
-    }
-
-    None
+fn create_child(lua: &Lua, return_fiber: &FiberRef, child: ElementChild) -> Option<FiberRef> {
+    Some(Fiber::from_child(lua, child).into_ref())
 }
 
 fn place_child(new_fiber: &FiberRef, last_placed_index: usize, new_index: usize) -> usize {
-    let mut new_fiber_borrow = new_fiber.borrow_mut();
-    new_fiber_borrow.index = new_index;
+    new_fiber.borrow_mut().index = new_index;
 
-    if let Some(alternate) = &new_fiber_borrow.alternate {
+    if let Some(alternate) = &new_fiber.borrow().alternate {
         let old_index = alternate.borrow().index;
         if old_index < last_placed_index {
             // This is a move
-            new_fiber_borrow.set_flags(Flag::PLACEMENT);
+            new_fiber.borrow_mut().set_flags(Flag::PLACEMENT);
             last_placed_index
         } else {
+            // This item can stay in place
             old_index
         }
     } else {
-        // This is a new fiber
-        new_fiber_borrow.set_flags(Flag::PLACEMENT);
+        // This is an insertion
+        new_fiber.borrow_mut().set_flags(Flag::PLACEMENT);
         last_placed_index
     }
 }
 
-fn map_remaining_children(
-    first_child: Option<&FiberRef>,
-) -> Rc<RefCell<HashMap<String, FiberRef>>> {
-    let map = Rc::new(RefCell::new(HashMap::new()));
-    let mut child = first_child.cloned();
+fn map_remaining_children(current_first_child: Option<FiberRef>) -> HashMap<String, FiberRef> {
+    let mut existing = HashMap::new();
 
-    while let Some(curr_child) = child {
-        let curr_borrow = curr_child.borrow();
-        if let Some(key) = &curr_borrow.key {
-            map.borrow_mut().insert(key.clone(), curr_child.clone());
-        }
-        child = curr_borrow.sibling.clone();
+    let mut child = current_first_child;
+    while let Some(fiber) = child {
+        let key = if let Some(key) = &fiber.borrow().key {
+            key.clone()
+        } else {
+            fiber.borrow().index.to_string()
+        };
+
+        let sibling = fiber.borrow().sibling.clone();
+        existing.insert(key, fiber);
+        child = sibling;
     }
 
-    map
+    existing
 }
 
 fn update_from_map(
-    existing_children: &Rc<RefCell<HashMap<String, FiberRef>>>,
+    lua: &Lua,
+    existing_children: &HashMap<String, FiberRef>,
     return_fiber: &FiberRef,
-    new_idx: usize,
-    new_child: &ElementChild,
+    new_index: usize,
+    new_child: ElementChild,
 ) -> Option<FiberRef> {
-    let key = get_child_key(new_child);
+    let key = match new_child {
+        ElementChild::Element(ref element_key) => {
+            let element: Element = lua
+                .registry_value(element_key)
+                .expect("Failed to get element from registry");
+            element.key.unwrap_or_else(|| new_index.to_string())
+        }
+        ElementChild::Text(_) => new_index.to_string(),
+        ElementChild::Table(_) => new_index.to_string(),
+    };
 
-    if let Some(key) = key {
-        if let Some(matching_fiber) = existing_children.borrow().get(&key).cloned() {
-            let matching_borrow = matching_fiber.borrow();
-            match new_child {
-                ElementChild::Element(element) => {
-                    if matching_borrow.kind == element.kind {
-                        let existing = Fiber::use_other(&matching_fiber, element.props.clone());
-                        existing.borrow_mut().return_fiber = Some(return_fiber.clone());
-                        return Some(existing);
+    if let Some(matched_fiber) = existing_children.get(&key) {
+        update_slot(lua, return_fiber, Some(matched_fiber), &new_child)
+    } else {
+        create_child(lua, return_fiber, new_child)
+    }
+}
+
+fn update_text_node(
+    _lua: &Lua,
+    return_fiber: &FiberRef,
+    current: Option<&FiberRef>,
+    content: &str,
+) -> Option<FiberRef> {
+    if let Some(current_fiber) = current {
+        if let FiberKind::Text(_) = &current_fiber.borrow().kind {
+            // Reuse existing text fiber
+            let new_fiber = create_work_in_progress_from_fiber(current_fiber);
+            new_fiber.borrow_mut().kind = FiberKind::Text(content.to_string());
+            new_fiber.borrow_mut().parent = Some(return_fiber.clone());
+            Some(new_fiber)
+        } else {
+            // Can't reuse, create new
+            let mut fiber = Fiber::new(FiberKind::Text(content.to_string()));
+            fiber.parent = Some(return_fiber.clone());
+            Some(fiber.into_ref())
+        }
+    } else {
+        // Create new text fiber
+        let mut fiber = Fiber::new(FiberKind::Text(content.to_string()));
+        fiber.parent = Some(return_fiber.clone());
+        Some(fiber.into_ref())
+    }
+}
+
+fn update_element_node(
+    _lua: &Lua,
+    return_fiber: &FiberRef,
+    current: Option<&FiberRef>,
+    element: &Element,
+) -> Option<FiberRef> {
+    if let Some(current_fiber) = current {
+        if let FiberKind::Element(current_element) = &current_fiber.borrow().kind {
+            // Check if we can reuse the element
+            match &element.kind {
+                ElementKind::Element(tag, _props) => {
+                    if current_element.element_tag == *tag {
+                        // Reuse existing element fiber - create WIP
+                        let new_fiber = create_work_in_progress_from_fiber(current_fiber);
+                        new_fiber.borrow_mut().parent = Some(return_fiber.clone());
+                        // Note: In a full implementation, we'd update the pending props here
+                        // but since we can't clone LuaRegistryKey, we skip this for now
+                        Some(new_fiber)
+                    } else {
+                        // Can't reuse different tag, would need to create new
+                        // but we can't easily do this without cloning registry keys
+                        None
                     }
                 }
-                ElementChild::Text(text) => {
-                    if matches!(matching_borrow.kind, FiberKind::Text) {
-                        let existing =
-                            Fiber::use_other(&matching_fiber, ElementProps::from(text.clone()));
-                        existing.borrow_mut().return_fiber = Some(return_fiber.clone());
-                        return Some(existing);
-                    }
-                }
-                ElementChild::Table(_) => {
-                    // Tables are not directly comparable to fibers
-                    return None;
+                _ => {
+                    // Different element type, would need to create new
+                    None
                 }
             }
+        } else {
+            // Can't reuse different fiber type
+            None
         }
-    }
-
-    // No matching fiber found, create new one
-    create_child(return_fiber, new_child, new_idx)
-}
-
-fn delete_child(return_fiber: &FiberRef, child: &FiberRef) {
-    let mut returnf_borrow_mut = return_fiber.borrow_mut();
-    let deletions = returnf_borrow_mut.deletions.as_mut();
-
-    if let Some(deletions) = deletions {
-        deletions.push(child.clone());
-        returnf_borrow_mut.set_flags(Flag::CHILD_DELETE);
     } else {
-        returnf_borrow_mut.deletions = Some(vec![child.clone()]);
+        // Would create new element fiber, but we can't easily do this
+        // without being able to clone LuaRegistryKey
+        None
     }
 }
 
-fn delete_remaining_children(return_fiber: &FiberRef, current_first_child: Option<&FiberRef>) {
-    let mut child = current_first_child.cloned();
+fn use_fiber(old_fiber: &FiberRef, _new_element: &LuaValue) -> FiberRef {
+    // For now, just return a reference to the old fiber
+    // In a full implementation, this would update the fiber with new props
+    old_fiber.clone()
+}
 
-    while let Some(curr_child) = child {
-        delete_child(return_fiber, &curr_child);
+fn set_return_pointer(child: &FiberRef, parent: &FiberRef) {
+    child.borrow_mut().parent = Some(parent.clone());
+}
 
-        let curr_borrow = curr_child.borrow();
-        child = curr_borrow.sibling.clone();
+fn delete_child(_return_fiber: &FiberRef, _child: &FiberRef) {
+    // Mark child for deletion
+}
+
+fn delete_remaining_children(return_fiber: &FiberRef, mut current_first_child: Option<FiberRef>) {
+    while let Some(child) = current_first_child {
+        delete_child(return_fiber, &child);
+        current_first_child = child.borrow().sibling.clone();
+    }
+}
+
+fn place_single_node(_lua: &Lua, _wip: &FiberRef) {
+    // Create state node and mark for placement
+}
+
+fn populate_state_node(_wip: &FiberRef) {
+    // Populate the state node with children
+}
+
+fn update_single_node(_wip: &FiberRef) {
+    // Update existing node
+}
+
+fn update_node_text(_wip: &FiberRef) {
+    // Update text content of node
+}
+
+fn commit(_lua: &Lua, _root: &FiberRef) {
+    // Commit phase - apply all changes to the actual DOM
+}
+
+// Extension trait for FiberKind to check if it has a state node
+impl FiberKind {
+    fn has_state_node(&self) -> bool {
+        match self {
+            FiberKind::Element(_) | FiberKind::Text(_) | FiberKind::Root(_) => true,
+            _ => false,
+        }
     }
 }

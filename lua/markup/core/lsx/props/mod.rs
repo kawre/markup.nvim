@@ -4,6 +4,8 @@
 // pub use convert::*;
 // pub use lua::*;
 
+use std::rc::Rc;
+
 use crate::prelude::*;
 use mlua::prelude::*;
 use taffy::prelude::*;
@@ -14,10 +16,10 @@ pub enum PendingProps {
     Table(LuaTable, ElementChildren),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum MemoizedProps {
     Text(String),
-    Table(LuaRegistryKey),
+    Table(Rc<LuaRegistryKey>),
 }
 
 impl FromLua for PendingProps {
@@ -42,11 +44,16 @@ pub enum ElementChildren {
 impl FromLua for ElementChildren {
     fn from_lua(value: LuaValue, lua: &Lua) -> LuaResult<Self> {
         match value {
-            LuaValue::Table(t) => {
-                let seq = t
-                    .sequence_values::<ElementChild>()
-                    .collect::<LuaResult<Vec<_>>>()?;
-                Ok(ElementChildren::Sequence(seq))
+            LuaValue::Table(ref t) => {
+                if is_element(t)? {
+                    let element = ElementChild::from_lua(value, lua)?;
+                    Ok(ElementChildren::Single(element))
+                } else {
+                    let seq = t
+                        .sequence_values::<ElementChild>()
+                        .collect::<LuaResult<Vec<_>>>()?;
+                    Ok(ElementChildren::Sequence(seq))
+                }
             }
             value => {
                 let child = ElementChild::from_lua(value, lua)?;
@@ -59,18 +66,31 @@ impl FromLua for ElementChildren {
 #[derive(Debug)]
 pub enum ElementChild {
     Text(String),
-    // store only the registry key for the table
-    // this is done to ensure that only a few references are kept on lua stack
-    // and to avoid auxiliary stack overflow when processing large number of children
-    Table(LuaRegistryKey),
+    Table(LuaRegistryKey),   // simple table
+    Element(LuaRegistryKey), // element table
+}
+
+fn is_element(value: &LuaTable) -> LuaResult<bool> {
+    if let Some(mt) = value.metatable() {
+        match mt.get::<LuaValue>("__type") {
+            Ok(LuaValue::String(_)) => Ok(true),
+            _ => Ok(false),
+        }
+    } else {
+        Ok(false)
+    }
 }
 
 impl FromLua for ElementChild {
     fn from_lua(value: LuaValue, lua: &Lua) -> LuaResult<Self> {
         match value {
             LuaValue::Table(t) => {
-                let key = lua.create_registry_value(t)?;
-                Ok(ElementChild::Table(key))
+                let key = lua.create_registry_value(&t)?;
+                if is_element(&t)? {
+                    Ok(ElementChild::Element(key))
+                } else {
+                    Ok(ElementChild::Table(key))
+                }
             }
             value => match lua.coerce_string(value) {
                 Ok(s) => Ok(ElementChild::Text(match s {
