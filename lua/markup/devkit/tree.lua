@@ -4,6 +4,9 @@
 --- under expanded rows, one page at a time, so a tree with hundreds of thousands
 --- of nodes stays cheap to look at.
 ---
+--- Stats live in the winbar and node details in their own pane, so both stay in
+--- place however far the tree scrolls.
+---
 --- Keys: <CR> expand or load more, c show groups, f follow the cursor,
 --- r refresh, q close.
 
@@ -17,20 +20,52 @@ local api = vim.api
 local PAGE = 100
 local REFRESH_MS = 100
 local MAX_HIGHLIGHT_ROWS = 200
-local DETAIL_LINES = 6
-local HEADER_LINES = 3 + DETAIL_LINES
+local BUDGET = 1000 / 60
+local DETAIL_HEIGHT = 8
+local WIDTH = 0.4
+local WIDE_WINBAR = 90
+local NARROW_WINBAR = 72
 
 ---@class markup.devkit.tree
 ---@field target markup.view
 ---@field view markup.view
 ---@field win markup.window
+---@field details_view markup.view
+---@field details_win markup.window
 ---@overload fun(target: markup.view): markup.devkit.tree
 local M = Markup.object()
 
 ---@type table<markup.view, markup.devkit.tree>
 local instances = setmetatable({}, { __mode = "k" })
 
-vim.api.nvim_set_hl(0, "MarkupInspectorTarget", { link = "Search", default = true })
+--- Winbar text needs the winbar's background, which depends on the colorscheme.
+local function apply_colors()
+	local function get(name)
+		return api.nvim_get_hl(0, { name = name, link = false })
+	end
+
+	local bar = get("WinBar")
+	local bg = bar.bg or get("StatusLine").bg
+
+	local sources = {
+		Text = { "WinBar" },
+		Dim = { "Comment" },
+		Strong = { "Title", bold = true },
+		Good = { "DiagnosticOk", bold = true },
+		Warn = { "DiagnosticWarn", bold = true },
+		Bad = { "DiagnosticError", bold = true },
+	}
+
+	for name, source in pairs(sources) do
+		api.nvim_set_hl(0, "MarkupInspectorBar" .. name, { fg = get(source[1]).fg, bg = bg, bold = source.bold })
+	end
+
+	api.nvim_set_hl(0, "MarkupInspectorTarget", { link = "Search", default = true })
+	api.nvim_set_hl(0, "MarkupInspectorSelected", { link = "Visual", default = true })
+	api.nvim_set_hl(0, "MarkupInspectorGuide", { link = "NonText", default = true })
+	api.nvim_set_hl(0, "MarkupInspectorLabel", { link = "Comment", default = true })
+	api.nvim_set_hl(0, "MarkupInspectorKey", { link = "Special", default = true })
+end
 
 ---@param target markup.view
 ---@return markup.devkit.tree?
@@ -56,10 +91,22 @@ local function short(text, limit)
 	return text
 end
 
+--- 372059 reads as 372.1k.
+local function compact(value)
+	if value >= 1e6 then
+		return ("%.1fM"):format(value / 1e6)
+	elseif value >= 1e3 then
+		return ("%.1fk"):format(value / 1e3)
+	end
+	return tostring(value)
+end
+
 ---@param node markup.core.node
 local function label_of(node)
 	if node.display == "text" then
 		return ("%q"):format(short(node.text or "", 40))
+	elseif node.display == "contents" then
+		return "group"
 	end
 	return node.display
 end
@@ -75,20 +122,14 @@ local function group_of(node)
 end
 
 ---@param node markup.core.node
-local function meta_of(node)
-	local parts = { (" #%d"):format(node.id) }
-	if node.x then
-		parts[#parts + 1] = (" %d,%d %dx%d"):format(node.x, node.y, node.outer_width, node.outer_height)
+local function geometry_of(node)
+	if not node.x then
+		return ""
 	end
-	if node.children > 0 then
-		parts[#parts + 1] = (" (%d)"):format(node.children)
-	end
-	if node.hl ~= 0 then
-		parts[#parts + 1] = " " .. hl.name(node.hl)
-	end
-	return table.concat(parts)
+	return ("%d,%d  %d×%d"):format(node.x, node.y, node.outer_width, node.outer_height)
 end
 
+--- Label and value for each row of the details pane.
 ---@param node? markup.core.node
 local function details_of(node)
 	if not node then
@@ -100,28 +141,26 @@ local function details_of(node)
 	end
 
 	local flags = {}
-	for _, name in ipairs({ "interactive", "reverse", "dirty" }) do
+	for _, name in ipairs({ "interactive", "reverse" }) do
 		if node[name] then
 			flags[#flags + 1] = name
 		end
 	end
 
 	return {
-		("#%d %s  parent %s  children %d"):format(node.id, node.display, node.parent or "-", node.children),
-		node.x
-				and ("at %d,%d  outer %dx%d  content %dx%d"):format(
-					node.x,
-					node.y,
-					node.outer_width,
-					node.outer_height,
-					node.content_width,
-					node.content_height
-				)
-			or "no box of its own",
-		("margin %s  padding %s"):format(edges(node.margin), edges(node.padding)),
-		("width %s  height %s  spacing %d"):format(node.width, node.height, node.spacing),
-		("hl %s  %s"):format(node.hl ~= 0 and hl.name(node.hl) or "-", table.concat(flags, " ")),
-		node.text and ("text %q"):format(short(node.text, 60)) or "",
+		{ "node", ("#%d %s  parent %s  %d children"):format(node.id, label_of(node), node.parent or "-", node.children) },
+		{
+			"box",
+			node.x and ("%s  content %d×%d"):format(geometry_of(node), node.content_width, node.content_height)
+				or "none, children flow into the parent",
+		},
+		{ "edges", ("margin %s  padding %s"):format(edges(node.margin), edges(node.padding)) },
+		{ "size", ("%s × %s  spacing %d"):format(node.width, node.height, node.spacing) },
+		{
+			"style",
+			("%s  %s"):format(node.hl ~= 0 and hl.name(node.hl) or "no highlight", table.concat(flags, " ")),
+		},
+		{ "text", node.text and ("%q"):format(short(node.text, 60)) or "-" },
 	}
 end
 
@@ -137,7 +176,6 @@ function M:new(target)
 
 	self.rows = m.signal({})
 	self.selected = m.signal(protocol.ROOT)
-	self.summary = m.signal("")
 	self.frame = m.signal("")
 	self.details = m.signal({})
 
@@ -145,20 +183,36 @@ function M:new(target)
 	self.win = Markup.window({
 		position = "right",
 		relative = "editor",
-		width = 0.4,
+		width = WIDTH,
 		enter = false,
 		minimal = true,
 	})
+	self.details_win = Markup.window({
+		position = "bottom",
+		relative = "win",
+		win = self.win.win,
+		height = DETAIL_HEIGHT,
+		enter = false,
+		minimal = true,
+	})
+
+	-- Opening the second split redistributes the columns, so size it afterwards.
+	api.nvim_win_set_width(self.win.win, math.floor(vim.o.columns * WIDTH))
+
 	self.view = Markup.view(self.win)
 	self.view.devtool = true
+	self.details_view = Markup.view(self.details_win)
+	self.details_view.devtool = true
 	vim.wo[self.win.win].cursorline = true
 
 	instances[target] = self
 
+	apply_colors()
 	self:bind_keys()
 	self:bind_events()
 	self:refresh()
-	self.view:render(self:app())
+	self.view:render(self:tree())
+	self.details_view:render(self:panel())
 end
 
 function M:bind_keys()
@@ -221,9 +275,21 @@ function M:bind_events()
 		end,
 	})
 
+	api.nvim_create_autocmd("ColorScheme", {
+		group = self.group,
+		callback = apply_colors,
+	})
+
+	api.nvim_create_autocmd("WinResized", {
+		group = self.group,
+		callback = function()
+			self:request_refresh()
+		end,
+	})
+
 	api.nvim_create_autocmd("WinClosed", {
 		group = self.group,
-		pattern = { tostring(self.win.win), tostring(target.win.win) },
+		pattern = { tostring(self.win.win), tostring(self.details_win.win), tostring(target.win.win) },
 		callback = function()
 			vim.schedule(function()
 				self:close()
@@ -283,43 +349,72 @@ function M:collect()
 	return rows
 end
 
-local function row_text(row, expanded)
-	local indent = ("  "):rep(row.depth)
-	if row.kind == "before" then
-		return indent .. "  ", ("... %d earlier"):format(row.node.count), "", "Comment"
-	elseif row.kind == "after" then
-		return indent .. "  ", ("... %d more"):format(row.node.count), "", "Comment"
+--- Everything a row shows. Each value feeds one signal, so a row only redraws
+--- the parts that differ.
+---@param row table
+---@param expanded boolean
+---@param width integer
+local function row_values(row, expanded, width)
+	local guide = ("│ "):rep(row.depth)
+	local values = { guide = guide, marker = "  ", id = "", hl_name = "", hl_group = false }
+
+	if row.kind == "node" then
+		local node = row.node
+		values.label, values.group = label_of(node), group_of(node)
+		values.id = (" #%d"):format(node.id)
+		values.geometry = geometry_of(node)
+		if node.children > 0 then
+			values.marker = expanded and "▾ " or "▸ "
+		end
+		if node.hl ~= 0 then
+			values.hl_name = " " .. hl.name(node.hl)
+			values.hl_group = hl.name(node.hl)
+		end
+	else
+		local direction = row.kind == "before" and "earlier" or "more"
+		values.label = ("··· %s %s"):format(compact(row.node.count), direction)
+		values.group = "Comment"
+		values.geometry = ""
 	end
 
-	local node = row.node
-	local marker = node.children == 0 and "  " or (expanded and "▾ " or "▸ ")
-	return indent .. marker, label_of(node), meta_of(node), group_of(node)
+	local used = 0
+	for _, name in ipairs({ "guide", "marker", "label", "id", "hl_name" }) do
+		used = used + vim.fn.strdisplaywidth(values[name])
+	end
+	local right = vim.fn.strdisplaywidth(values.geometry)
+
+	-- Geometry stays against the right edge, and gives way on narrow windows.
+	local gap = width - used - right - 1
+	if gap < 1 then
+		values.geometry, gap = "", 0
+	end
+	values.gap = (" "):rep(gap)
+	return values
 end
+
+local ROW_FIELDS = { "guide", "marker", "label", "group", "id", "hl_name", "hl_group", "gap", "geometry" }
 
 --- Updates what changed. Rows only rerun when their own text differs.
 function M:refresh()
-	local target = self.target
 	local rows = self:collect()
+	local width = self.win:win_valid() and api.nvim_win_get_width(self.win.win) or 80
 
 	local live = {}
 	for _, row in ipairs(rows) do
 		live[row.key] = true
-		local prefix, label, meta, group = row_text(row, self.expanded[row.key])
+		local values = row_values(row, self.expanded[row.key], width)
 		local entry = self.entries[row.key]
 		if entry then
 			entry.row = row
-			entry.prefix(prefix)
-			entry.label(label)
-			entry.meta(meta)
-			entry.group(group)
+			for _, field in ipairs(ROW_FIELDS) do
+				entry[field](values[field])
+			end
 		else
-			self.entries[row.key] = {
-				row = row,
-				prefix = m.signal(prefix),
-				label = m.signal(label),
-				meta = m.signal(meta),
-				group = m.signal(group),
-			}
+			entry = { row = row }
+			for _, field in ipairs(ROW_FIELDS) do
+				entry[field] = m.signal(values[field])
+			end
+			self.entries[row.key] = entry
 		end
 	end
 	for key in pairs(self.entries) do
@@ -330,21 +425,9 @@ function M:refresh()
 
 	self.rows(rows)
 
-	local counts = reactive.stats()
-	self.summary(
-		("nodes %d  effects %d  memos %d  scopes %d  follow %s  groups %s"):format(
-			target.engine:node_count(),
-			counts.effects,
-			counts.memos,
-			counts.scopes,
-			self.follow and "on" or "off",
-			self.show_groups and "on" or "off"
-		)
-	)
-
-	local stats = target.stats
+	local stats = self.target.stats
 	self.frame(
-		("layout %.2f  paint %.2f  diff %.2f  write %.2f ms  %d lines"):format(
+		("layout %.2f  paint %.2f  diff %.2f  write %.2f  %d lines"):format(
 			stats.layout,
 			stats.paint,
 			stats.diff,
@@ -353,7 +436,55 @@ function M:refresh()
 		)
 	)
 
+	self:update_winbar()
 	self:show_selection()
+end
+
+--- Stats belong in the winbar, because it stays put while the tree scrolls.
+function M:update_winbar()
+	if not self.win:win_valid() then
+		return
+	end
+
+	local target = self.target
+	local counts = reactive.stats()
+	local stats = target.stats
+	local total = stats.engine + stats.apply
+	local status = total <= BUDGET and "Good" or total <= BUDGET * 3 and "Warn" or "Bad"
+
+	local function stat(value, name)
+		return ("%%#MarkupInspectorBarStrong#%s%%#MarkupInspectorBarDim# %s  "):format(compact(value), name)
+	end
+
+	local function flag(enabled, name)
+		local group = enabled and "Good" or "Dim"
+		return ("%%#MarkupInspectorBar%s#%s %s "):format(group, enabled and "●" or "○", name)
+	end
+
+	local width = api.nvim_win_get_width(self.win.win)
+
+	local parts = {
+		"%#MarkupInspectorBarText# ",
+		stat(target.engine:node_count(), "nodes"),
+		stat(counts.effects, "effects"),
+		width >= NARROW_WINBAR and stat(counts.scopes, "scopes") or "",
+		("%%#MarkupInspectorBar%s#%.1f ms "):format(status, total),
+	}
+
+	if width >= WIDE_WINBAR then
+		parts[#parts + 1] = ("%%#MarkupInspectorBarDim# L %.1f  P %.1f  D %.1f  W %.1f"):format(
+			stats.layout,
+			stats.paint,
+			stats.diff,
+			stats.apply
+		)
+	end
+
+	parts[#parts + 1] = "%#MarkupInspectorBarText#%<%="
+	parts[#parts + 1] = flag(self.follow, "follow")
+	parts[#parts + 1] = flag(self.show_groups, "groups")
+
+	vim.wo[self.win.win].winbar = table.concat(parts)
 end
 
 --- Shows details for the selected node and marks it in the target.
@@ -443,7 +574,7 @@ function M:reveal(key)
 	end
 	for index, row in ipairs(reactive.untrack(self.rows)) do
 		if row.key == key then
-			local line = math.min(HEADER_LINES + index, api.nvim_buf_line_count(self.win.buf))
+			local line = math.min(index, api.nvim_buf_line_count(self.win.buf))
 			api.nvim_win_set_cursor(self.win.win, { line, 0 })
 			return
 		end
@@ -482,34 +613,61 @@ function M:row(row)
 	return m.block({
 		on_press = press,
 		style = function()
-			return self.selected() == key and "Visual" or nil
+			return self.selected() == key and "MarkupInspectorSelected" or nil
 		end,
-		m.inline(entry.prefix, "NonText"),
+		m.inline(entry.guide, "MarkupInspectorGuide"),
+		m.inline(entry.marker, "MarkupInspectorGuide"),
 		m.inline({ entry.label, style = entry.group }),
-		m.inline(entry.meta, "Comment"),
+		m.inline(entry.id, "MarkupInspectorLabel"),
+		m.inline({ entry.hl_name, style = entry.hl_group }),
+		m.inline(entry.gap),
+		m.inline(entry.geometry, "MarkupInspectorLabel"),
 	})
 end
 
-function M:app()
-	local details = {}
-	for i = 1, DETAIL_LINES do
-		details[i] = m.block(function()
-			return self.details()[i] or ""
-		end)
+function M:tree()
+	return m.each(self.rows, function(row)
+		return self:row(row)
+	end, {
+		key = function(row)
+			return row.key
+		end,
+	})
+end
+
+--- One aligned row of the details pane.
+local function field(label, value)
+	return m.block({
+		m.inline((" %-6s"):format(label), "MarkupInspectorLabel"),
+		m.inline(value),
+	})
+end
+
+function M:panel()
+	local rows = {}
+	for i = 1, 6 do
+		rows[i] = m.block({
+			m.inline(function()
+				local detail = self.details()[i]
+				return (" %-6s"):format(detail and detail[1] or "")
+			end, "MarkupInspectorLabel"),
+			m.inline(function()
+				local detail = self.details()[i]
+				return detail and detail[2] or ""
+			end),
+		})
+	end
+
+	local hints = { " " }
+	for _, hint in ipairs({ { "<CR>", "open" }, { "c", "groups" }, { "f", "follow" }, { "r", "refresh" }, { "q", "close" } }) do
+		hints[#hints + 1] = m.inline(hint[1], "MarkupInspectorKey")
+		hints[#hints + 1] = m.inline((" %s  "):format(hint[2]), "MarkupInspectorLabel")
 	end
 
 	return m.block({
-		m.block(self.summary, "Title"),
-		m.block(self.frame, "Comment"),
-		m.newl(),
-		details,
-		m.each(self.rows, function(row)
-			return self:row(row)
-		end, {
-			key = function(row)
-				return row.key
-			end,
-		}),
+		rows,
+		field("frame", self.frame),
+		m.block(hints),
 	})
 end
 
@@ -525,8 +683,11 @@ function M:close()
 	end
 
 	self.view:destroy()
-	if self.win:win_valid() then
-		self.win:close()
+	self.details_view:destroy()
+	for _, win in ipairs({ self.details_win, self.win }) do
+		if win:win_valid() then
+			win:close()
+		end
 	end
 end
 
