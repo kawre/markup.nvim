@@ -101,6 +101,11 @@ impl Engine {
                     tree.mark_dirty(index);
                 }
             }
+            Command::SetBorder { id, border } => {
+                let index = tree.index_of(id)?;
+                tree.node_mut(index).style.extra_mut().border = border;
+                tree.mark_dirty(index);
+            }
             Command::SetCells { id, cells } => {
                 let index = tree.index_of(id)?;
                 tree.node_mut(index).cells = Some(cells.into_boxed_slice());
@@ -192,8 +197,8 @@ impl Engine {
                 let style = &node.style;
                 let (shift_x, shift_y) = own_shift;
                 return (
-                    x + style.margin.left + style.padding.left + geometry.x + shift_x,
-                    y + style.margin.top + style.padding.top + geometry.y + shift_y,
+                    x + style.margin.left + style.inner().left + geometry.x + shift_x,
+                    y + style.margin.top + style.inner().top + geometry.y + shift_y,
                 );
             }
             parent = node.parent;
@@ -262,8 +267,8 @@ impl Engine {
 
         path.push(node.client);
         let style = &node.style;
-        let content_x = x + style.margin.left + style.padding.left;
-        let content_y = y + style.margin.top + style.padding.top;
+        let content_x = x + style.margin.left + style.inner().left;
+        let content_y = y + style.margin.top + style.inner().top;
         node.children
             .iter()
             .any(|&child| self.descend_child(child, content_x, content_y, row, col, path));

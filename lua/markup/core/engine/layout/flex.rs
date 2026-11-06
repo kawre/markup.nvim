@@ -103,9 +103,9 @@ fn collect_items(tree: &mut Tree, node: Index, space: Space, axis: Axis, align: 
             let style = &tree.node(index).style;
             let extra = style.extra();
             let edges = if axis.column {
-                style.margin.vertical() + style.padding.vertical()
+                style.margin.vertical() + style.inner().vertical()
             } else {
-                style.margin.horizontal() + style.padding.horizontal()
+                style.margin.horizontal() + style.inner().horizontal()
             };
 
             let (min, max) = if axis.column {

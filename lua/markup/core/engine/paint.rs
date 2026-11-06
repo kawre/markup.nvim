@@ -1,6 +1,6 @@
 //! Turns a laid out tree into lines of text with highlight ranges.
 
-use super::style::{Display, Position};
+use super::style::{Border, Display, Position};
 use super::tree::{Index, Tree};
 use std::borrow::Cow;
 use std::collections::HashMap;
@@ -64,12 +64,8 @@ struct Row<'a> {
 }
 
 impl<'a> Row<'a> {
-    fn write(&mut self, cell: i32, text: &'a str, width: i32) {
-        let segment = Segment {
-            cell,
-            width,
-            text: Cow::Borrowed(text),
-        };
+    fn write(&mut self, cell: i32, text: Cow<'a, str>, width: i32) {
+        let segment = Segment { cell, width, text };
 
         // Normal flow runs left to right and always takes this path.
         if self.segments.last().is_none_or(|last| last.end() <= cell) {
@@ -178,6 +174,38 @@ impl<'a> Row<'a> {
     }
 }
 
+/// A border and the box it goes around.
+struct Frame<'a> {
+    border: &'a Border,
+    left: i32,
+    top: i32,
+    width: i32,
+    height: i32,
+}
+
+impl Frame<'_> {
+    /// A full row, with corners only where a side meets it.
+    fn horizontal(&self, start: char, middle: char, end: char) -> String {
+        let width = self.width.max(0) as usize;
+        let mut text = String::with_capacity(width * 3);
+        for cell in 0..width {
+            text.push(match cell {
+                0 if self.border.left => start,
+                cell if cell + 1 == width && self.border.right => end,
+                _ => middle,
+            });
+        }
+        text
+    }
+
+    /// Rows between the top and bottom borders.
+    fn side_rows(&self) -> std::ops::Range<i32> {
+        let top = self.top + self.border.top as i32;
+        let bottom = self.top + self.height - self.border.bottom as i32;
+        top..bottom
+    }
+}
+
 struct Painter<'a> {
     tree: &'a Tree,
     rows: Vec<Row<'a>>,
@@ -219,13 +247,13 @@ impl Painter<'_> {
                     for fragment in fragments {
                         if let Some(row) = self.rows.get_mut((y + fragment.y) as usize) {
                             let text = &node.text[fragment.start as usize..fragment.end as usize];
-                            row.write(x + fragment.x, text, fragment.width);
+                            row.write(x + fragment.x, Cow::Borrowed(text), fragment.width);
                         }
                     }
                 }
                 None => {
                     if let Some(row) = self.rows.get_mut(y as usize) {
-                        row.write(x, &node.text, node.text_width);
+                        row.write(x, Cow::Borrowed(&node.text), node.text_width);
                     }
                 }
             }
@@ -238,7 +266,7 @@ impl Painter<'_> {
         }
 
         let style = &node.style;
-        let (margin, padding) = (style.margin, style.padding);
+        let (margin, padding) = (style.margin, style.inner());
         let geometry = &node.geometry;
 
         if let (true, Some(fragments)) = (style.hl != 0, &node.fragments) {
@@ -251,8 +279,13 @@ impl Painter<'_> {
         } else if style.hl != 0 {
             let left = x + margin.left;
             let right = left + padding.horizontal() + geometry.content.width;
-            let top = y + margin.top;
-            let bottom = top + padding.vertical() + geometry.content.height;
+            let mut top = y + margin.top;
+            let mut bottom = top + padding.vertical() + geometry.content.height;
+            if style.border().is_some_and(|border| border.outside_background) {
+                let edges = style.border_edges();
+                top += edges.top;
+                bottom -= edges.bottom;
+            }
             for row in top..bottom {
                 if let Some(row) = self.rows.get_mut(row as usize) {
                     row.ranges.push((left, right, style.hl));
@@ -260,10 +293,70 @@ impl Painter<'_> {
             }
         }
 
+        let frame = style.border().map(|border| Frame {
+            border,
+            left: x + margin.left,
+            top: y + margin.top,
+            width: padding.horizontal() + geometry.content.width,
+            height: padding.vertical() + geometry.content.height,
+        });
+
+        if let Some(frame) = &frame {
+            self.paint_frame_start(frame);
+        }
+
         let content_x = x + margin.left + padding.left;
         let content_y = y + margin.top + padding.top;
         for &child in &node.children {
             self.visit(child, content_x, content_y);
+        }
+
+        // Painted last, so rows stay in order and take the fast path.
+        if let Some(frame) = &frame {
+            self.paint_frame_end(frame);
+        }
+    }
+
+    fn put(&mut self, row: i32, cell: i32, text: String, width: i32, hl: u32) {
+        if let Some(line) = self.rows.get_mut(row as usize) {
+            line.write(cell, Cow::Owned(text), width);
+            if hl != 0 {
+                line.ranges.push((cell, cell + width, hl));
+            }
+        }
+    }
+
+    /// The top row and the left column.
+    fn paint_frame_start(&mut self, frame: &Frame) {
+        let border = frame.border;
+
+        if border.top {
+            let text = frame.horizontal(border.chars[0], border.chars[1], border.chars[2]);
+            self.put(frame.top, frame.left, text, frame.width, border.hl);
+        }
+
+        if border.left {
+            for row in frame.side_rows() {
+                self.put(row, frame.left, border.chars[7].to_string(), 1, border.hl);
+            }
+        }
+    }
+
+    /// The right column and the bottom row.
+    fn paint_frame_end(&mut self, frame: &Frame) {
+        let border = frame.border;
+
+        if border.right {
+            let cell = frame.left + frame.width - 1;
+            for row in frame.side_rows() {
+                self.put(row, cell, border.chars[3].to_string(), 1, border.hl);
+            }
+        }
+
+        if border.bottom {
+            let text = frame.horizontal(border.chars[6], border.chars[5], border.chars[4]);
+            let row = frame.top + frame.height - 1;
+            self.put(row, frame.left, text, frame.width, border.hl);
         }
     }
 
@@ -449,6 +542,83 @@ mod tests {
         tree.insert(root, top, None).unwrap();
 
         assert_eq!(render_with_absolutes(&mut tree, root)[0].text, " X  ");
+    }
+
+    fn framed(tree: &mut Tree, sides: [bool; 4], outside_background: bool) -> Index {
+        let label = text(tree, 1, "ab", 2);
+        let root = tree.create(2, Display::Block).unwrap();
+        tree.insert(root, label, None).unwrap();
+
+        let style = &mut tree.node_mut(root).style;
+        style.width = crate::engine::style::Length::Cells(4);
+        style.hl = 7;
+        style.extra_mut().border = Some(Border {
+            chars: ['╭', '─', '╮', '│', '╯', '─', '╰', '│'],
+            top: sides[0],
+            right: sides[1],
+            bottom: sides[2],
+            left: sides[3],
+            hl: 9,
+            outside_background,
+        });
+        root
+    }
+
+    fn texts(lines: &[Line]) -> Vec<&str> {
+        lines.iter().map(|line| line.text.as_str()).collect()
+    }
+
+    #[test]
+    fn draws_a_full_border() {
+        let mut tree = Tree::default();
+        let root = framed(&mut tree, [true; 4], false);
+
+        let lines = render(&mut tree, root);
+
+        assert_eq!(texts(&lines), vec!["╭────╮", "│ab  │", "╰────╯"]);
+    }
+
+    #[test]
+    fn draws_only_the_sides_asked_for() {
+        let mut tree = Tree::default();
+        let root = framed(&mut tree, [true, false, true, false], false);
+
+        let lines = render(&mut tree, root);
+
+        assert_eq!(texts(&lines), vec!["────", "ab  ", "────"]);
+    }
+
+    #[test]
+    fn the_border_takes_space_in_layout() {
+        let mut tree = Tree::default();
+        let root = framed(&mut tree, [true; 4], false);
+        tree.node_mut(root).style.margin.left = 1;
+
+        let size = measure(&mut tree, root, Constraints::available(20));
+
+        assert_eq!((size.width, size.height), (7, 3));
+    }
+
+    #[test]
+    fn the_background_covers_the_border_by_default() {
+        let mut tree = Tree::default();
+        let root = framed(&mut tree, [true; 4], false);
+
+        let lines = render(&mut tree, root);
+
+        assert!(lines[0].marks.iter().any(|mark| mark.hl == 7));
+    }
+
+    #[test]
+    fn half_borders_keep_the_background_off_their_rows() {
+        let mut tree = Tree::default();
+        let root = framed(&mut tree, [true, false, true, false], true);
+
+        let lines = render(&mut tree, root);
+
+        assert!(lines[0].marks.iter().all(|mark| mark.hl == 9));
+        assert!(lines[1].marks.iter().any(|mark| mark.hl == 7));
+        assert!(lines[2].marks.iter().all(|mark| mark.hl == 9));
     }
 
     #[test]

@@ -18,6 +18,7 @@ local OP = {
 	resize = 8,
 	set_tracks = 9,
 	set_cells = 10,
+	set_border = 11,
 }
 
 M.display = { block = 1, inline = 2, contents = 3, flex = 4, grid = 5 }
@@ -254,6 +255,38 @@ function Commands:set_tracks(id, axis, tracks)
 		n = n + 2
 	end
 	self.len = n
+end
+
+local SIDES = { top = 1, right = 2, bottom = 4, left = 8 }
+
+--- Top left, top, top right, right, bottom right, bottom, bottom left, left.
+M.borders = {
+	single = { chars = "┌─┐│┘─└│" },
+	rounded = { chars = "╭─╮│╯─╰│" },
+	double = { chars = "╔═╗║╝═╚║" },
+	heavy = { chars = "┏━┓┃┛━┗┃" },
+	-- Cells are twice as tall as wide, so a half cell edge matches one column.
+	half = { chars = "▄▄▄ ▀▀▀ ", sides = { "top", "bottom" }, outside_background = true },
+}
+
+---@param preset string|{ chars: string }
+---@param sides? string[]
+---@param hl_id integer
+function Commands:set_border(id, preset, sides, hl_id)
+	local border = type(preset) == "table" and preset or M.borders[preset]
+	if not border then
+		error(("invalid border `%s`"):format(tostring(preset)), 0)
+	end
+
+	local mask = 0
+	for _, side in ipairs(sides or border.sides or { "top", "right", "bottom", "left" }) do
+		mask = mask + (SIDES[side] or error(("invalid border side `%s`"):format(tostring(side)), 0))
+	end
+
+	local ops, n = self.ops, self.len
+	ops[n + 1], ops[n + 2], ops[n + 3], ops[n + 4] = OP.set_border, id, border.chars, mask
+	ops[n + 5], ops[n + 6] = hl_id, flag(border.outside_background)
+	self.len = n + 6
 end
 
 function Commands:resize(width)

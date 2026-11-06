@@ -107,8 +107,8 @@ fn limit(value: i32, min: Length, max: Length, available: i32) -> i32 {
 
 /// Space a node's own style leaves for its content.
 fn content_space(style: &Style, constraints: Constraints) -> Space {
-    let edges_x = style.margin.horizontal() + style.padding.horizontal();
-    let edges_y = style.margin.vertical() + style.padding.vertical();
+    let edges_x = style.margin.horizontal() + style.inner().horizontal();
+    let edges_y = style.margin.vertical() + style.inner().vertical();
 
     let width = constraints
         .exact_width
@@ -146,8 +146,8 @@ pub fn measure(tree: &mut Tree, index: Index, constraints: Constraints) -> Size 
     let extra = style.extra();
     let space = content_space(style, constraints);
 
-    let edges_x = style.margin.horizontal() + style.padding.horizontal();
-    let edges_y = style.margin.vertical() + style.padding.vertical();
+    let edges_x = style.margin.horizontal() + style.inner().horizontal();
+    let edges_y = style.margin.vertical() + style.inner().vertical();
     let width = style.width;
     let (min_width, max_width) = (extra.min_width, extra.max_width);
     let (min_height, max_height) = (extra.min_height, extra.max_height);

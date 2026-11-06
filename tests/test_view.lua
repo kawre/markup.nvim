@@ -1022,6 +1022,111 @@ T["snap"]["presses land on the snapped node"] = function()
 	eq(child.lua_get("pressed"), "two")
 end
 
+T["border"] = new_set()
+
+T["border"]["draws the presets"] = function()
+	run([[view:render(m.block({ m.block({ "ab", width = 4, border = "rounded" }) }))]])
+	eq(lines(), { "╭────╮", "│ab  │", "╰────╯" })
+
+	run([[view:render(m.block({ m.block({ "ab", width = 2, border = "double" }) }))]])
+	eq(lines(), { "╔══╗", "║ab║", "╚══╝" })
+end
+
+T["border"]["draws chosen sides"] = function()
+	run([[view:render(m.block({ m.block({ "ab", width = 2, border = "single", border_sides = { "top" } }) }))]])
+	eq(lines(), { "──", "ab" })
+end
+
+T["border"]["takes custom characters"] = function()
+	run([[view:render(m.block({ m.block({ "a", width = 1, border = { chars = "+-+|+-+|" } }) }))]])
+	eq(lines(), { "+-+", "|a|", "+-+" })
+end
+
+T["border"]["uses border_style"] = function()
+	run([[view:render(m.block({ m.block({ "a", width = 1, border = "single", border_style = "Label" }) }))]])
+	eq(marks()[1][4], "Label")
+end
+
+T["border"]["works in flex and wraps inside"] = function()
+	run([[view:render(m.flex({
+		width = 12, gap = 1,
+		m.block({ "aaaa bbbb", border = "single", grow = 1 }),
+		m.block({ "x", border = "single", shrink = 0 }),
+	}))]])
+	eq(lines(), { "┌──────┐ ┌─┐", "│aaaa  │ │x│", "│bbbb  │ │ │", "└──────┘ └─┘" })
+end
+
+T["border"]["presses stay inside"] = function()
+	run([[
+		pressed = nil
+		view:render(m.block({ m.block({ "ab", width = 2, border = "single", on_press = function() pressed = true end }) }))
+		vim.api.nvim_win_set_cursor(0, { 2, 1 })
+		view:press()
+	]])
+	eq(child.lua_get("pressed"), true)
+end
+
+T["border"]["rejects unknown values"] = function()
+	expect.error(function()
+		run([[view:render(m.block({ "x", border = "wavy" }))]])
+	end, "invalid border")
+	expect.error(function()
+		run([[view:render(m.block({ "x", border = "single", border_sides = { "up" } }))]])
+	end, "invalid border side")
+end
+
+T["border"]["half uses half blocks in the color of the background"] = function()
+	run([[
+		vim.api.nvim_set_hl(0, "Card", { bg = "#123456" })
+		view:render(m.block({ m.block({ "ab", width = 4, padding = { 0, 1 }, style = "Card", border = "half" }) }))
+	]])
+	eq(lines(), { "▄▄▄▄▄▄", " ab", "▀▀▀▀▀▀" })
+
+	local groups = marks()
+	eq(groups[1][4], "MarkupEdge_Card")
+	eq(child.lua_get("vim.api.nvim_get_hl(0, { name = 'MarkupEdge_Card' }).fg"), 0x123456)
+	eq(child.lua_get("vim.api.nvim_get_hl(0, { name = 'MarkupEdge_Card' }).bg"), vim.NIL)
+end
+
+T["border"]["half keeps the background off its rows"] = function()
+	run([[
+		vim.api.nvim_set_hl(0, "Card", { bg = "#123456" })
+		view:render(m.block({ m.block({ "ab", width = 2, style = "Card", border = "half" }) }))
+	]])
+	local rows = {}
+	for _, mark in ipairs(marks()) do
+		rows[mark[4]] = rows[mark[4]] or {}
+		table.insert(rows[mark[4]], mark[1])
+	end
+	eq(rows["Card"], { 1 })
+	eq(rows["MarkupEdge_Card"], { 0, 2 })
+end
+
+T["border"]["half follows the colorscheme"] = function()
+	run([[
+		vim.api.nvim_set_hl(0, "Card", { bg = "#123456" })
+		view:render(m.block({ "x", style = "Card", border = "half" }))
+		vim.api.nvim_set_hl(0, "Card", { bg = "#654321" })
+		vim.api.nvim_exec_autocmds("ColorScheme", {})
+	]])
+	eq(child.lua_get("vim.api.nvim_get_hl(0, { name = 'MarkupEdge_Card' }).fg"), 0x654321)
+end
+
+T["border"]["fixed elements keep their border"] = function()
+	run([[
+		vim.api.nvim_set_hl(0, "Card", { bg = "#123456" })
+		view:render(m.block({
+			m.block({ "pinned", position = "fixed", style = "Card", border = "half" }),
+			m.block("body"),
+		}))
+		reactive.flush()
+		band = view.fixed[1]
+	]])
+	eq(child.lua_get("vim.trim(vim.api.nvim_buf_get_lines(band.win.buf, 0, 1, false)[1]):sub(1, 3)"), "▄")
+	eq(child.lua_get("vim.api.nvim_win_get_height(band.win.win)"), 3)
+	eq(lines(), { "", "", "", "body" })
+end
+
 T["fixed"] = new_set()
 
 local function fixed_view()

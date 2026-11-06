@@ -13,7 +13,8 @@
 use super::diff::Patch;
 use super::inspect::NodeInfo;
 use super::style::{
-    Align, Direction, Display, Distribute, Edges, Length, Position, Style, Track, WhiteSpace,
+    Align, Border, Direction, Display, Distribute, Edges, Length, Position, Style, Track,
+    WhiteSpace,
 };
 use super::tree::ClientId;
 use super::Timings;
@@ -136,6 +137,7 @@ pub enum Command {
     Clear { id: ClientId },
     Resize { width: i32 },
     SetTracks { id: ClientId, axis: Direction, tracks: Vec<Track> },
+    SetBorder { id: ClientId, border: Option<Border> },
     /// Widths of the non ASCII characters of a text, as digits.
     SetCells { id: ClientId, cells: Vec<u8> },
 }
@@ -260,6 +262,26 @@ impl Reader<'_> {
             .collect()
     }
 
+    /// Eight characters, a mask of sides, a highlight and a flag. No characters
+    /// means no border, with nothing else following.
+    fn border(&mut self) -> LuaResult<Option<Border>> {
+        let characters: Vec<char> = self.string()?.chars().collect();
+        let Ok(chars) = <[char; 8]>::try_from(characters) else {
+            return Ok(None);
+        };
+
+        let sides = self.int()?;
+        Ok(Some(Border {
+            chars,
+            top: sides & 1 != 0,
+            right: sides & 2 != 0,
+            bottom: sides & 4 != 0,
+            left: sides & 8 != 0,
+            hl: self.value()?,
+            outside_background: self.int()? != 0,
+        }))
+    }
+
     fn style_property(&mut self) -> LuaResult<StyleProperty> {
         let side = |index: i32| match index % 4 {
             1 => Side::Top,
@@ -354,6 +376,10 @@ impl Reader<'_> {
                 id: self.id()?,
                 axis: self.direction()?,
                 tracks: self.tracks()?,
+            },
+            11 => Command::SetBorder {
+                id: self.id()?,
+                border: self.border()?,
             },
             10 => {
                 let id = self.id()?;

@@ -135,6 +135,14 @@ local function apply_props(view, id, tag, props)
 		bind_style(view, id, "hl", style)
 	end
 
+	if props.border then
+		local border_style = props.border_style
+		if border_style == nil and props.border == "half" and type(style) == "string" then
+			border_style = hl.edge(style)
+		end
+		view.commands:set_border(id, props.border, props.border_sides, hl.id(border_style))
+	end
+
 	if props.on_press then
 		view:set_handler(id, props.on_press)
 		bind_style(view, id, "interactive", true)
@@ -197,8 +205,14 @@ local function mount_fixed(view, parent, before, element)
 
 	local props = vim.tbl_extend("force", {}, element.props)
 	props.position, props.top = nil, nil
+	-- A band without a border is colored as a whole. With one, the element keeps
+	-- its style and the float blends in with what is underneath.
 	local style = props.style
-	props.style = nil
+	if props.border then
+		style = false
+	else
+		props.style = nil
+	end
 
 	local spacer = view:next_id()
 	view.commands:create(spacer, DISPLAY.block)

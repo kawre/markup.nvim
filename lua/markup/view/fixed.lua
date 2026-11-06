@@ -17,9 +17,18 @@ local api = vim.api
 local M = Markup.object()
 
 ---@param parent markup.view
+---@param style? string|false
+function M.winhighlight(parent, style)
+	if style then
+		return ("Normal:%s"):format(style)
+	end
+	return parent.win:win_valid() and vim.wo[parent.win.win].winhighlight or ""
+end
+
+---@param parent markup.view
 ---@param spacer integer node that reserves the rows in the parent
 ---@param content any
----@param style? string highlight for the whole band
+---@param style? string|false highlight for the whole band, false for none
 function M:new(parent, spacer, content, style)
 	self.parent = parent
 	self.spacer = spacer
@@ -40,7 +49,7 @@ function M:new(parent, spacer, content, style)
 		minimal = true,
 		show = false,
 		zindex = 45,
-		wo = { winhighlight = style and ("Normal:%s"):format(style) or "" },
+		wo = { winhighlight = M.winhighlight(parent, style) },
 	})
 
 	self.view = Markup.view(self.win)

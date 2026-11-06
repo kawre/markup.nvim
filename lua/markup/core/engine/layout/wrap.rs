@@ -129,7 +129,7 @@ fn tokenize(tree: &mut Tree, node: Index, base: (i32, i32), width: i32, tokens: 
     }
 
     let style = &tree.node(node).style;
-    let (margin, padding) = (style.margin, style.padding);
+    let (margin, padding) = (style.margin, style.inner());
     let reverse = style.reverse;
 
     let gap = |width: i32| Piece {

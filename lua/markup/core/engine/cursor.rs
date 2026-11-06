@@ -28,14 +28,14 @@ impl Engine {
             rects.push(Rect {
                 x: x + node.style.margin.left,
                 y: y + node.style.margin.top,
-                width: node.geometry.content.width + node.style.padding.horizontal(),
-                height: node.geometry.content.height + node.style.padding.vertical(),
+                width: node.geometry.content.width + node.style.inner().horizontal(),
+                height: node.geometry.content.height + node.style.inner().vertical(),
             });
             return;
         }
 
-        let content_x = x + node.style.margin.left + node.style.padding.left;
-        let content_y = y + node.style.margin.top + node.style.padding.top;
+        let content_x = x + node.style.margin.left + node.style.inner().left;
+        let content_y = y + node.style.margin.top + node.style.inner().top;
         for &child in &node.children {
             self.interactive_rects(child, content_x, content_y, rects);
         }

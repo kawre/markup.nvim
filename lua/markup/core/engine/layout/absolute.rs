@@ -31,7 +31,7 @@ pub fn layout(tree: &mut Tree) {
 
 fn position(tree: &mut Tree, index: Index) {
     let block = tree.node(tree.containing_block(index));
-    let padding = block.style.padding;
+    let padding = block.style.inner();
     let width = block.geometry.content.width + padding.horizontal();
     let height = block.geometry.content.height + padding.vertical();
 
