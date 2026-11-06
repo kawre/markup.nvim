@@ -60,35 +60,111 @@ impl FromStr for NodeKind {
     }
 }
 
-impl TryFrom<ElementKind> for NodeKind {
-    type Error = mlua::Error;
+// impl TryFrom<ElementKind> for NodeKind {
+//     type Error = mlua::Error;
+//
+//     fn try_from(kind: ElementKind) -> Result<Self, Self::Error> {
+//         match kind {
+//             ElementKind::Element(e) => Ok(NodeKind::from_str(str.as_str())?),
+//             ElementKind::Text => Ok(NodeKind::Text),
+//             _ => Err(mlua::Error::external(format!(
+//                 "Unsupported NodeKind: {:?}",
+//                 kind
+//             ))),
+//         }
+//     }
+// }
+//
+// impl TryFrom<Element> for Node {
+//     type Error = mlua::Error;
+//
+//     fn try_from(element: Element) -> Result<Self, Self::Error> {
+//         let kind = NodeKind::try_from(element.kind)?;
+//         let style = Style::try_from(element.props)?;
+//
+//         Ok(Node {
+//             kind,
+//             style,
+//             ..Default::default()
+//         })
+//     }
+// }
 
-    fn try_from(kind: ElementKind) -> Result<Self, Self::Error> {
+// impl TryFrom<ElementFiber> for Node {
+//     type Error = mlua::Error;
+//
+//     fn try_from(element: ElementFiber) -> Result<Self, Self::Error> {
+//         let style = Style::try_from(PendingProps(element.pending_props))?;
+//         Ok(Node {
+//             kind: NodeKind::Block,
+//             style,
+//             ..Default::default()
+//         })
+//     }
+// }
+
+impl Node {
+    pub fn try_from_fiber_kind(lua: &Lua, kind: &FiberKind) -> Result<Self, mlua::Error> {
         match kind {
-            ElementKind::Element(str) => Ok(NodeKind::from_str(str.as_str())?),
-            ElementKind::Text => Ok(NodeKind::Text),
-            _ => Err(mlua::Error::external(format!(
-                "Unsupported NodeKind: {:?}",
-                kind
-            ))),
+            FiberKind::Text(text) => {
+                let func = lua
+                    .globals()
+                    .get::<LuaFunction>("Markup.util.text_to_chunks")?;
+                let chunks: TextChunks = func.call(text.pending_content.clone())?;
+                let text_context = TextContext {
+                    writing_mode: WritingMode::Horizontal,
+                    chunks: chunks.0,
+                };
+
+                Ok(Node {
+                    kind: NodeKind::Text,
+                    text_data: Some(text_context),
+                    ..Node::default()
+                })
+            }
+            FiberKind::Element(el) => {
+                let props = PendingProps(lua.registry_value(&el.pending_props)?);
+                let style = Style::try_from(props)?;
+
+                Ok(Node {
+                    kind: NodeKind::Block,
+                    style,
+                    ..Default::default()
+                })
+            }
+            _ => Err(mlua::Error::external("Unsupported Fiber kind")),
         }
     }
 }
 
-impl TryFrom<Element> for Node {
-    type Error = mlua::Error;
-
-    fn try_from(element: Element) -> Result<Self, Self::Error> {
-        let kind = NodeKind::try_from(element.kind)?;
-        let style = Style::try_from(element.props)?;
-
-        Ok(Node {
-            kind,
-            style,
-            ..Default::default()
-        })
-    }
-}
+// impl TryFrom<Fiber> for Node {
+//     type Error = mlua::Error;
+//
+//     fn try_from(fiber: Fiber) -> Result<Self, Self::Error> {
+//         let kind = match fiber.kind {
+//             FiberKind::Text(text) => {
+//                 //
+//                 NodeKind::Text
+//             }
+//             FiberKind::Element(el) => {
+//                 //
+//                 // el.pending_props
+//                 el.pending_props
+//                 NodeKind::Block
+//             }
+//             _ => panic!("Unsupported Fiber kind: {:?}", fiber.kind),
+//         };
+//
+//         // let style = Style::from_fiber(&fiber);
+//
+//         Ok(Node {
+//             // kind,
+//             // style,
+//             // text_data: fiber.text_data.clone(),
+//             ..Default::default()
+//         })
+//     }
+// }
 
 #[allow(dead_code)]
 impl Node {

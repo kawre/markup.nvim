@@ -1,7 +1,7 @@
-// mod convert;
+mod convert;
 // mod lua;
 
-// pub use convert::*;
+pub use convert::*;
 // pub use lua::*;
 
 use std::rc::Rc;
@@ -10,29 +10,18 @@ use crate::prelude::*;
 use mlua::prelude::*;
 use taffy::prelude::*;
 
+// #[derive(Debug)]
+// pub enum PendingProps {
+//     Text(String),
+//     Table(LuaTable, ElementChildren),
+// }
 #[derive(Debug)]
-pub enum PendingProps {
-    Text(String),
-    Table(LuaTable, ElementChildren),
-}
+pub struct PendingProps(pub LuaTable);
 
 #[derive(Debug, Clone)]
 pub enum MemoizedProps {
     Text(String),
     Table(Rc<LuaRegistryKey>),
-}
-
-impl FromLua for PendingProps {
-    fn from_lua(value: LuaValue, _: &Lua) -> LuaResult<Self> {
-        match value {
-            LuaValue::Table(tbl) => {
-                let children: ElementChildren = tbl.get("children")?;
-                Ok(PendingProps::Table(tbl, children))
-            }
-            LuaValue::String(s) => Ok(PendingProps::Text(s.to_str()?.to_string())),
-            _ => Err(LuaError::external("Expected LuaTable for PendingProps")),
-        }
-    }
 }
 
 #[derive(Debug)]

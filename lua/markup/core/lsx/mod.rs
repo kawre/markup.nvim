@@ -84,7 +84,13 @@ impl PartialEq<FiberKind> for ElementKind {
     fn eq(&self, other: &FiberKind) -> bool {
         match (self, other) {
             (ElementKind::Element(tag, _), FiberKind::Element(ef)) => ef.element_tag == *tag,
-            (ElementKind::Text(text), FiberKind::Text(t)) => t == text,
+            (ElementKind::Text(text), FiberKind::Text(t)) => {
+                if let Some(content) = &t.pending_content {
+                    content == text
+                } else {
+                    false
+                }
+            }
             (ElementKind::Component(_), FiberKind::Function(_)) => true,
             (ElementKind::Fragment(_), FiberKind::Fragment(_)) => true,
             _ => false,

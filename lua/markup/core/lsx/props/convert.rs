@@ -17,56 +17,56 @@ impl TryFrom<PendingProps> for Style {
     type Error = LuaError;
 
     fn try_from(value: PendingProps) -> Result<Self, Self::Error> {
-        let base = value.base;
+        let t = value.0;
 
-        match base {
-            Some(t) => Ok(Style {
-                display: get_or_default::<LuaDisplay>(&t, "display")?.into(),
-                box_sizing: get_or_default::<LuaBoxSizing>(&t, "box_sizing")?.into(),
-                size: Size {
-                    width: get_or_default::<LuaDimension>(&t, "width")?.into(),
-                    height: get_or_default::<LuaDimension>(&t, "height")?.into(),
-                },
-                min_size: Size {
-                    width: get_or_default::<LuaDimension>(&t, "min_width")?.into(),
-                    height: get_or_default::<LuaDimension>(&t, "min_height")?.into(),
-                },
-                max_size: Size {
-                    width: get_or_default::<LuaDimension>(&t, "max_width")?.into(),
-                    height: get_or_default::<LuaDimension>(&t, "max_height")?.into(),
-                },
-                margin: Rect {
-                    left: get_or_default::<LuaLengthPercentageAuto>(&t, "margin_left")?.into(),
-                    right: get_or_default::<LuaLengthPercentageAuto>(&t, "margin_right")?.into(),
-                    top: get_or_default::<LuaLengthPercentageAuto>(&t, "margin_top")?.into(),
-                    bottom: get_or_default::<LuaLengthPercentageAuto>(&t, "margin_bottom")?.into(),
-                },
-                padding: Rect {
-                    left: get_or_default::<LuaLengthPercentage>(&t, "padding_left")?.into(),
-                    right: get_or_default::<LuaLengthPercentage>(&t, "padding_right")?.into(),
-                    top: get_or_default::<LuaLengthPercentage>(&t, "padding_top")?.into(),
-                    bottom: get_or_default::<LuaLengthPercentage>(&t, "padding_bottom")?.into(),
-                },
-                gap: Size {
-                    width: get_or_default::<LuaLengthPercentage>(&t, "gap")?.into(),
-                    height: get_or_default::<LuaLengthPercentage>(&t, "gap")?.into(),
-                },
-                text_align: get_or_default::<LuaTextAlign>(&t, "text_align")?.into(),
-                align_items: get_or_default::<LuaAlignItems>(&t, "align_items")?.into(),
-                align_self: get_or_default::<LuaAlignItems>(&t, "align_self")?.into(),
-                align_content: get_or_default::<LuaAlignContent>(&t, "align_content")?.into(),
-                justify_items: get_or_default::<LuaAlignItems>(&t, "justify_items")?.into(),
-                justify_content: get_or_default::<LuaAlignContent>(&t, "justify_content")?.into(),
-                flex_direction: get_or_default::<LuaFlexDirection>(&t, "flex_direction")?.into(),
-                flex_wrap: get_or_default::<LuaFlexWrap>(&t, "flex_wrap")?.into(),
-                flex_grow: get_or_default::<f32>(&t, "flex_grow")?,
-                flex_shrink: get_or_default::<f32>(&t, "flex_shrink")?,
-                flex_basis: get_or_default::<LuaDimension>(&t, "flex_basis")?.into(),
-                justify_self: get_or_default::<LuaAlignItems>(&t, "justify_self")?.into(),
-                ..Default::default()
-            }),
-            None => Ok(Style::default()),
-        }
+        // match base {
+        // Some(t) =>
+        Ok(Style {
+            display: get_or_default::<LuaDisplay>(&t, "display")?.into(),
+            box_sizing: get_or_default::<LuaBoxSizing>(&t, "box_sizing")?.into(),
+            size: Size {
+                width: get_or_default::<LuaDimension>(&t, "width")?.into(),
+                height: get_or_default::<LuaDimension>(&t, "height")?.into(),
+            },
+            min_size: Size {
+                width: get_or_default::<LuaDimension>(&t, "min_width")?.into(),
+                height: get_or_default::<LuaDimension>(&t, "min_height")?.into(),
+            },
+            max_size: Size {
+                width: get_or_default::<LuaDimension>(&t, "max_width")?.into(),
+                height: get_or_default::<LuaDimension>(&t, "max_height")?.into(),
+            },
+            margin: Rect {
+                left: get_or_default::<LuaLengthPercentageAuto>(&t, "margin_left")?.into(),
+                right: get_or_default::<LuaLengthPercentageAuto>(&t, "margin_right")?.into(),
+                top: get_or_default::<LuaLengthPercentageAuto>(&t, "margin_top")?.into(),
+                bottom: get_or_default::<LuaLengthPercentageAuto>(&t, "margin_bottom")?.into(),
+            },
+            padding: Rect {
+                left: get_or_default::<LuaLengthPercentage>(&t, "padding_left")?.into(),
+                right: get_or_default::<LuaLengthPercentage>(&t, "padding_right")?.into(),
+                top: get_or_default::<LuaLengthPercentage>(&t, "padding_top")?.into(),
+                bottom: get_or_default::<LuaLengthPercentage>(&t, "padding_bottom")?.into(),
+            },
+            gap: Size {
+                width: get_or_default::<LuaLengthPercentage>(&t, "gap")?.into(),
+                height: get_or_default::<LuaLengthPercentage>(&t, "gap")?.into(),
+            },
+            text_align: get_or_default::<LuaTextAlign>(&t, "text_align")?.into(),
+            align_items: get_or_default::<LuaAlignItems>(&t, "align_items")?.into(),
+            align_self: get_or_default::<LuaAlignItems>(&t, "align_self")?.into(),
+            align_content: get_or_default::<LuaAlignContent>(&t, "align_content")?.into(),
+            justify_items: get_or_default::<LuaAlignItems>(&t, "justify_items")?.into(),
+            justify_content: get_or_default::<LuaAlignContent>(&t, "justify_content")?.into(),
+            flex_direction: get_or_default::<LuaFlexDirection>(&t, "flex_direction")?.into(),
+            flex_wrap: get_or_default::<LuaFlexWrap>(&t, "flex_wrap")?.into(),
+            flex_grow: get_or_default::<f32>(&t, "flex_grow")?,
+            flex_shrink: get_or_default::<f32>(&t, "flex_shrink")?,
+            flex_basis: get_or_default::<LuaDimension>(&t, "flex_basis")?.into(),
+            justify_self: get_or_default::<LuaAlignItems>(&t, "justify_self")?.into(),
+            ..Default::default()
+        })
+        // None => Ok(Style::default()),
     }
 }
 

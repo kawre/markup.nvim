@@ -68,8 +68,8 @@ function M.call(type, props, style)
 		props.style = style
 	end
 
-	return Markup.core.create_lsx(type, props)
-	-- return Element.new(type, resolve(props, style))
+	-- return Markup.core.create_lsx(type, props)
+	return Element.new(type, resolve(props, style))
 end
 
 ---@type markup.factory.element.new
