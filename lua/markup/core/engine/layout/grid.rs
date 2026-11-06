@@ -130,6 +130,7 @@ fn size_tracks(
     count: usize,
     gap: i32,
     available: Option<i32>,
+    fill: bool,
     contributions: &[Contribution],
 ) -> Vec<i32> {
     let track = |position: usize| tracks.get(position).copied().unwrap_or(Track::Auto);
@@ -184,10 +185,12 @@ fn size_tracks(
             // Without fractions, spare room goes to auto tracks.
             let weights = if fractions.iter().sum::<f32>() > 0.0 {
                 fractions
-            } else {
+            } else if fill {
                 (0..count)
                     .map(|position| if track(position) == Track::Auto { 1.0 } else { 0.0 })
                     .collect()
+            } else {
+                vec![0.0; count]
             };
 
             if weights.iter().sum::<f32>() > 0.0 {
@@ -245,8 +248,15 @@ impl Strategy for Grid {
             })
             .collect();
 
-        let available_width = (!space.intrinsic).then_some(space.width);
-        let columns = size_tracks(&column_tracks, grid.columns, column_gap, available_width, &widths);
+        let available_width = space.can_wrap().then_some(space.width);
+        let columns = size_tracks(
+            &column_tracks,
+            grid.columns,
+            column_gap,
+            available_width,
+            !space.intrinsic,
+            &widths,
+        );
 
         let heights: Vec<Contribution> = items
             .iter()
@@ -264,7 +274,7 @@ impl Strategy for Grid {
             })
             .collect();
 
-        let rows = size_tracks(&row_tracks, grid.rows, row_gap, space.height, &heights);
+        let rows = size_tracks(&row_tracks, grid.rows, row_gap, space.height, true, &heights);
 
         let column_starts = starts(&columns, column_gap);
         let row_starts = starts(&rows, row_gap);
@@ -498,6 +508,19 @@ mod tests {
         measure(&mut tree, root, 20);
 
         assert_eq!(rect(&tree, a), (9, 2, 1, 1));
+    }
+
+    #[test]
+    fn columns_count_wrapped_rows_inside_a_grid() {
+        let mut tree = Tree::default();
+        let a = cell(&mut tree, 1, "aaaa bbbb");
+        let inner = grid(&mut tree, vec![Track::Fr(1.0)], &[a]);
+        let label = text(&mut tree, 2, "end");
+        let after = element(&mut tree, 3, Display::Block, &[label]);
+        let root = element(&mut tree, 4, Display::Flex, &[inner, after]);
+        tree.node_mut(root).style.extra_mut().direction = Direction::Column;
+
+        assert_eq!(measure(&mut tree, root, 5).height, 3);
     }
 
     #[test]

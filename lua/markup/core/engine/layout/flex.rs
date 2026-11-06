@@ -274,14 +274,25 @@ impl Strategy for Flex {
             space.height
         };
 
+        // `fit` keeps a row at its natural size, unless that does not fit.
+        let fit_limit = (!axis.column && space.intrinsic && space.fit).then_some(space.width);
+
         let mut items = collect_items(tree, node, space, axis, align);
-        let mut lines = break_lines(&items, definite_main.filter(|_| wrap), main_gap);
+        let limit = definite_main.or(fit_limit).filter(|_| wrap);
+        let mut lines = break_lines(&items, limit, main_gap);
 
         // Main sizes, line by line.
         for line in &lines {
+            let line_items = &mut items[line.items.clone()];
+            let gaps = main_gap * (line_items.len() as i32 - 1);
+
             if let Some(main) = definite_main {
-                let gaps = main_gap * (line.items.len() as i32 - 1);
-                resolve_flexible(&mut items[line.items.clone()], main - gaps);
+                resolve_flexible(line_items, main - gaps);
+            } else if let Some(limit) = fit_limit {
+                let natural: i32 = line_items.iter().map(|item| item.base).sum();
+                if natural + gaps > limit {
+                    resolve_flexible(line_items, limit - gaps);
+                }
             }
         }
 
@@ -665,6 +676,38 @@ mod tests {
 
         assert_eq!(measure(&mut tree, root, 5).height, 4);
         assert_eq!(tree.node(b).geometry.y, 3);
+    }
+
+    #[test]
+    fn columns_count_wrapped_rows_inside_nested_flex() {
+        let mut tree = Tree::default();
+        let marker = text(&mut tree, 1, "* ");
+        let body = item(&mut tree, 2, "aaaa bbbb cccc");
+        tree.node_mut(body).style.extra_mut().grow = 1.0;
+        let list_item = element(&mut tree, 3, Display::Flex, &[marker, body]);
+        let after = item(&mut tree, 4, "end");
+        let root = row(&mut tree, &[list_item, after]);
+        tree.node_mut(root).style.extra_mut().direction = Direction::Column;
+
+        assert_eq!(measure(&mut tree, root, 7).height, 4);
+        assert_eq!(tree.node(after).geometry.y, 3);
+    }
+
+    #[test]
+    fn fit_only_shrinks_a_row_and_never_grows_it() {
+        let mut tree = Tree::default();
+        let a = item(&mut tree, 1, "aa");
+        tree.node_mut(a).style.extra_mut().grow = 1.0;
+        let inner = element(&mut tree, 2, Display::Flex, &[a]);
+        tree.node_mut(inner).style.width = Length::Fit;
+        let root = row(&mut tree, &[inner]);
+        let extra = tree.node_mut(root).style.extra_mut();
+        extra.direction = Direction::Column;
+        extra.align = Align::Start;
+
+        measure(&mut tree, root, 20);
+
+        assert_eq!(width(&tree, a), 2);
     }
 
     #[test]
