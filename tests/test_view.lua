@@ -1022,6 +1022,124 @@ T["snap"]["presses land on the snapped node"] = function()
 	eq(child.lua_get("pressed"), "two")
 end
 
+T["wide text"] = new_set()
+
+--- Display width of every row, which must all reach the same column in a card.
+local function row_widths()
+	return child.lua_get([[vim.tbl_map(function(line)
+		return vim.fn.strdisplaywidth(line)
+	end, vim.api.nvim_buf_get_lines(win.buf, 0, -1, false))]])
+end
+
+--- Text covered by each highlight, read back from the buffer.
+local function marked_text()
+	return child.lua_get([[vim.tbl_map(function(mark)
+		local line = vim.api.nvim_buf_get_lines(win.buf, mark[2], mark[2] + 1, false)[1]
+		return { mark[4].hl_group, line:sub(mark[3] + 1, mark[4].end_col) }
+	end, vim.api.nvim_buf_get_extmarks(win.buf, view.ns, 0, -1, { details = true }))]])
+end
+
+local samples = {
+	ascii = "plain text",
+	chinese = "你好世界",
+	mixed = "ab你好cd",
+	icon = "\u{f07b} folder",
+	tab = "\tindented",
+	tab_box = "\t│ Input",
+	emoji = "😀 ok",
+	accents = "café",
+}
+
+for name, sample in pairs(samples) do
+	T["wide text"]["card rows line up with " .. name] = function()
+		child.lua(([[
+			view:render(m.block({
+				m.block({ width = 30, style = "Visual", m.block("short"), m.block(%q), m.block("end") }),
+			}))
+		]]):format(sample))
+		eq(row_widths(), { 30, 30, 30 })
+	end
+end
+
+T["wide text"]["highlights cover exactly their own text"] = function()
+	run([[view:render(m.block({
+		m.inline("你好", "Label"),
+		m.inline("\u{f07b} ", "String"),
+		m.inline("世界", "Number"),
+		m.inline("ab", "Comment"),
+	}))]])
+	eq(marked_text(), {
+		{ "Label", "你好" },
+		{ "String", "\u{f07b} " },
+		{ "Number", "世界" },
+		{ "Comment", "ab" },
+	})
+end
+
+T["wide text"]["a parent highlight spans mixed text exactly"] = function()
+	run([[view:render(m.block({
+		m.inline("x"),
+		m.inline({ "你a好b", style = "Label" }),
+		m.inline("y"),
+	}))]])
+	eq(marked_text(), { { "Label", "你a好b" } })
+end
+
+T["wide text"]["wraps chinese at the block width"] = function()
+	run([[view:render(m.block({ width = 7, "你好世界你好" }))]])
+	eq(lines(), { "你好世", "界你好" })
+end
+
+T["wide text"]["wraps icons with words"] = function()
+	run([[view:render(m.block({ width = 8, "\u{f07b} folder \u{f15b} file" }))]])
+	eq(lines(), { "\u{f07b} folder", "\u{f15b} file" })
+end
+
+T["wide text"]["overlays cut through wide text cleanly"] = function()
+	run([[view:render(m.block({
+		m.block("你好世界"),
+		m.block({ "X", position = "absolute", top = 0, left = 2 }),
+	}))]])
+	eq(lines(), { "你X 世界" })
+	eq(row_widths()[1], 8)
+end
+
+T["wide text"]["overlays keep mixed text they do not touch"] = function()
+	run([[view:render(m.block({
+		m.block("ab你好cd"),
+		m.block({ "X", position = "absolute", top = 0, left = 6 }),
+	}))]])
+	eq(lines(), { "ab你好Xd" })
+end
+
+T["wide text"]["follows ambiwidth"] = function()
+	run([[
+		vim.o.ambiwidth = "double"
+		view:render(m.block({ width = 10, style = "Visual", m.block("≤≤") }))
+	]])
+	eq(row_widths(), { 10 })
+end
+
+T["wide text"]["follows setcellwidths"] = function()
+	run([[
+		view:render(m.block({ width = 4, "\u{f07b}\u{f07b}\u{f07b}\u{f07b}\u{f07b}" }))
+		first = lines()
+		vim.fn.setcellwidths({ { 0xf07b, 0xf07b, 2 } })
+		view:render(m.block({ width = 4, "\u{f07b}\u{f07b}\u{f07b}\u{f07b}\u{f07b}" }))
+	]])
+	eq(lines(), { "\u{f07b}\u{f07b}", "\u{f07b}\u{f07b}", "\u{f07b}" })
+end
+
+T["wide text"]["updates keep rows aligned"] = function()
+	run([[
+		name = m.signal("ab")
+		view:render(m.block({ m.block({ width = 12, style = "Visual", m.block(name) }) }))
+		name("你好\t世界")
+		reactive.flush()
+	]])
+	eq(row_widths(), { 12 })
+end
+
 T["border"] = new_set()
 
 T["border"]["draws the presets"] = function()

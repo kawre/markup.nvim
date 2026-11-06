@@ -135,6 +135,7 @@ end
 --- until the next call or until `unmount`.
 ---@param content any
 function M:render(content)
+	protocol.check_cell_widths()
 	self:unmount()
 
 	local ok, err = pcall(function()
