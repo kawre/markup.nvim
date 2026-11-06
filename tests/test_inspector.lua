@@ -120,7 +120,20 @@ T["layout"]["takes its share of the screen and fits the winbar"] = function()
 		open()
 	]])
 	eq(child.lua_get("vim.api.nvim_win_get_width(inspector.win.win)"), 48)
+	-- `equalize` runs after the event loop turns.
+	run([[vim.wait(50)]])
+	eq(child.lua_get("vim.api.nvim_win_get_width(inspector.win.win)"), 48)
 	eq(child.lua_get("vim.api.nvim_eval_statusline(vim.wo[inspector.win.win].winbar, { maxwidth = 48, winid = inspector.win.win }).str:find('groups', 1, true) ~= nil"), true)
+end
+
+T["layout"]["keeps its width next to other bottom splits"] = function()
+	run([[
+		other = Markup.window({ relative = "win", win = win.win, position = "bottom", enter = false })
+		view:render(m.block("a"))
+		open()
+		vim.wait(50)
+	]])
+	eq(child.lua_get("vim.api.nvim_win_get_width(inspector.win.win)"), 48)
 end
 
 T["layout"]["updates the winbar when a flag changes"] = function()

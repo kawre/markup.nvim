@@ -591,6 +591,7 @@ function M:open_win()
 		id = self.id,
 		position = self.opts.position,
 		relative = self.opts.relative,
+		parent = self.opts.win,
 	}
 end
 
@@ -603,6 +604,7 @@ function M:equalize()
 		return vim.w[win].snacks_win
 			and vim.w[win].snacks_win.relative == self.opts.relative
 			and vim.w[win].snacks_win.position == self.opts.position
+			and vim.w[win].snacks_win.parent == self.opts.win
 	end, vim.api.nvim_tabpage_list_wins(0))
 	if #all <= 1 then
 		return
