@@ -297,7 +297,7 @@ local function benchmark()
 	end
 
 	local results = {}
-	for _, depth in ipairs({ 1, 2, 3, 12 }) do
+	for _, depth in ipairs({ 2, 3, 4, 13 }) do
 		open_to_depth(depth)
 		local target = pick_target()
 		local rows = visible_rows()
