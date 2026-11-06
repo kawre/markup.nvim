@@ -27,6 +27,8 @@ pub struct Constraints {
     pub exact_height: Option<i32>,
     /// Ask for the natural size, so blocks do not fill the width.
     pub intrinsic: bool,
+    /// With `intrinsic`, still wrap at `width`, like CSS `fit-content`.
+    pub fit: bool,
 }
 
 impl Constraints {
@@ -37,6 +39,7 @@ impl Constraints {
             exact_width: None,
             exact_height: None,
             intrinsic: false,
+            fit: false,
         }
     }
 
@@ -44,6 +47,13 @@ impl Constraints {
         Constraints {
             intrinsic: true,
             ..Self::available(width)
+        }
+    }
+
+    pub fn fit_content(width: i32) -> Self {
+        Constraints {
+            fit: true,
+            ..Self::intrinsic(width)
         }
     }
 }
@@ -54,13 +64,20 @@ pub struct Space {
     pub width: i32,
     pub height: Option<i32>,
     pub intrinsic: bool,
+    pub fit: bool,
 }
 
 impl Space {
+    /// Whether text may break at `width` in this space.
+    pub fn can_wrap(self) -> bool {
+        !self.intrinsic || self.fit
+    }
+
     /// Constraints for a child that flows in this space.
     pub fn child(self, width: i32) -> Constraints {
         Constraints {
             intrinsic: self.intrinsic,
+            fit: self.fit,
             ..Constraints::available(width)
         }
     }
@@ -112,6 +129,7 @@ fn content_space(style: &Style, constraints: Constraints) -> Space {
         width: width.max(0),
         height: height.map(|height| height.max(0)),
         intrinsic: (constraints.intrinsic || style.width == Length::Fit) && !exact,
+        fit: constraints.fit || style.width == Length::Fit,
     }
 }
 
@@ -229,7 +247,7 @@ pub(super) mod testing {
 
 #[cfg(test)]
 mod tests {
-    use super::super::style::{Display, Edges, Length};
+    use super::super::style::{Display, Edges, Length, WhiteSpace};
     use super::super::tree::{Size, Tree};
     use super::testing::*;
 
@@ -247,7 +265,9 @@ mod tests {
         let mut tree = Tree::default();
         let label = text(&mut tree, 1, "hello");
         let root = element(&mut tree, 2, Display::Block, &[label]);
-        tree.node_mut(root).style.width = Length::Fit;
+        let style = &mut tree.node_mut(root).style;
+        style.width = Length::Fit;
+        style.extra_mut().white_space = Some(WhiteSpace::Nowrap);
         measure(&mut tree, root, 20);
 
         tree.node_mut(label).text_width = 99;

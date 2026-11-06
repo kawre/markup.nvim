@@ -22,7 +22,7 @@ fn flush_run(tree: &mut Tree, run: &mut Vec<Index>, cursor: &mut Cursor, space: 
         height = height.max(outer.height);
     }
 
-    let overflows = wraps && !space.intrinsic && x > space.width;
+    let overflows = wraps && space.can_wrap() && x > space.width;
 
     if overflows || height > 1 {
         let limit = if overflows { space.width } else { i32::MAX };
