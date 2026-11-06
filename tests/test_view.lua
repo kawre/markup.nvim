@@ -889,6 +889,139 @@ T["updates match a fresh render"] = function()
 	eq(child.lua_get("steps"), 250)
 end
 
+T["hidden windows"] = new_set()
+
+T["hidden windows"]["fill when they open"] = function()
+	run([[
+		hidden = Markup.window({ position = "float", show = false, width = 30, height = 5, enter = false })
+		later = Markup.view(hidden)
+		text = m.signal("first")
+		later:render(m.block(text))
+		text("second")
+		reactive.flush()
+		hidden:show()
+		reactive.flush()
+	]])
+	eq(child.lua_get("vim.api.nvim_buf_get_lines(hidden.buf, 0, -1, false)")[1]:gsub("%s+$", ""), "second")
+end
+
+T["hidden windows"]["lay out at the real width once open"] = function()
+	run([[
+		hidden = Markup.window({ position = "float", show = false, width = 30, height = 5, enter = false })
+		later = Markup.view(hidden)
+		later:render(m.block({ "x", style = "Label" }))
+		hidden:show()
+		reactive.flush()
+	]])
+	eq(child.lua_get("later.engine:describe(1).outer_width"), 30)
+end
+
+T["hidden windows"]["fill again when reopened"] = function()
+	run([[
+		hidden = Markup.window({ position = "float", show = false, width = 30, height = 5, enter = false })
+		later = Markup.view(hidden)
+		later:render(m.block("content"))
+		hidden:show()
+		reactive.flush()
+		hidden:hide()
+		hidden:show()
+		reactive.flush()
+	]])
+	eq(child.lua_get("vim.api.nvim_buf_get_lines(hidden.buf, 0, -1, false)")[1]:gsub("%s+$", ""), "content")
+end
+
+T["hooks"] = new_set()
+
+T["hooks"]["use_view returns the view"] = function()
+	run([[
+		local Comp = m.component(function()
+			found = m.use_view() == view
+			return m.block("x")
+		end)
+		view:render(Comp())
+	]])
+	eq(child.lua_get("found"), true)
+end
+
+T["hooks"]["use_key lives as long as the component"] = function()
+	run([[
+		open, pressed = m.signal(true), 0
+		local Comp = m.component(function()
+			m.use_key("x", function() pressed = pressed + 1 end)
+			return m.block("x")
+		end)
+		view:render(m.show(open, function() return Comp() end))
+	]])
+	child.type_keys("x")
+	eq(child.lua_get("pressed"), 1)
+
+	run([[open(false); reactive.flush()]])
+	child.type_keys("x")
+	eq(child.lua_get("pressed"), 1)
+end
+
+T["hooks"]["a remounted key replaces the old one"] = function()
+	run([[
+		page, last = m.signal("a"), nil
+		local function Page(name)
+			return m.component(function()
+				m.use_key("k", function() last = name end)
+				return m.block(name)
+			end)()
+		end
+		view:render(m.block(function()
+			return Page(page())
+		end))
+		page("b")
+		reactive.flush()
+	]])
+	child.type_keys("k")
+	eq(child.lua_get("last"), "b")
+end
+
+T["snap"] = new_set()
+
+local function snap_view()
+	run([[
+		view = Markup.view(win, { snap = true })
+		pressed = nil
+		local function item(name)
+			return m.block({ name, width = "fit", on_press = function() pressed = name end })
+		end
+		view:render(m.block({
+			m.block("title"),
+			m.block(""),
+			item("one"),
+			m.block(""),
+			item("two"),
+		}))
+		vim.api.nvim_win_set_cursor(0, { 3, 0 })
+		view.cursor = { 2, 0 }
+	]])
+end
+
+T["snap"]["jumps between interactive rows"] = function()
+	snap_view()
+	child.type_keys("j")
+	eq(child.lua_get("vim.api.nvim_win_get_cursor(0)")[1], 5)
+
+	child.type_keys("k")
+	eq(child.lua_get("vim.api.nvim_win_get_cursor(0)")[1], 3)
+end
+
+T["snap"]["stays put at the end"] = function()
+	snap_view()
+	child.type_keys("k")
+	eq(child.lua_get("vim.api.nvim_win_get_cursor(0)")[1], 3)
+end
+
+T["snap"]["presses land on the snapped node"] = function()
+	snap_view()
+	child.type_keys("j")
+	run("view:press()")
+	eq(child.lua_get("pressed"), "two")
+end
+
 T["lifecycle"] = new_set()
 
 T["lifecycle"]["rendering again replaces everything"] = function()

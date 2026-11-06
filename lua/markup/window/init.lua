@@ -295,6 +295,13 @@ end
 ---@param event string|string[]
 ---@param cb fun(self: markup.window, ev:vim.api.keyset.create_autocmd.callback_args):boolean?
 ---@param opts? markup.window.Event
+--- Calls `listener` every time the window opens.
+---@param listener fun(self: markup.window)
+function M:on_show(listener)
+	self.show_listeners = self.show_listeners or {}
+	table.insert(self.show_listeners, listener)
+end
+
 function M:on(event, cb, opts)
 	opts = opts or {}
 	opts.callback = cb
@@ -674,6 +681,10 @@ function M:show()
 		self.opts.on_win(self)
 	end
 
+	for _, listener in ipairs(self.show_listeners or {}) do
+		listener(self)
+	end
+
 	-- syntax highlighting
 	local ft = self.opts.ft or vim.bo[self.buf].filetype
 	if
@@ -801,7 +812,9 @@ function M:unmap(mode, lhs, opts)
 			break
 		end
 	end
-	vim.keymap.del(mode, lhs, opts)
+	if self:buf_valid() then
+		vim.keymap.del(mode, lhs, vim.tbl_extend("keep", opts or {}, { buffer = self.buf }))
+	end
 end
 
 function M:_unmap()
