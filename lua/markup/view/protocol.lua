@@ -17,6 +17,7 @@ local OP = {
 	clear = 7,
 	resize = 8,
 	set_tracks = 9,
+	set_cells = 10,
 }
 
 M.display = { block = 1, inline = 2, contents = 3, flex = 4, grid = 5 }
@@ -60,6 +61,11 @@ local optional_align = choice({ start = 1, ["end"] = 2, center = 3, stretch = 4,
 local distribute = choice({ start = 1, ["end"] = 2, center = 3, between = 4, around = 5, evenly = 6, stretch = 7 }, "justify")
 local direction = choice({ row = 0, column = 1 }, "direction")
 local position = choice({ static = 0, relative = 1, absolute = 2 }, "position")
+local white_space = choice({ normal = 0, nowrap = 1 }, "white_space")
+
+local function optional_white_space(value)
+	return value == nil and UNSET or white_space(value)
+end
 
 --- Style properties by name, with the encoder for each value.
 M.style = {
@@ -106,6 +112,7 @@ M.style = {
 	row = { 41, optional },
 	column_span = { 42, number },
 	row_span = { 43, number },
+	white_space = { 44, optional_white_space },
 }
 
 local TRACK = { auto = 0, cells = 1, fr = 2 }
@@ -135,6 +142,31 @@ local function text_width(text)
 	return -1
 end
 
+local char_widths = {} ---@type table<string, integer>
+
+--- Measured once per character, and only for text that is not ASCII.
+local function cell_digits(text)
+	local digits, n = {}, 0
+	for character in text:gmatch("[\194-\244][\128-\191]*") do
+		local width = char_widths[character]
+		if not width then
+			width = vim_fn.strdisplaywidth(character)
+			char_widths[character] = width
+		end
+		n = n + 1
+		digits[n] = width
+	end
+	return table.concat(digits)
+end
+
+vim.api.nvim_create_autocmd("OptionSet", {
+	group = vim.api.nvim_create_augroup("markup.view.widths", { clear = true }),
+	pattern = "ambiwidth",
+	callback = function()
+		char_widths = {}
+	end,
+})
+
 ---@class markup.view.commands
 ---@field ops any[]
 ---@field len integer
@@ -152,16 +184,26 @@ function Commands:create(id, display)
 	self.len = n + 3
 end
 
-function Commands:create_text(id, text)
+---@param opcode integer
+local function write_text(self, opcode, id, text)
 	local ops, n = self.ops, self.len
-	ops[n + 1], ops[n + 2], ops[n + 3], ops[n + 4] = OP.create_text, id, text, text_width(text)
-	self.len = n + 4
+	local width = text_width(text)
+	ops[n + 1], ops[n + 2], ops[n + 3], ops[n + 4] = opcode, id, text, width
+	n = n + 4
+
+	if width >= 0 then
+		ops[n + 1], ops[n + 2], ops[n + 3] = OP.set_cells, id, cell_digits(text)
+		n = n + 3
+	end
+	self.len = n
+end
+
+function Commands:create_text(id, text)
+	write_text(self, OP.create_text, id, text)
 end
 
 function Commands:set_text(id, text)
-	local ops, n = self.ops, self.len
-	ops[n + 1], ops[n + 2], ops[n + 3], ops[n + 4] = OP.set_text, id, text, text_width(text)
-	self.len = n + 4
+	write_text(self, OP.set_text, id, text)
 end
 
 ---@param name string

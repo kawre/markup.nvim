@@ -76,6 +76,128 @@ T["static"]["rejects layouts the engine lacks"] = function()
 	end, "not implemented")
 end
 
+T["white_space"] = new_set()
+
+T["white_space"]["wraps text in a block by default"] = function()
+	run([[view:render(m.block({ width = 10, "the quick brown fox" }))]])
+	eq(lines(), { "the quick", "brown fox" })
+end
+
+T["white_space"]["nowrap keeps one line"] = function()
+	run([[view:render(m.block({ width = 5, white_space = "nowrap", m.inline("the quick brown fox") }))]])
+	eq(lines(), { "the quick brown fox" })
+end
+
+T["white_space"]["children inherit it"] = function()
+	run([[view:render(m.block({
+		width = 5, white_space = "nowrap",
+		m.block("aaaa bbbb"),
+		m.block({ white_space = "normal", "cccc dddd" }),
+	}))]])
+	eq(lines(), { "aaaa bbbb", "cccc", "dddd" })
+end
+
+T["white_space"]["follows a signal"] = function()
+	run([[
+		mode = m.signal("normal")
+		view:render(m.block({ width = 5, white_space = mode, m.block("aaaa bbbb") }))
+		mode("nowrap")
+		reactive.flush()
+	]])
+	eq(lines(), { "aaaa bbbb" })
+
+	run([[mode("normal"); reactive.flush()]])
+	eq(lines(), { "aaaa", "bbbb" })
+end
+
+T["white_space"]["rejects unknown values"] = function()
+	expect.error(function()
+		run([[view:render(m.block({ white_space = "pre-line", "x" }))]])
+	end, "invalid white_space")
+end
+
+T["white_space"]["highlights follow their text across lines"] = function()
+	run([[view:render(m.block({
+		width = 8,
+		m.inline("aaa ", "Label"),
+		m.inline("bbb ccc", "String"),
+	}))]])
+	eq(lines(), { "aaa bbb", "ccc" })
+	eq(marks(), { { 0, 0, 4, "Label" }, { 0, 4, 7, "String" }, { 1, 0, 3, "String" } })
+end
+
+T["white_space"]["measures wide characters"] = function()
+	run([[view:render(m.block({ width = 4, "你好世界" }))]])
+	eq(lines(), { "你好", "世界" })
+end
+
+T["white_space"]["respects ambiwidth"] = function()
+	run([[
+		vim.o.ambiwidth = "double"
+		view:render(m.block({ width = 4, "≤≤≤≤" }))
+	]])
+	eq(lines(), { "≤≤", "≤≤" })
+end
+
+T["white_space"]["pushes following content down"] = function()
+	run([[view:render(m.block({ m.block({ width = 5, "aaaa bbbb" }), m.block("next") }))]])
+	eq(lines(), { "aaaa", "bbbb", "next" })
+end
+
+T["white_space"]["rewraps when the text changes at the same width"] = function()
+	run([[
+		value = m.signal("aaaa bbbb")
+		view:render(m.block({ width = 5, value }))
+		value("aa bb cc ")
+		reactive.flush()
+	]])
+	eq(lines(), { "aa bb", "cc" })
+end
+
+T["white_space"]["rewraps when the window resizes"] = function()
+	run([[
+		view:render(m.block({ m.block("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb") }))
+	]])
+	eq(#lines(), 2)
+
+	run([[
+		view.commands:resize(20)
+		view:request_commit()
+		reactive.flush()
+	]])
+	eq(#lines(), 4)
+end
+
+T["white_space"]["honours newlines"] = function()
+	run([[view:render(m.block({ m.block("one\ntwo"), m.block({ white_space = "nowrap", "three\nfour" }) }))]])
+	eq(lines(), { "one", "two", "three", "four" })
+end
+
+T["white_space"]["wraps inside flex and grid"] = function()
+	run([[view:render(m.flex({
+		width = 12,
+		m.block({ "aaaa bbbb cccc", shrink = 1 }),
+		m.block({ "side", shrink = 0 }),
+	}))]])
+	eq(lines(), { "aaaa    side", "bbbb", "cccc" })
+
+	run([[view:render(m.grid({ columns = { 5, 5 }, m.block("aaaa bbbb"), m.block("c") }))]])
+	eq(lines(), { "aaaa c", "bbbb" })
+end
+
+T["white_space"]["presses work on every line of a span"] = function()
+	run([[
+		pressed = nil
+		view:render(m.block({
+			width = 6,
+			m.inline({ "aaaa bbbb", on_press = function() pressed = true end }),
+		}))
+		vim.api.nvim_win_set_cursor(0, { 2, 1 })
+		view:press()
+	]])
+	eq(child.lua_get("pressed"), true)
+end
+
 T["flex"] = new_set()
 
 T["flex"]["lays items out in a row"] = function()

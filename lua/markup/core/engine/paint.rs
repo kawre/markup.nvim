@@ -214,8 +214,20 @@ impl Painter<'_> {
         let node = tree.node(index);
 
         if node.display == Display::Text {
-            if let Some(row) = self.rows.get_mut(y as usize) {
-                row.write(x, &node.text, node.text_width);
+            match &node.fragments {
+                Some(fragments) => {
+                    for fragment in fragments {
+                        if let Some(row) = self.rows.get_mut((y + fragment.y) as usize) {
+                            let text = &node.text[fragment.start as usize..fragment.end as usize];
+                            row.write(x + fragment.x, text, fragment.width);
+                        }
+                    }
+                }
+                None => {
+                    if let Some(row) = self.rows.get_mut(y as usize) {
+                        row.write(x, &node.text, node.text_width);
+                    }
+                }
             }
             return;
         }
@@ -229,7 +241,14 @@ impl Painter<'_> {
         let (margin, padding) = (style.margin, style.padding);
         let geometry = &node.geometry;
 
-        if style.hl != 0 {
+        if let (true, Some(fragments)) = (style.hl != 0, &node.fragments) {
+            for fragment in fragments {
+                if let Some(row) = self.rows.get_mut((y + fragment.y) as usize) {
+                    let left = x + fragment.x;
+                    row.ranges.push((left, left + fragment.width, style.hl));
+                }
+            }
+        } else if style.hl != 0 {
             let left = x + margin.left;
             let right = left + padding.horizontal() + geometry.content.width;
             let top = y + margin.top;

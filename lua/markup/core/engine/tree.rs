@@ -5,7 +5,7 @@
 //! is what layout and paint use.
 
 use super::layout::Constraints;
-use super::style::{Display, Position, Style};
+use super::style::{Display, Position, Style, WhiteSpace};
 use std::collections::{BTreeSet, HashMap};
 
 pub type ClientId = u32;
@@ -28,6 +28,17 @@ pub struct Geometry {
     pub constraints: Option<Constraints>,
 }
 
+/// A piece of a wrapped node on one line. Offsets are from the node's origin.
+/// Text uses `start` and `end` as a byte range of its text.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Fragment {
+    pub x: i32,
+    pub y: i32,
+    pub width: i32,
+    pub start: u32,
+    pub end: u32,
+}
+
 #[derive(Debug)]
 pub struct Node {
     pub client: ClientId,
@@ -36,6 +47,10 @@ pub struct Node {
     pub text: String,
     /// Display width of `text`, measured by Neovim when it is not ASCII.
     pub text_width: i32,
+    /// Width of each non ASCII character, for line breaking.
+    pub cells: Option<Box<[u8]>>,
+    /// Set when line breaking cut this node into pieces.
+    pub fragments: Option<Vec<Fragment>>,
     pub parent: Option<Index>,
     pub children: Vec<Index>,
     pub dirty: bool,
@@ -128,6 +143,8 @@ impl Tree {
             style: Style::default(),
             text: String::new(),
             text_width: 0,
+            cells: None,
+            fragments: None,
             parent: None,
             children: Vec::new(),
             dirty: true,
@@ -164,6 +181,30 @@ impl Tree {
             self.node_mut(index).dirty = true;
             current = parent;
         }
+    }
+
+    /// Whether text under a node may wrap, from the nearest `white_space`.
+    pub fn text_wraps(&self, index: Index) -> bool {
+        let mut current = Some(index);
+        while let Some(index) = current {
+            let node = self.node(index);
+            if let Some(white_space) = node.style.extra().white_space {
+                return white_space == WhiteSpace::Normal;
+            }
+            current = node.parent;
+        }
+        true
+    }
+
+    /// Marks a whole subtree, for changes that its descendants inherit.
+    pub fn mark_subtree_dirty(&mut self, index: Index) {
+        let mut stack = vec![index];
+        while let Some(index) = stack.pop() {
+            let node = self.node_mut(index);
+            node.dirty = true;
+            stack.extend(node.children.iter().copied());
+        }
+        self.mark_dirty(index);
     }
 
     /// Inserts `child` into `parent` before `before`, or last without one.

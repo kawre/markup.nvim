@@ -1,23 +1,58 @@
-use super::{Space, Strategy, measure, place};
+use super::{Space, Strategy, measure, place, wrap};
 use crate::engine::tree::{Index, Size, Tree};
 
-/// Stacks block children. Runs of inline children share a line.
+/// Stacks block children. Runs of inline children share a line, and wrap when
+/// they do not fit.
 pub struct Block;
+
+/// Places a finished run of inline children.
+fn flush_run(tree: &mut Tree, run: &mut Vec<Index>, cursor: &mut Cursor, space: Space, wraps: bool) {
+    if run.is_empty() {
+        return;
+    }
+
+    // Laying the run out plainly is cheap, and it is all that most UIs need.
+    let top = cursor.y();
+    let mut x = 0;
+    let mut height = 0;
+    for &child in run.iter() {
+        let outer = measure(tree, child, space.child((space.width - x).max(0)));
+        place(tree, child, x, top);
+        x += outer.width;
+        height = height.max(outer.height);
+    }
+
+    let overflows = wraps && !space.intrinsic && x > space.width;
+
+    if overflows || height > 1 {
+        let limit = if overflows { space.width } else { i32::MAX };
+        let size = wrap::flow(tree, run, limit);
+        for &child in run.iter() {
+            place(tree, child, 0, top);
+        }
+        cursor.extend_line(size);
+    } else {
+        cursor.extend_line(Size { width: x, height });
+    }
+
+    cursor.end_line();
+    run.clear();
+}
 
 impl Strategy for Block {
     fn arrange(&self, tree: &mut Tree, node: Index, space: Space) -> Size {
         let style = &tree.node(node).style;
         let (reverse, spacing) = (style.reverse, style.spacing);
+        let wraps = tree.text_wraps(node);
 
         let mut cursor = Cursor { spacing, ..Cursor::default() };
+        let mut run = Vec::new();
 
         tree.for_each_flow_child(node, reverse, &mut |tree, child| {
             if tree.node(child).display.is_inline() {
-                let outer = measure(tree, child, space.child((space.width - cursor.x).max(0)));
-                place(tree, child, cursor.x, cursor.y());
-                cursor.extend_line(outer);
+                run.push(child);
             } else {
-                cursor.end_line();
+                flush_run(tree, &mut run, &mut cursor, space, wraps);
                 let outer = measure(tree, child, space.child(space.width));
                 place(tree, child, 0, cursor.y());
                 cursor.extend_line(outer);
@@ -25,7 +60,8 @@ impl Strategy for Block {
             }
         });
 
-        cursor.end_line();
+        flush_run(tree, &mut run, &mut cursor, space, wraps);
+
         Size {
             width: cursor.width,
             height: cursor.height,

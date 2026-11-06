@@ -6,7 +6,9 @@ pub struct Inline;
 
 impl Strategy for Inline {
     fn arrange(&self, tree: &mut Tree, node: Index, space: Space) -> Size {
-        let reverse = tree.node(node).style.reverse;
+        let entry = tree.node_mut(node);
+        entry.fragments = None;
+        let reverse = entry.style.reverse;
         let mut size = Size::default();
 
         tree.for_each_flow_child(node, reverse, &mut |tree, child| {
