@@ -30,6 +30,19 @@ impl LuaUserData for LuaEngine {
 
         methods.add_method("node_count", |_, this, ()| Ok(this.0.tree().len()));
 
+        methods.add_method_mut("reset_frame", |_, this, ()| {
+            this.0.reset_frame();
+            Ok(())
+        });
+
+        // Zero indexed cells. Returns the row and column to move to, if any.
+        methods.add_method(
+            "snap",
+            |_, this, (from_row, from_col, row, col): (i32, i32, i32, i32)| {
+                Ok(this.0.snap((from_row, from_col), (row, col)).unzip())
+            },
+        );
+
         // Devtools, see `engine::inspect`.
         methods.add_method("path_at", |_, this, (row, col): (i32, i32)| {
             Ok(this.0.path_at(row, col))

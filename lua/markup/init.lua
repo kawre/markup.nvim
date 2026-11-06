@@ -42,6 +42,30 @@ M.on_cleanup = reactive.on_cleanup
 M.provide = reactive.provide
 M.inject = reactive.inject
 
+--- The view a component is rendered in.
+---@return markup.view
+function M.use_view()
+	local view = reactive.inject(Markup.view.CONTEXT)
+	assert(view, "`use_view` must be called inside a component")
+	return view
+end
+
+--- Binds a key for as long as the calling component stays mounted.
+---@param lhs string
+---@param fn function
+---@param opts? vim.keymap.set.Opts|{ mode?: string }
+function M.use_key(lhs, fn, opts)
+	opts = vim.deepcopy(opts or {})
+	local mode = opts.mode or "n"
+	opts.mode = nil
+
+	local win = M.use_view().win
+	win:map(mode, lhs, fn, opts)
+	reactive.on_cleanup(function()
+		win:unmap(mode, lhs)
+	end)
+end
+
 function M.show(...)
 	return require("markup.view.mount").show(...)
 end

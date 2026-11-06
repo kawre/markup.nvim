@@ -26,14 +26,22 @@ local api = vim.api
 ---@overload fun(win: markup.window): markup.view
 local M = Markup.object()
 
+--- Context key that holds the view of the current component.
+M.CONTEXT = "markup.view"
+
 local MARK = { end_col = 0, hl_group = "", hl_mode = "combine", hl_eol = true }
 
+---@class markup.view.opts
+---@field snap? boolean keep the cursor on interactive nodes, like a menu
+
 ---@param win markup.window
-function M:new(win)
+---@param opts? markup.view.opts
+function M:new(win, opts)
+	opts = opts or {}
 	self.win = win
 	Markup.views[self] = true
 	self.ns = api.nvim_create_namespace(("markup_view_[%s]"):format(win.id))
-	self.engine = Markup.core.create_engine(api.nvim_win_get_width(win.win))
+	self.engine = Markup.core.create_engine(self:width())
 	self.commands = protocol.commands()
 	self.handlers = {}
 	self.stats = { commands = 0, lines = 0, layout = 0, paint = 0, diff = 0, engine = 0, apply = 0 }
@@ -42,15 +50,61 @@ function M:new(win)
 		self:commit()
 	end
 
-	-- The engine starts from a blank frame, so the buffer has to match it.
-	self:apply({ { 0, -1, lines = {}, marks = {} } })
-
 	win:on("WinResized", function()
 		if win:valid() and vim.tbl_contains(vim.v.event.windows, win.win) then
-			self.commands:resize(api.nvim_win_get_width(win.win))
+			self.commands:resize(self:width())
 			self:request_commit()
 		end
 	end, { pattern = "*" })
+
+	if opts.snap then
+		win:on("CursorMoved", function()
+			self:snap_cursor()
+		end, { buf = true })
+	end
+
+	-- A hidden window has no buffer yet, so the first frame waits for it.
+	win:on_show(function()
+		self:attach()
+	end)
+	if win:valid() then
+		self:attach()
+	end
+end
+
+--- Width to lay out at, which hidden windows can only estimate.
+---@return integer
+function M:width()
+	return self.win:win_valid() and api.nvim_win_get_width(self.win.win) or vim.o.columns
+end
+
+--- Starts over from a blank buffer, which the engine's next frame then fills.
+function M:attach()
+	self.attached = true
+	self.engine:reset_frame()
+	self:apply({ { 0, -1, lines = {}, marks = {} } })
+	self.commands:resize(self:width())
+	self:request_commit()
+end
+
+--- Keeps the cursor on interactive nodes.
+function M:snap_cursor()
+	if not self.win:valid() or api.nvim_get_current_win() ~= self.win.win then
+		return
+	end
+
+	local cursor = api.nvim_win_get_cursor(self.win.win)
+	local row, col = cursor[1] - 1, vim.fn.virtcol(".") - 1
+	local from = self.cursor or { row, col }
+
+	local target_row, target_col = self.engine:snap(from[1], from[2], row, col)
+	if target_row then
+		self.cursor = { target_row, target_col }
+		if target_row ~= row or target_col ~= col then
+			local byte = vim.fn.virtcol2col(self.win.win, target_row + 1, target_col + 1) - 1
+			api.nvim_win_set_cursor(self.win.win, { target_row + 1, math.max(byte, 0) })
+		end
+	end
 end
 
 ---@return integer
@@ -77,6 +131,7 @@ function M:render(content)
 
 	local ok, err = pcall(function()
 		local _, owner = reactive.scope(function()
+			reactive.provide(M.CONTEXT, self)
 			mount.mount(self, content, protocol.ROOT)
 		end)
 		self.owner = owner
@@ -139,7 +194,7 @@ function M:commit()
 	stats.layout, stats.paint, stats.diff = frame.layout, frame.paint, frame.diff
 
 	started = vim.uv.hrtime()
-	stats.lines = self:apply(frame.patches)
+	stats.lines = self.attached and self:apply(frame.patches) or 0
 	stats.apply = (vim.uv.hrtime() - started) / 1e6
 
 	api.nvim_exec_autocmds("User", { pattern = "MarkupViewCommit" .. self.win.id })

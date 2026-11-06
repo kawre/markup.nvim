@@ -1,5 +1,6 @@
 //! The engine applies commands to the tree and reports what changed on screen.
 
+pub mod cursor;
 pub mod diff;
 pub mod inspect;
 pub mod layout;
@@ -54,6 +55,16 @@ impl Engine {
 
     pub fn tree(&self) -> &Tree {
         &self.tree
+    }
+
+    pub fn root_index(&self) -> Index {
+        self.root
+    }
+
+    /// Forgets the last frame, so the next one is sent in full. For when the
+    /// buffer it was written to is gone or has not been written to at all.
+    pub fn reset_frame(&mut self) {
+        self.lines = vec![Line::default()];
     }
 
     pub fn apply(&mut self, command: Command) -> Result<(), TreeError> {
