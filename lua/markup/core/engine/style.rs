@@ -109,6 +109,14 @@ pub enum Position {
     Absolute,
 }
 
+/// Whether text may break onto new lines. Inherited, like in CSS.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum WhiteSpace {
+    #[default]
+    Normal,
+    Nowrap,
+}
+
 /// Size of a grid track.
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub enum Track {
@@ -131,6 +139,9 @@ pub struct Inset {
 /// behind a box that plain nodes never allocate.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Extra {
+    /// Unset inherits from the parent.
+    pub white_space: Option<WhiteSpace>,
+
     // Containers.
     pub direction: Direction,
     pub wrap: bool,
@@ -175,6 +186,7 @@ pub struct Extra {
 impl Default for Extra {
     fn default() -> Self {
         Extra {
+            white_space: None,
             direction: Direction::Row,
             wrap: false,
             justify: Distribute::Start,

@@ -12,7 +12,9 @@
 
 use super::diff::Patch;
 use super::inspect::NodeInfo;
-use super::style::{Align, Direction, Display, Distribute, Edges, Length, Position, Style, Track};
+use super::style::{
+    Align, Direction, Display, Distribute, Edges, Length, Position, Style, Track, WhiteSpace,
+};
 use super::tree::ClientId;
 use super::Timings;
 use mlua::prelude::*;
@@ -56,6 +58,7 @@ pub enum StyleProperty {
     GridRow(Option<i32>),
     ColumnSpan(i32),
     RowSpan(i32),
+    WhiteSpace(Option<WhiteSpace>),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -117,6 +120,7 @@ impl StyleProperty {
             StyleProperty::GridRow(value) => style.extra_mut().row = value,
             StyleProperty::ColumnSpan(value) => style.extra_mut().column_span = value,
             StyleProperty::RowSpan(value) => style.extra_mut().row_span = value,
+            StyleProperty::WhiteSpace(value) => style.extra_mut().white_space = value,
         }
     }
 }
@@ -132,6 +136,8 @@ pub enum Command {
     Clear { id: ClientId },
     Resize { width: i32 },
     SetTracks { id: ClientId, axis: Direction, tracks: Vec<Track> },
+    /// Widths of the non ASCII characters of a text, as digits.
+    SetCells { id: ClientId, cells: Vec<u8> },
 }
 
 /// Stands for "unset" in optional values, because the array cannot hold nil.
@@ -301,6 +307,11 @@ impl Reader<'_> {
             41 => StyleProperty::GridRow(self.optional()?),
             42 => StyleProperty::ColumnSpan(self.int()?),
             43 => StyleProperty::RowSpan(self.int()?),
+            44 => StyleProperty::WhiteSpace(match self.optional()? {
+                None => None,
+                Some(0) => Some(WhiteSpace::Normal),
+                Some(_) => Some(WhiteSpace::Nowrap),
+            }),
             other => return Err(LuaError::runtime(format!("unknown style property {other}"))),
         })
     }
@@ -344,6 +355,14 @@ impl Reader<'_> {
                 axis: self.direction()?,
                 tracks: self.tracks()?,
             },
+            10 => {
+                let id = self.id()?;
+                let digits = self.string()?;
+                Command::SetCells {
+                    id,
+                    cells: digits.bytes().map(|digit| digit.saturating_sub(b'0')).collect(),
+                }
+            }
             other => return Err(LuaError::runtime(format!("unknown opcode {other}"))),
         })
     }

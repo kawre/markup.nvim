@@ -10,6 +10,7 @@ mod flex;
 mod grid;
 mod inline;
 mod text;
+mod wrap;
 
 use super::style::{Display, Length, Style};
 use super::tree::{Index, Size, Tree};
@@ -246,10 +247,11 @@ mod tests {
         let mut tree = Tree::default();
         let label = text(&mut tree, 1, "hello");
         let root = element(&mut tree, 2, Display::Block, &[label]);
+        tree.node_mut(root).style.width = Length::Fit;
         measure(&mut tree, root, 20);
 
         tree.node_mut(label).text_width = 99;
-        assert_eq!(measure(&mut tree, root, 20).width, 20);
+        assert_eq!(measure(&mut tree, root, 20).width, 5);
 
         tree.mark_dirty(label);
         assert_eq!(measure(&mut tree, root, 20).width, 99);

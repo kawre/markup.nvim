@@ -626,12 +626,15 @@ function M:row(row)
 end
 
 function M:tree()
-	return m.each(self.rows, function(row)
-		return self:row(row)
-	end, {
-		key = function(row)
-			return row.key
-		end,
+	return m.block({
+		white_space = "nowrap",
+		m.each(self.rows, function(row)
+			return self:row(row)
+		end, {
+			key = function(row)
+				return row.key
+			end,
+		}),
 	})
 end
 
@@ -665,6 +668,7 @@ function M:panel()
 	end
 
 	return m.block({
+		white_space = "nowrap",
 		rows,
 		field("frame", self.frame),
 		m.block(hints),

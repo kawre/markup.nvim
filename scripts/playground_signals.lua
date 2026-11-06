@@ -449,4 +449,4 @@ api.nvim_create_autocmd("User", {
 vim.wo[view.win.win].cursorline = true
 vim.wo[view.win.win].wrap = false
 
-view:render(m.block(Entry(root)))
+view:render(m.block({ white_space = "nowrap", Entry(root) }))

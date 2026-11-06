@@ -10,7 +10,7 @@ pub mod style;
 pub mod tree;
 
 use paint::Line;
-use protocol::Command;
+use protocol::{Command, StyleProperty};
 use std::time::Instant;
 use style::{Direction, Display, Position};
 use tree::{ClientId, Index, Tree, TreeError};
@@ -71,10 +71,12 @@ impl Engine {
             Command::SetText { id, text, width } => {
                 let index = tree.index_of(id)?;
                 let node = tree.node_mut(index);
-                let resized = node.text_width != width;
+                // Wrapped text can break differently at the same total width.
+                let relayout = node.text_width != width || node.fragments.is_some();
                 node.text = text;
                 node.text_width = width;
-                if resized {
+                node.cells = None;
+                if relayout {
                     tree.mark_dirty(index);
                 }
             }
@@ -82,6 +84,15 @@ impl Engine {
                 let index = tree.index_of(id)?;
                 property.apply(&mut tree.node_mut(index).style);
                 tree.sync_position(index);
+                if matches!(property, StyleProperty::WhiteSpace(_)) {
+                    tree.mark_subtree_dirty(index);
+                } else {
+                    tree.mark_dirty(index);
+                }
+            }
+            Command::SetCells { id, cells } => {
+                let index = tree.index_of(id)?;
+                tree.node_mut(index).cells = Some(cells.into_boxed_slice());
                 tree.mark_dirty(index);
             }
             Command::Insert { parent, child, before } => {
@@ -227,7 +238,13 @@ impl Engine {
         let node = self.tree.node(index);
         let outer = node.geometry.outer;
 
-        let inside = row >= y && row < y + outer.height && col >= x && col < x + outer.width.max(1);
+        // A wrapped node only covers its fragments, not its bounding box.
+        let inside = match &node.fragments {
+            Some(fragments) => fragments.iter().any(|fragment| {
+                row == y + fragment.y && col >= x + fragment.x && col < x + fragment.x + fragment.width
+            }),
+            None => row >= y && row < y + outer.height && col >= x && col < x + outer.width.max(1),
+        };
         if !inside {
             return false;
         }
@@ -268,7 +285,6 @@ impl Engine {
 
 #[cfg(test)]
 mod tests {
-    use super::protocol::{Command, StyleProperty};
     use super::style::Display;
     use super::*;
 

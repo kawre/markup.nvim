@@ -4,6 +4,7 @@
 --
 --   p  toggle the popup     s  cycle the justify mode
 --   +  add a card           -  remove a card
+--   w  toggle wrapping in the text panel
 
 local m = require("markup")
 local view = Markup.playground.preview
@@ -12,6 +13,7 @@ local modes = { "start", "center", "end", "between", "around", "evenly" }
 local mode = m.signal(4)
 local popup = m.signal(false)
 local cards = m.signal({ 1, 2, 3, 4, 5 })
+local white_space = m.signal("normal")
 
 local function Panel(title, content)
 	return m.block({
@@ -88,6 +90,19 @@ local function Dashboard()
 	)
 end
 
+local function Paragraph()
+	return Panel(
+		"wrapped text",
+		m.block({
+			width = 42,
+			white_space = white_space,
+			m.inline("Text wraps inside its block, like CSS. ", "Normal"),
+			m.inline("A line can break inside any span, ", "String"),
+			m.inline("and each highlight follows its own words.", "Function"),
+		})
+	)
+end
+
 local function Popup()
 	return m.show(
 		popup,
@@ -116,6 +131,7 @@ local App = m.component(function()
 		Grow(),
 		Cards(),
 		Dashboard(),
+		Paragraph(),
 		Popup(),
 	})
 end)
@@ -124,6 +140,11 @@ local keys = {
 	p = function()
 		popup(function(value)
 			return not value
+		end)
+	end,
+	w = function()
+		white_space(function(value)
+			return value == "normal" and "nowrap" or "normal"
 		end)
 	end,
 	s = function()
