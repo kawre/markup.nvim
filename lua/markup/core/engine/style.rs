@@ -109,6 +109,22 @@ pub enum Position {
     Absolute,
 }
 
+/// A border drawn inside the margin, around the padding.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Border {
+    /// Top left, top, top right, right, bottom right, bottom, bottom left, left.
+    pub chars: [char; 8],
+    pub top: bool,
+    pub right: bool,
+    pub bottom: bool,
+    pub left: bool,
+    /// Highlight id of the border itself.
+    pub hl: u32,
+    /// Keep the background off the border. Half block borders need it, as
+    /// their characters paint the half of the cell that belongs to the box.
+    pub outside_background: bool,
+}
+
 /// Whether text may break onto new lines. Inherited, like in CSS.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum WhiteSpace {
@@ -141,6 +157,8 @@ pub struct Inset {
 pub struct Extra {
     /// Unset inherits from the parent.
     pub white_space: Option<WhiteSpace>,
+
+    pub border: Option<Border>,
 
     // Containers.
     pub direction: Direction,
@@ -187,6 +205,7 @@ impl Default for Extra {
     fn default() -> Self {
         Extra {
             white_space: None,
+            border: None,
             direction: Direction::Row,
             wrap: false,
             justify: Distribute::Start,
@@ -244,6 +263,31 @@ impl Style {
 
     pub fn extra_mut(&mut self) -> &mut Extra {
         self.extra.get_or_insert_default()
+    }
+
+    pub fn border(&self) -> Option<&Border> {
+        self.extra.as_deref().and_then(|extra| extra.border.as_ref())
+    }
+
+    /// Cells the border takes on each side.
+    pub fn border_edges(&self) -> Edges {
+        self.border().map_or(Edges::default(), |border| Edges {
+            top: border.top as i32,
+            right: border.right as i32,
+            bottom: border.bottom as i32,
+            left: border.left as i32,
+        })
+    }
+
+    /// Everything between the margin and the content: border and padding.
+    pub fn inner(&self) -> Edges {
+        let (padding, border) = (self.padding, self.border_edges());
+        Edges {
+            top: padding.top + border.top,
+            right: padding.right + border.right,
+            bottom: padding.bottom + border.bottom,
+            left: padding.left + border.left,
+        }
     }
 
     /// Hot paths read this for every node, and most have no extra style.
