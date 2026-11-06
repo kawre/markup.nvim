@@ -1022,6 +1022,138 @@ T["snap"]["presses land on the snapped node"] = function()
 	eq(child.lua_get("pressed"), "two")
 end
 
+T["fixed"] = new_set()
+
+local function fixed_view()
+	run([[
+		title = m.signal("title")
+		rows = {}
+		for i = 1, 100 do
+			rows[i] = m.block("row " .. i)
+		end
+		view:render(m.block({
+			m.block({ title, position = "fixed", top = 0, padding = { 1, 0 }, style = "Visual" }),
+			rows,
+		}))
+		reactive.flush()
+		band = view.fixed[1]
+	]])
+end
+
+local function band_lines()
+	return child.lua_get("vim.tbl_map(vim.trim, vim.api.nvim_buf_get_lines(band.win.buf, 0, -1, false))")
+end
+
+T["fixed"]["renders in a float over the window"] = function()
+	fixed_view()
+	eq(band_lines(), { "", "title", "" })
+	eq(child.lua_get("vim.api.nvim_win_get_config(band.win.win).relative"), "win")
+	eq(child.lua_get("vim.api.nvim_win_get_height(band.win.win)"), 3)
+end
+
+T["fixed"]["reserves its rows in the buffer"] = function()
+	fixed_view()
+	eq(vim.list_slice(lines(), 1, 4), { "", "", "", "row 1" })
+end
+
+T["fixed"]["stays put while the buffer scrolls"] = function()
+	fixed_view()
+	run([[
+		vim.cmd("normal! 50Gzt")
+		vim.cmd("redraw")
+		row = vim.api.nvim_win_get_config(band.win.win).row
+	]])
+	eq(child.lua_get("row"), 0)
+	eq(child.lua_get("vim.fn.line('w0') > 1"), true)
+	eq(child.get_screenshot().text[2][1] ~= nil, true)
+end
+
+T["fixed"]["colors the whole band"] = function()
+	fixed_view()
+	eq(child.lua_get("vim.wo[band.win.win].winhighlight"), "Normal:Visual")
+end
+
+T["fixed"]["cannot take the cursor"] = function()
+	fixed_view()
+	eq(child.lua_get("vim.api.nvim_win_get_config(band.win.win).focusable"), false)
+end
+
+T["fixed"]["updates with signals"] = function()
+	fixed_view()
+	run([[title("changed"); reactive.flush()]])
+	eq(band_lines()[2], "changed")
+end
+
+T["fixed"]["follows the height of its content"] = function()
+	run([[
+		extra = m.signal(false)
+		view:render(m.block({
+			m.block({ position = "fixed", m.block("a"), m.show(extra, m.block("b")) }),
+			m.block("content"),
+		}))
+		reactive.flush()
+		band = view.fixed[1]
+	]])
+	eq(lines(), { "", "content" })
+
+	run([[extra(true); reactive.flush(); reactive.flush()]])
+	eq(child.lua_get("vim.api.nvim_win_get_height(band.win.win)"), 2)
+	eq(lines(), { "", "", "content" })
+end
+
+T["fixed"]["follows the width of the window"] = function()
+	fixed_view()
+	run([[
+		vim.cmd("vsplit")
+		vim.wait(200, function()
+			reactive.flush()
+			return vim.api.nvim_win_get_width(band.win.win) == vim.api.nvim_win_get_width(win.win)
+		end, 10)
+	]])
+	eq(child.lua_get("vim.api.nvim_win_get_width(band.win.win) == vim.api.nvim_win_get_width(win.win)"), true)
+end
+
+T["fixed"]["closes and reopens with its window"] = function()
+	run([[
+		host = Markup.window({ position = "right", enter = false, show = true, width = 0.4 })
+		hosted = Markup.view(host)
+		hosted:render(m.block({ m.block({ "pinned", position = "fixed" }), m.block("body") }))
+		reactive.flush()
+		band = hosted.fixed[1]
+		host:hide()
+		vim.wait(50, function() return not band.win:win_valid() end, 5)
+	]])
+	eq(child.lua_get("not band.win:win_valid()"), true)
+
+	run([[host:show(); reactive.flush()]])
+	eq(child.lua_get("band.win:win_valid() and true"), true)
+	eq(band_lines()[1], "pinned")
+end
+
+T["fixed"]["goes away with its element"] = function()
+	run([[
+		open = m.signal(true)
+		view:render(m.block({
+			m.show(open, m.block({ "pinned", position = "fixed" })),
+			m.block("body"),
+		}))
+		reactive.flush()
+		band = view.fixed[1]
+		before = #vim.api.nvim_tabpage_list_wins(0)
+		open(false)
+		reactive.flush()
+	]])
+	eq(child.lua_get("#view.fixed"), 0)
+	eq(child.lua_get("#vim.api.nvim_tabpage_list_wins(0) == before - 1"), true)
+	eq(lines(), { "body" })
+end
+
+T["fixed"]["leaves the inspector alone"] = function()
+	fixed_view()
+	eq(child.lua_get("Markup.view.find(win.win) == view"), true)
+	eq(child.lua_get("band.view.devtool"), true)
+end
+
 T["lifecycle"] = new_set()
 
 T["lifecycle"]["rendering again replaces everything"] = function()

@@ -191,7 +191,35 @@ local function mount_component(view, parent, before, element)
 	end)
 end
 
+--- Moves an element into its own float, leaving a spacer in the flow.
+local function mount_fixed(view, parent, before, element)
+	local Fixed = require("markup.view.fixed")
+
+	local props = vim.tbl_extend("force", {}, element.props)
+	props.position, props.top = nil, nil
+	local style = props.style
+	props.style = nil
+
+	local spacer = view:next_id()
+	view.commands:create(spacer, DISPLAY.block)
+	view.commands:insert(parent, spacer, before)
+
+	local fixed = Fixed(view, spacer, require("markup.element").new(element.type, props), style)
+	table.insert(view.fixed, fixed)
+
+	reactive.on_cleanup(function()
+		fixed:dispose()
+		view.fixed = vim.tbl_filter(function(other)
+			return other ~= fixed
+		end, view.fixed)
+	end)
+end
+
 local function mount_host(view, parent, before, element)
+	if element.props and element.props.position == "fixed" then
+		return mount_fixed(view, parent, before, element)
+	end
+
 	local tag = element.type
 	local display = tags[tag]
 
