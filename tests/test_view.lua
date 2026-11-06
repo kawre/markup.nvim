@@ -445,6 +445,97 @@ T["press"]["forgets handlers of unmounted nodes"] = function()
 	eq(child.lua_get("vim.tbl_isempty(view.handlers)"), true)
 end
 
+T["updates match a fresh render"] = function()
+	run([[
+		-- Nested show, each and dynamic text, driven by random writes. After
+		-- every flush the patched buffer must equal a new view of the same state.
+		local seed = 12345
+		local function rnd(n)
+			seed = (seed * 16807) % 2147483647
+			return seed % n + 1
+		end
+
+		local open, names, lists = {}, {}, {}
+		for i = 1, 8 do
+			open[i] = m.signal(i % 2 == 0)
+			names[i] = m.signal("name" .. i)
+			lists[i] = m.signal({ 1, 2, 3 })
+		end
+
+		local function Group(i)
+			return m.block({
+				m.inline("[" .. i .. "] ", "Label"),
+				m.inline(names[i], i % 2 == 0 and "String" or "Number"),
+				m.show(open[i], function()
+					return m.block({
+						margin_left = 2,
+						m.each(lists[i], function(item)
+							return m.block({ m.inline("item " .. item, "Comment") })
+						end),
+						i < 8 and Group(i + 1) or nil,
+					})
+				end),
+			})
+		end
+
+		local function snapshot(target)
+			local marks = vim.tbl_map(function(mark)
+				return { mark[2], mark[3], mark[4].end_col, mark[4].hl_group }
+			end, vim.api.nvim_buf_get_extmarks(target.win.buf, target.ns, 0, -1, { details = true }))
+			table.sort(marks, function(a, b)
+				if a[1] ~= b[1] then return a[1] < b[1] end
+				if a[2] ~= b[2] then return a[2] < b[2] end
+				return a[4] < b[4]
+			end)
+			return vim.inspect({ vim.api.nvim_buf_get_lines(target.win.buf, 0, -1, false), marks })
+		end
+
+		local function fresh()
+			local buf = vim.api.nvim_create_buf(false, true)
+			local other = Markup.window({ buf = buf, position = "float", show = true, enter = false, width = 40, height = 5 })
+			local target = Markup.view(other)
+			target.commands:resize(vim.api.nvim_win_get_width(win.win))
+			target:render(Group(1))
+			local result = snapshot(target)
+			target:unmount()
+			reactive.flush()
+			other:close()
+			return result
+		end
+
+		view:render(Group(1))
+		failures, steps = {}, 0
+		for step = 1, 250 do
+			local i = rnd(8)
+			local action = rnd(4)
+			if action == 1 then
+				open[i](function(value) return not value end)
+			elseif action == 2 then
+				names[i](("x"):rep(rnd(9)))
+			elseif action == 3 then
+				local items = {}
+				for _ = 1, rnd(5) do
+					local value = rnd(7)
+					if not vim.tbl_contains(items, value) then
+						items[#items + 1] = value
+					end
+				end
+				lists[i](items)
+			else
+				lists[i]({})
+			end
+			reactive.flush()
+			steps = step
+			if snapshot(view) ~= fresh() then
+				failures[#failures + 1] = step
+				break
+			end
+		end
+	]])
+	eq(child.lua_get("failures"), {})
+	eq(child.lua_get("steps"), 250)
+end
+
 T["lifecycle"] = new_set()
 
 T["lifecycle"]["rendering again replaces everything"] = function()
