@@ -1,10 +1,10 @@
 ---@class markup.core
----@field create_dom fun(): markup.dom
----@field create_lsx fun(...): markup.element
+---@field create_engine fun(width: integer): markup.core.engine
 
----@class markup.dom
----@field create_element fun(dom: markup.dom, tag: string, props: table?, ...?): markup.node
----@field create_text_node fun(dom: markup.dom, text: table|string): markup.node
+---@class markup.core.engine
+---@field commit fun(self: markup.core.engine, ops: any[], len: integer): table
+---@field node_at fun(self: markup.core.engine, row: integer, col: integer): integer?
+---@field node_count fun(self: markup.core.engine): integer
 
 --- @return string
 local function get_lib_extension()
