@@ -10,10 +10,9 @@ local M = {}
 
 ---@type markup.create_renderer_root
 function M.create_root(renderer, element)
-	local dom = renderer.dom
 	return {
 		owner = renderer,
-		current = Markup.factory.fiber.root(dom, element),
+		current = Markup.factory.fiber.root(element),
 		width = vim.api.nvim_win_get_width(renderer.win.id),
 		height = vim.api.nvim_win_get_height(renderer.win.id),
 	}

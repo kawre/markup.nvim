@@ -5,51 +5,40 @@ local Node = require("markup.node")
 ---@class markup.factory.node
 local M = Markup.singleton()
 
----@param dom markup.dom
 ---@param type markup.node.type
 ---@param name? string
 ---@param props? markup.node.props
-function M.call(dom, type, name, props)
-	if type == "element" then
-		return dom:create_element(name, props)
-	elseif type == "text" then
-		return M.from_text(dom, name)
-	else
-		error("Unknown node type: " .. vim.inspect(type))
-	end
+function M.call(type, name, props)
+	return Node(type, name, props)
 end
 
----@param dom markup.dom
 ---@param element markup.element
-function M.from_element(dom, element)
-	return M.call(dom, "element", element.type, element.props)
+function M.from_element(element)
+	local node = M.call("element", element.type, element.props)
+	return node
 end
 
----@param dom markup.dom
 ---@param content string|number
-function M.from_text(dom, content)
-	local chunks = {}
-	for chunk in vim.gsplit(tostring(content), "%s+") do
-		table.insert(chunks, { chunk = chunk, display_width = vim.fn.strdisplaywidth(chunk) })
-	end
-	return dom:create_text_node(chunks)
+function M.from_text(content)
+	local node = M.call("text")
+	node:set_text_content(content)
+	return node
 end
 
----@param dom markup.dom
 ---@param fiber markup.fiber
-function M.from_fiber(dom, fiber)
+function M.from_fiber(fiber)
 	local node
 	if fiber.tag == FiberTag.TEXT then
 		local props = fiber.pending_props
 		local text_content = type(props) == "table" and props.children or props
-		node = M.from_text(dom, text_content)
+		node = M.from_text(text_content)
 	elseif fiber.tag == FiberTag.ELEMENT then
-		node = M.call(dom, "element", fiber.element_type, fiber.pending_props)
+		node = M.call("element", fiber.element_type, fiber.pending_props)
 	else
 		error("Unknown fiber tag: " .. vim.inspect(fiber.tag))
 	end
 
-	-- node.fiber = fiber
+	node.fiber = fiber
 	return node
 end
 

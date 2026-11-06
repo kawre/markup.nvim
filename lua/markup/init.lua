@@ -5,6 +5,7 @@
 local M = {}
 
 ---@class markup.global
+---@field core markup
 ---@field collection markup.collection
 ---@field log markup.logger
 ---@field util markup.util
@@ -23,8 +24,7 @@ local M = {}
 ---@field object markup.object
 ---@field singleton markup.singleton
 ---@field parser markup.parser
----@field core markup.core
-_G.Markup = setmetatable({ renderers = {} }, {
+_G.Markup = setmetatable({ core = M, renderers = {} }, {
 	__index = function(t, k)
 		t[k] = require("markup." .. k)
 		return rawget(t, k)

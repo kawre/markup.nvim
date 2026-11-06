@@ -37,12 +37,12 @@ function M:map(buf)
 	vim.keymap.set("n", "1", function()
 		self:paint("fiber")
 	end, { buffer = buf })
-	-- vim.keymap.set("n", "2", function()
-	-- 	self:paint("node")
-	-- end, { buffer = buf })
-	-- vim.keymap.set("n", "3", function()
-	-- 	self:paint("render")
-	-- end, { buffer = buf })
+	vim.keymap.set("n", "2", function()
+		self:paint("node")
+	end, { buffer = buf })
+	vim.keymap.set("n", "3", function()
+		self:paint("render")
+	end, { buffer = buf })
 	vim.keymap.set("n", "4", function()
 		Markup.config.debug = not Markup.config.debug
 		self.renderer:schedule_rerender()
@@ -53,8 +53,7 @@ function M:paint(page, opts)
 	if not self.renderer.rootf then
 		return
 	end
-	-- page = page or (self.page or "fiber")
-	page = "fiber"
+	page = page or (self.page or "fiber")
 
 	local lines
 	if page == "node" then
@@ -68,8 +67,8 @@ function M:paint(page, opts)
 	local active_hl = "NeogitHunkHeaderHighlight"
 	local nav = {
 		{ "Fiber Tree", page == "fiber" and active_hl or "Conceal" },
-		-- { "Node Tree", page == "node" and active_hl or "Conceal" },
-		-- { "Render Tree", page == "render" and active_hl or "Conceal" },
+		{ "Node Tree", page == "node" and active_hl or "Conceal" },
+		{ "Render Tree", page == "render" and active_hl or "Conceal" },
 		{ "Toggle debug mode", Markup.config.debug and "Search" or "Conceal" },
 	}
 

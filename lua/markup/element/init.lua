@@ -16,6 +16,7 @@ local _type = type
 ---@field key? any
 ---@field _owner? any
 local M = {}
+M.__index = M
 M.__type = "markup.element"
 
 ---@return markup.element.typeof
@@ -44,8 +45,8 @@ end
 function M.new(type, props)
 	local self = setmetatable({}, M)
 
-	self.kind = type
-	-- self.typeof = typeof_from_type(type)
+	self.type = type
+	self.typeof = typeof_from_type(type)
 	self.props = props
 	self.ref = nil
 
