@@ -120,7 +120,12 @@ end
 cmd.commands = {
 	inspect = {
 		function()
-			Markup.devkit.inspect()
+			local view = Markup.view.find()
+			if view then
+				Markup.devkit.tree().toggle(view)
+			else
+				Markup.devkit.inspect()
+			end
 		end,
 	},
 	playground = {

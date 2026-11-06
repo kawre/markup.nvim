@@ -5,6 +5,32 @@
 ---@field commit fun(self: markup.core.engine, ops: any[], len: integer): table
 ---@field node_at fun(self: markup.core.engine, row: integer, col: integer): integer?
 ---@field node_count fun(self: markup.core.engine): integer
+---@field path_at fun(self: markup.core.engine, row: integer, col: integer): integer[]
+---@field describe fun(self: markup.core.engine, id: integer): markup.core.node
+---@field children fun(self: markup.core.engine, id: integer, offset: integer, limit: integer, flatten: boolean): markup.core.node[]
+---@field child_position fun(self: markup.core.engine, id: integer, flatten: boolean): integer?
+
+---@class markup.core.node
+---@field id integer
+---@field parent? integer
+---@field display string
+---@field text? string
+---@field children integer
+---@field x? integer
+---@field y? integer
+---@field outer_width? integer
+---@field outer_height? integer
+---@field content_width integer
+---@field content_height integer
+---@field margin integer[]
+---@field padding integer[]
+---@field width string
+---@field height string
+---@field spacing integer
+---@field reverse boolean
+---@field hl integer
+---@field interactive boolean
+---@field dirty boolean
 
 --- @return string
 local function get_lib_extension()

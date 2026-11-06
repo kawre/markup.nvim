@@ -11,6 +11,7 @@
 //! of strings and flat integer arrays, with highlights as interned ids.
 
 use super::diff::Patch;
+use super::inspect::NodeInfo;
 use super::style::{Display, Edges, Length, Style};
 use super::tree::ClientId;
 use super::Timings;
@@ -199,6 +200,38 @@ pub fn decode(
         apply(reader.command()?)?;
     }
     Ok(())
+}
+
+fn encode_edges(lua: &Lua, edges: Edges) -> LuaResult<LuaTable> {
+    lua.create_sequence_from([edges.top, edges.right, edges.bottom, edges.left])
+}
+
+/// Builds the table devtools read for one node.
+pub fn encode_node(lua: &Lua, info: &NodeInfo) -> LuaResult<LuaTable> {
+    let node = lua.create_table_with_capacity(0, 16)?;
+    node.raw_set("id", info.id)?;
+    node.raw_set("parent", info.parent)?;
+    node.raw_set("display", info.display)?;
+    node.raw_set("text", info.text.as_deref())?;
+    node.raw_set("children", info.children)?;
+    if let Some(rect) = info.rect {
+        node.raw_set("x", rect.x)?;
+        node.raw_set("y", rect.y)?;
+        node.raw_set("outer_width", rect.width)?;
+        node.raw_set("outer_height", rect.height)?;
+    }
+    node.raw_set("content_width", info.content.width)?;
+    node.raw_set("content_height", info.content.height)?;
+    node.raw_set("margin", encode_edges(lua, info.margin)?)?;
+    node.raw_set("padding", encode_edges(lua, info.padding)?)?;
+    node.raw_set("width", info.width.as_str())?;
+    node.raw_set("height", info.height.as_str())?;
+    node.raw_set("spacing", info.spacing)?;
+    node.raw_set("reverse", info.reverse)?;
+    node.raw_set("hl", info.hl)?;
+    node.raw_set("interactive", info.interactive)?;
+    node.raw_set("dirty", info.dirty)?;
+    Ok(node)
 }
 
 /// Builds the frame table returned to Lua.

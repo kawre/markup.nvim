@@ -1,6 +1,7 @@
 //! The engine applies commands to the tree and reports what changed on screen.
 
 pub mod diff;
+pub mod inspect;
 pub mod layout;
 pub mod lua;
 pub mod paint;
@@ -129,26 +130,41 @@ impl Engine {
 
     /// Finds the innermost interactive node on a cell.
     pub fn node_at(&self, row: i32, col: i32) -> Option<ClientId> {
-        self.find_at(self.root, 0, 0, row, col, None)
+        self.path_at(row, col).into_iter().rev().find(|&id| {
+            self.tree
+                .index_of(id)
+                .is_ok_and(|index| self.tree.node(index).style.interactive)
+        })
     }
 
-    fn find_at(
+    /// Every node on a cell, from the root down to the innermost one.
+    pub fn path_at(&self, row: i32, col: i32) -> Vec<ClientId> {
+        let mut path = Vec::new();
+        self.collect_path(self.root, 0, 0, row, col, &mut path);
+        path
+    }
+
+    fn collect_path(
         &self,
         index: Index,
         x: i32,
         y: i32,
         row: i32,
         col: i32,
-        best: Option<ClientId>,
-    ) -> Option<ClientId> {
+        path: &mut Vec<ClientId>,
+    ) -> bool {
         let node = self.tree.node(index);
 
         if node.display == Display::Contents {
-            return node
+            path.push(node.client);
+            let found = node
                 .children
                 .iter()
-                .find_map(|&child| self.find_at(child, x, y, row, col, None))
-                .or(best);
+                .any(|&child| self.collect_path(child, x, y, row, col, path));
+            if !found {
+                path.pop();
+            }
+            return found;
         }
 
         let geometry = &node.geometry;
@@ -158,18 +174,17 @@ impl Engine {
             && col >= x
             && col < x + geometry.outer.width.max(1);
         if !inside {
-            return None;
+            return false;
         }
 
-        let best = if node.style.interactive { Some(node.client) } else { best };
+        path.push(node.client);
         let style = &node.style;
         let content_x = x + style.margin.left + style.padding.left;
         let content_y = y + style.margin.top + style.padding.top;
-
         node.children
             .iter()
-            .find_map(|&child| self.find_at(child, content_x, content_y, row, col, None))
-            .or(best)
+            .any(|&child| self.collect_path(child, content_x, content_y, row, col, path));
+        true
     }
 }
 
