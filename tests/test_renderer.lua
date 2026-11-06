@@ -92,6 +92,16 @@ end
 
 T["render()"] = new_set()
 
+T["render()"]["does not accumulate extmarks across rerenders"] = function()
+	render([[m.block("text", "Label")]])
+	local count = "#vim.api.nvim_buf_get_extmarks(renderer.win.buf, renderer.ns, 0, -1, {})"
+	local initial = child.lua_get(count)
+
+	child.lua("for _ = 1, 5 do renderer:rerender() end")
+
+	eq(child.lua_get(count), initial)
+end
+
 T["render()"]["inline"] = new_set()
 
 T["render()"]["inline"]["throws when inline element contains block element"] = function()

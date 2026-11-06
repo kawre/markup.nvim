@@ -135,8 +135,8 @@ end
 
 function M:paint()
 	vim.api.nvim_buf_call(self.win.buf, function()
-		-- vim.api.nvim_buf_clear_namespace(0, self.ns, 0, -1)
-		-- vim.api.nvim_buf_clear_namespace(0, self.debug_ns, 0, -1)
+		vim.api.nvim_buf_clear_namespace(0, self.ns, 0, -1)
+		vim.api.nvim_buf_clear_namespace(0, self.debug_ns, 0, -1)
 
 		local mbox = self:render_root():get_box_size("margin")
 
