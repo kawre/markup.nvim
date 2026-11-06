@@ -118,14 +118,16 @@ impl Tree {
         Ok(index)
     }
 
-    /// Marks a node and its ancestors for layout. Stops at the first dirty
-    /// ancestor, because everything above it is already marked.
+    /// Marks a node and its ancestors for layout. Stops at a dirty node whose
+    /// parent is dirty too, because everything above it is already marked.
+    /// `Contents` nodes never go through layout, so their flag proves nothing.
     pub fn mark_dirty(&mut self, index: Index) {
         let mut current = Some(index);
         while let Some(index) = current {
-            let node = self.node_mut(index);
+            let node = self.node(index);
             let parent = node.parent;
-            if node.dirty && parent.is_some_and(|p| self.node(p).dirty) {
+            let settled = node.dirty && node.display != Display::Contents;
+            if settled && parent.is_some_and(|p| self.node(p).dirty) {
                 return;
             }
             self.node_mut(index).dirty = true;
@@ -283,6 +285,24 @@ mod tests {
         tree.mark_dirty(n[2]);
 
         assert!(tree.node(n[0]).dirty);
+    }
+
+    #[test]
+    fn mark_dirty_passes_through_nested_contents() {
+        let mut tree = Tree::default();
+        let root = tree.create(1, Display::Block).unwrap();
+        let outer = tree.create(2, Display::Contents).unwrap();
+        let inner = tree.create(3, Display::Contents).unwrap();
+        tree.insert(root, outer, None).unwrap();
+        tree.insert(outer, inner, None).unwrap();
+
+        // Layout skips contents nodes, so only real nodes get cleaned.
+        tree.node_mut(root).dirty = false;
+
+        let child = tree.create(4, Display::Block).unwrap();
+        tree.insert(inner, child, None).unwrap();
+
+        assert!(tree.node(root).dirty);
     }
 
     #[test]
