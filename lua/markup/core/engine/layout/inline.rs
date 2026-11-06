@@ -1,16 +1,16 @@
-use super::{Strategy, measure, place};
+use super::{Space, Strategy, measure, place};
 use crate::engine::tree::{Index, Size, Tree};
 
 /// Lays children out left to right on one line.
 pub struct Inline;
 
 impl Strategy for Inline {
-    fn arrange(&self, tree: &mut Tree, node: Index, available_width: i32) -> Size {
+    fn arrange(&self, tree: &mut Tree, node: Index, space: Space) -> Size {
         let reverse = tree.node(node).style.reverse;
         let mut size = Size::default();
 
         tree.for_each_flow_child(node, reverse, &mut |tree, child| {
-            let outer = measure(tree, child, (available_width - size.width).max(0));
+            let outer = measure(tree, child, space.child((space.width - size.width).max(0)));
             place(tree, child, size.width, 0);
             size.width += outer.width;
             size.height = size.height.max(outer.height);
@@ -22,7 +22,6 @@ impl Strategy for Inline {
 
 #[cfg(test)]
 mod tests {
-    use super::super::measure;
     use super::super::testing::*;
     use crate::engine::style::Display;
     use crate::engine::tree::{Size, Tree};

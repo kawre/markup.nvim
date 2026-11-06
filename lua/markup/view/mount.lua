@@ -27,19 +27,34 @@ local tags = {
 	button = DISPLAY.block,
 	root = DISPLAY.block,
 	newl = DISPLAY.block,
+	flex = DISPLAY.flex,
+	hflex = DISPLAY.flex,
+	vflex = DISPLAY.flex,
+	grid = DISPLAY.grid,
 }
 
 local tag_props = {
 	button = { width = "fit", interactive = true },
 	newl = { height = 1 },
+	vflex = { direction = "column" },
 }
 
-local unsupported = { flex = true, hflex = true, vflex = true, grid = true, inblock = true }
+local unsupported = { inblock = true }
 
-local shorthand = { margin = "margin", padding = "padding" }
+local shorthand = { margin = "margin", padding = "padding", inset = "inset" }
+
+local expand_edges
 
 --- Expands `margin = { 1, 2 }` style shorthands, CSS order.
-local function expand_edges(result, name, value)
+expand_edges = function(result, name, value)
+	if name == "inset" then
+		local edges = {}
+		expand_edges(edges, "edge", value)
+		result.top, result.right = edges.edge_top, edges.edge_right
+		result.bottom, result.left = edges.edge_bottom, edges.edge_left
+		return
+	end
+
 	local top, right, bottom, left
 	if type(value) == "number" then
 		top, right, bottom, left = value, value, value, value
@@ -91,6 +106,14 @@ local function apply_props(view, id, tag, props)
 		if shorthand[name] then
 			expanded = expanded or {}
 			expand_edges(expanded, name, value)
+		elseif name == "gap" then
+			expanded = expanded or {}
+			expanded.row_gap = type(value) == "table" and value[1] or value
+			expanded.column_gap = type(value) == "table" and value[2] or value
+		elseif name == "vertical" then
+			bind_style(view, id, "direction", value and "column" or "row")
+		elseif name == "columns" or name == "rows" then
+			view.commands:set_tracks(id, name, value)
 		elseif STYLE[name] then
 			bind_style(view, id, name, value)
 		end

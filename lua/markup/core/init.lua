@@ -31,6 +31,7 @@
 ---@field hl integer
 ---@field interactive boolean
 ---@field dirty boolean
+---@field position string
 
 --- @return string
 local function get_lib_extension()

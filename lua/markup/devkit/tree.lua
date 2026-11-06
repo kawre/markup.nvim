@@ -155,7 +155,7 @@ local function details_of(node)
 				or "none, children flow into the parent",
 		},
 		{ "edges", ("margin %s  padding %s"):format(edges(node.margin), edges(node.padding)) },
-		{ "size", ("%s × %s  spacing %d"):format(node.width, node.height, node.spacing) },
+		{ "size", ("%s × %s  spacing %d  %s"):format(node.width, node.height, node.spacing, node.position) },
 		{
 			"style",
 			("%s  %s"):format(node.hl ~= 0 and hl.name(node.hl) or "no highlight", table.concat(flags, " ")),

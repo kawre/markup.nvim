@@ -4,8 +4,9 @@
 //! no answer from the engine. Inside the tree nodes link by slab index, which
 //! is what layout and paint use.
 
-use super::style::{Display, Style};
-use std::collections::HashMap;
+use super::layout::Constraints;
+use super::style::{Display, Position, Style};
+use std::collections::{BTreeSet, HashMap};
 
 pub type ClientId = u32;
 pub type Index = u32;
@@ -23,8 +24,8 @@ pub struct Geometry {
     pub y: i32,
     pub content: Size,
     pub outer: Size,
-    /// Available width used for the last layout, for cache checks.
-    pub available: i32,
+    /// Constraints of the last layout, for cache checks.
+    pub constraints: Option<Constraints>,
 }
 
 #[derive(Debug)]
@@ -63,6 +64,8 @@ pub struct Tree {
     slots: Vec<Option<Node>>,
     free: Vec<Index>,
     ids: HashMap<ClientId, Index>,
+    /// Out of flow nodes, kept apart so plain trees never look for them.
+    absolutes: BTreeSet<Index>,
 }
 
 impl Tree {
@@ -84,6 +87,34 @@ impl Tree {
 
     pub fn is_empty(&self) -> bool {
         self.ids.is_empty()
+    }
+
+    pub fn absolutes(&self) -> &BTreeSet<Index> {
+        &self.absolutes
+    }
+
+    /// Call after a style change, to keep `absolutes` current.
+    pub fn sync_position(&mut self, index: Index) {
+        if self.node(index).style.position() == Position::Absolute {
+            self.absolutes.insert(index);
+        } else {
+            self.absolutes.remove(&index);
+        }
+    }
+
+    /// The box an absolute node is placed against: its nearest positioned
+    /// ancestor, or the root.
+    pub fn containing_block(&self, index: Index) -> Index {
+        let mut current = index;
+        while let Some(parent) = self.node(current).parent {
+            let node = self.node(parent);
+            let positioned = node.style.position() != Position::Static;
+            if node.parent.is_none() || (positioned && node.display != Display::Contents) {
+                return parent;
+            }
+            current = parent;
+        }
+        current
     }
 
     pub fn create(&mut self, client: ClientId, display: Display) -> Result<Index, TreeError> {
@@ -197,12 +228,14 @@ impl Tree {
             };
             stack.extend(node.children);
             self.ids.remove(&node.client);
+            self.absolutes.remove(&index);
             self.free.push(index);
         }
     }
 
     /// Calls `visit` for each child that takes part in flow, looking through
-    /// `Contents` nodes. Indexes into the list, so `visit` may mutate the tree.
+    /// `Contents` nodes and skipping absolute ones. Indexes into the list, so
+    /// `visit` may mutate the tree.
     pub fn for_each_flow_child(
         &mut self,
         index: Index,
@@ -213,9 +246,10 @@ impl Tree {
         for position in 0..len {
             let position = if reverse { len - 1 - position } else { position };
             let child = self.node(index).children[position];
-            if self.node(child).display == Display::Contents {
+            let node = self.node(child);
+            if node.display == Display::Contents {
                 self.for_each_flow_child(child, reverse, visit);
-            } else {
+            } else if node.style.position() != Position::Absolute {
                 visit(self, child);
             }
         }

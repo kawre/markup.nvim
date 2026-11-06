@@ -1,11 +1,11 @@
-use super::{Strategy, measure, place};
+use super::{Space, Strategy, measure, place};
 use crate::engine::tree::{Index, Size, Tree};
 
 /// Stacks block children. Runs of inline children share a line.
 pub struct Block;
 
 impl Strategy for Block {
-    fn arrange(&self, tree: &mut Tree, node: Index, available_width: i32) -> Size {
+    fn arrange(&self, tree: &mut Tree, node: Index, space: Space) -> Size {
         let style = &tree.node(node).style;
         let (reverse, spacing) = (style.reverse, style.spacing);
 
@@ -13,12 +13,12 @@ impl Strategy for Block {
 
         tree.for_each_flow_child(node, reverse, &mut |tree, child| {
             if tree.node(child).display.is_inline() {
-                let outer = measure(tree, child, (available_width - cursor.x).max(0));
+                let outer = measure(tree, child, space.child((space.width - cursor.x).max(0)));
                 place(tree, child, cursor.x, cursor.y());
                 cursor.extend_line(outer);
             } else {
                 cursor.end_line();
-                let outer = measure(tree, child, available_width);
+                let outer = measure(tree, child, space.child(space.width));
                 place(tree, child, 0, cursor.y());
                 cursor.extend_line(outer);
                 cursor.end_line();
@@ -71,7 +71,6 @@ impl Cursor {
 
 #[cfg(test)]
 mod tests {
-    use super::super::measure;
     use super::super::testing::*;
     use crate::engine::style::Display;
     use crate::engine::tree::{Size, Tree};

@@ -38,6 +38,12 @@ local function lines()
 	return child.lua_get("lines()")
 end
 
+local function marks()
+	return child.lua_get([[vim.tbl_map(function(mark)
+		return { mark[2], mark[3], mark[4].end_col, mark[4].hl_group }
+	end, vim.api.nvim_buf_get_extmarks(win.buf, view.ns, 0, -1, { details = true }))]])
+end
+
 T["static"] = new_set()
 
 T["static"]["renders text in blocks"] = function()
@@ -66,17 +72,242 @@ end
 
 T["static"]["rejects layouts the engine lacks"] = function()
 	expect.error(function()
-		run([[view:render(m.flex({ m.block("a") }))]])
+		run([[view:render(m.inblock("a"))]])
 	end, "not implemented")
 end
 
-T["highlights"] = new_set()
+T["flex"] = new_set()
 
-local function marks()
-	return child.lua_get([[vim.tbl_map(function(mark)
-		return { mark[2], mark[3], mark[4].end_col, mark[4].hl_group }
-	end, vim.api.nvim_buf_get_extmarks(win.buf, view.ns, 0, -1, { details = true }))]])
+T["flex"]["lays items out in a row"] = function()
+	run([[view:render(m.flex({ gap = 1, m.block("a"), m.block("bb"), m.block("c") }))]])
+	eq(lines(), { "a bb c" })
 end
+
+T["flex"]["pushes items apart"] = function()
+	run([[view:render(m.flex({ width = 20, justify = "between", m.block("left"), m.block("right") }))]])
+	eq(lines(), { "left           right" })
+end
+
+T["flex"]["grows an item into free space"] = function()
+	run([[view:render(m.flex({ width = 20, m.block({ "a", grow = 1 }), m.block("end") }))]])
+	eq(lines(), { "a                end" })
+end
+
+T["flex"]["stacks with vflex and vertical"] = function()
+	run([[view:render(m.block({ m.vflex({ m.block("a"), m.block("b") }), m.flex({ vertical = true, m.block("c") }) }))]])
+	eq(lines(), { "a", "b", "c" })
+end
+
+T["flex"]["centers on both axes"] = function()
+	run([[view:render(m.flex({
+		width = 9, height = 3, justify = "center", align = "center", m.block("x"),
+	}))]])
+	eq(lines(), { "", "    x", "" })
+end
+
+T["flex"]["wraps"] = function()
+	run([[view:render(m.flex({
+		width = 8, wrap = true, gap = { 1, 2 },
+		m.block("aaa"), m.block("bbb"), m.block("ccc"),
+	}))]])
+	eq(lines(), { "aaa  bbb", "", "ccc" })
+end
+
+T["flex"]["updates when a child changes size"] = function()
+	run([[
+		name = m.signal("a")
+		view:render(m.flex({ gap = 1, m.block(name), m.block("end") }))
+		name("longer")
+		reactive.flush()
+	]])
+	eq(lines(), { "longer end" })
+end
+
+T["flex"]["dynamic props relayout"] = function()
+	run([[
+		side = m.signal("start")
+		view:render(m.flex({ width = 6, justify = side, m.block("x") }))
+		side("end")
+		reactive.flush()
+	]])
+	eq(lines(), { "     x" })
+end
+
+T["flex"]["show and each flow inside"] = function()
+	run([[
+		open, items = m.signal(false), m.signal({ "a", "b" })
+		view:render(m.flex({
+			gap = 1,
+			m.show(open, m.block("shown")),
+			m.each(items, function(item) return m.block(item) end),
+		}))
+		open(true)
+		items({ "b", "c" })
+		reactive.flush()
+	]])
+	eq(lines(), { "shown b c" })
+end
+
+T["flex"]["rejects unknown values"] = function()
+	expect.error(function()
+		run([[view:render(m.flex({ justify = "sideways", m.block("x") }))]])
+	end, "invalid justify")
+end
+
+T["grid"] = new_set()
+
+T["grid"]["places cells in tracks"] = function()
+	run([[view:render(m.grid({
+		columns = { 3, 3 },
+		m.block("a"), m.block("b"), m.block("c"), m.block("d"),
+	}))]])
+	eq(lines(), { "a  b", "c  d" })
+end
+
+T["grid"]["mixes fixed, auto and fractional tracks"] = function()
+	run([[view:render(m.grid({
+		width = 20, columns = { 4, "auto", "1fr" },
+		m.block("a"), m.block("bb"), m.block("c"),
+	}))]])
+	eq(lines(), { "a   bbc" })
+end
+
+T["grid"]["makes equal tracks from a number"] = function()
+	run([[view:render(m.grid({ width = 9, columns = 3, m.block("a"), m.block("b"), m.block("c") }))]])
+	eq(lines(), { "a  b  c" })
+end
+
+T["grid"]["places and spans explicitly"] = function()
+	run([[view:render(m.grid({
+		columns = { 2, 2, 2 },
+		m.block({ "x", column = 3, row = 2 }),
+		m.block({ "wide", column = 1, row = 1, column_span = 2 }),
+	}))]])
+	eq(lines(), { "wide", "    x" })
+end
+
+T["grid"]["applies gaps"] = function()
+	run([[view:render(m.grid({
+		columns = { 1, 1 }, gap = { 1, 2 },
+		m.block("a"), m.block("b"), m.block("c"), m.block("d"),
+	}))]])
+	eq(lines(), { "a  b", "", "c  d" })
+end
+
+T["grid"]["rejects bad tracks"] = function()
+	expect.error(function()
+		run([[view:render(m.grid({ columns = { "wide" }, m.block("x") }))]])
+	end, "invalid grid track")
+end
+
+T["absolute"] = new_set()
+
+T["absolute"]["overlays what is in flow"] = function()
+	run([[view:render(m.block({
+		m.block("abcdefgh"),
+		m.block({ "XY", position = "absolute", top = 0, left = 2 }),
+	}))]])
+	eq(lines(), { "abXYefgh" })
+end
+
+T["absolute"]["does not take space in flow"] = function()
+	run([[view:render(m.block({
+		m.block("a"),
+		m.block({ "over", position = "absolute", top = 0, left = 4 }),
+		m.block("b"),
+	}))]])
+	eq(lines(), { "a   over", "b" })
+end
+
+T["absolute"]["ignores static parents"] = function()
+	run([[view:render(m.block({
+		width = 10,
+		m.block({ "x", position = "absolute", right = 0, top = 0 }),
+	}))]])
+	eq(lines()[1]:sub(-1), "x")
+	eq(#lines()[1], child.lua_get("vim.api.nvim_win_get_width(win.win)"))
+end
+
+T["absolute"]["anchors to the far edges"] = function()
+	run([[view:render(m.block({
+		width = 10, height = 3, position = "relative",
+		m.block({ "x", position = "absolute", right = 0, bottom = 0 }),
+	}))]])
+	eq(lines(), { "", "", "         x" })
+end
+
+T["absolute"]["uses the nearest positioned ancestor"] = function()
+	run([[view:render(m.block({
+		m.block("first"),
+		m.block({
+			position = "relative", margin_left = 3,
+			m.block("base"),
+			m.block({ "z", position = "absolute", top = 0, left = 1 }),
+		}),
+	}))]])
+	eq(lines(), { "first", "   bzse" })
+end
+
+T["absolute"]["stretches between opposite offsets"] = function()
+	run([[view:render(m.block({
+		width = 10, height = 3, position = "relative",
+		m.block({ position = "absolute", left = 2, right = 2, top = 1, bottom = 1, style = "Label" }),
+	}))]])
+	eq(marks(), { { 1, 2, 8, "Label" } })
+end
+
+T["absolute"]["higher z wins"] = function()
+	run([[view:render(m.block({
+		m.block({ "bbbb", position = "absolute", top = 0, left = 1, z = 2 }),
+		m.block({ "aaaaaa", position = "absolute", top = 0, left = 0, z = 1 }),
+	}))]])
+	eq(lines(), { "abbbba" })
+end
+
+T["absolute"]["grows the buffer when it reaches past the content"] = function()
+	run([[view:render(m.block({
+		m.block("a"),
+		m.block({ "low", position = "absolute", top = 4, left = 0 }),
+	}))]])
+	eq(lines(), { "a", "", "", "", "low" })
+end
+
+T["absolute"]["toggles with show"] = function()
+	run([[
+		open = m.signal(true)
+		view:render(m.block({
+			m.block("under text"),
+			m.show(open, m.block({ "POP", position = "absolute", top = 0, left = 2 })),
+		}))
+	]])
+	eq(lines(), { "unPOP text" })
+
+	run([[open(false); reactive.flush()]])
+	eq(lines(), { "under text" })
+end
+
+T["absolute"]["takes presses before what is underneath"] = function()
+	run([[
+		pressed = nil
+		view:render(m.block({
+			m.block({ "under text", on_press = function() pressed = "under" end }),
+			m.block({ "TOP", position = "absolute", top = 0, left = 2, on_press = function() pressed = "top" end }),
+		}))
+		vim.api.nvim_win_set_cursor(0, { 1, 3 })
+		view:press()
+	]])
+	eq(child.lua_get("pressed"), "top")
+end
+
+T["relative"] = function()
+	run([[view:render(m.block({
+		m.block("a"),
+		m.block({ "b", position = "relative", left = 3 }),
+	}))]])
+	eq(lines(), { "a", "   b" })
+end
+
+T["highlights"] = new_set()
 
 T["highlights"]["uses byte columns after wide text"] = function()
 	run([[view:render(m.block({ m.inline("你", "Label"), m.inline("ab", "String") }))]])

@@ -12,7 +12,7 @@
 
 use super::diff::Patch;
 use super::inspect::NodeInfo;
-use super::style::{Display, Edges, Length, Style};
+use super::style::{Align, Direction, Display, Distribute, Edges, Length, Position, Style, Track};
 use super::tree::ClientId;
 use super::Timings;
 use mlua::prelude::*;
@@ -27,6 +27,35 @@ pub enum StyleProperty {
     Reverse(bool),
     Highlight(u32),
     Interactive(bool),
+    Direction(Direction),
+    Wrap(bool),
+    Justify(Distribute),
+    Align(Align),
+    AlignContent(Distribute),
+    AlignSelf(Option<Align>),
+    RowGap(i32),
+    ColumnGap(i32),
+    Grow(f32),
+    Shrink(f32),
+    Basis(Length),
+    Order(i32),
+    MinWidth(Length),
+    MaxWidth(Length),
+    MinHeight(Length),
+    MaxHeight(Length),
+    Position(Position),
+    Top(Option<i32>),
+    Right(Option<i32>),
+    Bottom(Option<i32>),
+    Left(Option<i32>),
+    Z(i32),
+    AutoFlow(Direction),
+    JustifyItems(Align),
+    JustifySelf(Option<Align>),
+    GridColumn(Option<i32>),
+    GridRow(Option<i32>),
+    ColumnSpan(i32),
+    RowSpan(i32),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -59,6 +88,35 @@ impl StyleProperty {
             StyleProperty::Reverse(value) => style.reverse = value,
             StyleProperty::Highlight(value) => style.hl = value,
             StyleProperty::Interactive(value) => style.interactive = value,
+            StyleProperty::Direction(value) => style.extra_mut().direction = value,
+            StyleProperty::Wrap(value) => style.extra_mut().wrap = value,
+            StyleProperty::Justify(value) => style.extra_mut().justify = value,
+            StyleProperty::Align(value) => style.extra_mut().align = value,
+            StyleProperty::AlignContent(value) => style.extra_mut().align_content = value,
+            StyleProperty::AlignSelf(value) => style.extra_mut().align_self = value,
+            StyleProperty::RowGap(value) => style.extra_mut().row_gap = value,
+            StyleProperty::ColumnGap(value) => style.extra_mut().column_gap = value,
+            StyleProperty::Grow(value) => style.extra_mut().grow = value,
+            StyleProperty::Shrink(value) => style.extra_mut().shrink = value,
+            StyleProperty::Basis(value) => style.extra_mut().basis = value,
+            StyleProperty::Order(value) => style.extra_mut().order = value,
+            StyleProperty::MinWidth(value) => style.extra_mut().min_width = value,
+            StyleProperty::MaxWidth(value) => style.extra_mut().max_width = value,
+            StyleProperty::MinHeight(value) => style.extra_mut().min_height = value,
+            StyleProperty::MaxHeight(value) => style.extra_mut().max_height = value,
+            StyleProperty::Position(value) => style.extra_mut().position = value,
+            StyleProperty::Top(value) => style.extra_mut().inset.top = value,
+            StyleProperty::Right(value) => style.extra_mut().inset.right = value,
+            StyleProperty::Bottom(value) => style.extra_mut().inset.bottom = value,
+            StyleProperty::Left(value) => style.extra_mut().inset.left = value,
+            StyleProperty::Z(value) => style.extra_mut().z = value,
+            StyleProperty::AutoFlow(value) => style.extra_mut().auto_flow = value,
+            StyleProperty::JustifyItems(value) => style.extra_mut().justify_items = value,
+            StyleProperty::JustifySelf(value) => style.extra_mut().justify_self = value,
+            StyleProperty::GridColumn(value) => style.extra_mut().column = value,
+            StyleProperty::GridRow(value) => style.extra_mut().row = value,
+            StyleProperty::ColumnSpan(value) => style.extra_mut().column_span = value,
+            StyleProperty::RowSpan(value) => style.extra_mut().row_span = value,
         }
     }
 }
@@ -73,7 +131,11 @@ pub enum Command {
     Remove { id: ClientId },
     Clear { id: ClientId },
     Resize { width: i32 },
+    SetTracks { id: ClientId, axis: Direction, tracks: Vec<Track> },
 }
+
+/// Stands for "unset" in optional values, because the array cannot hold nil.
+const UNSET: i32 = -1_000_000;
 
 /// Reads values from the flat command array.
 struct Reader<'a> {
@@ -124,8 +186,72 @@ impl Reader<'_> {
             1 => Display::Block,
             2 => Display::Inline,
             3 => Display::Contents,
+            4 => Display::Flex,
+            5 => Display::Grid,
             other => return Err(LuaError::runtime(format!("unknown display {other}"))),
         })
+    }
+
+    fn optional(&mut self) -> LuaResult<Option<i32>> {
+        let value = self.int()?;
+        Ok((value != UNSET).then_some(value))
+    }
+
+    fn align(&mut self) -> LuaResult<Option<Align>> {
+        Ok(match self.int()? {
+            0 => None,
+            1 => Some(Align::Start),
+            2 => Some(Align::End),
+            3 => Some(Align::Center),
+            4 => Some(Align::Stretch),
+            other => return Err(LuaError::runtime(format!("unknown align {other}"))),
+        })
+    }
+
+    fn required_align(&mut self) -> LuaResult<Align> {
+        Ok(self.align()?.unwrap_or_default())
+    }
+
+    fn distribute(&mut self) -> LuaResult<Distribute> {
+        Ok(match self.int()? {
+            1 => Distribute::Start,
+            2 => Distribute::End,
+            3 => Distribute::Center,
+            4 => Distribute::Between,
+            5 => Distribute::Around,
+            6 => Distribute::Evenly,
+            7 => Distribute::Stretch,
+            other => return Err(LuaError::runtime(format!("unknown distribution {other}"))),
+        })
+    }
+
+    fn direction(&mut self) -> LuaResult<Direction> {
+        Ok(if self.int()? == 0 { Direction::Row } else { Direction::Column })
+    }
+
+    fn position(&mut self) -> LuaResult<Position> {
+        Ok(match self.int()? {
+            0 => Position::Static,
+            1 => Position::Relative,
+            2 => Position::Absolute,
+            other => return Err(LuaError::runtime(format!("unknown position {other}"))),
+        })
+    }
+
+    fn tracks(&mut self) -> LuaResult<Vec<Track>> {
+        let count = self.int()?;
+        (0..count)
+            .map(|_| {
+                let kind = self.int()?;
+                let value: f32 = self.value()?;
+                Ok(match kind {
+                    0 => Track::Auto,
+                    1 => Track::Cells(value as i32),
+                    2 => Track::Fr(value),
+                    other => return Err(LuaError::runtime(format!("unknown track {other}"))),
+                })
+            })
+            .collect()
     }
 
     fn style_property(&mut self) -> LuaResult<StyleProperty> {
@@ -146,6 +272,35 @@ impl Reader<'_> {
             12 => StyleProperty::Reverse(self.int()? != 0),
             13 => StyleProperty::Highlight(self.value()?),
             14 => StyleProperty::Interactive(self.int()? != 0),
+            15 => StyleProperty::Direction(self.direction()?),
+            16 => StyleProperty::Wrap(self.int()? != 0),
+            17 => StyleProperty::Justify(self.distribute()?),
+            18 => StyleProperty::Align(self.required_align()?),
+            19 => StyleProperty::AlignContent(self.distribute()?),
+            20 => StyleProperty::AlignSelf(self.align()?),
+            21 => StyleProperty::RowGap(self.int()?),
+            22 => StyleProperty::ColumnGap(self.int()?),
+            23 => StyleProperty::Grow(self.value()?),
+            24 => StyleProperty::Shrink(self.value()?),
+            25 => StyleProperty::Basis(self.length()?),
+            26 => StyleProperty::Order(self.int()?),
+            27 => StyleProperty::MinWidth(self.length()?),
+            28 => StyleProperty::MaxWidth(self.length()?),
+            29 => StyleProperty::MinHeight(self.length()?),
+            30 => StyleProperty::MaxHeight(self.length()?),
+            31 => StyleProperty::Position(self.position()?),
+            32 => StyleProperty::Top(self.optional()?),
+            33 => StyleProperty::Right(self.optional()?),
+            34 => StyleProperty::Bottom(self.optional()?),
+            35 => StyleProperty::Left(self.optional()?),
+            36 => StyleProperty::Z(self.int()?),
+            37 => StyleProperty::AutoFlow(self.direction()?),
+            38 => StyleProperty::JustifyItems(self.required_align()?),
+            39 => StyleProperty::JustifySelf(self.align()?),
+            40 => StyleProperty::GridColumn(self.optional()?),
+            41 => StyleProperty::GridRow(self.optional()?),
+            42 => StyleProperty::ColumnSpan(self.int()?),
+            43 => StyleProperty::RowSpan(self.int()?),
             other => return Err(LuaError::runtime(format!("unknown style property {other}"))),
         })
     }
@@ -184,6 +339,11 @@ impl Reader<'_> {
             6 => Command::Remove { id: self.id()? },
             7 => Command::Clear { id: self.id()? },
             8 => Command::Resize { width: self.int()? },
+            9 => Command::SetTracks {
+                id: self.id()?,
+                axis: self.direction()?,
+                tracks: self.tracks()?,
+            },
             other => return Err(LuaError::runtime(format!("unknown opcode {other}"))),
         })
     }
@@ -231,6 +391,7 @@ pub fn encode_node(lua: &Lua, info: &NodeInfo) -> LuaResult<LuaTable> {
     node.raw_set("hl", info.hl)?;
     node.raw_set("interactive", info.interactive)?;
     node.raw_set("dirty", info.dirty)?;
+    node.raw_set("position", info.position)?;
     Ok(node)
 }
 

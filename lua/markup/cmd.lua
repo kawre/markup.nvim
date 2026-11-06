@@ -137,6 +137,11 @@ cmd.commands = {
 				Markup.playground.run()
 			end,
 		},
+		layout = {
+			function()
+				Markup.playground.open({ view = true, file = "layout.lua" })
+			end,
+		},
 		signals = {
 			function()
 				Markup.playground.open({ view = true, file = "signals.lua" })

@@ -16,9 +16,10 @@ local OP = {
 	remove = 6,
 	clear = 7,
 	resize = 8,
+	set_tracks = 9,
 }
 
-M.display = { block = 1, inline = 2, contents = 3 }
+M.display = { block = 1, inline = 2, contents = 3, flex = 4, grid = 5 }
 
 M.ROOT = 1
 
@@ -36,6 +37,30 @@ local function flag(value)
 	return value and 1 or 0
 end
 
+--- Stands for "unset", because a flat array cannot hold nil.
+local UNSET = -1000000
+
+local function optional(value)
+	return value == nil and UNSET or value
+end
+
+---@param values table<string, integer>
+local function choice(values, name)
+	return function(value)
+		local encoded = values[value]
+		if encoded == nil then
+			error(("invalid %s `%s`"):format(name, tostring(value)), 0)
+		end
+		return encoded
+	end
+end
+
+local align = choice({ start = 1, ["end"] = 2, center = 3, stretch = 4 }, "align")
+local optional_align = choice({ start = 1, ["end"] = 2, center = 3, stretch = 4, auto = 0 }, "align")
+local distribute = choice({ start = 1, ["end"] = 2, center = 3, between = 4, around = 5, evenly = 6, stretch = 7 }, "justify")
+local direction = choice({ row = 0, column = 1 }, "direction")
+local position = choice({ static = 0, relative = 1, absolute = 2 }, "position")
+
 --- Style properties by name, with the encoder for each value.
 M.style = {
 	margin_top = { 1, number },
@@ -52,7 +77,52 @@ M.style = {
 	reverse = { 12, flag },
 	hl = { 13, number },
 	interactive = { 14, flag },
+	direction = { 15, direction },
+	wrap = { 16, flag },
+	justify = { 17, distribute },
+	align = { 18, align },
+	align_content = { 19, distribute },
+	align_self = { 20, optional_align },
+	row_gap = { 21, number },
+	column_gap = { 22, number },
+	grow = { 23, number },
+	shrink = { 24, number },
+	basis = { 25, length },
+	order = { 26, number },
+	min_width = { 27, length },
+	max_width = { 28, length },
+	min_height = { 29, length },
+	max_height = { 30, length },
+	position = { 31, position },
+	top = { 32, optional },
+	right = { 33, optional },
+	bottom = { 34, optional },
+	left = { 35, optional },
+	z = { 36, number },
+	auto_flow = { 37, direction },
+	justify_items = { 38, align },
+	justify_self = { 39, optional_align },
+	column = { 40, optional },
+	row = { 41, optional },
+	column_span = { 42, number },
+	row_span = { 43, number },
 }
+
+local TRACK = { auto = 0, cells = 1, fr = 2 }
+
+--- `10`, `"auto"` and `"1fr"` to a kind and a value.
+local function track(value)
+	if value == "auto" then
+		return TRACK.auto, 0
+	elseif type(value) == "number" then
+		return TRACK.cells, value
+	end
+	local fraction = type(value) == "string" and tonumber(value:match("^([%d.]+)fr$"))
+	if not fraction then
+		error(("invalid grid track `%s`"):format(tostring(value)), 0)
+	end
+	return TRACK.fr, fraction
+end
 
 local vim_fn = vim.fn
 
@@ -120,6 +190,28 @@ function Commands:clear(id)
 	local ops, n = self.ops, self.len
 	ops[n + 1], ops[n + 2] = OP.clear, id
 	self.len = n + 2
+end
+
+--- A number makes that many equal tracks.
+---@param axis "columns"|"rows"
+---@param tracks integer|(integer|string)[]
+function Commands:set_tracks(id, axis, tracks)
+	if type(tracks) == "number" then
+		local count = tracks
+		tracks = {}
+		for i = 1, count do
+			tracks[i] = "1fr"
+		end
+	end
+
+	local ops, n = self.ops, self.len
+	ops[n + 1], ops[n + 2], ops[n + 3], ops[n + 4] = OP.set_tracks, id, axis == "rows" and 0 or 1, #tracks
+	n = n + 4
+	for _, value in ipairs(tracks) do
+		ops[n + 1], ops[n + 2] = track(value)
+		n = n + 2
+	end
+	self.len = n
 end
 
 function Commands:resize(width)
