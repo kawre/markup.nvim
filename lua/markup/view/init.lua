@@ -44,6 +44,8 @@ function M:new(win, opts)
 	self.engine = Markup.core.create_engine(self:width())
 	self.commands = protocol.commands()
 	self.handlers = {}
+	self.commit_listeners = {}
+	self.fixed = {} ---@type markup.view.fixed[]
 	self.stats = { commands = 0, lines = 0, layout = 0, paint = 0, diff = 0, engine = 0, apply = 0 }
 	self.last_id = protocol.ROOT
 	self.commit_job = function()
@@ -105,6 +107,12 @@ function M:snap_cursor()
 			api.nvim_win_set_cursor(self.win.win, { target_row + 1, math.max(byte, 0) })
 		end
 	end
+end
+
+--- Calls `listener` after every commit.
+---@param listener function
+function M:on_commit(listener)
+	table.insert(self.commit_listeners, listener)
 end
 
 ---@return integer
@@ -196,6 +204,10 @@ function M:commit()
 	started = vim.uv.hrtime()
 	stats.lines = self.attached and self:apply(frame.patches) or 0
 	stats.apply = (vim.uv.hrtime() - started) / 1e6
+
+	for _, listener in ipairs(self.commit_listeners) do
+		listener()
+	end
 
 	api.nvim_exec_autocmds("User", { pattern = "MarkupViewCommit" .. self.win.id })
 end
