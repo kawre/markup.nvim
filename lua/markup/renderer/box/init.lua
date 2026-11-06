@@ -115,7 +115,10 @@ function M:reset_layout()
 	self.wx = nil
 	self.wy = nil
 
-	-- offset
+	self:update_offset()
+end
+
+function M:update_offset()
 	local parent = self.parent
 	self.ox = parent and parent.x or 0
 	self.oy = parent and parent.y or 0
@@ -138,6 +141,8 @@ function M:layout(input, impl)
 	impl = impl or self:get_impl()
 
 	if not input.resume and not self.dirty then
+		-- A clean box keeps its size, but siblings may have moved it.
+		self:update_offset()
 		return
 	end
 

@@ -92,6 +92,36 @@ end
 
 T["render()"] = new_set()
 
+T["render()"]["repositions reused keyed elements when siblings change"] = function()
+	child.lua([[
+		_G.ids = { 1, 2, 3, 4 }
+		_G.rows = {}
+		for _, id in ipairs(_G.ids) do
+			_G.rows[id] = m.block({ key = id, m.inline("row" .. id) })
+		end
+		_G.App = m.component(function()
+			local _, set_version = m.hooks.variable(0)
+			_G.refresh = set_version
+			local children = {}
+			for i, id in ipairs(_G.ids) do
+				children[i] = _G.rows[id]
+			end
+			return m.block(children)
+		end)
+	]])
+	render("_G.App")
+
+	local function expect_rows(ids, version, expected)
+		child.lua(("_G.ids = %s; _G.refresh(%d); renderer:rerender()"):format(ids, version))
+		local lines = child.lua_get("vim.api.nvim_buf_get_lines(renderer.win.buf, 0, -1, false)")
+		eq(vim.tbl_map(vim.trim, lines), expected)
+	end
+
+	expect_rows("{ 2, 3, 4 }", 1, { "row2", "row3", "row4" })
+	expect_rows("{ 4, 3, 2 }", 2, { "row4", "row3", "row2" })
+	expect_rows("{ 1, 4, 3, 2 }", 3, { "row1", "row4", "row3", "row2" })
+end
+
 T["render()"]["does not accumulate extmarks across rerenders"] = function()
 	render([[m.block("text", "Label")]])
 	local count = "#vim.api.nvim_buf_get_extmarks(renderer.win.buf, renderer.ns, 0, -1, {})"
