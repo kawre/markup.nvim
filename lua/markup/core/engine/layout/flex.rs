@@ -106,7 +106,10 @@ fn collect_items(tree: &mut Tree, node: Index, space: Space, axis: Axis, align: 
             } else {
                 (extra.min_width, extra.max_width)
             };
-            let min = min.resolve(reference).map_or(0, |min| min + edges);
+            // Like CSS `min-height: auto`: text cannot reflow vertically, so
+            // shrinking a column item below its content would just delete rows.
+            let automatic = if axis.column { axis.main(natural) } else { 0 };
+            let min = min.resolve(reference).map_or(automatic, |min| min + edges);
             let max = max.resolve(reference).map_or(i32::MAX, |max| max + edges);
 
             let base = match extra.basis {
@@ -644,6 +647,21 @@ mod tests {
         assert_eq!(tree.node(b).geometry.y, 1);
         assert_eq!(tree.node(b).geometry.outer.height, 7);
         assert_eq!(width(&tree, a), 10);
+    }
+
+    #[test]
+    fn column_items_do_not_shrink_below_their_content() {
+        let mut tree = Tree::default();
+        let (a, b) = (item(&mut tree, 1, "a"), item(&mut tree, 2, "b"));
+        let root = row(&mut tree, &[a, b]);
+        let style = &mut tree.node_mut(root).style;
+        style.height = Length::Cells(1);
+        style.extra_mut().direction = Direction::Column;
+
+        measure(&mut tree, root, 10);
+
+        assert_eq!(tree.node(a).geometry.outer.height, 1);
+        assert_eq!(tree.node(b).geometry.y, 1);
     }
 
     #[test]
