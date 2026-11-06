@@ -144,6 +144,16 @@ local function text_width(text)
 end
 
 local char_widths = {} ---@type table<string, integer>
+local known_cell_widths
+
+--- Forgets measured characters after `setcellwidths()`, which has no event.
+function M.check_cell_widths()
+	local current = vim.inspect(vim_fn.getcellwidths())
+	if current ~= known_cell_widths then
+		known_cell_widths = current
+		char_widths = {}
+	end
+end
 
 --- Measured once per character, and only for text that is not ASCII.
 local function cell_digits(text)
@@ -185,8 +195,20 @@ function Commands:create(id, display)
 	self.len = n + 3
 end
 
+--- A tab's width depends on where it lands, which only layout knows, so it
+--- never reaches the buffer.
+local TAB = (" "):rep(4)
+
 ---@param opcode integer
 local function write_text(self, opcode, id, text)
+	if text:find("\t", 1, true) then
+		text = text:gsub("\t", TAB)
+	end
+
+	if not known_cell_widths then
+		M.check_cell_widths()
+	end
+
 	local ops, n = self.ops, self.len
 	local width = text_width(text)
 	ops[n + 1], ops[n + 2], ops[n + 3], ops[n + 4] = opcode, id, text, width

@@ -26,6 +26,8 @@ struct Segment<'a> {
     cell: i32,
     width: i32,
     text: Cow<'a, str>,
+    /// Width of each non ASCII character, as measured by Neovim.
+    cells: Cow<'a, [u8]>,
 }
 
 impl<'a> Segment<'a> {
@@ -33,25 +35,57 @@ impl<'a> Segment<'a> {
         self.cell + self.width
     }
 
-    /// The part between two cells. Neovim measured the whole text, so a cut
-    /// through text of mixed widths has to fall back to blanks.
-    fn slice(&self, from: i32, to: i32) -> Segment<'a> {
-        let (start, stop) = ((from - self.cell) as usize, (to - self.cell) as usize);
-        let width = to - from;
+    /// Every character with its byte offset, starting cell and width.
+    fn characters(&self) -> impl Iterator<Item = (usize, char, i32, i32)> + '_ {
+        let mut cells = self.cells.iter().copied();
+        let mut cell = self.cell;
+        self.text.char_indices().map(move |(byte, character)| {
+            let width = if character.is_ascii() {
+                1
+            } else {
+                cells.next().map_or(1, i32::from)
+            };
+            let start = cell;
+            cell += width;
+            (byte, character, start, width)
+        })
+    }
 
-        let text = if self.text.len() == self.width as usize {
-            self.text[start..stop].to_string()
-        } else if self.text.chars().count() == self.width as usize {
-            self.text.chars().skip(start).take(stop - start).collect()
-        } else {
-            " ".repeat(width as usize)
-        };
+    /// The part between two cells. A wide character on the edge cannot be
+    /// halved, so the half that remains becomes a blank.
+    fn slice(&self, from: i32, to: i32) -> Segment<'a> {
+        let mut text = String::new();
+        let mut cells = Vec::new();
+
+        for (_, character, cell, width) in self.characters() {
+            let overlap = cell.max(from)..(cell + width).min(to);
+            if overlap.is_empty() {
+                continue;
+            }
+
+            if overlap.len() as i32 == width {
+                text.push(character);
+                if !character.is_ascii() {
+                    cells.push(width as u8);
+                }
+            } else {
+                text.extend(std::iter::repeat_n(' ', overlap.len()));
+            }
+        }
 
         Segment {
             cell: from,
-            width,
+            width: to - from,
             text: Cow::Owned(text),
+            cells: Cow::Owned(cells),
         }
+    }
+
+    /// Byte offset of a cell inside this segment, snapped to a character.
+    fn byte_at(&self, target: i32) -> usize {
+        self.characters()
+            .find(|&(_, _, cell, width)| cell + width > target)
+            .map_or(self.text.len(), |(byte, ..)| byte)
     }
 }
 
@@ -64,8 +98,8 @@ struct Row<'a> {
 }
 
 impl<'a> Row<'a> {
-    fn write(&mut self, cell: i32, text: Cow<'a, str>, width: i32) {
-        let segment = Segment { cell, width, text };
+    fn write(&mut self, cell: i32, text: Cow<'a, str>, width: i32, cells: Cow<'a, [u8]>) {
+        let segment = Segment { cell, width, text, cells };
 
         // Normal flow runs left to right and always takes this path.
         if self.segments.last().is_none_or(|last| last.end() <= cell) {
@@ -151,12 +185,7 @@ impl<'a> Row<'a> {
                 return start + segment.text.len() + (cell - segment.end()) as usize;
             }
 
-            let share = (cell - segment.cell) as usize * segment.text.len();
-            let mut byte = start + share / segment.width.max(1) as usize;
-            while !text.is_char_boundary(byte) {
-                byte += 1;
-            }
-            byte
+            start + segment.byte_at(cell)
         };
 
         let marks = self
@@ -244,16 +273,25 @@ impl Painter<'_> {
         if node.display == Display::Text {
             match &node.fragments {
                 Some(fragments) => {
+                    let all = node.cells.as_deref().unwrap_or(&[]);
                     for fragment in fragments {
                         if let Some(row) = self.rows.get_mut((y + fragment.y) as usize) {
-                            let text = &node.text[fragment.start as usize..fragment.end as usize];
-                            row.write(x + fragment.x, Cow::Borrowed(text), fragment.width);
+                            let (start, end) = (fragment.start as usize, fragment.end as usize);
+                            let wide = |text: &str| text.chars().filter(|c| !c.is_ascii()).count();
+
+                            // Measured widths only cover this fragment's characters.
+                            let first = wide(&node.text[..start]).min(all.len());
+                            let last = (first + wide(&node.text[start..end])).min(all.len());
+
+                            let text = Cow::Borrowed(&node.text[start..end]);
+                            row.write(x + fragment.x, text, fragment.width, Cow::Borrowed(&all[first..last]));
                         }
                     }
                 }
                 None => {
                     if let Some(row) = self.rows.get_mut(y as usize) {
-                        row.write(x, Cow::Borrowed(&node.text), node.text_width);
+                        let cells = node.cells.as_deref().unwrap_or(&[]);
+                        row.write(x, Cow::Borrowed(&node.text), node.text_width, Cow::Borrowed(cells));
                     }
                 }
             }
@@ -319,7 +357,7 @@ impl Painter<'_> {
 
     fn put(&mut self, row: i32, cell: i32, text: String, width: i32, hl: u32) {
         if let Some(line) = self.rows.get_mut(row as usize) {
-            line.write(cell, Cow::Owned(text), width);
+            line.write(cell, Cow::Owned(text), width, Cow::Borrowed(&[]));
             if hl != 0 {
                 line.ranges.push((cell, cell + width, hl));
             }
@@ -535,13 +573,13 @@ mod tests {
     #[test]
     fn cutting_wide_text_leaves_blanks_not_broken_characters() {
         let mut tree = Tree::default();
-        let base = text(&mut tree, 1, "你好", 4);
+        let base = wide_text(&mut tree, 1, "你好", &[2, 2], 4);
         let root = tree.create(2, Display::Block).unwrap();
         tree.insert(root, base, None).unwrap();
         let top = overlay(&mut tree, 3, "X", 1, 0);
         tree.insert(root, top, None).unwrap();
 
-        assert_eq!(render_with_absolutes(&mut tree, root)[0].text, " X  ");
+        assert_eq!(render_with_absolutes(&mut tree, root)[0].text, " X好");
     }
 
     fn framed(tree: &mut Tree, sides: [bool; 4], outside_background: bool) -> Index {
@@ -619,6 +657,45 @@ mod tests {
         assert!(lines[0].marks.iter().all(|mark| mark.hl == 9));
         assert!(lines[1].marks.iter().any(|mark| mark.hl == 7));
         assert!(lines[2].marks.iter().all(|mark| mark.hl == 9));
+    }
+
+    fn wide_text(tree: &mut Tree, id: u32, value: &str, cells: &[u8], width: i32) -> Index {
+        let index = text(tree, id, value, width);
+        tree.node_mut(index).cells = Some(cells.to_vec().into_boxed_slice());
+        index
+    }
+
+    #[test]
+    fn overlays_keep_mixed_width_text_around_them() {
+        let mut tree = Tree::default();
+        let base = wide_text(&mut tree, 1, "ab你好cd", &[2, 2], 8);
+        let root = tree.create(2, Display::Block).unwrap();
+        tree.insert(root, base, None).unwrap();
+        let top = overlay(&mut tree, 3, "X", 6, 0);
+        tree.insert(root, top, None).unwrap();
+
+        assert_eq!(render_with_absolutes(&mut tree, root)[0].text, "ab你好Xd");
+    }
+
+    #[test]
+    fn half_of_a_wide_character_becomes_a_blank() {
+        let mut tree = Tree::default();
+        let base = wide_text(&mut tree, 1, "你好世界", &[2, 2, 2, 2], 8);
+        let root = tree.create(2, Display::Block).unwrap();
+        tree.insert(root, base, None).unwrap();
+        let top = overlay(&mut tree, 3, "X", 3, 0);
+        tree.insert(root, top, None).unwrap();
+
+        assert_eq!(render_with_absolutes(&mut tree, root)[0].text, "你 X世界");
+    }
+
+    #[test]
+    fn highlights_inside_wide_text_use_real_widths() {
+        let mut row = Row::default();
+        row.write(0, Cow::Borrowed("a你b"), 4, Cow::Borrowed(&[2]));
+        row.ranges.push((1, 3, 7));
+
+        assert_eq!(row.finish().marks, vec![Mark { start: 1, end: 4, hl: 7 }]);
     }
 
     #[test]
