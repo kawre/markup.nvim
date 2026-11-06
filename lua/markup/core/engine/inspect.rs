@@ -2,7 +2,7 @@
 //! everything is fetched on demand, so closed tools cost nothing.
 
 use super::Engine;
-use super::style::{Display, Edges, Length};
+use super::style::{Display, Edges, Length, Position};
 use super::tree::{ClientId, Index, Size, TreeError};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -32,6 +32,7 @@ pub struct NodeInfo {
     pub hl: u32,
     pub interactive: bool,
     pub dirty: bool,
+    pub position: &'static str,
 }
 
 fn display_name(display: Display) -> &'static str {
@@ -39,6 +40,8 @@ fn display_name(display: Display) -> &'static str {
         Display::Block => "block",
         Display::Inline => "inline",
         Display::Text => "text",
+        Display::Flex => "flex",
+        Display::Grid => "grid",
         Display::Contents => "contents",
     }
 }
@@ -54,26 +57,6 @@ fn length_name(length: Length) -> String {
 }
 
 impl Engine {
-    /// Top left of a node's margin box, in buffer cells.
-    fn origin(&self, index: Index) -> (i32, i32) {
-        let tree = self.tree();
-        let node = tree.node(index);
-        let (mut x, mut y) = (node.geometry.x, node.geometry.y);
-
-        let mut parent = node.parent;
-        while let Some(index) = parent {
-            let node = tree.node(index);
-            if node.display != Display::Contents {
-                let style = &node.style;
-                x += node.geometry.x + style.margin.left + style.padding.left;
-                y += node.geometry.y + style.margin.top + style.padding.top;
-            }
-            parent = node.parent;
-        }
-
-        (x, y)
-    }
-
     fn info(&self, index: Index) -> NodeInfo {
         let tree = self.tree();
         let node = tree.node(index);
@@ -106,6 +89,11 @@ impl Engine {
             hl: style.hl,
             interactive: style.interactive,
             dirty: node.dirty,
+            position: match style.extra().position {
+                Position::Static => "static",
+                Position::Relative => "relative",
+                Position::Absolute => "absolute",
+            },
         }
     }
 
@@ -248,6 +236,29 @@ mod tests {
         engine.render(|_, _| ());
 
         assert_eq!(engine.path_at(0, 1), vec![ROOT, 2, 3, 4]);
+    }
+
+    #[test]
+    fn absolute_nodes_report_their_real_place_and_win_hit_tests() {
+        let mut engine = Engine::new(20);
+        block(&mut engine, 2, ROOT);
+        text(&mut engine, 3, 2, "flow");
+        block(&mut engine, 4, ROOT);
+        text(&mut engine, 5, 4, "top");
+        for property in [
+            StyleProperty::Position(crate::engine::style::Position::Absolute),
+            StyleProperty::Left(Some(1)),
+            StyleProperty::Top(Some(0)),
+        ] {
+            engine.apply(Command::SetStyle { id: 4, property }).unwrap();
+        }
+        engine.render(|_, _| ());
+
+        let rect = engine.describe(4).unwrap().rect.unwrap();
+
+        assert_eq!((rect.x, rect.y, rect.width), (1, 0, 3));
+        assert_eq!(engine.path_at(0, 2), vec![ROOT, 4, 5]);
+        assert_eq!(engine.path_at(0, 0), vec![ROOT, 2, 3]);
     }
 
     #[test]

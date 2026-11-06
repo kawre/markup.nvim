@@ -12,7 +12,7 @@ pub mod tree;
 use paint::Line;
 use protocol::Command;
 use std::time::Instant;
-use style::Display;
+use style::{Direction, Display, Position};
 use tree::{ClientId, Index, Tree, TreeError};
 
 /// Client id of the root node, which exists for the engine's whole life.
@@ -81,6 +81,7 @@ impl Engine {
             Command::SetStyle { id, property } => {
                 let index = tree.index_of(id)?;
                 property.apply(&mut tree.node_mut(index).style);
+                tree.sync_position(index);
                 tree.mark_dirty(index);
             }
             Command::Insert { parent, child, before } => {
@@ -100,6 +101,15 @@ impl Engine {
             Command::Resize { width } => {
                 self.width = width;
             }
+            Command::SetTracks { id, axis, tracks } => {
+                let index = tree.index_of(id)?;
+                let extra = tree.node_mut(index).style.extra_mut();
+                match axis {
+                    Direction::Row => extra.rows = tracks,
+                    Direction::Column => extra.columns = tracks,
+                }
+                tree.mark_dirty(index);
+            }
         }
         Ok(())
     }
@@ -110,12 +120,14 @@ impl Engine {
         let mut timings = Timings::default();
 
         let started = Instant::now();
-        let size = layout::measure(&mut self.tree, self.root, self.width);
+        let size = layout::measure(&mut self.tree, self.root, layout::Constraints::available(self.width));
+        layout::absolute::layout(&mut self.tree);
+        let height = self.height_with_absolutes(size.height);
         timings.layout = elapsed_ms(started);
 
         let started = Instant::now();
         // A buffer always has a line, so a frame does too.
-        let lines = paint::paint(&self.tree, self.root, size.height.max(1));
+        let lines = paint::paint(&self.tree, self.root, height.max(1));
         timings.paint = elapsed_ms(started);
 
         let started = Instant::now();
@@ -128,6 +140,46 @@ impl Engine {
         result
     }
 
+    /// Absolute boxes can reach past everything in flow.
+    fn height_with_absolutes(&self, height: i32) -> i32 {
+        self.tree.absolutes().iter().fold(height, |height, &index| {
+            let bottom = self.origin(index).1 + self.tree.node(index).geometry.outer.height;
+            height.max(bottom)
+        })
+    }
+
+    /// Top left of a node's margin box, in buffer cells.
+    pub fn origin(&self, index: Index) -> (i32, i32) {
+        let tree = &self.tree;
+        let node = tree.node(index);
+        let geometry = &node.geometry;
+
+        if node.style.position() == Position::Absolute {
+            let block = tree.containing_block(index);
+            let (x, y) = self.origin(block);
+            let margin = tree.node(block).style.margin;
+            return (x + margin.left + geometry.x, y + margin.top + geometry.y);
+        }
+
+        let own_shift = node.style.relative_offset();
+        let mut parent = node.parent;
+        while let Some(index) = parent {
+            let node = tree.node(index);
+            if node.display != Display::Contents {
+                let (x, y) = self.origin(index);
+                let style = &node.style;
+                let (shift_x, shift_y) = own_shift;
+                return (
+                    x + style.margin.left + style.padding.left + geometry.x + shift_x,
+                    y + style.margin.top + style.padding.top + geometry.y + shift_y,
+                );
+            }
+            parent = node.parent;
+        }
+
+        (geometry.x, geometry.y)
+    }
+
     /// Finds the innermost interactive node on a cell.
     pub fn node_at(&self, row: i32, col: i32) -> Option<ClientId> {
         self.path_at(row, col).into_iter().rev().find(|&id| {
@@ -137,42 +189,45 @@ impl Engine {
         })
     }
 
-    /// Every node on a cell, from the root down to the innermost one.
+    /// Every node on a cell, from the root down to the innermost one. Absolute
+    /// boxes sit on top, so they are tried first, highest `z` before lower.
     pub fn path_at(&self, row: i32, col: i32) -> Vec<ClientId> {
+        let tree = &self.tree;
+
+        let mut overlays: Vec<Index> = tree.absolutes().iter().copied().collect();
+        overlays.sort_by_key(|&index| std::cmp::Reverse(tree.node(index).style.extra().z));
+
+        for index in overlays {
+            let (x, y) = self.origin(index);
+            let mut path = self.ancestors(index);
+            if self.descend(index, x, y, row, col, &mut path) {
+                return path;
+            }
+        }
+
         let mut path = Vec::new();
-        self.collect_path(self.root, 0, 0, row, col, &mut path);
+        self.descend(self.root, 0, 0, row, col, &mut path);
         path
     }
 
-    fn collect_path(
-        &self,
-        index: Index,
-        x: i32,
-        y: i32,
-        row: i32,
-        col: i32,
-        path: &mut Vec<ClientId>,
-    ) -> bool {
-        let node = self.tree.node(index);
-
-        if node.display == Display::Contents {
+    fn ancestors(&self, index: Index) -> Vec<ClientId> {
+        let mut path = Vec::new();
+        let mut parent = self.tree.node(index).parent;
+        while let Some(index) = parent {
+            let node = self.tree.node(index);
             path.push(node.client);
-            let found = node
-                .children
-                .iter()
-                .any(|&child| self.collect_path(child, x, y, row, col, path));
-            if !found {
-                path.pop();
-            }
-            return found;
+            parent = node.parent;
         }
+        path.reverse();
+        path
+    }
 
-        let geometry = &node.geometry;
-        let (x, y) = (x + geometry.x, y + geometry.y);
-        let inside = row >= y
-            && row < y + geometry.outer.height
-            && col >= x
-            && col < x + geometry.outer.width.max(1);
+    /// Walks down from a node whose margin box starts at `x`, `y`.
+    fn descend(&self, index: Index, x: i32, y: i32, row: i32, col: i32, path: &mut Vec<ClientId>) -> bool {
+        let node = self.tree.node(index);
+        let outer = node.geometry.outer;
+
+        let inside = row >= y && row < y + outer.height && col >= x && col < x + outer.width.max(1);
         if !inside {
             return false;
         }
@@ -183,8 +238,31 @@ impl Engine {
         let content_y = y + style.margin.top + style.padding.top;
         node.children
             .iter()
-            .any(|&child| self.collect_path(child, content_x, content_y, row, col, path));
+            .any(|&child| self.descend_child(child, content_x, content_y, row, col, path));
         true
+    }
+
+    fn descend_child(&self, index: Index, x: i32, y: i32, row: i32, col: i32, path: &mut Vec<ClientId>) -> bool {
+        let node = self.tree.node(index);
+
+        if node.display == Display::Contents {
+            path.push(node.client);
+            let found = node
+                .children
+                .iter()
+                .any(|&child| self.descend_child(child, x, y, row, col, path));
+            if !found {
+                path.pop();
+            }
+            return found;
+        }
+
+        if node.style.position() == Position::Absolute {
+            return false;
+        }
+
+        let (shift_x, shift_y) = node.style.relative_offset();
+        self.descend(index, x + node.geometry.x + shift_x, y + node.geometry.y + shift_y, row, col, path)
     }
 }
 

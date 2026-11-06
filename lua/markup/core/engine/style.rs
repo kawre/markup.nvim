@@ -1,5 +1,7 @@
 //! Style values attached to nodes. Plain data, with no knowledge of Lua.
 
+use std::sync::LazyLock;
+
 /// How a node takes part in layout.
 ///
 /// To add a layout mode: add a variant here, implement [`super::layout::Strategy`]
@@ -10,6 +12,8 @@ pub enum Display {
     Block,
     Inline,
     Text,
+    Flex,
+    Grid,
     /// Transparent group: its children flow as if they belonged to its parent.
     Contents,
 }
@@ -22,7 +26,7 @@ impl Display {
 
     /// Whether an `auto` width takes all the available space.
     pub fn fills_width(self) -> bool {
-        matches!(self, Display::Block)
+        matches!(self, Display::Block | Display::Flex | Display::Grid)
     }
 }
 
@@ -67,6 +71,144 @@ impl Edges {
     }
 }
 
+/// How an item sits on an axis of its container.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Align {
+    Start,
+    End,
+    Center,
+    #[default]
+    Stretch,
+}
+
+/// How free space is shared around a row of items or lines.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Distribute {
+    #[default]
+    Start,
+    End,
+    Center,
+    Between,
+    Around,
+    Evenly,
+    Stretch,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Direction {
+    #[default]
+    Row,
+    Column,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Position {
+    #[default]
+    Static,
+    Relative,
+    Absolute,
+}
+
+/// Size of a grid track.
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub enum Track {
+    #[default]
+    Auto,
+    Cells(i32),
+    Fr(f32),
+}
+
+/// Offsets from the containing block, unset sides stay `None`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct Inset {
+    pub top: Option<i32>,
+    pub right: Option<i32>,
+    pub bottom: Option<i32>,
+    pub left: Option<i32>,
+}
+
+/// Rarely used style. Most nodes are text and inline spans, so this lives
+/// behind a box that plain nodes never allocate.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Extra {
+    // Containers.
+    pub direction: Direction,
+    pub wrap: bool,
+    pub justify: Distribute,
+    pub align: Align,
+    pub align_content: Distribute,
+    pub row_gap: i32,
+    pub column_gap: i32,
+
+    // Flex items.
+    pub align_self: Option<Align>,
+    pub grow: f32,
+    pub shrink: f32,
+    pub basis: Length,
+    pub order: i32,
+
+    // Size limits.
+    pub min_width: Length,
+    pub max_width: Length,
+    pub min_height: Length,
+    pub max_height: Length,
+
+    // Positioning.
+    pub position: Position,
+    pub inset: Inset,
+    pub z: i32,
+
+    // Grid containers.
+    pub columns: Vec<Track>,
+    pub rows: Vec<Track>,
+    pub auto_flow: Direction,
+    pub justify_items: Align,
+
+    // Grid items.
+    pub column: Option<i32>,
+    pub row: Option<i32>,
+    pub column_span: i32,
+    pub row_span: i32,
+    pub justify_self: Option<Align>,
+}
+
+impl Default for Extra {
+    fn default() -> Self {
+        Extra {
+            direction: Direction::Row,
+            wrap: false,
+            justify: Distribute::Start,
+            align: Align::Stretch,
+            align_content: Distribute::Stretch,
+            row_gap: 0,
+            column_gap: 0,
+            align_self: None,
+            grow: 0.0,
+            shrink: 1.0,
+            basis: Length::Auto,
+            order: 0,
+            min_width: Length::Auto,
+            max_width: Length::Auto,
+            min_height: Length::Auto,
+            max_height: Length::Auto,
+            position: Position::Static,
+            inset: Inset::default(),
+            z: 0,
+            columns: Vec::new(),
+            rows: Vec::new(),
+            auto_flow: Direction::Row,
+            justify_items: Align::Stretch,
+            column: None,
+            row: None,
+            column_span: 1,
+            row_span: 1,
+            justify_self: None,
+        }
+    }
+}
+
+static DEFAULT_EXTRA: LazyLock<Extra> = LazyLock::new(Extra::default);
+
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct Style {
     pub margin: Edges,
@@ -80,4 +222,32 @@ pub struct Style {
     pub hl: u32,
     /// Whether `Engine::node_at` can stop at this node.
     pub interactive: bool,
+    extra: Option<Box<Extra>>,
+}
+
+impl Style {
+    pub fn extra(&self) -> &Extra {
+        self.extra.as_deref().unwrap_or(&DEFAULT_EXTRA)
+    }
+
+    pub fn extra_mut(&mut self) -> &mut Extra {
+        self.extra.get_or_insert_default()
+    }
+
+    /// Hot paths read this for every node, and most have no extra style.
+    pub fn position(&self) -> Position {
+        self.extra.as_deref().map_or(Position::Static, |extra| extra.position)
+    }
+
+    /// How far `position: relative` moves a node from where flow put it.
+    pub fn relative_offset(&self) -> (i32, i32) {
+        if self.position() != Position::Relative {
+            return (0, 0);
+        }
+        let inset = self.extra().inset;
+        (
+            inset.left.or(inset.right.map(|right| -right)).unwrap_or(0),
+            inset.top.or(inset.bottom.map(|bottom| -bottom)).unwrap_or(0),
+        )
+    }
 }
