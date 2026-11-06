@@ -25,8 +25,10 @@ function M.fiber(root, opts)
 
 	local lines = {}
 
+	local print_fiber_tree
+
 	---@param fiber markup.fiber
-	local function print_fiber_tree(fiber, depth, prefix)
+	local function print_fiber(fiber, depth, prefix)
 		if not fiber then
 			return
 		end
@@ -83,9 +85,13 @@ function M.fiber(root, opts)
 		if fiber.child then
 			print_fiber_tree(fiber.child, depth + 1, prefix .. (depth > 0 and "│ " or ""))
 		end
+	end
 
-		if fiber.sibling then
-			print_fiber_tree(fiber.sibling, depth, prefix)
+	-- Siblings are iterated because long lists would overflow the stack.
+	print_fiber_tree = function(fiber, depth, prefix)
+		while fiber do
+			print_fiber(fiber, depth, prefix)
+			fiber = fiber.sibling
 		end
 	end
 
