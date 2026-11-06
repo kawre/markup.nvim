@@ -12,7 +12,6 @@ local styles = require("markup.window.styles")
 ---@field win markup.window
 ---@field private observers table<string, table>
 ---@field is_scheduled boolean
----@field dom markup.dom
 ---@field fps integer
 ---@field lines markup.renderer.line[] 1 indexed lines table
 ---@overload fun(opts?: markup.window.config): markup.renderer
@@ -35,7 +34,6 @@ function M:new(win)
 	self.keys = {} ---@type table<markup.node, { key: string, cb: function }[]>
 	self.cursor = {}
 	self.lines = {}
-	self.dom = Markup.core.create_dom()
 
 	self.win:on("WinResized", function()
 		if self:valid() and vim.tbl_contains(vim.v.event.windows, self.win.win) then
@@ -62,8 +60,8 @@ function M:render(element)
 	end
 
 	assert(self.element, "Renderer element not bound. Call :bind(element) to bind the element.")
-	self.rootf = Markup.factory.fiber.root(self.dom, self.element)
-	-- self.root = Markup.factory.box(self.rootf.state_node)
+	self.rootf = Markup.factory.fiber.root(self.element)
+	self.root = Markup.factory.box(self.rootf.state_node)
 	self.stats = {}
 
 	self:rerender()
@@ -88,15 +86,12 @@ function M:rerender()
 	local e1 = Markup.util.benchmark(function()
 		self.rootf = Markup.reconciler(self.rootf)
 	end)
-
-	local win_width = vim.api.nvim_win_get_width(self.win.win)
-	local win_height = vim.api.nvim_win_get_height(self.win.win)
-	local final_layout
 	local e2 = Markup.util.benchmark(function()
-		final_layout = self.rootf.state_node:compute_layout(win_width, win_height)
+		self:reflow()
+		self:layout()
 	end)
 	local e3 = Markup.util.benchmark(function()
-		self:paint(final_layout)
+		self:paint()
 	end)
 
 	self:track_stats(e1, e2, e3)
@@ -138,30 +133,30 @@ function M:layout()
 	self:render_root():layout({ available_width = vim.api.nvim_win_get_width(self.win.win) })
 end
 
-function M:paint(layout)
+function M:paint()
 	vim.api.nvim_buf_call(self.win.buf, function()
 		-- vim.api.nvim_buf_clear_namespace(0, self.ns, 0, -1)
 		-- vim.api.nvim_buf_clear_namespace(0, self.debug_ns, 0, -1)
 
-		-- local mbox = self:render_root():get_box_size("margin")
-		--
-		-- self.lines = {}
-		-- for i = 1, mbox.height do
-		-- 	self.lines[i] = require("markup.renderer.line")()
-		-- end
-		--
-		-- self:traverse_and_paint(0, 0, self:render_root())
-		--
-		-- local lines = {}
-		-- for _, line in pairs(self.lines) do
-		-- 	lines[#lines + 1] = line:build(mbox.width)
-		-- end
+		local mbox = self:render_root():get_box_size("margin")
 
-		vim.api.nvim_buf_set_lines(0, 0, -1, false, layout.lines)
+		self.lines = {}
+		for i = 1, mbox.height do
+			self.lines[i] = require("markup.renderer.line")()
+		end
 
-		-- for y, line in pairs(layout.lines) do
-		-- 	line:paint(y, self.ns)
-		-- end
+		self:traverse_and_paint(0, 0, self:render_root())
+
+		local lines = {}
+		for _, line in pairs(self.lines) do
+			lines[#lines + 1] = line:build(mbox.width)
+		end
+
+		vim.api.nvim_buf_set_lines(0, 0, -1, false, lines)
+
+		for y, line in pairs(self.lines) do
+			line:paint(y, self.ns)
+		end
 
 		vim.api.nvim__redraw({ buf = 0, flush = true })
 	end)

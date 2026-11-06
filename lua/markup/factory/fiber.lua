@@ -50,12 +50,11 @@ function M.from_type_and_props(type, props, key)
 	return fiber
 end
 
----@param dom markup.dom
 ---@param element markup.element
-function M.root(dom, element)
+function M.root(element)
 	local fiber = M.call(Tag.ROOT)
 	fiber.pending_props = { children = element }
-	fiber.state_node = Markup.factory.node(dom, "element", "root")
+	fiber.state_node = Markup.factory.node("element", "root")
 	fiber:set_flags(Flag.PLACEMENT)
 	return fiber
 end

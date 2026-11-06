@@ -15,8 +15,6 @@ function M.layout(box)
 
 	box:set_content_box_width(box.width, true)
 	box:set_content_box_height(box.height, true)
-
-	return { vim.split(content, "%s+") }
 end
 
 return M

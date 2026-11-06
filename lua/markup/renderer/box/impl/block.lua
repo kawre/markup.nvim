@@ -35,8 +35,6 @@ function M.layout(box, input)
 	box.height = box.y + math.max(1, prev_mheight)
 
 	M.compute_final_size(box, input, output)
-
-	return {}
 end
 
 ---@param box markup.box
