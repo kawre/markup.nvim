@@ -127,9 +127,16 @@ cmd.commands = {
 		function()
 			Markup.playground.open()
 		end,
-		run = function()
-			Markup.playground.run()
-		end,
+		run = {
+			function()
+				Markup.playground.run()
+			end,
+		},
+		bare = {
+			function()
+				Markup.playground.open({ inspect = false })
+			end,
+		},
 	},
 }
 
