@@ -1,0 +1,368 @@
+--- Turns elements into engine commands.
+---
+--- Components run once, inside an owner. After that only the dynamic parts of
+--- what they returned ever run again: a function child updates its own text
+--- node, a function prop updates one style property, and `show` and `each`
+--- mount and unmount their contents. Those parts each own a `contents` node, a
+--- transparent group in the tree, so they never need to know their position.
+
+local protocol = require("markup.view.protocol")
+local reactive = require("markup.reactive")
+local hl = require("markup.view.hl")
+local defaults = require("markup.renderer.box.props.defaults")
+
+local DISPLAY = protocol.display
+local STYLE = protocol.style
+local effect, scope, untrack = reactive.effect, reactive.scope, reactive.untrack
+
+---@class markup.view.mount
+local M = {}
+
+--- Tags that map to a layout the engine has. Add a row here when the engine
+--- gets a new `Display`.
+local tags = {
+	block = DISPLAY.block,
+	inline = DISPLAY.inline,
+	text = DISPLAY.inline,
+	button = DISPLAY.block,
+	root = DISPLAY.block,
+	newl = DISPLAY.block,
+}
+
+local tag_props = {
+	button = { width = "fit", interactive = true },
+	newl = { height = 1 },
+}
+
+local unsupported = { flex = true, hflex = true, vflex = true, grid = true, inblock = true }
+
+local shorthand = { margin = "margin", padding = "padding" }
+
+--- Expands `margin = { 1, 2 }` style shorthands, CSS order.
+local function expand_edges(result, name, value)
+	local top, right, bottom, left
+	if type(value) == "number" then
+		top, right, bottom, left = value, value, value, value
+	else
+		local n = #value
+		top = value[1]
+		right = n >= 2 and value[2] or top
+		bottom = n >= 3 and value[3] or top
+		left = n >= 4 and value[4] or right
+	end
+	result[name .. "_top"] = result[name .. "_top"] or top
+	result[name .. "_right"] = result[name .. "_right"] or right
+	result[name .. "_bottom"] = result[name .. "_bottom"] or bottom
+	result[name .. "_left"] = result[name .. "_left"] or left
+end
+
+---@param view markup.view
+local function apply_style(view, id, name, value)
+	if name == "hl" then
+		value = hl.id(value)
+	end
+	view.commands:set_style(id, name, value)
+	view:request_commit()
+end
+
+--- Sends one style property, keeping it updated when it is a function.
+local function bind_style(view, id, name, value)
+	if type(value) == "function" then
+		effect(function()
+			apply_style(view, id, name, value())
+		end)
+	else
+		apply_style(view, id, name, value)
+	end
+end
+
+local function apply_props(view, id, tag, props)
+	local fixed = tag_props[tag]
+	if fixed then
+		for name, value in pairs(fixed) do
+			if props[name] == nil then
+				bind_style(view, id, name, value)
+			end
+		end
+	end
+
+	local expanded
+	for name, value in pairs(props) do
+		if shorthand[name] then
+			expanded = expanded or {}
+			expand_edges(expanded, name, value)
+		elseif STYLE[name] then
+			bind_style(view, id, name, value)
+		end
+	end
+
+	if expanded then
+		for name, value in pairs(expanded) do
+			if props[name] == nil then
+				bind_style(view, id, name, value)
+			end
+		end
+	end
+
+	local style = props.style
+	if style == nil then
+		style = defaults[tag] and defaults[tag].style
+	end
+	if style ~= nil then
+		bind_style(view, id, "hl", style)
+	end
+
+	if props.on_press then
+		view:set_handler(id, props.on_press)
+		bind_style(view, id, "interactive", true)
+		reactive.on_cleanup(function()
+			view:set_handler(id, nil)
+		end)
+	end
+end
+
+local mount
+
+local function mount_text(view, parent, before, value)
+	local id = view:next_id()
+	view.commands:create_text(id, tostring(value))
+	view.commands:insert(parent, id, before)
+	return id
+end
+
+--- A function child. Text updates in place, anything else is remounted.
+local function mount_dynamic(view, parent, before, fn)
+	local group = view:next_id()
+	view.commands:create(group, DISPLAY.contents)
+	view.commands:insert(parent, group, before)
+
+	local text_id
+	effect(function()
+		local value = fn()
+		local is_text = type(value) == "string" or type(value) == "number"
+
+		if is_text and text_id then
+			view.commands:set_text(text_id, tostring(value))
+		else
+			view.commands:clear(group)
+			text_id = nil
+			if is_text then
+				text_id = mount_text(view, group, nil, value)
+			else
+				untrack(function()
+					mount(view, value, group)
+				end)
+			end
+		end
+		view:request_commit()
+	end)
+end
+
+local function mount_component(view, parent, before, element)
+	local group = view:next_id()
+	view.commands:create(group, DISPLAY.contents)
+	view.commands:insert(parent, group, before)
+
+	scope(function()
+		mount(view, element.type(element.props or {}), group)
+	end)
+end
+
+local function mount_host(view, parent, before, element)
+	local tag = element.type
+	local display = tags[tag]
+
+	if not display then
+		if unsupported[tag] then
+			error(("`%s` is not implemented by the engine yet"):format(tag), 0)
+		end
+		display = DISPLAY.block
+	end
+
+	local id = view:next_id()
+	view.commands:create(id, display)
+
+	local props = element.props or {}
+	apply_props(view, id, tag, props)
+	if props.children ~= nil then
+		mount(view, props.children, id)
+	end
+	view.commands:insert(parent, id, before)
+end
+
+---@param view markup.view
+---@param content any element, text, function, list or nothing
+---@param parent integer
+---@param before? integer
+mount = function(view, content, parent, before)
+	local kind = type(content)
+
+	if content == nil or content == false then
+		return
+	elseif kind == "string" or kind == "number" then
+		mount_text(view, parent, before, content)
+	elseif kind == "function" then
+		mount_dynamic(view, parent, before, content)
+	elseif kind ~= "table" then
+		error(("cannot render a %s"):format(kind), 0)
+	elseif content.__type == "markup.element" then
+		local element_type = content.type
+		if type(element_type) == "function" then
+			mount_component(view, parent, before, content)
+		elseif type(element_type) == "table" and element_type.mount then
+			element_type.mount(view, parent, before, content.props or {})
+		elseif element_type == "fragment" then
+			mount(view, (content.props or {}).children, parent, before)
+		else
+			mount_host(view, parent, before, content)
+		end
+	else
+		for i = 1, table.maxn(content) do
+			mount(view, content[i], parent, before)
+		end
+	end
+end
+
+M.mount = mount
+
+local function element(control, props)
+	return require("markup.element").new(control, props)
+end
+
+local Show = { typeof = "control" }
+
+function Show.mount(view, parent, before, props)
+	local group = view:next_id()
+	view.commands:create(group, DISPLAY.contents)
+	view.commands:insert(parent, group, before)
+
+	local outer = reactive.current_owner()
+	local shown, inner
+	effect(function()
+		local visible = not not props.when()
+		if visible == shown then
+			return
+		end
+		shown = visible
+
+		if inner then
+			reactive.dispose(inner)
+			inner = nil
+		end
+		view.commands:clear(group)
+
+		local content = visible and props.children or props.fallback
+		if content then
+			untrack(function()
+				local _, created = scope(function()
+					local value = content
+					if type(value) == "function" then
+						value = value()
+					end
+					mount(view, value, group)
+				end, outer)
+				inner = created
+			end)
+		end
+		view:request_commit()
+	end)
+end
+
+--- Renders `content` while `when()` is truthy, and `fallback` otherwise.
+---@param when fun(): any
+---@param content any element, or a function called on each mount
+---@param fallback? any
+function M.show(when, content, fallback)
+	return element(Show, { when = when, children = content, fallback = fallback })
+end
+
+local Each = { typeof = "control" }
+
+function Each.mount(view, parent, before, props)
+	local list, render = props.list, props.render
+	local key_of = props.key or function(item)
+		return item
+	end
+
+	local group = view:next_id()
+	view.commands:create(group, DISPLAY.contents)
+	view.commands:insert(parent, group, before)
+
+	local outer = reactive.current_owner()
+	local entries = {} ---@type table<any, { id: integer, owner: table }>
+	local order = {} ---@type any[]
+
+	local function create(item, index, next_id)
+		local id = view:next_id()
+		view.commands:create(id, DISPLAY.contents)
+		view.commands:insert(group, id, next_id)
+		local _, owner = scope(function()
+			mount(view, render(item, index), id)
+		end, outer)
+		return { id = id, owner = owner }
+	end
+
+	effect(function()
+		local items = list()
+		local keys, wanted = {}, {}
+		for i, item in ipairs(items) do
+			local key = key_of(item)
+			assert(not wanted[key], ("`each` got the key %s twice"):format(tostring(key)))
+			keys[i], wanted[key] = key, true
+		end
+
+		-- Whatever left the list goes first, so what remains can be compared.
+		local remaining = {}
+		for _, key in ipairs(order) do
+			if wanted[key] then
+				remaining[#remaining + 1] = key
+			else
+				reactive.dispose(entries[key].owner)
+				view.commands:remove(entries[key].id)
+				entries[key] = nil
+			end
+		end
+
+		-- Walk both orders. Items already in sequence need no command at all.
+		local placed = {}
+		local cursor = 1
+		local function current()
+			while remaining[cursor] ~= nil and placed[remaining[cursor]] do
+				cursor = cursor + 1
+			end
+			return remaining[cursor]
+		end
+
+		untrack(function()
+			for i, key in ipairs(keys) do
+				local expected = current()
+				if key == expected then
+					cursor = cursor + 1
+				else
+					local next_id = expected ~= nil and entries[expected].id or nil
+					if entries[key] then
+						view.commands:insert(group, entries[key].id, next_id)
+					else
+						entries[key] = create(items[i], i, next_id)
+					end
+				end
+				placed[key] = true
+			end
+		end)
+
+		order = keys
+		view:request_commit()
+	end)
+end
+
+--- Renders `render(item, index)` for each item of `list()`, keeping the UI of
+--- items that stay. Items are their own key unless `opts.key` says otherwise.
+---@generic T
+---@param list fun(): T[]
+---@param render fun(item: T, index: integer): any
+---@param opts? { key?: fun(item: T): any }
+function M.each(list, render, opts)
+	return element(Each, { list = list, render = render, key = opts and opts.key })
+end
+
+return M

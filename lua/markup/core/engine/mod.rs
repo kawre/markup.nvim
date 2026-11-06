@@ -47,7 +47,7 @@ impl Engine {
             tree,
             root,
             width,
-            lines: Vec::new(),
+            lines: vec![Line::default()],
         }
     }
 
@@ -113,7 +113,8 @@ impl Engine {
         timings.layout = elapsed_ms(started);
 
         let started = Instant::now();
-        let lines = paint::paint(&self.tree, self.root, size.height);
+        // A buffer always has a line, so a frame does too.
+        let lines = paint::paint(&self.tree, self.root, size.height.max(1));
         timings.paint = elapsed_ms(started);
 
         let started = Instant::now();
@@ -200,11 +201,26 @@ mod tests {
         block(&mut engine, 2, ROOT, "one");
         block(&mut engine, 3, ROOT, "two");
         assert_eq!(patched_lines(&mut engine), 2);
+        assert_eq!(patched_lines(&mut engine), 0);
 
         let text = "ONE".to_string();
         engine.apply(Command::SetText { id: 1002, text, width: 3 }).unwrap();
         assert_eq!(patched_lines(&mut engine), 1);
         assert_eq!(patched_lines(&mut engine), 0);
+    }
+
+    #[test]
+    fn an_empty_tree_keeps_one_line() {
+        let mut engine = Engine::new(20);
+        block(&mut engine, 2, ROOT, "one");
+        engine.render(|_, _| ());
+        engine.apply(Command::Clear { id: ROOT }).unwrap();
+
+        let lines = engine.render(|patches, _| {
+            patches.iter().map(|p| (p.first, p.last, p.lines.len())).collect::<Vec<_>>()
+        });
+
+        assert_eq!(lines, vec![(0, 1, 1)]);
     }
 
     #[test]

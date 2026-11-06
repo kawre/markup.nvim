@@ -5,7 +5,7 @@
 local M = {}
 
 ---@class markup.global
----@field core markup
+---@field core markup.core
 ---@field collection markup.collection
 ---@field log markup.logger
 ---@field util markup.util
@@ -24,7 +24,7 @@ local M = {}
 ---@field object markup.object
 ---@field singleton markup.singleton
 ---@field parser markup.parser
-_G.Markup = setmetatable({ core = M, renderers = {} }, {
+_G.Markup = setmetatable({ renderers = {} }, {
 	__index = function(t, k)
 		t[k] = require("markup." .. k)
 		return rawget(t, k)
@@ -32,6 +32,24 @@ _G.Markup = setmetatable({ core = M, renderers = {} }, {
 })
 
 M.hooks = require("markup.reconciler.hooks")
+
+local reactive = require("markup.reactive")
+M.signal = reactive.signal
+M.memo = reactive.memo
+M.effect = reactive.effect
+M.untrack = reactive.untrack
+M.on_cleanup = reactive.on_cleanup
+M.provide = reactive.provide
+M.inject = reactive.inject
+
+function M.show(...)
+	return require("markup.view.mount").show(...)
+end
+
+function M.each(...)
+	return require("markup.view.mount").each(...)
+end
+
 setmetatable(M, { ---@diagnostic disable-line: param-type-mismatch
 	__call = function(_, ...)
 		return Markup.factory.element(...)
