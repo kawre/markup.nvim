@@ -59,6 +59,7 @@ fn position(tree: &mut Tree, index: Index) {
             exact_width,
             exact_height,
             intrinsic: exact_width.is_none(),
+            fit: exact_width.is_none(),
         },
     );
 

@@ -51,9 +51,14 @@ impl Axis {
 
     /// Asks for an item's natural size.
     fn natural(self, space: Space) -> Constraints {
-        Constraints {
-            height: if self.column { space.height } else { None },
-            ..Constraints::intrinsic(space.width)
+        if self.column {
+            // Height depends on wrapping, which depends on the width here.
+            Constraints {
+                height: space.height,
+                ..Constraints::fit_content(space.width)
+            }
+        } else {
+            Constraints::intrinsic(space.width)
         }
     }
 
@@ -66,6 +71,7 @@ impl Axis {
                 exact_width: cross,
                 exact_height: Some(main),
                 intrinsic: cross.is_none(),
+                fit: cross.is_none(),
             }
         } else {
             Constraints {
@@ -74,6 +80,7 @@ impl Axis {
                 exact_width: Some(main),
                 exact_height: cross,
                 intrinsic: false,
+                fit: false,
             }
         }
     }
@@ -647,6 +654,30 @@ mod tests {
         assert_eq!(tree.node(b).geometry.y, 1);
         assert_eq!(tree.node(b).geometry.outer.height, 7);
         assert_eq!(width(&tree, a), 10);
+    }
+
+    #[test]
+    fn columns_count_the_rows_of_wrapped_text() {
+        let mut tree = Tree::default();
+        let (a, b) = (item(&mut tree, 1, "aaaa bbbb cccc"), item(&mut tree, 2, "end"));
+        let root = row(&mut tree, &[a, b]);
+        tree.node_mut(root).style.extra_mut().direction = Direction::Column;
+
+        assert_eq!(measure(&mut tree, root, 5).height, 4);
+        assert_eq!(tree.node(b).geometry.y, 3);
+    }
+
+    #[test]
+    fn centered_column_items_wrap_at_the_container() {
+        let mut tree = Tree::default();
+        let a = item(&mut tree, 1, "aaaa bbbb cccc");
+        let root = row(&mut tree, &[a]);
+        let extra = tree.node_mut(root).style.extra_mut();
+        extra.direction = Direction::Column;
+        extra.align = Align::Center;
+
+        assert_eq!(measure(&mut tree, root, 5).height, 3);
+        assert!(tree.node(a).geometry.outer.width <= 5);
     }
 
     #[test]
