@@ -1,4 +1,4 @@
-use crate::prelude::*;
+use crate::{prelude::*, util};
 use mlua::prelude::*;
 use std::cell::RefCell;
 use std::future::pending;
@@ -7,21 +7,18 @@ use std::rc::Rc;
 type RootProps = Rc<LuaRegistryKey>;
 type FunctionProps = Rc<LuaRegistryKey>;
 
-#[derive(Debug, PartialEq, Default)]
-pub struct Node {}
-
 #[derive(Debug)]
 pub enum FiberKind {
-    Root(LuaRegistryKey),
+    Root(RootFiber),
     Element(ElementFiber),
-    Text(String),
+    Text(TextFiber),
     Function(LuaRegistryKey),
     Context(ContextFiber),
     Fragment(LuaRegistryKey),
 }
 
 pub type FiberRef = Rc<RefCell<Fiber>>;
-pub type FiberStateNode = Rc<Node>;
+pub type FiberStateNode = Option<usize>;
 
 #[derive(Debug)]
 pub struct Fiber {
@@ -38,10 +35,42 @@ pub struct Fiber {
 
 #[derive(Debug)]
 pub struct ElementFiber {
-    pub memoized_props: Option<MemoizedProps>,
+    pub memoized_props: Option<LuaRegistryKey>,
     pub pending_props: LuaRegistryKey,
     pub element_tag: String,
-    pub state_node: Option<FiberStateNode>,
+    pub state_node: FiberStateNode,
+}
+
+#[derive(Debug)]
+pub struct TextFiber {
+    pub state_node: FiberStateNode,
+    pub pending_content: Option<String>,
+    pub memoized_content: Option<String>,
+}
+
+#[derive(Debug)]
+pub struct RootFiber {
+    pub state_node: FiberStateNode,
+    pub element: LuaRegistryKey,
+}
+
+impl PartialEq<String> for TextFiber {
+    fn eq(&self, other: &String) -> bool {
+        match &self.pending_content {
+            Some(content) => content == other,
+            None => false,
+        }
+    }
+}
+
+impl PartialEq for TextFiber {
+    fn eq(&self, other: &Self) -> bool {
+        match (&self.pending_content, &other.memoized_content) {
+            (Some(a), Some(b)) => a == b,
+            (None, None) => true,
+            _ => false,
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -53,7 +82,7 @@ pub struct ContextFiber {
 impl Fiber {
     pub fn new(kind: FiberKind) -> Self {
         Fiber {
-            id: 0,
+            id: util::gen_id(),
             key: None,
             kind,
             child: None,
@@ -76,7 +105,10 @@ impl Fiber {
             .create_registry_value(props_table)
             .expect("Failed to create registry key for props");
 
-        let kind = FiberKind::Root(key);
+        let kind = FiberKind::Root(RootFiber {
+            state_node: None,
+            element: key,
+        });
 
         Fiber::new(kind)
     }
@@ -148,7 +180,12 @@ impl From<Element> for Fiber {
     fn from(element: Element) -> Self {
         match element.kind {
             ElementKind::Text(str) => {
-                let kind = FiberKind::Text(str);
+                let kind = FiberKind::Text(TextFiber {
+                    state_node: None,
+                    pending_content: Some(str),
+                    memoized_content: None,
+                });
+
                 Fiber::new(kind)
             }
             ElementKind::Element(tag, props) => {
@@ -172,11 +209,24 @@ impl From<Element> for Fiber {
     }
 }
 
+pub enum KindTag {
+    Root,
+    Element,
+    Text,
+    Function,
+    Context,
+    Fragment,
+}
+
 impl Fiber {
     pub fn from_child(lua: &Lua, child: ElementChild) -> Self {
         match child {
             ElementChild::Text(str) => {
-                let kind = FiberKind::Text(str);
+                let kind = FiberKind::Text(TextFiber {
+                    state_node: None,
+                    pending_content: Some(str),
+                    memoized_content: None,
+                });
                 Fiber::new(kind)
             }
             ElementChild::Table(key) => {
@@ -191,54 +241,97 @@ impl Fiber {
             }
         }
     }
-}
 
-/// Print the fiber tree structure recursively with indentation
-pub fn print_fiber_tree(fiber: &FiberRef, indent: usize) {
-    let indent_str = "  ".repeat(indent);
-
-    let (fiber_type, fiber_id, fiber_flags, has_children) = {
-        let fiber_borrow = fiber.borrow();
-        let fiber_type = match &fiber_borrow.kind {
-            FiberKind::Root(_) => "Root".to_string(),
-            FiberKind::Element(ef) => format!("Element({})", ef.element_tag),
-            FiberKind::Text(text) => format!("Text({})", text),
-            FiberKind::Function(_) => "Function".to_string(),
-            FiberKind::Context(_) => "Context".to_string(),
-            FiberKind::Fragment(_) => "Fragment".to_string(),
-        };
-        (
-            fiber_type,
-            fiber_borrow.id,
-            fiber_borrow.flags,
-            fiber_borrow.child.is_some(),
-        )
-    };
-
-    println!(
-        "{}├─ {} [id: {}, flags: {:?}]",
-        indent_str, fiber_type, fiber_id, fiber_flags
-    );
-
-    // Print children recursively
-    if has_children {
-        let child = fiber.borrow().child.clone();
-        if let Some(child_fiber) = child {
-            print_fiber_tree(&child_fiber, indent + 1);
-
-            // Print siblings
-            let mut current_sibling = child_fiber.borrow().sibling.clone();
-            while let Some(sibling) = current_sibling {
-                print_fiber_tree(&sibling, indent + 1);
-                current_sibling = sibling.borrow().sibling.clone();
-            }
+    pub fn get_kind_tag(&self) -> KindTag {
+        match &self.kind {
+            FiberKind::Root(_) => KindTag::Root,
+            FiberKind::Element(_) => KindTag::Element,
+            FiberKind::Text(_) => KindTag::Text,
+            FiberKind::Function(_) => KindTag::Function,
+            FiberKind::Context(_) => KindTag::Context,
+            FiberKind::Fragment(_) => KindTag::Fragment,
         }
     }
 }
 
+/// Print the fiber tree structure recursively with indentation
+pub fn print_fiber_tree(fiber: &FiberRef, out: &mut String, depth: usize, prefix: &str) {
+    let f = fiber.borrow();
+
+    // Decide branch marker
+    let has_child_or_sibling = f.child.is_some() || f.sibling.is_some();
+    let mark = if has_child_or_sibling {
+        "├╴"
+    } else {
+        "└╴"
+    };
+    let indent = if depth > 0 {
+        format!("{}{}", prefix, mark)
+    } else {
+        prefix.to_string()
+    };
+
+    // Tag text
+    let mut entry = String::new();
+    match &f.kind {
+        FiberKind::Fragment(_) => {
+            entry.push_str(&format!(" {:?}", f.kind));
+        }
+        FiberKind::Root(_) => {
+            entry.push_str(" fiber root");
+        }
+        FiberKind::Text(text) => {
+            entry.push_str(&format!(
+                "#[{}]",
+                text.pending_content.clone().unwrap_or("".to_string())
+            ));
+        }
+        FiberKind::Function(_) => {
+            entry.push_str("󰊕 Component");
+        }
+        FiberKind::Context(_) => {
+            entry.push_str("󰨾 context");
+        }
+        FiberKind::Element(el) => {
+            entry.push_str(&format!(" element({:?})", el.element_tag));
+            // if let Some(children) = f.memoized_props.children_as_str() {
+            //     entry.push(' ');
+            //     entry.push_str(&format!("#[{}]", children));
+            // }
+        }
+    }
+
+    if let Some(key) = &f.key {
+        entry.push_str(&format!(" [key = {}]", key));
+    }
+
+    // Always print ID
+    entry.push_str(&format!("  {}", f.id));
+
+    // Add this line to the output
+    out.push_str(&format!("{}{}\n", indent, entry));
+
+    drop(f); // release borrow before recursion
+
+    // Traverse child
+    if let Some(child) = fiber.borrow().child.clone() {
+        let new_prefix = if depth > 0 {
+            format!("{}│ ", prefix)
+        } else {
+            String::new()
+        };
+        print_fiber_tree(&child, out, depth + 1, &new_prefix);
+    }
+
+    // Traverse sibling
+    if let Some(sibling) = fiber.borrow().sibling.clone() {
+        print_fiber_tree(&sibling, out, depth, prefix);
+    }
+}
+
 /// Print the complete fiber tree starting from the root
-pub fn print_complete_fiber_tree(root: &FiberRef) {
-    println!("\n=== FIBER TREE STRUCTURE ===");
-    print_fiber_tree(root, 0);
-    println!("=== END FIBER TREE ===\n");
+pub fn print_complete_fiber_tree(root: &FiberRef) -> String {
+    let mut out = String::new();
+    print_fiber_tree(root, &mut out, 0, "");
+    out
 }

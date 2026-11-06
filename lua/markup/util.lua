@@ -300,4 +300,12 @@ function M.win_get_renderer(id)
 	end
 end
 
+function M.text_to_chunks(text)
+	local chunks = {}
+	for chunk in vim.gsplit(text, "%s+") do
+		table.insert(chunks, { chunk = chunk, display_width = vim.fn.strdisplaywidth(chunk) })
+	end
+	return chunks
+end
+
 return M
