@@ -30,6 +30,8 @@ local MAX_ROUNDS = 100
 local owner ---@type markup.reactive.owner?
 local observer ---@type markup.reactive.computation?
 
+local counts = { effects = 0, memos = 0, scopes = 0, signals = 0, runs = 0, flushes = 0 }
+
 local queue, queue_len = {}, 0
 local queued = {} ---@type table<markup.reactive.computation, boolean>
 local jobs, job_order = {}, {}
@@ -50,7 +52,17 @@ local function schedule()
 	end
 end
 
+--- Which live counter an owner belongs to.
+local function kind_of(target)
+	if target.memo then
+		return "memos"
+	end
+	return target.fn and "effects" or "scopes"
+end
+
 local function adopt(child, parent)
+	local kind = kind_of(child)
+	counts[kind] = counts[kind] + 1
 	child.parent = parent
 	if parent then
 		parent.children = parent.children or {}
@@ -94,6 +106,8 @@ function M.dispose(target)
 		return
 	end
 	target.disposed = true
+	local kind = kind_of(target)
+	counts[kind] = counts[kind] - 1
 	if target.parent and target.parent.children then
 		target.parent.children[target] = nil
 	end
@@ -131,6 +145,7 @@ local function notify(source)
 end
 
 local function run(computation)
+	counts.runs = counts.runs + 1
 	reset(computation)
 	clear_deps(computation)
 
@@ -149,6 +164,7 @@ end
 ---@return fun(value?: T|fun(previous: T): T): T
 function M.signal(initial)
 	local source = { value = initial, subs = {} }
+	counts.signals = counts.signals + 1
 
 	return function(...)
 		if select("#", ...) == 0 then
@@ -296,8 +312,16 @@ function M.flush()
 	flush()
 end
 
+--- Live effects, memos and scopes, plus totals since startup. Signals have no
+--- owner, so `signals` counts every one ever created.
+---@return { effects: integer, memos: integer, scopes: integer, signals: integer, runs: integer, flushes: integer }
+function M.stats()
+	return vim.deepcopy(counts)
+end
+
 flush = function()
 	scheduled = false
+	counts.flushes = counts.flushes + 1
 
 	local rounds = 0
 	while queue_len > 0 do

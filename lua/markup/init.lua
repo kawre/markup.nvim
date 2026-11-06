@@ -24,7 +24,7 @@ local M = {}
 ---@field object markup.object
 ---@field singleton markup.singleton
 ---@field parser markup.parser
-_G.Markup = setmetatable({ renderers = {} }, {
+_G.Markup = setmetatable({ renderers = {}, views = setmetatable({}, { __mode = "k" }) }, {
 	__index = function(t, k)
 		t[k] = require("markup." .. k)
 		return rawget(t, k)

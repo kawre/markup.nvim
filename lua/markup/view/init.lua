@@ -31,6 +31,7 @@ local MARK = { end_col = 0, hl_group = "", hl_mode = "combine", hl_eol = true }
 ---@param win markup.window
 function M:new(win)
 	self.win = win
+	Markup.views[self] = true
 	self.ns = api.nvim_create_namespace(("markup_view_[%s]"):format(win.id))
 	self.engine = Markup.core.create_engine(api.nvim_win_get_width(win.win))
 	self.commands = protocol.commands()
@@ -95,6 +96,32 @@ function M:unmount()
 		self.owner = nil
 	end
 	self.commands:clear(protocol.ROOT)
+end
+
+--- Stops everything and forgets the view. The window is left to its owner.
+function M:destroy()
+	self:unmount()
+	self:commit()
+	Markup.views[self] = nil
+end
+
+--- The view shown in a window, or the first one in the current tab.
+---@param win? integer
+---@return markup.view?
+function M.find(win)
+	win = win or api.nvim_get_current_win()
+	local tab_wins = api.nvim_tabpage_list_wins(0)
+	local in_tab
+	for view in pairs(Markup.views) do
+		local id = view.win.win
+		if id == win then
+			return view
+		end
+		if not view.devtool and vim.tbl_contains(tab_wins, id) then
+			in_tab = in_tab or view
+		end
+	end
+	return in_tab
 end
 
 --- Sends pending commands and applies the resulting patches.

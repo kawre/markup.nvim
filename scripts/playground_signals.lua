@@ -9,6 +9,7 @@
 --   <CR> o l  toggle or expand        h    collapse, or jump to parent
 --   E         expand everything       C    collapse everything
 --   b         run the benchmark       + / -  double or halve nodes
+--   I         toggle the inspector, or use `:Markup inspect`
 
 local m = require("markup")
 local reactive = require("markup.reactive")
@@ -404,6 +405,9 @@ local bindings = {
 	end,
 	b = function()
 		vim.schedule(benchmark)
+	end,
+	I = function()
+		vim.cmd("Markup inspect")
 	end,
 	["+"] = function()
 		resize(2)
