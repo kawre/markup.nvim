@@ -25,16 +25,21 @@ function M.open()
 	})
 	M.inspect:map(buf)
 
+	local function run()
+		local ok, err = pcall(M.run)
+		if not ok then
+			Markup.log.error(err)
+		end
+	end
+
 	vim.api.nvim_create_autocmd("BufWritePost", {
+		buffer = buf,
 		callback = function()
-			vim.schedule(function()
-				local ok, err = pcall(M.run)
-				if not ok then
-					Markup.log.error(err)
-				end
-			end)
+			vim.schedule(run)
 		end,
 	})
+
+	vim.schedule(run)
 end
 
 function M.run()
