@@ -1,15 +1,20 @@
 local path = vim.fn.stdpath("data") .. "/markup/lua/playground"
-local file = path .. "/init.lua"
 
 ---@class markup.playground
 local M = {}
 
----@param opts? { inspect?: boolean } set `inspect = false` to skip the inspector
+---@class markup.playground.opts
+---@field inspect? boolean set to `false` to skip the inspector
+---@field view? boolean render with `Markup.view` instead of the old renderer
+---@field file? string file in the playground folder, `init.lua` by default
+
+---@param opts? markup.playground.opts
 function M.open(opts)
 	opts = opts or {}
+	M.file = path .. "/" .. (opts.file or "init.lua")
 
 	vim.fn.mkdir(path, "p")
-	vim.cmd.tabe(file)
+	vim.cmd.tabe(M.file)
 	vim.cmd.tcd(path)
 	local buf = vim.api.nvim_get_current_buf()
 
@@ -18,10 +23,10 @@ function M.open(opts)
 		relative = "win",
 		position = "bottom",
 	})
-	M.preview = Markup.renderer(win)
+	M.preview = opts.view and Markup.view(win) or Markup.renderer(win)
 
 	M.inspect = nil
-	if opts.inspect ~= false then
+	if opts.inspect ~= false and not opts.view then
 		M.inspect = Markup.devkit.inspect({
 			win = M.preview.win.win,
 			relative = "editor",
@@ -49,7 +54,7 @@ function M.open(opts)
 end
 
 function M.run()
-	vim.cmd("luafile " .. file)
+	vim.cmd("luafile " .. M.file)
 end
 
 return M

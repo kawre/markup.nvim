@@ -278,6 +278,22 @@ T["show"]["frees engine nodes when unmounted"] = function()
 	eq(child.lua_get("view.engine:node_count() == base"), true)
 end
 
+T["show"]["relayouts through nested groups"] = function()
+	run([[
+		open = m.signal(false)
+		local Inner = m.component(function()
+			return m.show(open, m.block("inner"))
+		end)
+		local Outer = m.component(function()
+			return Inner()
+		end)
+		view:render(m.block({ m.block("top"), Outer(), m.block("bottom") }))
+		open(true)
+		reactive.flush()
+	]])
+	eq(lines(), { "top", "inner", "bottom" })
+end
+
 T["show"]["nests"] = function()
 	run([[
 		outer, inner = m.signal(true), m.signal(false)
