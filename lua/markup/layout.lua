@@ -499,11 +499,11 @@ function M:close(opts)
 	opts = opts or {}
 	self.closed = true
 	for w, win in pairs(self.wins) do
-		if opts.wins == false then
-			win.opts = self.win_opts[w]
-		else
+		if opts.wins ~= false then
 			win:destroy()
 		end
+		-- Windows go back to their own options, so another layout can use them.
+		win.opts = self.win_opts[w]
 	end
 	for _, win in pairs(self.box_wins) do
 		win:destroy()
