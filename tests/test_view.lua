@@ -1528,6 +1528,19 @@ T["fixed"]["the width can be tracked"] = function()
 	eq(child.lua_get("seen[#seen]"), 30)
 end
 
+T["fixed"]["the width is known once a hidden window opens"] = function()
+	child.lua([[
+		vim.cmd("vnew")
+		hidden = Markup.window({ position = "right", width = 30, show = false, enter = false })
+		late = Markup.view(hidden)
+		late:render(m.block("x"))
+		reactive.flush()
+		hidden:show()
+		reactive.flush()
+	]])
+	eq(child.lua_get("late:columns()"), child.lua_get("vim.api.nvim_win_get_width(hidden.win)"))
+end
+
 T["fixed"]["scrolling can be tracked"] = function()
 	overlay_view()
 	child.lua([[
