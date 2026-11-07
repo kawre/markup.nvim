@@ -150,13 +150,14 @@ pub fn measure(tree: &mut Tree, index: Index, constraints: Constraints) -> Size 
     let edges_y = style.margin.vertical() + style.inner().vertical();
     let width = style.width;
     let clip = extra.clip;
+    let clip_x = extra.clip_x;
     let (min_width, max_width) = (extra.min_width, extra.max_width);
     let (min_height, max_height) = (extra.min_height, extra.max_height);
 
     let mut content = strategy(display).arrange(tree, index, space);
 
     // As with CSS, what overflows a clipping box does not widen what holds it.
-    if clip {
+    if clip || clip_x {
         content.width = content.width.min(space.width);
     }
 

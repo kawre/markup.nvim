@@ -98,6 +98,8 @@ struct Row<'a> {
     segments: Vec<Segment<'a>>,
     ranges: Vec<(i32, i32, u32)>,
     spans: Vec<(i32, i32)>,
+    /// Columns a clipping ancestor leaves visible, for what comes next.
+    clip: Option<std::ops::Range<i32>>,
 }
 
 impl<'a> Row<'a> {
@@ -106,14 +108,37 @@ impl<'a> Row<'a> {
         let leading = text.len() - text.trim_start_matches(' ').len();
         let trailing = text.len() - text.trim_end_matches(' ').len();
         if leading < text.len() {
-            self.spans.push((cell + leading as i32, cell + width - trailing as i32));
+            let (start, end) = self.clipped(cell + leading as i32, cell + width - trailing as i32);
+            if start < end {
+                self.spans.push((start, end));
+            }
         }
 
         self.write(cell, text, width, cells);
     }
 
+    fn clipped(&self, from: i32, to: i32) -> (i32, i32) {
+        self.clip.as_ref().map_or((from, to), |clip| (from.max(clip.start), to.min(clip.end)))
+    }
+
+    fn add_range(&mut self, from: i32, to: i32, hl: u32) {
+        let (from, to) = self.clipped(from, to);
+        if from < to {
+            self.ranges.push((from, to, hl));
+        }
+    }
+
     fn write(&mut self, cell: i32, text: Cow<'a, str>, width: i32, cells: Cow<'a, [u8]>) {
-        let segment = Segment { cell, width, text, cells };
+        let mut segment = Segment { cell, width, text, cells };
+
+        let (from, to) = self.clipped(cell, cell + width);
+        if from >= to {
+            return;
+        }
+        if from > cell || to < cell + width {
+            segment = segment.slice(from, to);
+        }
+        let (cell, width) = (from, to - from);
 
         // Normal flow runs left to right and always takes this path.
         if self.segments.last().is_none_or(|last| last.end() <= cell) {
@@ -258,17 +283,22 @@ struct Painter<'a> {
     pending: Vec<Index>,
     /// Rows a clipping ancestor leaves visible.
     visible: std::ops::Range<i32>,
+    /// Columns a clipping ancestor leaves visible.
+    columns: Option<std::ops::Range<i32>>,
     /// Where containing blocks ended up, only tracked when something needs it.
     origins: HashMap<Index, (i32, i32)>,
 }
 
 impl<'a> Painter<'a> {
     fn row(&mut self, row: i32) -> Option<&mut Row<'a>> {
-        if self.visible.contains(&row) {
-            self.rows.get_mut(row as usize)
-        } else {
-            None
+        if !self.visible.contains(&row) {
+            return None;
         }
+
+        let columns = self.columns.clone();
+        let line = self.rows.get_mut(row as usize)?;
+        line.clip = columns;
+        Some(line)
     }
 
     fn visit(&mut self, index: Index, x: i32, y: i32) {
@@ -337,7 +367,7 @@ impl<'a> Painter<'a> {
             for fragment in fragments {
                 if let Some(row) = self.row(y + fragment.y) {
                     let left = x + fragment.x;
-                    row.ranges.push((left, left + fragment.width, style.hl));
+                    row.add_range(left, left + fragment.width, style.hl);
                 }
             }
         } else if style.hl != 0 {
@@ -352,7 +382,7 @@ impl<'a> Painter<'a> {
             }
             for row in top..bottom {
                 if let Some(row) = self.row(row) {
-                    row.ranges.push((left, right, style.hl));
+                    row.add_range(left, right, style.hl);
                 }
             }
         }
@@ -375,6 +405,16 @@ impl<'a> Painter<'a> {
             self.visible = self.visible.start.max(y)..self.visible.end.min(bottom);
         }
 
+        let outer_columns = self.columns.clone();
+        if style.extra().clip_x {
+            let left = x + margin.left;
+            let right = left + padding.horizontal() + geometry.content.width;
+            self.columns = Some(match &self.columns {
+                Some(columns) => columns.start.max(left)..columns.end.min(right),
+                None => left..right,
+            });
+        }
+
         let content_x = x + margin.left + padding.left;
         let content_y = y + margin.top + padding.top;
         for &child in &node.children {
@@ -382,6 +422,7 @@ impl<'a> Painter<'a> {
         }
 
         self.visible = outer_visible;
+        self.columns = outer_columns;
 
         // Painted last, so rows stay in order and take the fast path.
         if let Some(frame) = &frame {
@@ -393,7 +434,7 @@ impl<'a> Painter<'a> {
         if let Some(line) = self.row(row) {
             line.write(cell, Cow::Owned(text), width, Cow::Borrowed(&[]));
             if hl != 0 {
-                line.ranges.push((cell, cell + width, hl));
+                line.add_range(cell, cell + width, hl);
             }
         }
     }
@@ -468,6 +509,7 @@ pub fn paint(tree: &Tree, root: Index, height: i32) -> Vec<Line> {
         rows: (0..height.max(0)).map(|_| Row::default()).collect(),
         pending: Vec::new(),
         visible: 0..height.max(0),
+        columns: None,
         origins: HashMap::new(),
     };
 
@@ -738,7 +780,7 @@ mod tests {
         let row = Row {
             segments: Vec::new(),
             ranges: vec![(-9, 4, 1), (-5, -2, 2)],
-            spans: Vec::new(),
+            ..Row::default()
         };
 
         let line = row.finish();
@@ -755,6 +797,48 @@ mod tests {
         row.write(14, Cow::Borrowed("edge"), 4, Cow::Borrowed(&[]));
 
         assert_eq!(row.finish().spans, vec![(4, 6)]);
+    }
+
+    #[test]
+    fn clipping_columns_cuts_text_marks_and_spans() {
+        let mut row = Row { clip: Some(2..5), ..Row::default() };
+        row.write_text(0, Cow::Borrowed("abcdefgh"), 8, Cow::Borrowed(&[]));
+        row.add_range(0, 8, 3);
+        row.write_text(6, Cow::Borrowed("zz"), 2, Cow::Borrowed(&[]));
+
+        let line = row.finish();
+
+        assert_eq!(line.text, "  cde");
+        assert_eq!(line.spans, vec![(2, 5)]);
+        assert_eq!((line.marks[0].start, line.marks[0].end), (2, 5));
+    }
+
+    #[test]
+    fn clipping_columns_blanks_half_of_a_wide_character() {
+        let mut row = Row { clip: Some(1..3), ..Row::default() };
+        row.write(0, Cow::Borrowed("你好"), 4, Cow::Borrowed(&[2, 2]));
+
+        // The column before the clip, and a blank for each half that remains.
+        assert_eq!(row.finish().text, "   ");
+    }
+
+    #[test]
+    fn moved_content_shows_only_inside_a_clipping_box() {
+        let mut tree = Tree::default();
+        let value = text(&mut tree, 1, "abcdef", 6);
+        let inner = tree.create(2, Display::Block).unwrap();
+        tree.insert(inner, value, None).unwrap();
+        let style = &mut tree.node_mut(inner).style;
+        style.extra_mut().position = crate::engine::style::Position::Relative;
+        style.extra_mut().inset.left = Some(-2);
+
+        let clipped = tree.create(3, Display::Block).unwrap();
+        tree.insert(clipped, inner, None).unwrap();
+        tree.node_mut(clipped).style.extra_mut().clip_x = true;
+        let root = tree.create(4, Display::Block).unwrap();
+        tree.insert(root, clipped, None).unwrap();
+
+        assert_eq!(texts(&render(&mut tree, root)), vec!["cdef"]);
     }
 
     #[test]

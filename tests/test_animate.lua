@@ -409,6 +409,187 @@ T["collapse"]["works with reduced motion"] = function()
 	eq(get("lines()"), { "top", "a", "b", "c", "d", "end" })
 end
 
+T["slide"] = new_set()
+
+local function slide(initial)
+	run(([[
+		page, mounts, unmounts = m.signal(%q), 0, 0
+		view:render(m.block({
+			m.block("top"),
+			m.slide(page, function(key)
+				mounts = mounts + 1
+				reactive.on_cleanup(function() unmounts = unmounts + 1 end)
+				return m.block(key)
+			end, {
+				duration = 100,
+				forward = function(_, to) return to == "next" end,
+			}),
+		}))
+		reactive.flush()
+	]]):format(initial))
+end
+
+T["slide"]["starts on its page without moving"] = function()
+	slide("home")
+	eq(get("lines()"), { "top", "home" })
+	eq(get("animate.running()"), false)
+	eq(get("mounts"), 1)
+end
+
+T["slide"]["moves the new page in from the right"] = function()
+	slide("home")
+	run([[
+		page("next")
+		reactive.flush()
+		animate.tick(50)
+		reactive.flush()
+		reactive.flush()
+		mid = lines()[2]
+		animate.tick(100)
+		reactive.flush()
+		reactive.flush()
+	]])
+	eq(get("mid:find('next', 1, true) ~= nil"), true)
+	eq(get("mid:find('home', 1, true)"), vim.NIL)
+	eq(get("lines()"), { "top", "next" })
+end
+
+T["slide"]["unmounts the page that left"] = function()
+	slide("home")
+	run([[
+		before = view.engine:node_count()
+		page("next")
+		reactive.flush()
+		animate.tick(200)
+		reactive.flush()
+		reactive.flush()
+	]])
+	eq(get("mounts"), 2)
+	eq(get("unmounts"), 1)
+	eq(get("view.engine:node_count()"), get("before"))
+end
+
+T["slide"]["goes back the other way"] = function()
+	slide("next")
+	run([[
+		page("home")
+		reactive.flush()
+		animate.tick(50)
+		reactive.flush()
+		reactive.flush()
+		mid = lines()[2]
+		animate.tick(100)
+		reactive.flush()
+		reactive.flush()
+	]])
+	-- Coming from the left, the page starts at the first column.
+	eq(get("mid:find('next', 1, true) ~= nil or mid:find('home', 1, true) ~= nil"), true)
+	eq(get("lines()"), { "top", "home" })
+end
+
+T["slide"]["keeps content in the window while moving"] = function()
+	slide("home")
+	run([[
+		page("next")
+		reactive.flush()
+		width = vim.api.nvim_win_get_width(win.win)
+		widest = 0
+		for _ = 1, 8 do
+			animate.tick(13)
+			reactive.flush()
+			reactive.flush()
+			for _, line in ipairs(vim.api.nvim_buf_get_lines(win.buf, 0, -1, false)) do
+				widest = math.max(widest, vim.fn.strdisplaywidth(line))
+			end
+		end
+	]])
+	eq(get("widest <= width"), true)
+end
+
+T["slide"]["can change its mind midway"] = function()
+	slide("home")
+	run([[
+		page("next")
+		reactive.flush()
+		animate.tick(50)
+		reactive.flush()
+		page("home")
+		reactive.flush()
+		animate.tick(300)
+		reactive.flush()
+		reactive.flush()
+	]])
+	eq(get("lines()"), { "top", "home" })
+	eq(get("animate.running()"), false)
+end
+
+T["slide"]["works with reduced motion"] = function()
+	run("animate.enabled = false")
+	slide("home")
+	run([[page("next"); reactive.flush(); reactive.flush()]])
+	eq(get("lines()"), { "top", "next" })
+end
+
+T["slide"]["follows the width of the window"] = function()
+	slide("home")
+	run([[
+		view.width_cells(30)
+		reactive.flush()
+		reactive.flush()
+	]])
+	eq(get("view.engine:describe(1).outer_width > 0"), true)
+	eq(get("lines()"), { "top", "home" })
+end
+
+T["slide"]["returns the cursor to where it was"] = function()
+	run([[
+		page = m.signal("home")
+		rows = {}
+		for i = 1, 5 do rows[i] = m.block({ on_press = function() end, "row " .. i }) end
+		view = Markup.view(win, { snap = true })
+		view:render(m.slide(page, function(key)
+			return key == "home" and m.block(rows) or m.block({ on_press = function() end, "next" })
+		end, { duration = 100 }))
+		reactive.flush()
+		vim.api.nvim_win_set_cursor(win.win, { 4, 0 })
+		page("next")
+		reactive.flush()
+		animate.tick(200)
+		reactive.flush()
+		reactive.flush()
+		on_next = vim.api.nvim_win_get_cursor(win.win)[1]
+		page("home")
+		reactive.flush()
+		animate.tick(200)
+		reactive.flush()
+		reactive.flush()
+	]])
+	eq(get("on_next"), 1)
+	eq(get("vim.api.nvim_win_get_cursor(win.win)[1]"), 4)
+end
+
+T["overflow_x"] = function()
+	run([[
+		view:render(m.block({
+			width = 4,
+			overflow_x = "hidden",
+			m.block({ white_space = "nowrap", width = 10, "abcdefghij" }),
+		}))
+	]])
+	eq(get("lines()"), { "abcd" })
+end
+
+T["overflow keeps wide content readable"] = function()
+	run([[
+		view:render(m.block({
+			width = 4,
+			overflow = "hidden",
+			m.block({ white_space = "nowrap", width = 10, "abcdefghij" }),
+		}))
+	]])
+	eq(get("lines()"), { "abcdefghij" })
+end
+
 T["progress"] = new_set()
 
 T["progress"]["has eighths of a cell of precision"] = function()
