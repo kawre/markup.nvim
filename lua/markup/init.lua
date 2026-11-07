@@ -154,7 +154,7 @@ function M.setup(opts)
 	Markup.config.user = Markup.config.merge(Markup.config.user, opts or {})
 	local animate = Markup.config.user.animate or {}
 	Markup.animate.vrr = animate.vrr ~= false
-	Markup.animate.set_fps(animate.fps or 30)
+	Markup.animate.set_fps(animate.fps or 60)
 	Markup.cmd.setup()
 end
 

@@ -563,8 +563,8 @@ T["options"]["a slider sets the frame rate"] = function()
 		for _ = 1, 20 do vim.cmd("normal h") end
 		bottom = Markup.animate.fps
 	]])
-	eq(child.lua_get("before"), 30)
-	eq(child.lua_get("up"), 60)
+	eq(child.lua_get("before"), 60)
+	eq(child.lua_get("up"), 75)
 	eq(child.lua_get("top == math.huge"), true)
 	eq(child.lua_get("top_line"):find("unlimited", 1, true) ~= nil, true)
 	eq(child.lua_get("bottom"), 15)
@@ -810,7 +810,7 @@ T["stress test"]["runs with the inspector open and closes with q"] = function()
 	]])
 	eq(child.lua_get("errors"), {})
 	eq(child.lua_get("frames") > 5, true)
-	eq(child.lua_get("Markup.animate.fps"), 30)
+	eq(child.lua_get("Markup.animate.fps"), 60)
 	eq(child.lua_get("tabs"), 2)
 	eq(child.lua_get("uncapped"), true)
 	eq(child.lua_get("#vim.api.nvim_list_tabpages()"), 1)
@@ -825,7 +825,7 @@ T["stress test"]["gives the frame rate back however its tab closes"] = function(
 		vim.cmd("tabclose")
 		vim.wait(50, function() return false end, 10)
 	]])
-	eq(child.lua_get("Markup.animate.fps"), 30)
+	eq(child.lua_get("Markup.animate.fps"), 60)
 end
 
 return T
