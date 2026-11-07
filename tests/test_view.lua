@@ -1071,6 +1071,39 @@ T["snap"]["scrolling is not undone"] = function()
 	eq(top_line() > 5, true)
 end
 
+T["snap"]["scrolls with the scrolloff people use"] = function()
+	child.o.scrolloff = 8
+	tall_view()
+	for _ = 1, 80 do
+		child.type_keys("j")
+	end
+	eq(child.lua_get("vim.fn.line('w$')"), 62)
+
+	for _ = 1, 80 do
+		child.type_keys("k")
+	end
+	eq(top_line(), 1)
+end
+
+T["snap"]["scrolling sticks with scrolloff"] = function()
+	child.o.scrolloff = 8
+	tall_view()
+	child.type_keys("<C-e>", "<C-e>", "<C-e>", "<C-e>")
+	eq(top_line(), 5)
+end
+
+T["snap"]["leaves the global scrolloff alone"] = function()
+	child.o.scrolloff = 8
+	tall_view()
+	-- `vim.o` reads the value in effect here, so the global one comes from `vim.go`.
+	eq(child.lua_get("vim.go.scrolloff"), 8)
+	eq(child.lua_get("vim.api.nvim_get_option_value('scrolloff', { scope = 'local', win = win.win })"), 0)
+
+	-- Another window still has the global value.
+	child.cmd("vnew")
+	eq(child.lua_get("vim.o.scrolloff"), 8)
+end
+
 T["snap"]["a page that fits does not scroll"] = function()
 	snap_view()
 	child.type_keys("j", "j", "j")

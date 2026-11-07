@@ -94,8 +94,22 @@ function M:new(win, opts)
 		self:update_hover()
 	end, { buf = true })
 
+	-- Snapping decides where the cursor sits, and `scrolloff` would push it off
+	-- its node near an edge, which turns every scroll into a tug of war. Only
+	-- this window gets 0, the global value stays.
+	local function release_scrolloff()
+		if opts.snap and win:win_valid() then
+			for _, name in ipairs({ "scrolloff", "sidescrolloff" }) do
+				-- Like `:setlocal`, since `vim.wo` would change the global value too.
+				api.nvim_set_option_value(name, 0, { scope = "local", win = win.win })
+			end
+		end
+	end
+	release_scrolloff()
+
 	-- A hidden window has no buffer yet, so the first frame waits for it.
 	win:on_show(function()
+		release_scrolloff()
 		self:attach()
 	end)
 	if win:valid() then
