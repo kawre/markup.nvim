@@ -221,6 +221,17 @@ T["colors"]["names return to the pool with their owner"] = function()
 	eq(get("first == second"), true)
 end
 
+T["colors"]["half block edges follow an animated highlight"] = function()
+	run([[
+		vim.api.nvim_set_hl(0, "Target", { bg = "#ffffff" })
+		hl = require("markup.view.hl")
+		name = animate.highlight({ bg = 0x000000 }, { bg = 0xffffff }, { duration = 100, link = "Target" })
+		edge = hl.edge(name)
+		animate.tick(100)
+	]])
+	eq(get("vim.api.nvim_get_hl(0, { name = edge }).fg"), 0xffffff)
+end
+
 T["hover"] = new_set()
 
 T["hover"]["follows the cursor"] = function()

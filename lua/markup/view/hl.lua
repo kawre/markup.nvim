@@ -66,6 +66,16 @@ vim.api.nvim_create_autocmd("ColorScheme", {
 	end,
 })
 
+--- Redraws the edge of a group whose colors just changed, such as an animated one.
+---@param group string
+function M.sync_edge(group)
+	for name, source in pairs(edges) do
+		if source == group then
+			define_edge(name, group)
+		end
+	end
+end
+
 --- A group drawing in the background color of `group`, for half block edges.
 ---@param group string
 ---@return string

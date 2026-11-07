@@ -155,6 +155,11 @@ pub fn measure(tree: &mut Tree, index: Index, constraints: Constraints) -> Size 
 
     let mut content = strategy(display).arrange(tree, index, space);
 
+    // As with CSS, what overflows a clipping box does not widen what holds it.
+    if clip {
+        content.width = content.width.min(space.width);
+    }
+
     let fills = display.fills_width() && width != Length::Fit && !constraints.intrinsic;
     if constraints.exact_width.is_some() {
         content.width = space.width;
@@ -264,6 +269,18 @@ mod tests {
         style.extra_mut().clip = true;
 
         assert_eq!(measure(&mut tree, root, 10).height, 1);
+    }
+
+    #[test]
+    fn clipped_nodes_do_not_grow_with_their_content() {
+        let mut tree = Tree::default();
+        let wide = element(&mut tree, 1, Display::Block, &[]);
+        tree.node_mut(wide).style.width = Length::Cells(50);
+        let clipped = element(&mut tree, 2, Display::Block, &[wide]);
+        tree.node_mut(clipped).style.extra_mut().clip = true;
+        let root = element(&mut tree, 3, Display::Block, &[clipped]);
+
+        assert_eq!(measure(&mut tree, root, 10).width, 10);
     }
 
     #[test]
