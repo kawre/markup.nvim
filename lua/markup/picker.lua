@@ -26,6 +26,7 @@ local api = vim.api
 ---@field width? integer 80 by default
 ---@field height? integer rows of the list, 15 by default
 ---@field empty? string shown when nothing matches
+---@field click? "single"|"double"|false which click picks a row, single by default
 
 ---@class markup.picker
 local M = {}
@@ -152,7 +153,7 @@ function M.open(opts)
 		zindex = 60,
 	})
 	list:show()
-	local view = Markup.view(list)
+	local view = Markup.view(list, { click = opts.click })
 
 	local ns = api.nvim_create_namespace("markup_picker")
 	local count_mark

@@ -1223,16 +1223,16 @@ end
 
 T["click"] = new_set()
 
-local function click_view()
-	child.lua([[
+local function click_view(mode)
+	child.lua(([[
 		pressed = nil
-		view = Markup.view(win)
+		view = Markup.view(win, { click = %s })
 		local function button(name)
 			return m.block({ name, width = "fit", on_press = function() pressed = name end })
 		end
 		view:render(m.block({ m.block("title"), button("one"), m.block(""), button("two") }))
 		reactive.flush()
-	]])
+	]]):format(mode == false and "false" or mode and ("%q"):format(mode) or "nil"))
 end
 
 --- Clicks a cell of the buffer, from zero, wherever its window is: twice, unless
@@ -1246,40 +1246,47 @@ local function click(row, col, times)
 	child.lua("vim.wait(20, function() return false end, 5)")
 end
 
-T["click"]["presses what is under the mouse"] = function()
+T["click"]["a single click presses by default"] = function()
 	click_view()
-	click(3, 1)
+	click(3, 1, 1)
 	eq(child.lua_get("pressed"), "two")
-	click(1, 0)
+	click(1, 0, 1)
 	eq(child.lua_get("pressed"), "one")
 end
 
-T["click"]["a single click only moves the cursor"] = function()
+T["click"]["anything else stays a click"] = function()
 	click_view()
+	click(0, 2, 1)
+	eq(child.lua_get("pressed"), vim.NIL)
+	eq(child.lua_get("vim.api.nvim_win_get_cursor(0)[1]"), 1)
+end
+
+T["click"]["a single click reaches a window without the focus"] = function()
+	click_view()
+	child.cmd("vnew")
+	click(3, 1, 1)
+	eq(child.lua_get("pressed"), "two")
+end
+
+T["click"]["with double, a single click only moves the cursor"] = function()
+	click_view("double")
 	click(3, 1, 1)
 	eq(child.lua_get("pressed"), vim.NIL)
 	eq(child.lua_get("vim.api.nvim_win_get_cursor(0)[1]"), 4)
 end
 
-T["click"]["a double click leaves no selection behind"] = function()
-	click_view()
-	click(3, 1)
+T["click"]["with double, a double click presses and selects nothing"] = function()
+	click_view("double")
+	click(3, 1, 2)
 	eq(child.lua_get("pressed"), "two")
 	eq(child.fn.mode(), "n")
 end
 
-T["click"]["anything else stays a click"] = function()
-	click_view()
-	click(0, 2)
+T["click"]["can be turned off"] = function()
+	click_view(false)
+	click(3, 1, 1)
+	click(3, 1, 2)
 	eq(child.lua_get("pressed"), vim.NIL)
-	eq(child.lua_get("vim.api.nvim_win_get_cursor(0)[1]"), 1)
-end
-
-T["click"]["reaches a window without the focus"] = function()
-	click_view()
-	child.cmd("vnew")
-	click(3, 1)
-	eq(child.lua_get("pressed"), "two")
 end
 
 T["click"]["picks a row of the picker"] = function()
