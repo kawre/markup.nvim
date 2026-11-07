@@ -306,8 +306,8 @@ impl Strategy for Grid {
 
             let inside = |align: Align, free: i32| match align {
                 Align::Start | Align::Stretch => 0,
-                Align::End => free,
-                Align::Center => free / 2,
+                Align::End => free.max(0),
+                Align::Center => free.max(0) / 2,
             };
 
             place(

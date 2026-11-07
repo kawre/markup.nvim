@@ -351,8 +351,9 @@ impl Strategy for Flex {
                 let free_cross = line.cross - axis.cross(outer);
                 let inside = match item.align {
                     Align::Start | Align::Stretch => 0,
-                    Align::End => free_cross,
-                    Align::Center => free_cross / 2,
+                    // Like CSS `safe`: a terminal has no column before the first.
+                    Align::End => free_cross.max(0),
+                    Align::Center => free_cross.max(0) / 2,
                 };
 
                 let main_at = if reverse {
@@ -539,6 +540,23 @@ mod tests {
             measure(&mut tree, root, 10);
 
             assert_eq!(tree.node(a).geometry.y, expected, "{align:?}");
+        }
+    }
+
+    #[test]
+    fn overflowing_items_stay_inside_the_first_column() {
+        for align in [Align::Center, Align::End] {
+            let mut tree = Tree::default();
+            let a = item(&mut tree, 1, "x");
+            tree.node_mut(a).style.width = Length::Cells(30);
+            let root = row(&mut tree, &[a]);
+            let extra = tree.node_mut(root).style.extra_mut();
+            extra.direction = Direction::Column;
+            extra.align = align;
+
+            measure(&mut tree, root, 10);
+
+            assert_eq!(tree.node(a).geometry.x, 0, "{align:?}");
         }
     }
 
