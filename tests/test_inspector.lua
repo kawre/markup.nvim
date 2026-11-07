@@ -212,6 +212,36 @@ T["stats"]["counts frames per second and keeps a sparkline"] = function()
 	eq(child.lua_get("stats_lines()[1]"):find("[▁▂▃▄▅▆▇█]") ~= nil, true)
 end
 
+T["stats"]["counts more frames per second than the sparkline keeps"] = function()
+	run([[
+		count = m.signal(0)
+		view:render(m.block({ function() return tostring(count()) end }))
+		open()
+		for i = 1, 300 do
+			count(i)
+			reactive.flush()
+		end
+		inspector:update_perf()
+	]])
+	eq(child.lua_get("inspector.perf().fps") >= 300, true)
+	eq(child.lua_get("#inspector.perf().frames"), 120)
+end
+
+T["stats"]["forgets frames older than a second"] = function()
+	run([[
+		count = m.signal(0)
+		view:render(m.block({ function() return tostring(count()) end }))
+		open()
+		for i = 1, 5 do
+			count(i)
+			reactive.flush()
+		end
+		vim.wait(1100, function() return false end, 50)
+		inspector:update_perf()
+	]])
+	eq(child.lua_get("inspector.perf().fps"), 0)
+end
+
 T["stats"]["shows the phases of a frame and what the view is made of"] = function()
 	run([[
 		view:render(m.block({ m.block("a"), m.block("b") }))
