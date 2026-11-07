@@ -32,13 +32,15 @@ M.CONTEXT = "markup.view"
 local MARK = { end_col = 0, hl_group = "", hl_mode = "combine", hl_eol = true }
 
 ---@class markup.view.opts
----@field snap? boolean keep the cursor on interactive nodes, like a menu
+---@field snap? boolean|"text" keep the cursor on interactive nodes, like a menu,
+--- or with `"text"` on those and on text, like a document
 
 ---@param win markup.window
 ---@param opts? markup.view.opts
 function M:new(win, opts)
 	opts = opts or {}
 	self.win = win
+	self.snap_text = opts.snap == "text"
 	Markup.views[self] = true
 	self.ns = api.nvim_create_namespace(("markup_view_[%s]"):format(win.id))
 	self.engine = Markup.core.create_engine(self:width())
@@ -67,6 +69,13 @@ function M:new(win, opts)
 	win:on("WinScrolled", function()
 		self:update_scroll()
 	end, { pattern = "*" })
+
+	if opts.snap == "text" then
+		win:on("WinEnter", function()
+			self:snap_cursor()
+			self:update_hover()
+		end, { buf = true })
+	end
 
 	win:on("CursorMoved", function()
 		if opts.snap then
@@ -109,7 +118,7 @@ function M:snap_cursor()
 	local row, col = cursor[1] - 1, vim.fn.virtcol(".") - 1
 	local from = self.cursor or { row, col }
 
-	local target_row, target_col = self.engine:snap(from[1], from[2], row, col)
+	local target_row, target_col = self.engine:snap(from[1], from[2], row, col, self.snap_text)
 	if target_row then
 		self.cursor = { target_row, target_col }
 		if target_row ~= row or target_col ~= col then

@@ -44,9 +44,15 @@ impl Engine {
     /// Where a cursor that moved from `from` to `to` should land. Stays inside
     /// an interactive node, otherwise jumps to the nearest one in the direction
     /// of travel, and goes back when there is none. Positions are `(row, col)`.
-    pub fn snap(&self, from: (i32, i32), to: (i32, i32)) -> Option<(i32, i32)> {
+    ///
+    /// With `text`, text counts as well. The column then survives the jump, and
+    /// with nothing ahead the nearest text wins, so that `gg` still gets there.
+    pub fn snap(&self, from: (i32, i32), to: (i32, i32), text: bool) -> Option<(i32, i32)> {
         let mut rects = Vec::new();
         self.interactive_rects(self.root_index(), 0, 0, &mut rects);
+        if text {
+            self.text_rects(&mut rects);
+        }
         if rects.is_empty() {
             return None;
         }
@@ -59,21 +65,52 @@ impl Engine {
             return Some(to);
         }
 
+        let on_row = |rect: &Rect| row >= rect.y && row < rect.y + rect.height;
         let ahead = |rect: &&Rect| match row.cmp(&from.0) {
             std::cmp::Ordering::Greater => rect.y + rect.height > row,
             std::cmp::Ordering::Less => rect.y <= row,
-            std::cmp::Ordering::Equal => true,
+            std::cmp::Ordering::Equal if !text => true,
+            // Sideways it has to go past the gap, or it could never leave a span.
+            std::cmp::Ordering::Equal if col > from.1 => on_row(rect) && rect.x > col,
+            std::cmp::Ordering::Equal => on_row(rect) && rect.x + rect.width <= col,
         };
 
-        // Rows cost twice as much as columns, since cells are twice as tall.
-        let distance = |rect: &&Rect| {
+        let gaps = |rect: &Rect| {
             let dx = (rect.x - col).max(col - (rect.x + rect.width - 1)).max(0);
             let dy = (rect.y - row).max(row - (rect.y + rect.height - 1)).max(0);
-            dy * 2 + dx
+            (dy, dx)
         };
 
-        let target = rects.iter().filter(ahead).min_by_key(distance);
-        Some(target.map_or(from, |rect| (rect.y, rect.x)))
+        let target = if text {
+            // The next line comes first, however far its text is from the column.
+            let nearest = |rect: &&Rect| gaps(rect);
+            rects.iter().filter(ahead).min_by_key(nearest).or_else(|| rects.iter().min_by_key(nearest))
+        } else {
+            // Rows cost twice as much as columns, since cells are twice as tall.
+            let distance = |rect: &&Rect| {
+                let (dy, dx) = gaps(rect);
+                dy * 2 + dx
+            };
+            rects.iter().filter(ahead).min_by_key(distance)
+        };
+
+        Some(target.map_or(from, |rect| {
+            if text {
+                let last_row = rect.y + rect.height - 1;
+                let last_col = rect.x + rect.width - 1;
+                (row.clamp(rect.y, last_row), col.clamp(rect.x, last_col))
+            } else {
+                (rect.y, rect.x)
+            }
+        }))
+    }
+
+    fn text_rects(&self, rects: &mut Vec<Rect>) {
+        for (y, line) in self.lines.iter().enumerate() {
+            for &(start, end) in &line.spans {
+                rects.push(Rect { x: start, y: y as i32, width: end - start, height: 1 });
+            }
+        }
     }
 }
 
@@ -104,20 +141,76 @@ mod tests {
     #[test]
     fn nothing_interactive_leaves_the_cursor_alone() {
         let engine = Engine::new(20);
-        assert_eq!(engine.snap((0, 0), (1, 0)), None);
+        assert_eq!(engine.snap((0, 0), (1, 0), false), None);
     }
 
     #[test]
     fn stays_inside_a_button() {
         let engine = engine_with_buttons(&[1, 3]);
-        assert_eq!(engine.snap((1, 0), (3, 2)), Some((3, 2)));
+        assert_eq!(engine.snap((1, 0), (3, 2), false), Some((3, 2)));
     }
 
     #[test]
     fn jumps_over_gaps_in_the_direction_of_travel() {
         let engine = engine_with_buttons(&[1, 4]);
-        assert_eq!(engine.snap((1, 0), (2, 0)), Some((4, 0)));
-        assert_eq!(engine.snap((4, 0), (3, 0)), Some((1, 0)));
+        assert_eq!(engine.snap((1, 0), (2, 0), false), Some((4, 0)));
+        assert_eq!(engine.snap((4, 0), (3, 0), false), Some((1, 0)));
+    }
+
+    /// Rows of text at the given cells, with blank rows where there is none.
+    fn engine_with_text(rows: &[Option<(i32, &str)>]) -> Engine {
+        let mut engine = Engine::new(40);
+        let mut id = 2;
+        for row in rows {
+            engine.apply(Command::Create { id, display: Display::Block }).unwrap();
+            let (indent, text) = row.unwrap_or((0, " "));
+            let value = format!("{}{text}", " ".repeat(indent as usize));
+            let width = value.len() as i32;
+            engine.apply(Command::CreateText { id: id + 1, text: value, width }).unwrap();
+            engine.apply(Command::Insert { parent: id, child: id + 1, before: None }).unwrap();
+            engine.apply(Command::Insert { parent: ROOT, child: id, before: None }).unwrap();
+            id += 2;
+        }
+        engine.render(|_, _| ());
+        engine
+    }
+
+    #[test]
+    fn text_is_a_place_to_land() {
+        let engine = engine_with_text(&[Some((2, "first")), None, None, Some((2, "second"))]);
+
+        assert_eq!(engine.snap((0, 3), (1, 3), true), Some((3, 3)));
+        assert_eq!(engine.snap((3, 3), (2, 3), true), Some((0, 3)));
+    }
+
+    #[test]
+    fn padding_is_not_a_place_to_land() {
+        let engine = engine_with_text(&[Some((2, "text"))]);
+
+        assert_eq!(engine.snap((0, 2), (0, 1), true), Some((0, 2)));
+        assert_eq!(engine.snap((0, 5), (0, 6), true), Some((0, 5)));
+    }
+
+    #[test]
+    fn the_next_line_wins_over_one_closer_to_the_column() {
+        let engine = engine_with_text(&[Some((10, "long")), None, Some((0, "a")), Some((10, "long"))]);
+
+        assert_eq!(engine.snap((0, 11), (1, 11), true), Some((2, 0)));
+    }
+
+    #[test]
+    fn with_nothing_ahead_the_nearest_text_wins() {
+        let engine = engine_with_text(&[None, None, Some((2, "text")), None]);
+
+        // `gg` and `G`.
+        assert_eq!(engine.snap((2, 3), (0, 3), true), Some((2, 3)));
+        assert_eq!(engine.snap((2, 3), (3, 3), true), Some((2, 3)));
+    }
+
+    #[test]
+    fn nothing_on_screen_leaves_the_cursor_alone_in_text_mode() {
+        let engine = Engine::new(20);
+        assert_eq!(engine.snap((0, 0), (1, 0), true), None);
     }
 
     #[test]
@@ -128,6 +221,6 @@ mod tests {
         engine.apply(Command::Insert { parent: ROOT, child: 100, before: None }).unwrap();
         engine.render(|_, _| ());
 
-        assert_eq!(engine.snap((5, 0), (6, 0)), Some((5, 0)));
+        assert_eq!(engine.snap((5, 0), (6, 0), false), Some((5, 0)));
     }
 }

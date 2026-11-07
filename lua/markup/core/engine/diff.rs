@@ -66,6 +66,7 @@ mod tests {
             .map(|value| Line {
                 text: value.to_string(),
                 marks: Vec::new(),
+                ..Line::default()
             })
             .collect()
     }
