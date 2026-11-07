@@ -174,6 +174,16 @@ T["leaves with its window and its view"] = function()
 	eq(get("count()"), 0)
 end
 
+T["a width can follow a signal"] = function()
+	run([[
+		room = m.signal(20)
+		view:render(m.image({ data = png(200, 100), width = room }))
+	]])
+	eq(get("only().width"), 20)
+	run("room(10)")
+	eq(get("{ only().width, only().height }"), { 10, 3 })
+end
+
 T["waits for its data"] = function()
 	run([[
 		data = m.signal(nil)
