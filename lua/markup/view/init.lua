@@ -63,7 +63,7 @@ function M:new(win, opts)
 	end
 
 	win:on("WinResized", function()
-		if not self.held_width and win:valid() and vim.tbl_contains(vim.v.event.windows, win.win) then
+		if win:valid() and vim.tbl_contains(vim.v.event.windows, win.win) then
 			self.commands:resize(self:width())
 			self.width_cells(self:width())
 			self:request_commit()
@@ -120,29 +120,7 @@ end
 --- Width to lay out at, which hidden windows can only estimate.
 ---@return integer
 function M:width()
-	if self.held_width then
-		return self.held_width
-	end
 	return self.win:win_valid() and api.nvim_win_get_width(self.win.win) or vim.o.columns
-end
-
---- Lays out at `width` whatever the size of the window, which then only shows
---- part of it. For a window that grows into place: the content waits at its
---- final width, rather than moving with the edge.
----@param width integer
-function M:hold_width(width)
-	self.held_width = width
-	self.commands:resize(width)
-	self.width_cells(width)
-	self:request_commit()
-end
-
---- Follows the window again.
-function M:release_width()
-	self.held_width = nil
-	self.commands:resize(self:width())
-	self.width_cells(self:width())
-	self:request_commit()
 end
 
 --- Starts over from a blank buffer, which the engine's next frame then fills.
