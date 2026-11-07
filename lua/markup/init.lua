@@ -75,6 +75,10 @@ function M.progress(...)
 	return require("markup.view.components").progress(...)
 end
 
+function M.slide(...)
+	return require("markup.view.mount").slide(...)
+end
+
 function M.collapse(...)
 	return require("markup.view.mount").collapse(...)
 end

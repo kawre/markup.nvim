@@ -12,6 +12,7 @@ local hl = require("markup.view.hl")
 local defaults = require("markup.view.defaults")
 
 local DISPLAY = protocol.display
+local api = vim.api
 local STYLE = protocol.style
 local effect, scope, untrack = reactive.effect, reactive.scope, reactive.untrack
 
@@ -461,6 +462,148 @@ end
 ---@param opts? { duration?: number }
 function M.collapse(when, content, opts)
 	return element(Collapse, { when = when, children = content, duration = opts and opts.duration })
+end
+
+local Slide = { typeof = "control" }
+
+local SLIDE_DURATION = 320
+
+function Slide.mount(view, parent, before, props)
+	local animate = Markup.animate
+	local outer_owner = reactive.current_owner()
+
+	-- The track holds the pages side by side, and moves behind the outer block.
+	local outer = view:next_id()
+	view.commands:create(outer, DISPLAY.block)
+	view.commands:set_style(outer, "overflow_x", "hidden")
+	view.commands:insert(parent, outer, before)
+
+	local track = view:next_id()
+	view.commands:create(track, DISPLAY.flex)
+	view.commands:set_style(track, "position", "relative")
+	view.commands:set_style(track, "left", 0)
+	view.commands:insert(outer, track)
+
+	local offset = animate.value(0, {
+		duration = props.duration or SLIDE_DURATION,
+		easing = "in_out_cubic",
+	})
+
+	effect(function()
+		view.commands:set_style(track, "left", -math.floor(offset() + 0.5))
+		view:request_commit()
+	end)
+
+	local pages = {} ---@type table<integer, { owner: table }>
+
+	effect(function()
+		local width = view:columns()
+		for id in pairs(pages) do
+			view.commands:set_style(id, "width", width)
+		end
+		view:request_commit()
+	end)
+
+	local function mount_page(key, next_page)
+		local id = view:next_id()
+		view.commands:create(id, DISPLAY.block)
+		view.commands:set_style(id, "width", view.width_cells())
+		view.commands:set_style(id, "shrink", 0)
+		view.commands:insert(track, id, next_page)
+
+		untrack(function()
+			local _, owner = scope(function()
+				mount(view, props.render(key), id)
+			end, outer_owner)
+			pages[id] = { owner = owner }
+		end)
+		return id
+	end
+
+	local function unmount_page(id)
+		reactive.dispose(pages[id].owner)
+		pages[id] = nil
+		view.commands:remove(id)
+		view:request_commit()
+	end
+
+	local cursors = {} ---@type table<any, integer[]>
+	local current_key, current_page, leaving
+
+	--- Drops the page that moved away, leaving the other one at the start.
+	local function settle()
+		if leaving then
+			unmount_page(leaving)
+			leaving = nil
+			offset(0, { duration = 0 })
+		end
+	end
+
+	--- Back to where the cursor was on this page, or to the top of a new one.
+	local function restore_cursor(key)
+		view:after_commit(function()
+			if view.win:win_valid() then
+				local cursor = cursors[key] or { 1, 0 }
+				local last = api.nvim_buf_line_count(view.win.buf)
+				api.nvim_win_set_cursor(view.win.win, { math.min(cursor[1], last), cursor[2] })
+				view.cursor = nil
+				view:snap_cursor()
+			end
+		end)
+	end
+
+	effect(function()
+		local key = props.key()
+		if key == current_key then
+			return
+		end
+
+		if current_key == nil then
+			current_key, current_page = key, mount_page(key)
+			return
+		end
+
+		settle()
+
+		if view.win:win_valid() then
+			cursors[current_key] = api.nvim_win_get_cursor(view.win.win)
+		end
+
+		local forward = not props.forward or props.forward(current_key, key)
+		local width = untrack(function()
+			return view:columns()
+		end)
+
+		leaving = current_page
+		current_key = key
+
+		local function arrive()
+			settle()
+			restore_cursor(key)
+		end
+
+		if forward then
+			current_page = mount_page(key)
+			offset(width, { done = arrive })
+		else
+			current_page = mount_page(key, leaving)
+			offset(width, { duration = 0 })
+			offset(0, { done = arrive })
+		end
+	end)
+end
+
+--- Shows the page for `key()`, sliding sideways whenever it changes. The page
+--- moving away unmounts once it is gone, and the cursor returns to where it was
+--- when coming back to a page.
+---@generic K
+---@param key fun(): K
+---@param render fun(key: K): any
+---@param opts? { duration?: number, forward?: fun(from: K, to: K): boolean } `forward`
+--- says if the new page comes in from the right, which it does by default
+function M.slide(key, render, opts)
+	opts = opts or {}
+	return element(Slide, { key = key, render = render, forward = opts.forward, duration = opts.duration })
 end
 
 --- Renders `content` while `when()` is truthy, and `fallback` otherwise.
