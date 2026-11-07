@@ -485,7 +485,14 @@ function Image.mount(view, parent, before, props)
 			data = data()
 		end
 
-		local width, height = images.size(data, props.width, props.height)
+		local function value(prop)
+			if type(prop) == "function" then
+				return prop()
+			end
+			return prop
+		end
+
+		local width, height = images.size(data, value(props.width), value(props.height))
 		view.commands:set_style(id, "width", width)
 		view.commands:set_style(id, "height", height)
 		view:set_image(id, data and { data = data, width = width, height = height } or nil)
@@ -498,7 +505,7 @@ function Image.mount(view, parent, before, props)
 end
 
 --- An image, as a box in the layout that it is drawn over.
----@param props { data: string|fun(): string?, width?: integer, height?: integer, alt?: string }
+---@param props { data: string|fun(): string?, width?: integer|fun(): integer, height?: integer|fun(): integer, alt?: string }
 --- `data` is the bytes of a PNG, or a function giving them once they are there.
 --- A missing height follows the proportions of the image.
 function M.image(props)
