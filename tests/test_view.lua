@@ -1307,6 +1307,21 @@ T["fixed"]["an empty overlay stays out of sight"] = function()
 	eq(child.lua_get("vim.api.nvim_win_get_config(note.win.win).hide"), true)
 end
 
+T["fixed"]["the width can be tracked"] = function()
+	overlay_view()
+	child.lua([[
+		seen = {}
+		reactive.effect(function() seen[#seen + 1] = view:columns() end)
+		vim.cmd("vnew")
+		vim.api.nvim_win_set_width(win.win, 30)
+	]])
+	-- WinResized fires from the main loop, once the call above returned.
+	child.lua("vim.wait(20, function() return false end, 5)")
+	child.lua("reactive.flush()")
+	eq(child.lua_get("seen[1] > 30"), true)
+	eq(child.lua_get("seen[#seen]"), 30)
+end
+
 T["fixed"]["scrolling can be tracked"] = function()
 	overlay_view()
 	child.lua([[

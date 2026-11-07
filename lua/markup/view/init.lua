@@ -49,6 +49,7 @@ function M:new(win, opts)
 	self.next_commit = {}
 	self.fixed = {} ---@type markup.view.fixed[]
 	self.top_row = reactive.signal(0)
+	self.width_cells = reactive.signal(self:width())
 	self.stats = { commands = 0, lines = 0, layout = 0, paint = 0, diff = 0, engine = 0, apply = 0 }
 	self.last_id = protocol.ROOT
 	self.commit_job = function()
@@ -58,6 +59,7 @@ function M:new(win, opts)
 	win:on("WinResized", function()
 		if win:valid() and vim.tbl_contains(vim.v.event.windows, win.win) then
 			self.commands:resize(self:width())
+			self.width_cells(self:width())
 			self:request_commit()
 		end
 	end, { pattern = "*" })
@@ -115,6 +117,12 @@ function M:snap_cursor()
 			api.nvim_win_set_cursor(self.win.win, { target_row + 1, math.max(byte, 0) })
 		end
 	end
+end
+
+--- Width of the window. Reading it tracks resizes.
+---@return integer
+function M:columns()
+	return self.width_cells()
 end
 
 --- Rows scrolled past the top of the window. Reading it tracks the scrolling.
