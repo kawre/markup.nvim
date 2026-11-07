@@ -52,8 +52,6 @@ function M.new(type, props)
 
 	if props and props.key then
 		self.key = props.key
-		-- TODO
-		-- props.key = nil
 	end
 
 	return self

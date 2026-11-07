@@ -198,7 +198,6 @@ function M:new(opts)
 	if opts.relative == "win" then
 		opts.win = opts.win or vim.api.nvim_get_current_win()
 	end
-	-- end
 
 	self.keys = {}
 	self.events = {}
@@ -252,11 +251,6 @@ function M:on_resize()
 	if self.opts.resize ~= false then
 		self:update()
 	end
-end
-
----@param actions string|string[]
-function M:execute(actions)
-	return self:action(actions)()
 end
 
 ---@param actions string|string[]
@@ -353,26 +347,11 @@ function M:redraw()
 	end
 end
 
----@param left? boolean
-function M:hscroll(left)
-	vim.api.nvim_win_call(self.win, function()
-		vim.cmd(("normal! %s"):format(left and "zh" or "zl"))
-	end)
-end
-
----@param up? boolean
-function M:scroll(up)
-	vim.api.nvim_win_call(self.win, function()
-		vim.cmd(("normal! %s"):format(up and SCROLL_UP or SCROLL_DOWN))
-	end)
-end
-
 function M:destroy()
 	self:close()
 	self.events = {}
 	self.keys = {}
 	self.meta = {}
-	-- self.opts = {}
 end
 
 ---@param opts? { buf: boolean }
@@ -457,46 +436,6 @@ function M:toggle()
 		self:show()
 	end
 	return self
-end
-
----@param title string|{[1]:string, [2]:string}[]
----@param pos? "center"|"left"|"right"
-function M:set_title(title, pos)
-	if not self:has_border() then
-		return
-	end
-	if type(title) == "string" then
-		title = vim.trim(title)
-		if title ~= "" then
-			-- HACK: add extra space when last char is non word
-			-- like for icons etc
-			if not title:sub(-1):match("%w") then
-				title = title .. " "
-			end
-			title = " " .. title .. " "
-		end
-	elseif #title == 0 then
-		title = ""
-	end
-	pos = pos or self.opts.title_pos or "center"
-	if vim.deep_equal(self.opts.title, title) and self.opts.title_pos == pos then
-		return
-	end
-	self.opts.title = title
-	self.opts.title_pos = pos
-	if not self:valid() then
-		return
-	end
-	-- Don't try to update if the relative window is invalid.
-	-- It will be fixed once a full update is done.
-	local relative_win = vim.api.nvim_win_get_config(self.win).win
-	if relative_win and not vim.api.nvim_win_is_valid(relative_win) then
-		return
-	end
-	vim.api.nvim_win_set_config(self.win, {
-		title = self.opts.title,
-		title_pos = self.opts.title_pos,
-	})
 end
 
 ---@private
@@ -779,14 +718,6 @@ function M:fixbuf()
 	end
 end
 
----@param buf number
-function M:set_buf(buf)
-	assert(self:valid(), "Window is not valid")
-	self.buf = buf
-	vim.api.nvim_win_set_buf(self.win, buf)
-	Markup.util.wo(self.win, self.opts.wo)
-end
-
 ---@param mode string|string[]
 ---@param lhs string
 ---@param rhs string|string[]|fun(self: markup.window): string?
@@ -815,21 +746,6 @@ function M:unmap(mode, lhs, opts)
 	if self:buf_valid() then
 		vim.keymap.del(mode, lhs, vim.tbl_extend("keep", opts or {}, { buffer = self.buf }))
 	end
-end
-
-function M:_unmap()
-	if not self:buf_valid() then
-		return
-	end
-	for _, spec in pairs(self.keys) do
-		self:_keymap_del(spec)
-	end
-	self.keys = {}
-end
-
----@param spec markup.window.Keys
-function M:_keymap_del(spec)
-	vim.keymap.del(spec.mode or "n", spec[1])
 end
 
 function M:_keymap_set(spec)
@@ -893,17 +809,6 @@ function M:on_close()
 	if vim.api.nvim_get_current_win() == self.win then
 		pcall(vim.cmd.wincmd, "p")
 	end
-end
-
-function M:add_padding()
-	local listchars = vim.split(self.opts.wo.listchars or "", ",")
-	listchars = vim.tbl_filter(function(s)
-		return not s:find("eol:") and s ~= ""
-	end, listchars)
-	table.insert(listchars, "eol: ")
-	self.opts.wo.listchars = table.concat(listchars, ",")
-	self.opts.wo.list = true
-	self.opts.wo.statuscolumn = " "
 end
 
 function M:is_floating()
@@ -1082,25 +987,6 @@ function M:border_size()
 		bottom = size(5, 7),
 		left = math.max(size(7, 8), size(1, 1)),
 	}
-end
-
-function M:border_text_width()
-	if not self:has_border() then
-		return 0
-	end
-	local ret = 0
-	for _, t in ipairs({ "title", "footer" }) do
-		local str = self.opts[t] or {}
-		str = type(str) == "string" and { str } or str
-		---@cast str (string|string[])[]
-		ret = math.max(ret, #table.concat(
-			vim.tbl_map(function(s)
-				return type(s) == "string" and s or s[1]
-			end, str),
-			""
-		))
-	end
-	return ret
 end
 
 function M:buf_valid()

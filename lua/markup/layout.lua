@@ -479,15 +479,7 @@ function M:update_win(win, parent)
 	w.opts.col, w.opts.row = parent.col, parent.row
 	dim.width = dim.width + border.left + border.right
 	dim.height = dim.height + border.top + border.bottom
-	-- dim.col = dim.col + border.left
-	-- dim.row = dim.row + border.top
 	return dim
-end
-
---- Toggle fullscreen
-function M:maximize()
-	self.opts.fullscreen = not self.opts.fullscreen
-	self:update()
 end
 
 --- Close the layout
@@ -534,17 +526,6 @@ function M:hide()
 			vim.api.nvim_win_set_config(win.win, { hide = true })
 			if win.backdrop and win.backdrop:valid() then
 				vim.api.nvim_win_set_config(win.backdrop.win, { hide = true })
-			end
-		end
-	end
-end
-
-function M:unhide()
-	for _, win in ipairs(self:get_wins()) do
-		if win:valid() then
-			vim.api.nvim_win_set_config(win.win, { hide = false })
-			if win.backdrop and win.backdrop:valid() then
-				vim.api.nvim_win_set_config(win.backdrop.win, { hide = false })
 			end
 		end
 	end
