@@ -149,6 +149,7 @@ pub fn measure(tree: &mut Tree, index: Index, constraints: Constraints) -> Size 
     let edges_x = style.margin.horizontal() + style.inner().horizontal();
     let edges_y = style.margin.vertical() + style.inner().vertical();
     let width = style.width;
+    let clip = extra.clip;
     let (min_width, max_width) = (extra.min_width, extra.max_width);
     let (min_height, max_height) = (extra.min_height, extra.max_height);
 
@@ -165,7 +166,7 @@ pub fn measure(tree: &mut Tree, index: Index, constraints: Constraints) -> Size 
     if constraints.exact_height.is_some() {
         content.height = space.height.unwrap_or(content.height);
     } else if let Some(definite) = space.height {
-        content.height = content.height.max(definite);
+        content.height = if clip { definite } else { content.height.max(definite) };
     }
     let available_height = constraints.height.unwrap_or(0);
     content.height = limit(content.height, min_height, max_height, available_height);
@@ -250,6 +251,20 @@ mod tests {
     use super::super::style::{Display, Edges, Length, WhiteSpace};
     use super::super::tree::{Size, Tree};
     use super::testing::*;
+
+    #[test]
+    fn clipped_nodes_take_exactly_their_height() {
+        let mut tree = Tree::default();
+        let (a, b) = (text(&mut tree, 1, "a"), text(&mut tree, 2, "b"));
+        let first = element(&mut tree, 3, Display::Block, &[a]);
+        let second = element(&mut tree, 4, Display::Block, &[b]);
+        let root = element(&mut tree, 5, Display::Block, &[first, second]);
+        let style = &mut tree.node_mut(root).style;
+        style.height = Length::Cells(1);
+        style.extra_mut().clip = true;
+
+        assert_eq!(measure(&mut tree, root, 10).height, 1);
+    }
 
     #[test]
     fn share_always_adds_up() {

@@ -333,6 +333,124 @@ function Show.mount(view, parent, before, props)
 	end)
 end
 
+local Collapse = { typeof = "control" }
+
+local COLLAPSE_DURATION = 180
+
+function Collapse.mount(view, parent, before, props)
+	local animate = Markup.animate
+	local outer_owner = reactive.current_owner()
+
+	-- The outer block is what animates, the inner one measures the content.
+	local outer = view:next_id()
+	view.commands:create(outer, DISPLAY.block)
+	view.commands:set_style(outer, "overflow", "hidden")
+	view.commands:insert(parent, outer, before)
+
+	local inner, inner_owner
+	local height = animate.value(0, { duration = props.duration or COLLAPSE_DURATION })
+	local settled = false
+
+	local function mount_content()
+		if inner then
+			return
+		end
+		inner = view:next_id()
+		view.commands:create(inner, DISPLAY.block)
+		view.commands:insert(outer, inner)
+
+		local content = props.children
+		untrack(function()
+			local _, owner = scope(function()
+				local value = content
+				if type(value) == "function" then
+					value = value()
+				end
+				mount(view, value, inner)
+			end, outer_owner)
+			inner_owner = owner
+		end)
+	end
+
+	local function unmount_content()
+		if inner then
+			reactive.dispose(inner_owner)
+			view.commands:remove(inner)
+			inner, inner_owner = nil, nil
+			view:request_commit()
+		end
+	end
+
+	local function set_height(value)
+		view.commands:set_style(outer, "height", value)
+		view:request_commit()
+	end
+
+	effect(function()
+		-- Read first: a settled block must still hear the next change.
+		local value = height()
+		if not settled then
+			set_height(math.floor(value + 0.5))
+		end
+	end)
+
+	local function natural_height()
+		local ok, node = pcall(view.engine.describe, view.engine, inner)
+		return ok and node.outer_height or 0
+	end
+
+	local shown
+	effect(function()
+		local visible = not not props.when()
+		if visible == shown then
+			return
+		end
+
+		local first = shown == nil
+		shown = visible
+
+		if visible then
+			mount_content()
+			if first then
+				settled = true
+				set_height("auto")
+				return
+			end
+
+			view:after_commit(function()
+				if not shown then
+					return
+				end
+				settled = false
+				height(natural_height(), {
+					done = function()
+						settled = true
+						set_height("auto")
+					end,
+				})
+			end)
+		elseif not first then
+			if settled then
+				settled = false
+				height(natural_height(), { duration = 0 })
+			end
+			height(0, { done = unmount_content })
+		else
+			set_height(0)
+		end
+
+		view:request_commit()
+	end)
+end
+
+--- Like `show`, but the height animates and hidden content unmounts afterwards.
+---@param when fun(): any
+---@param content any element, or a function called on each mount
+---@param opts? { duration?: number }
+function M.collapse(when, content, opts)
+	return element(Collapse, { when = when, children = content, duration = opts and opts.duration })
+end
+
 --- Renders `content` while `when()` is truthy, and `fallback` otherwise.
 ---@param when fun(): any
 ---@param content any element, or a function called on each mount

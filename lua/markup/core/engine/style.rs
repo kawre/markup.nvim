@@ -160,6 +160,9 @@ pub struct Extra {
 
     pub border: Option<Border>,
 
+    /// Cut what does not fit the height, so a height can be animated.
+    pub clip: bool,
+
     // Containers.
     pub direction: Direction,
     pub wrap: bool,
@@ -206,6 +209,7 @@ impl Default for Extra {
         Extra {
             white_space: None,
             border: None,
+            clip: false,
             direction: Direction::Row,
             wrap: false,
             justify: Distribute::Start,

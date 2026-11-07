@@ -240,11 +240,21 @@ struct Painter<'a> {
     rows: Vec<Row<'a>>,
     /// Absolute nodes found so far, painted after everything in flow.
     pending: Vec<Index>,
+    /// Rows a clipping ancestor leaves visible.
+    visible: std::ops::Range<i32>,
     /// Where containing blocks ended up, only tracked when something needs it.
     origins: HashMap<Index, (i32, i32)>,
 }
 
-impl Painter<'_> {
+impl<'a> Painter<'a> {
+    fn row(&mut self, row: i32) -> Option<&mut Row<'a>> {
+        if self.visible.contains(&row) {
+            self.rows.get_mut(row as usize)
+        } else {
+            None
+        }
+    }
+
     fn visit(&mut self, index: Index, x: i32, y: i32) {
         let tree = self.tree;
         let node = tree.node(index);
@@ -275,7 +285,7 @@ impl Painter<'_> {
                 Some(fragments) => {
                     let all = node.cells.as_deref().unwrap_or(&[]);
                     for fragment in fragments {
-                        if let Some(row) = self.rows.get_mut((y + fragment.y) as usize) {
+                        if let Some(row) = self.row(y + fragment.y) {
                             let (start, end) = (fragment.start as usize, fragment.end as usize);
                             let wide = |text: &str| text.chars().filter(|c| !c.is_ascii()).count();
 
@@ -289,7 +299,7 @@ impl Painter<'_> {
                     }
                 }
                 None => {
-                    if let Some(row) = self.rows.get_mut(y as usize) {
+                    if let Some(row) = self.row(y) {
                         let cells = node.cells.as_deref().unwrap_or(&[]);
                         row.write(x, Cow::Borrowed(&node.text), node.text_width, Cow::Borrowed(cells));
                     }
@@ -309,7 +319,7 @@ impl Painter<'_> {
 
         if let (true, Some(fragments)) = (style.hl != 0, &node.fragments) {
             for fragment in fragments {
-                if let Some(row) = self.rows.get_mut((y + fragment.y) as usize) {
+                if let Some(row) = self.row(y + fragment.y) {
                     let left = x + fragment.x;
                     row.ranges.push((left, left + fragment.width, style.hl));
                 }
@@ -325,7 +335,7 @@ impl Painter<'_> {
                 bottom -= edges.bottom;
             }
             for row in top..bottom {
-                if let Some(row) = self.rows.get_mut(row as usize) {
+                if let Some(row) = self.row(row) {
                     row.ranges.push((left, right, style.hl));
                 }
             }
@@ -343,11 +353,19 @@ impl Painter<'_> {
             self.paint_frame_start(frame);
         }
 
+        let outer_visible = self.visible.clone();
+        if style.extra().clip {
+            let bottom = y + margin.top + padding.vertical() + geometry.content.height;
+            self.visible = self.visible.start.max(y)..self.visible.end.min(bottom);
+        }
+
         let content_x = x + margin.left + padding.left;
         let content_y = y + margin.top + padding.top;
         for &child in &node.children {
             self.visit(child, content_x, content_y);
         }
+
+        self.visible = outer_visible;
 
         // Painted last, so rows stay in order and take the fast path.
         if let Some(frame) = &frame {
@@ -356,7 +374,7 @@ impl Painter<'_> {
     }
 
     fn put(&mut self, row: i32, cell: i32, text: String, width: i32, hl: u32) {
-        if let Some(line) = self.rows.get_mut(row as usize) {
+        if let Some(line) = self.row(row) {
             line.write(cell, Cow::Owned(text), width, Cow::Borrowed(&[]));
             if hl != 0 {
                 line.ranges.push((cell, cell + width, hl));
@@ -433,6 +451,7 @@ pub fn paint(tree: &Tree, root: Index, height: i32) -> Vec<Line> {
         tree,
         rows: (0..height.max(0)).map(|_| Row::default()).collect(),
         pending: Vec::new(),
+        visible: 0..height.max(0),
         origins: HashMap::new(),
     };
 
@@ -696,6 +715,31 @@ mod tests {
         row.ranges.push((1, 3, 7));
 
         assert_eq!(row.finish().marks, vec![Mark { start: 1, end: 4, hl: 7 }]);
+    }
+
+    #[test]
+    fn clipping_hides_rows_past_the_height() {
+        let mut tree = Tree::default();
+        let first = text(&mut tree, 1, "aa", 2);
+        let a = tree.create(2, Display::Block).unwrap();
+        tree.insert(a, first, None).unwrap();
+        let second = text(&mut tree, 3, "bb", 2);
+        let b = tree.create(4, Display::Block).unwrap();
+        tree.insert(b, second, None).unwrap();
+
+        let clipped = tree.create(5, Display::Block).unwrap();
+        tree.insert(clipped, a, None).unwrap();
+        tree.insert(clipped, b, None).unwrap();
+        let style = &mut tree.node_mut(clipped).style;
+        style.height = crate::engine::style::Length::Cells(1);
+        style.extra_mut().clip = true;
+
+        let after = text(&mut tree, 6, "cc", 2);
+        let root = tree.create(7, Display::Block).unwrap();
+        tree.insert(root, clipped, None).unwrap();
+        tree.insert(root, after, None).unwrap();
+
+        assert_eq!(texts(&render(&mut tree, root)), vec!["aa", "cc"]);
     }
 
     #[test]

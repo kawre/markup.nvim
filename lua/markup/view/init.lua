@@ -45,6 +45,7 @@ function M:new(win, opts)
 	self.commands = protocol.commands()
 	self.handlers = {}
 	self.commit_listeners = {}
+	self.next_commit = {}
 	self.fixed = {} ---@type markup.view.fixed[]
 	self.stats = { commands = 0, lines = 0, layout = 0, paint = 0, diff = 0, engine = 0, apply = 0 }
 	self.last_id = protocol.ROOT
@@ -107,6 +108,13 @@ function M:snap_cursor()
 			api.nvim_win_set_cursor(self.win.win, { target_row + 1, math.max(byte, 0) })
 		end
 	end
+end
+
+--- Calls `listener` after the next commit.
+---@param listener function
+function M:after_commit(listener)
+	table.insert(self.next_commit, listener)
+	self:request_commit()
 end
 
 --- Calls `listener` after every commit.
@@ -207,6 +215,12 @@ function M:commit()
 	stats.apply = (vim.uv.hrtime() - started) / 1e6
 
 	for _, listener in ipairs(self.commit_listeners) do
+		listener()
+	end
+
+	local next_commit = self.next_commit
+	self.next_commit = {}
+	for _, listener in ipairs(next_commit) do
 		listener()
 	end
 
