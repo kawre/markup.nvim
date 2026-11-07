@@ -1188,6 +1188,29 @@ T["hide_cursor"]["comes back with the view gone"] = function()
 	eq(child.lua_get("vim.o.guicursor == original"), true)
 end
 
+T["hide_cursor"]["stays hidden between two hiding views"] = function()
+	child.lua([[
+		original = vim.o.guicursor
+		first = Markup.view(win, { hide_cursor = true })
+		first:render(m.block("first"))
+		reactive.flush()
+		vim.cmd("vsplit")
+		vim.cmd("enew")
+		other = Markup.window({ position = "current", hijack = true, show = false, minimal = false })
+		other.buf = vim.api.nvim_get_current_buf()
+		other:show()
+		second = Markup.view(other, { hide_cursor = true })
+		second:render(m.block("second"))
+		reactive.flush()
+	]])
+	for _ = 1, 4 do
+		child.cmd("wincmd p")
+		eq(hidden(), true)
+	end
+	child.cmd("new")
+	eq(child.lua_get("vim.o.guicursor == original"), true)
+end
+
 T["hide_cursor"]["stays out of other views"] = function()
 	child.lua([[
 		original = vim.o.guicursor
