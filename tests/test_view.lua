@@ -1876,6 +1876,63 @@ T["cursor"]["keeps its screen column when the text around it narrows"] = functio
 	eq(child.lua_get("after"), 8)
 end
 
+T["cursor"]["comes back to its column when a line was short for a while"] = function()
+	child.lua([[
+		short = m.signal(false)
+		view = Markup.view(win)
+		view:render(m.block({ function() return short() and "abc" or ("x"):rep(30) end }))
+		reactive.flush()
+		vim.api.nvim_set_current_win(win.win)
+		vim.cmd("normal! 20|")
+		short(true)
+		reactive.flush()
+		pulled_in = vim.fn.virtcol(".")
+		short(false)
+		reactive.flush()
+		back = vim.fn.virtcol(".")
+	]])
+	eq(child.lua_get("pulled_in"), 3)
+	eq(child.lua_get("back"), 20)
+end
+
+T["cursor"]["stays at the end of a line after $"] = function()
+	child.lua([[
+		size = m.signal(10)
+		view = Markup.view(win)
+		view:render(m.block({ function() return ("x"):rep(size()) end }))
+		reactive.flush()
+		vim.api.nvim_set_current_win(win.win)
+		vim.cmd("normal! $")
+		size(25)
+		reactive.flush()
+		at = vim.fn.virtcol(".")
+	]])
+	eq(child.lua_get("at"), 25)
+end
+
+T["cursor"]["comes back to its row when the lines come back"] = function()
+	child.lua([[
+		count = m.signal(20)
+		view = Markup.view(win)
+		view:render(m.block(function()
+			local lines = {}
+			for i = 1, count() do lines[i] = m.block("row " .. i) end
+			return lines
+		end))
+		reactive.flush()
+		vim.api.nvim_set_current_win(win.win)
+		vim.api.nvim_win_set_cursor(win.win, { 18, 0 })
+		count(10)
+		reactive.flush()
+		pulled_up = vim.fn.line(".")
+		count(20)
+		reactive.flush()
+		back = vim.fn.line(".")
+	]])
+	eq(child.lua_get("pulled_up"), 10)
+	eq(child.lua_get("back"), 18)
+end
+
 T["cursor"]["holds its place and the scroll when lines come and go"] = function()
 	child.lua([[
 		count = m.signal(5)
@@ -1931,7 +1988,35 @@ T["cursor"]["a slide that is part of a page leaves a cursor elsewhere alone"] = 
 	eq(child.lua_get("cursor"), { 6, 2 })
 end
 
-T["cursor"]["a slide still takes back a cursor that was on it"] = function()
+T["cursor"]["a slide that is part of a page leaves a cursor on it alone too"] = function()
+	child.lua([[
+		Markup.animate.enabled = false
+		page = m.signal(1)
+		view = Markup.view(win)
+		local rows = {}
+		for i = 1, 8 do rows[i] = m.block("row " .. i) end
+		view:render(m.block({
+			rows,
+			m.slide(page, function(key)
+				return m.block({ "page " .. key, "second line", "third line" })
+			end),
+			rows,
+		}))
+		reactive.flush()
+		vim.api.nvim_set_current_win(win.win)
+		vim.api.nvim_win_set_cursor(win.win, { 10, 3 })
+		page(2)
+		reactive.flush()
+		on_new = vim.api.nvim_win_get_cursor(win.win)
+		page(1)
+		reactive.flush()
+		back = vim.api.nvim_win_get_cursor(win.win)
+	]])
+	eq(child.lua_get("on_new"), { 10, 3 })
+	eq(child.lua_get("back"), { 10, 3 })
+end
+
+T["cursor"]["a slide that is the whole view still takes the cursor back to each page"] = function()
 	child.lua([[
 		Markup.animate.enabled = false
 		page = m.signal(1)

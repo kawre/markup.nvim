@@ -500,10 +500,17 @@ function M:apply(patches)
 	-- wander, or jump to the start, and take the scroll along. Every window
 	-- showing the buffer keeps where it was on screen instead.
 	local windows = {}
+	self.wanted = self.wanted or {} ---@type table<integer, { lnum: integer, at: integer }>
 	for _, win in ipairs(vim.fn.win_findbuf(buf)) do
 		windows[win] = api.nvim_win_call(win, function()
 			local view = vim.fn.winsaveview()
-			view.virtcol = vim.fn.virtcol(".")
+			-- A row the buffer was too short for comes back with the lines,
+			-- unless the cursor has moved since.
+			local wanted = self.wanted[win]
+			if wanted and wanted.at == view.lnum then
+				view.lnum = wanted.lnum
+			end
+			self.wanted[win] = nil
 			return view
 		end)
 	end
@@ -536,10 +543,17 @@ function M:apply(patches)
 		if api.nvim_win_is_valid(win) then
 			api.nvim_win_call(win, function()
 				local lnum = math.min(view.lnum, count)
+				if lnum < view.lnum then
+					self.wanted[win] = { lnum = view.lnum, at = lnum }
+				end
+				-- The column wanted rather than the one it is at, which a line
+				-- that was short for a frame would have pulled in for good.
+				-- After `$` that is the end of the line, however long it gets.
+				local virtcol = view.curswant >= vim.v.maxcol and math.huge or view.curswant + 1
+				local last = vim.fn.virtcol({ lnum, "$" }) - 1
 				view.lnum = lnum
-				view.col = math.max(vim.fn.virtcol2col(win, lnum, view.virtcol) - 1, 0)
+				view.col = math.max(vim.fn.virtcol2col(win, lnum, math.min(virtcol, math.max(last, 1))) - 1, 0)
 				view.topline = math.min(view.topline, count)
-				view.virtcol = nil
 				vim.fn.winrestview(view)
 			end)
 		end

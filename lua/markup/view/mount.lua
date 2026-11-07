@@ -588,8 +588,10 @@ function Slide.mount(view, parent, before, props)
 		end
 	end
 
-	--- Whether the cursor is on the slide. Only then is it the slide's to move:
-	--- a slide that is part of a page leaves a cursor elsewhere on it alone.
+	--- Whether the slide is the whole view, as pages of an app are, and so the
+	--- cursor is its to move: back to where it was on a page, or to the top of a
+	--- new one. A slide that is part of a page, such as a carousel, leaves the
+	--- cursor alone, wherever it is.
 	local function holds_cursor()
 		if not view.win:win_valid() or api.nvim_win_get_buf(view.win.win) ~= view.win.buf then
 			return false
@@ -598,10 +600,7 @@ function Slide.mount(view, parent, before, props)
 		if not ok or not node.x then
 			return false
 		end
-		local row, col = api.nvim_win_call(view.win.win, function()
-			return vim.fn.line(".") - 1, vim.fn.virtcol(".") - 1
-		end)
-		return row >= node.y and row < node.y + node.outer_height and col >= node.x and col < node.x + node.outer_width
+		return node.y == 0 and node.y + node.outer_height >= api.nvim_buf_line_count(view.win.buf)
 	end
 
 	--- Back to where the cursor was on this page, or to the top of a new one.
