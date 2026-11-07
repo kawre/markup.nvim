@@ -43,8 +43,8 @@ impl Engine {
 
     /// Where a cursor that moved from `from` to `to` should land. Stays inside
     /// an interactive node, otherwise jumps to the nearest one in the direction
-    /// of travel, and goes back when there is none. A vertical move leaves a
-    /// node taller than a row, since one press should reach the next one.
+    /// of travel, and goes back when there is none. One press always reaches the
+    /// next node, in any direction, since moving inside one shows nothing.
     /// Positions are `(row, col)`.
     ///
     /// With `text`, text counts as well. The column then survives the jump, and
@@ -63,29 +63,36 @@ impl Engine {
         let contains = |rect: &Rect| {
             row >= rect.y && row < rect.y + rect.height && col >= rect.x && col < rect.x + rect.width
         };
-        let holds_from = |rect: &Rect| {
+        let holds_from = |rect: &&Rect| {
             from.0 >= rect.y
                 && from.0 < rect.y + rect.height
                 && from.1 >= rect.x
                 && from.1 < rect.x + rect.width
         };
-        let leaving = !text && row != from.0 && rects.iter().any(|rect| contains(rect) && holds_from(rect));
+        // The node the cursor is leaving, as text is free to move within.
+        let own = if text { None } else { rects.iter().find(holds_from) };
+        let moved = to != from;
 
-        if !leaving && let Some(rect) = rects.iter().find(|rect| contains(rect)) {
-            // A button is entered at its top, whichever side it is reached from.
-            return Some(if text { to } else { (rect.y, col) });
+        if let Some(rect) = rects.iter().find(|rect| contains(rect)) {
+            let inside_own = own.is_some_and(|own| std::ptr::eq(own, rect));
+            if !(moved && inside_own) {
+                // A button is entered at its top, whichever side it is reached from.
+                return Some(if text { to } else { (rect.y, col) });
+            }
         }
 
         let on_row = |rect: &Rect| row >= rect.y && row < rect.y + rect.height;
-        let ahead = |rect: &&Rect| match row.cmp(&from.0) {
-            std::cmp::Ordering::Greater if leaving => rect.y > row,
-            std::cmp::Ordering::Less if leaving => rect.y + rect.height <= row,
-            std::cmp::Ordering::Greater => rect.y + rect.height > row,
-            std::cmp::Ordering::Less => rect.y <= row,
-            std::cmp::Ordering::Equal if !text => true,
+        let ahead = |rect: &&Rect| match (row.cmp(&from.0), own) {
+            (std::cmp::Ordering::Greater, Some(_)) => rect.y > from.0 && !holds_from(rect),
+            (std::cmp::Ordering::Less, Some(own)) => rect.y + rect.height <= own.y,
+            (std::cmp::Ordering::Greater, None) => rect.y + rect.height > row,
+            (std::cmp::Ordering::Less, None) => rect.y <= row,
+            (std::cmp::Ordering::Equal, Some(own)) if col > from.1 => rect.x >= own.x + own.width,
+            (std::cmp::Ordering::Equal, Some(own)) => rect.x + rect.width <= own.x,
+            (std::cmp::Ordering::Equal, None) if !text => true,
             // Sideways it has to go past the gap, or it could never leave a span.
-            std::cmp::Ordering::Equal if col > from.1 => on_row(rect) && rect.x > col,
-            std::cmp::Ordering::Equal => on_row(rect) && rect.x + rect.width <= col,
+            (std::cmp::Ordering::Equal, None) if col > from.1 => on_row(rect) && rect.x > col,
+            (std::cmp::Ordering::Equal, None) => on_row(rect) && rect.x + rect.width <= col,
         };
 
         let gaps = |rect: &Rect| {
@@ -210,11 +217,59 @@ mod tests {
         assert_eq!(engine.snap((2, 0), (3, 0), false), Some((2, 0)));
     }
 
-    #[test]
-    fn moving_sideways_stays_in_a_tall_button() {
-        let engine = engine_with_tall_buttons(2);
+    /// Buttons in a row, with a blank column between them.
+    fn engine_with_row() -> Engine {
+        let mut engine = Engine::new(20);
+        engine.apply(Command::Create { id: 2, display: Display::Flex }).unwrap();
+        engine.apply(Command::Insert { parent: ROOT, child: 2, before: None }).unwrap();
 
-        assert_eq!(engine.snap((0, 0), (0, 1), false), Some((0, 1)));
+        for (index, text) in ["aaaa", " ", "bbbb", " ", "cccc"].iter().enumerate() {
+            let id = 3 + index as u32 * 2;
+            engine.apply(Command::Create { id, display: Display::Block }).unwrap();
+            let width = text.len() as i32;
+            engine.apply(Command::CreateText { id: id + 1, text: text.to_string(), width }).unwrap();
+            engine.apply(Command::Insert { parent: id, child: id + 1, before: None }).unwrap();
+            engine.apply(Command::Insert { parent: 2, child: id, before: None }).unwrap();
+            if text.trim().len() > 0 {
+                let property = StyleProperty::Interactive(true);
+                engine.apply(Command::SetStyle { id, property }).unwrap();
+            }
+        }
+        engine.render(|_, _| ());
+        engine
+    }
+
+    #[test]
+    fn one_press_reaches_the_next_button_sideways() {
+        let engine = engine_with_row();
+
+        assert_eq!(engine.snap((0, 0), (0, 1), false), Some((0, 5)));
+        assert_eq!(engine.snap((0, 5), (0, 6), false), Some((0, 10)));
+        assert_eq!(engine.snap((0, 10), (0, 9), false), Some((0, 5)));
+        assert_eq!(engine.snap((0, 5), (0, 4), false), Some((0, 0)));
+    }
+
+    #[test]
+    fn sideways_stops_at_the_last_button() {
+        let engine = engine_with_row();
+
+        assert_eq!(engine.snap((0, 10), (0, 11), false), Some((0, 10)));
+        assert_eq!(engine.snap((0, 0), (0, 0), false), Some((0, 0)));
+    }
+
+    #[test]
+    fn a_big_jump_lands_where_it_was_aimed() {
+        let engine = engine_with_row();
+
+        // Such as `$`.
+        assert_eq!(engine.snap((0, 0), (0, 12), false), Some((0, 12)));
+    }
+
+    #[test]
+    fn sideways_finds_buttons_on_other_rows() {
+        let engine = engine_with_tall_buttons(1);
+
+        assert_eq!(engine.snap((0, 0), (0, 1), false), Some((0, 0)));
     }
 
     /// Rows of text at the given cells, with blank rows where there is none.
