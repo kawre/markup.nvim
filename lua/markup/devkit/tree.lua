@@ -204,13 +204,24 @@ local function details_of(node)
 end
 
 --- Steps of the frame rate slider, the last one for no cap at all.
-M.fps_steps = { 10, 15, 24, 30, 60, 120, 240, math.huge }
+M.fps_steps = { 15, 30, 60, 75, 90, 120, 144, 165, 180, 240, math.huge }
+
+--- The steps, with the configured rate among them even when it is none of them.
+local function fps_steps()
+	local steps = vim.list_slice(M.fps_steps, 1)
+	local configured = (Markup.config.user.animate or {}).fps
+	if configured and not vim.tbl_contains(steps, configured) then
+		steps[#steps + 1] = configured
+		table.sort(steps)
+	end
+	return steps
+end
 local SLIDER = 18
 
 --- The step closest to `fps`.
-local function fps_step(fps)
+local function fps_step(steps, fps)
 	local best, distance = 1, math.huge
-	for i, step in ipairs(M.fps_steps) do
+	for i, step in ipairs(steps) do
 		local d = step == math.huge and (fps == math.huge and 0 or math.huge) or math.abs(step - fps)
 		if d < distance then
 			best, distance = i, d
@@ -229,7 +240,24 @@ M.options = {
 	{ key = "hl_names", label = "Highlight names", desc = "highlight groups on every row", default = true },
 	{ key = "guides", label = "Indent guides", desc = "lines joining nested elements", default = true },
 	{ key = "live", label = "Live updates", desc = "refresh the tree as the view changes", default = true },
+	{
+		key = "vrr",
+		label = "Variable rate",
+		desc = "tick only when an animation can change",
+		default = true,
+		get = function()
+			return Markup.animate.vrr
+		end,
+		set = function(enabled)
+			Markup.animate.vrr = enabled
+		end,
+	},
 }
+
+local options_by_key = {}
+for _, option in ipairs(M.options) do
+	options_by_key[option.key] = option
+end
 
 ---@param target markup.view
 function M:new(target)
@@ -240,11 +268,15 @@ function M:new(target)
 	self.keys_by_handler = {}
 	local defaults = Markup.config.user.inspector or {}
 	for _, option in ipairs(M.options) do
+		if option.get then
+			goto continue
+		end
 		local default = defaults[option.key]
 		if default == nil then
 			default = option.default
 		end
 		self[option.key] = default
+		::continue::
 	end
 
 	self.rows = m.signal({})
@@ -369,6 +401,7 @@ function M:measure()
 		effects = counts.effects,
 		scopes = counts.scopes,
 		animations = require("markup.animate").count(),
+		ticks = self:tick_rate(now),
 		memory = collectgarbage("count") / 1024,
 		frames = vim.tbl_map(function(sample)
 			return sample.ms
@@ -376,11 +409,28 @@ function M:measure()
 	}
 end
 
+--- Animation ticks a second over about the last second, read on each update.
+function M:tick_rate(now)
+	local history = self.tick_history or {}
+	self.tick_history = history
+	history[#history + 1] = { at = now, ticks = Markup.animate.ticks }
+	while #history > 2 and now - history[2].at >= 1000 do
+		table.remove(history, 1)
+	end
+	local first, last = history[1], history[#history]
+	local elapsed = last.at - first.at
+	if elapsed <= 0 then
+		return 0
+	end
+	return math.floor((last.ticks - first.ticks) / elapsed * 1000 + 0.5)
+end
+
 --- Redraws the performance pane when anything it shows has changed.
 function M:update_perf()
 	local perf = self:measure()
 	local old = reactive.untrack(self.perf)
-	local key = ("%d %.2f %.2f %.2f %.2f %.2f %d %d %d %d %d %.1f %d"):format(
+	local key = ("%d %d %.2f %.2f %.2f %.2f %.2f %d %d %d %d %d %.1f %d"):format(
+		perf.ticks,
 		perf.fps,
 		perf.ms,
 		perf.layout,
@@ -837,7 +887,7 @@ end
 --- Frames per second, the last frame's time and a sparkline of the ones before.
 function M:pulse()
 	local width = self.stats_win:win_valid() and api.nvim_win_get_width(self.stats_win.win) or 60
-	local slots = math.max(width - 26, 8)
+	local slots = math.max(width - 40, 8)
 
 	return m.block(function()
 		local perf = self.perf()
@@ -852,7 +902,9 @@ function M:pulse()
 			value(("%3d"):format(perf.fps), "MarkupInspectorStrong"),
 			label(" fps  "),
 			value(("%6.2f"):format(perf.ms), "MarkupInspector" .. health(perf.ms)),
-			label(" ms   "),
+			label(" ms  "),
+			value(("%4d"):format(perf.ticks), "MarkupInspectorValue"),
+			label(Markup.animate.vrr and " ticks vrr  " or " ticks      "),
 		}
 		local first = math.max(#frames - slots + 1, 1)
 		parts[#parts + 1] = label(("·"):rep(slots - (#frames - first + 1)))
@@ -1059,7 +1111,12 @@ end
 ---@param key string
 ---@param enabled boolean
 function M:set_option(key, enabled)
-	self[key] = enabled
+	local option = options_by_key[key]
+	if option and option.set then
+		option.set(enabled)
+	else
+		self[key] = enabled
+	end
 	if self.option_signals then
 		self.option_signals[key](enabled)
 	end
@@ -1080,7 +1137,11 @@ function M:open_options()
 
 	self.option_signals = {}
 	for _, option in ipairs(M.options) do
-		self.option_signals[option.key] = m.signal(self[option.key])
+		local value = self[option.key]
+		if option.get then
+			value = option.get()
+		end
+		self.option_signals[option.key] = m.signal(value)
 	end
 
 	local width = math.min(api.nvim_win_get_width(self.win.win) - 4, 52)
@@ -1139,15 +1200,16 @@ function M:open_options()
 			m.block({ m.inline("  " .. option.desc, "MarkupInspectorLabel") }),
 		})
 	end
-	local step = m.signal(fps_step(Markup.animate.fps))
+	local steps = fps_steps()
+	local step = m.signal(fps_step(steps, Markup.animate.fps))
 	local slider_hovered = m.signal(false)
 	local function move(by)
-		local index = math.max(math.min(reactive.untrack(step) + by, #M.fps_steps), 1)
+		local index = math.max(math.min(reactive.untrack(step) + by, #steps), 1)
 		step(index)
-		Markup.animate.set_fps(M.fps_steps[index])
+		Markup.animate.set_fps(steps[index])
 	end
 	local function filled()
-		return math.floor((step() - 1) / (#M.fps_steps - 1) * (SLIDER - 1))
+		return math.floor((step() - 1) / (#steps - 1) * (SLIDER - 1))
 	end
 
 	rows[#rows + 1] = m.block({ "" })
@@ -1160,7 +1222,7 @@ function M:open_options()
 			slider_hovered(value)
 		end,
 		on_press = function()
-			move(reactive.untrack(step) == #M.fps_steps and 1 - #M.fps_steps or 1)
+			move(reactive.untrack(step) == #steps and 1 - #steps or 1)
 		end,
 		m.flex({
 			justify = "between",
@@ -1176,7 +1238,7 @@ function M:open_options()
 				end, "MarkupInspectorGuide"),
 			}),
 			m.inline(function()
-				local fps = M.fps_steps[step()]
+				local fps = steps[step()]
 				return fps == math.huge and "unlimited" or tostring(fps)
 			end, "MarkupInspectorValue"),
 		}),
