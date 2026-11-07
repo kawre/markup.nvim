@@ -177,8 +177,81 @@ T["colors"]["fade_in keeps the other attributes"] = function()
 		name = animate.fade_in("Target", 0x000000, { duration = 100 })
 		animate.tick(100)
 	]])
-	eq(get("vim.api.nvim_get_hl(0, { name = name }).fg"), 0xffffff)
-	eq(get("vim.api.nvim_get_hl(0, { name = name }).bold"), true)
+	eq(get("vim.api.nvim_get_hl(0, { name = name, link = false }).fg"), 0xffffff)
+	eq(get("vim.api.nvim_get_hl(0, { name = name, link = false }).bold"), true)
+end
+
+T["colors"]["tint follows its progress both ways"] = function()
+	run([[
+		progress = m.signal(0)
+		_, owner = reactive.scope(function()
+			name = animate.tint({ bg = 0x000000 }, { bg = 0xffffff }, progress)
+		end)
+		progress(1)
+		reactive.flush()
+		up = vim.api.nvim_get_hl(0, { name = name }).bg
+		progress(0)
+		reactive.flush()
+		down = vim.api.nvim_get_hl(0, { name = name }).bg
+	]])
+	eq(get("up"), 0xffffff)
+	eq(get("down"), 0)
+end
+
+T["colors"]["a finished fade becomes its target"] = function()
+	run([[
+		vim.api.nvim_set_hl(0, "Target", { fg = "#ffffff" })
+		name = animate.fade_in("Target", 0x000000, { duration = 100 })
+		animate.tick(100)
+		vim.api.nvim_set_hl(0, "Target", { fg = "#123456" })
+	]])
+	eq(get("vim.api.nvim_get_hl(0, { name = name, link = false }).fg"), 0x123456)
+end
+
+T["colors"]["names return to the pool with their owner"] = function()
+	run([[
+		_, owner = reactive.scope(function()
+			first = animate.highlight({ fg = 0 }, { fg = 1 })
+		end)
+		reactive.dispose(owner)
+		reactive.scope(function()
+			second = animate.highlight({ fg = 0 }, { fg = 1 })
+		end)
+	]])
+	eq(get("first == second"), true)
+end
+
+T["hover"] = new_set()
+
+T["hover"]["follows the cursor"] = function()
+	run([[
+		seen = {}
+		local function row(name)
+			return m.block({
+				on_press = function() end,
+				on_hover = function(hovered) seen[#seen + 1] = name .. tostring(hovered) end,
+				name,
+			})
+		end
+		view:render(m.block({ row("a"), row("b") }))
+		reactive.flush()
+		vim.api.nvim_win_set_cursor(0, { 2, 0 })
+		vim.api.nvim_exec_autocmds("CursorMoved", { buffer = win.buf })
+	]])
+	eq(get("seen"), { "atrue", "afalse", "btrue" })
+end
+
+T["hover"]["ends with the node"] = function()
+	run([[
+		seen, open = 0, m.signal(true)
+		view:render(m.show(open, function()
+			return m.block({ on_press = function() end, on_hover = function() seen = seen + 1 end, "a" })
+		end))
+		reactive.flush()
+		open(false)
+		reactive.flush()
+	]])
+	eq(get("next(view.hover_handlers)"), vim.NIL)
 end
 
 T["overflow"] = function()

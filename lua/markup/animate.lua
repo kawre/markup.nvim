@@ -246,35 +246,83 @@ function M.color(group, attribute)
 	return vim.api.nvim_get_hl(0, { name = group, link = false })[attribute]
 end
 
+local free_groups = {} ---@type string[]
 local groups = 0
+
+--- Neovim cannot delete highlights, so names are reused once their owner goes.
+---@return string
+local function acquire_group()
+	local name = table.remove(free_groups)
+	if not name then
+		groups = groups + 1
+		name = ("MarkupAnimated%d"):format(groups)
+	end
+
+	reactive.on_cleanup(function()
+		free_groups[#free_groups + 1] = name
+	end)
+	return name
+end
+
+local function blended(from, to, base)
+	local definition = vim.deepcopy(base or {})
+	return function(t)
+		for _, attribute in ipairs({ "fg", "bg" }) do
+			if from[attribute] and to[attribute] then
+				definition[attribute] = M.mix(from[attribute], to[attribute], t)
+			end
+		end
+		return definition
+	end
+end
 
 --- A new highlight that animates from `from` to `to`, which are tables of
 --- colors in the form `{ fg = 0xrrggbb, bg = 0xrrggbb }`. Runs without touching
 --- the layout, so it is the cheapest animation there is.
 ---@param from table
 ---@param to table
----@param opts? markup.animate.opts|{ name?: string, base?: table }
+---@param opts? markup.animate.opts|{ base?: table, link?: string } `link` is the
+--- group to become at the end, which then follows colorscheme changes
 ---@return string name
 function M.highlight(from, to, opts)
 	opts = vim.tbl_extend("force", {}, opts or {})
-	groups = groups + 1
-	local name = opts.name or ("MarkupAnimated%d"):format(groups)
+	local name = acquire_group()
+	local at = blended(from, to, opts.base)
 
-	local function set(t)
-		local definition = vim.deepcopy(opts.base or {})
-		for _, attribute in ipairs({ "fg", "bg" }) do
-			if from[attribute] and to[attribute] then
-				definition[attribute] = M.mix(from[attribute], to[attribute], t)
-			end
-		end
-		vim.api.nvim_set_hl(0, name, definition)
-	end
+	vim.api.nvim_set_hl(0, name, at(0))
 
-	set(0)
 	opts.update = function(progress)
-		set(progress)
+		vim.api.nvim_set_hl(0, name, at(progress))
 	end
+
+	local done = opts.done
+	opts.done = function()
+		if opts.link then
+			vim.api.nvim_set_hl(0, name, { link = opts.link })
+		end
+		if done then
+			done()
+		end
+	end
+
 	M.run(opts)
+	return name
+end
+
+--- A highlight that follows `progress`, which goes from 0 to 1. Unlike
+--- `highlight` it can go back and forth, such as with the state of a row.
+---@param from table
+---@param to table
+---@param progress fun(): number
+---@param opts? { base?: table }
+---@return string name
+function M.tint(from, to, progress, opts)
+	local name = acquire_group()
+	local at = blended(from, to, opts and opts.base)
+
+	reactive.effect(function()
+		vim.api.nvim_set_hl(0, name, at(progress()))
+	end)
 	return name
 end
 
@@ -287,14 +335,15 @@ function M.fade_in(group, background, opts)
 	local target = vim.api.nvim_get_hl(0, { name = group, link = false })
 	local base = background or M.color("Normal", "bg") or 0
 
-	if not target.fg then
+	if not target.fg or not M.enabled then
 		return group
 	end
 
-	local name = M.highlight({ fg = base }, { fg = target.fg }, vim.tbl_extend("force", opts or {}, {
-		base = target,
-	}))
-	return name
+	return M.highlight(
+		{ fg = base },
+		{ fg = target.fg },
+		vim.tbl_extend("force", opts or {}, { base = target, link = group })
+	)
 end
 
 return M

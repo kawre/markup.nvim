@@ -143,6 +143,13 @@ local function apply_props(view, id, tag, props)
 		view.commands:set_border(id, props.border, props.border_sides, hl.id(border_style))
 	end
 
+	if props.on_hover then
+		view:set_hover_handler(id, props.on_hover)
+		reactive.on_cleanup(function()
+			view:set_hover_handler(id, nil)
+		end)
+	end
+
 	if props.on_press then
 		view:set_handler(id, props.on_press)
 		bind_style(view, id, "interactive", true)
