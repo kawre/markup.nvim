@@ -221,4 +221,29 @@ T["handles thousands of items"] = function()
 	eq(child.lua_get("list_lines()")[1]:find("4999", 1, true) ~= nil, true)
 end
 
+T["a label too long is cut before the suffix"] = function()
+	child.o.columns = 40
+	child.lua([[
+		local items = {}
+		for i = 1, 3 do
+			items[i] = {
+				label = "Longest Substring Without Repeating Characters",
+				prefix = { { i .. ". " } },
+				suffix = { { "58.1%" } },
+				value = i,
+			}
+		end
+		Markup.picker({ title = "Pick", items = items, on_select = function() end })
+		reactive.flush()
+	]])
+	for _, line in ipairs(child.lua_get("list_lines()")) do
+		if line ~= "" then
+			-- The suffix ends the row, and nothing of the label runs past it.
+			eq(line:match("58%.1%%$") ~= nil, true)
+			eq(select(2, line:gsub("58%.1%%", "")), 1)
+			eq(line:find("Characters", 1, true), nil)
+		end
+	end
+end
+
 return T

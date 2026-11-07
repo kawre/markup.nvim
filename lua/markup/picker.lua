@@ -236,6 +236,8 @@ function M.open(opts)
 			style = active and "MarkupPickerSelected" or nil,
 			m.inline({
 				shrink = 1,
+				-- Cut where it no longer fits, rather than run under the suffix.
+				overflow_x = "hidden",
 				m.inline(active and "▌" or " ", "MarkupPickerMarker"),
 				m.inline({ margin_left = 1, spans }),
 			}),
