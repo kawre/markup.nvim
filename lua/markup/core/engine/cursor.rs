@@ -6,13 +6,15 @@ use super::style::{Display, Position};
 use super::tree::Index;
 
 impl Engine {
-    fn interactive_rects(&self, index: Index, x: i32, y: i32, rects: &mut Vec<Rect>) {
+    /// Interactive nodes, each with the row a cursor lands on when entering it:
+    /// its first row of content, rather than a border or padding above it.
+    fn interactive_rects(&self, index: Index, x: i32, y: i32, rects: &mut Vec<Rect>, lands: &mut Vec<i32>) {
         let tree = self.tree();
         let node = tree.node(index);
 
         if node.display == Display::Contents {
             for &child in &node.children {
-                self.interactive_rects(child, x, y, rects);
+                self.interactive_rects(child, x, y, rects, lands);
             }
             return;
         }
@@ -25,19 +27,21 @@ impl Engine {
         };
 
         if node.style.interactive {
-            rects.push(Rect {
+            let rect = Rect {
                 x: x + node.style.margin.left,
                 y: y + node.style.margin.top,
                 width: node.geometry.content.width + node.style.inner().horizontal(),
                 height: node.geometry.content.height + node.style.inner().vertical(),
-            });
+            };
+            lands.push((rect.y + node.style.inner().top).min(rect.y + rect.height - 1));
+            rects.push(rect);
             return;
         }
 
         let content_x = x + node.style.margin.left + node.style.inner().left;
         let content_y = y + node.style.margin.top + node.style.inner().top;
         for &child in &node.children {
-            self.interactive_rects(child, content_x, content_y, rects);
+            self.interactive_rects(child, content_x, content_y, rects, lands);
         }
     }
 
@@ -51,9 +55,10 @@ impl Engine {
     /// with nothing ahead the nearest text wins, so that `gg` still gets there.
     pub fn snap(&self, from: (i32, i32), to: (i32, i32), text: bool) -> Option<(i32, i32)> {
         let mut rects = Vec::new();
-        self.interactive_rects(self.root_index(), 0, 0, &mut rects);
+        let mut lands = Vec::new();
+        self.interactive_rects(self.root_index(), 0, 0, &mut rects, &mut lands);
         if text {
-            self.text_rects(&mut rects);
+            self.text_rects(&mut rects, &mut lands);
         }
         if rects.is_empty() {
             return None;
@@ -77,7 +82,8 @@ impl Engine {
             let inside_own = own.is_some_and(|own| std::ptr::eq(own, rect));
             if !(moved && inside_own) {
                 // A button is entered at its top, whichever side it is reached from.
-                return Some(if text { to } else { (rect.y, col) });
+                let land = lands[rects.iter().position(|other| std::ptr::eq(other, rect)).unwrap_or(0)];
+                return Some(if text { to } else { (land, col) });
             }
         }
 
@@ -120,15 +126,17 @@ impl Engine {
                 let last_col = rect.x + rect.width - 1;
                 (row.clamp(rect.y, last_row), col.clamp(rect.x, last_col))
             } else {
-                (rect.y, rect.x)
+                let index = rects.iter().position(|other| std::ptr::eq(other, rect)).unwrap_or(0);
+                (lands[index], rect.x)
             }
         }))
     }
 
-    fn text_rects(&self, rects: &mut Vec<Rect>) {
+    fn text_rects(&self, rects: &mut Vec<Rect>, lands: &mut Vec<i32>) {
         for (y, line) in self.lines.iter().enumerate() {
             for &(start, end) in &line.spans {
                 rects.push(Rect { x: start, y: y as i32, width: end - start, height: 1 });
+                lands.push(y as i32);
             }
         }
     }
@@ -136,7 +144,7 @@ impl Engine {
 
 #[cfg(test)]
 mod tests {
-    use super::super::protocol::{Command, StyleProperty};
+    use super::super::protocol::{Command, Side, StyleProperty};
     use super::super::style::Display;
     use super::super::{Engine, ROOT};
 
@@ -270,6 +278,26 @@ mod tests {
         let engine = engine_with_tall_buttons(1);
 
         assert_eq!(engine.snap((0, 0), (0, 1), false), Some((0, 0)));
+    }
+
+    #[test]
+    fn buttons_are_entered_below_their_border() {
+        let mut engine = Engine::new(20);
+        for id in [2, 4] {
+            engine.apply(Command::Create { id, display: Display::Block }).unwrap();
+            engine.apply(Command::CreateText { id: id + 1, text: "tile".to_string(), width: 4 }).unwrap();
+            engine.apply(Command::Insert { parent: id, child: id + 1, before: None }).unwrap();
+            engine.apply(Command::Insert { parent: ROOT, child: id, before: None }).unwrap();
+            let property = StyleProperty::Interactive(true);
+            engine.apply(Command::SetStyle { id, property }).unwrap();
+            let property = StyleProperty::Padding(Side::Top, 1);
+            engine.apply(Command::SetStyle { id, property }).unwrap();
+        }
+        engine.render(|_, _| ());
+
+        // Each is two rows: its padding, then its text.
+        assert_eq!(engine.snap((1, 0), (2, 0), false), Some((3, 0)));
+        assert_eq!(engine.snap((3, 0), (2, 0), false), Some((1, 0)));
     }
 
     /// Rows of text at the given cells, with blank rows where there is none.
