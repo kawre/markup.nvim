@@ -252,6 +252,9 @@ function M:new(target)
 	self.details = m.signal({})
 	self.node = m.signal(nil) ---@type markup.core.node?
 	self.samples = {} ---@type { at: number, ms: number }[] the last frames of the target, oldest first
+	-- When each frame of the last second came, oldest at `first`. Separate from
+	-- `samples`, which only keeps enough frames for the sparkline.
+	self.stamps, self.first, self.last = {}, 1, 0
 	self.perf = m.signal(self:measure())
 
 	self.ns = api.nvim_create_namespace(("markup_inspector_target_[%s]"):format(target.win.id))
@@ -325,9 +328,22 @@ end
 function M:sample()
 	local stats = self.target.stats
 	local samples = self.samples
-	samples[#samples + 1] = { at = vim.uv.hrtime() / 1e6, ms = stats.engine + stats.apply }
+	local at = vim.uv.hrtime() / 1e6
+	samples[#samples + 1] = { at = at, ms = stats.engine + stats.apply }
+	self.last = self.last + 1
+	self.stamps[self.last] = at
+	self:forget_before(at - 1000)
 	if #samples > SAMPLES then
 		table.remove(samples, 1)
+	end
+end
+
+--- Drops the times of frames older than `at`.
+function M:forget_before(at)
+	local stamps = self.stamps
+	while self.first <= self.last and stamps[self.first] < at do
+		stamps[self.first] = nil
+		self.first = self.first + 1
 	end
 end
 
@@ -338,13 +354,8 @@ function M:measure()
 	local counts = reactive.stats()
 	local now = vim.uv.hrtime() / 1e6
 
-	local fps = 0
-	for i = #self.samples, 1, -1 do
-		if now - self.samples[i].at > 1000 then
-			break
-		end
-		fps = fps + 1
-	end
+	self:forget_before(now - 1000)
+	local fps = self.last - self.first + 1
 
 	return {
 		fps = fps,
