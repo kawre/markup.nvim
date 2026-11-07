@@ -2093,4 +2093,33 @@ T["resize"]["follows the window on the next frame even if Neovim never said"] = 
 	eq(child.lua_get("after"), 20)
 end
 
+T["snap"] = T["snap"] or new_set()
+
+T["snap"]["waits for rows the buffer does not have yet"] = function()
+	child.lua([[
+		errors = {}
+		vim.notify = function(message) errors[#errors + 1] = message end
+		view = Markup.view(win, { snap = true })
+		view:render(m.block({ m.block({ "one", on_press = function() end }), m.block({ "two", on_press = function() end }) }))
+		reactive.flush()
+		vim.api.nvim_set_current_win(win.win)
+		-- As when the engine has laid out a frame the buffer has not got yet.
+		local real = view.engine
+		view.engine = setmetatable({ snap = function() return 40, 0 end }, {
+			__index = function(_, key)
+				local value = real[key]
+				if type(value) == "function" then
+					return function(_, ...) return value(real, ...) end
+				end
+				return value
+			end,
+		})
+		ok, err = pcall(view.snap_cursor, view)
+		view.engine = real
+		cursor = vim.api.nvim_win_get_cursor(win.win)
+	]])
+	eq(child.lua_get("ok"), true)
+	eq(child.lua_get("cursor[1] <= 2"), true)
+end
+
 return T
