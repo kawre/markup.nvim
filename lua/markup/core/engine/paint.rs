@@ -192,8 +192,10 @@ impl<'a> Row<'a> {
             .ranges
             .iter()
             .filter(|range| range.1 > range.0)
+            .filter(|range| range.1 > 0)
             .map(|&(start, end, hl)| Mark {
-                start: byte_at(start) as u32,
+                // Something placed before the first column must not wrap around.
+                start: byte_at(start.max(0)) as u32,
                 end: byte_at(end) as u32,
                 hl,
             })
@@ -715,6 +717,19 @@ mod tests {
         row.ranges.push((1, 3, 7));
 
         assert_eq!(row.finish().marks, vec![Mark { start: 1, end: 4, hl: 7 }]);
+    }
+
+    #[test]
+    fn marks_before_the_first_column_do_not_wrap_around() {
+        let row = Row {
+            segments: Vec::new(),
+            ranges: vec![(-9, 4, 1), (-5, -2, 2)],
+        };
+
+        let line = row.finish();
+
+        assert_eq!(line.marks.len(), 1);
+        assert_eq!((line.marks[0].start, line.marks[0].end), (0, 4));
     }
 
     #[test]

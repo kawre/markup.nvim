@@ -232,6 +232,21 @@ T["colors"]["half block edges follow an animated highlight"] = function()
 	eq(get("vim.api.nvim_get_hl(0, { name = edge }).fg"), 0xffffff)
 end
 
+T["centered content wider than the window stays on screen"] = function()
+	run([[
+		errors = {}
+		vim.notify = function(message) errors[#errors + 1] = message end
+		view.commands:resize(10)
+		view:render(m.vflex({
+			align = "center",
+			m.block({ width = 30, style = "Visual", "wide" }),
+		}))
+		reactive.flush()
+	]])
+	eq(get("errors"), {})
+	eq(get("lines()"), { "wide" })
+end
+
 T["hover"] = new_set()
 
 T["hover"]["follows the cursor"] = function()
