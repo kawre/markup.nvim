@@ -457,6 +457,115 @@ T["marking can be off from the start"] = function()
 	eq(child.lua_get("Markup.config.user.logging"), true)
 end
 
+T["options"] = new_set()
+
+local function open_options()
+	run([[
+		view:render(m.block({ m.block({ "hello", style = "Label" }) }))
+		open()
+		vim.api.nvim_set_current_win(inspector.win.win)
+		vim.cmd("normal s")
+		reactive.flush()
+		options = inspector.options_view
+		function option_row(label)
+			for i, line in ipairs(vim.api.nvim_buf_get_lines(inspector.options_win.buf, 0, -1, false)) do
+				if line:find(label, 1, true) then return i end
+			end
+		end
+		function press(label)
+			vim.api.nvim_win_set_cursor(inspector.options_win.win, { option_row(label), 2 })
+			vim.cmd("doautocmd CursorMoved")
+			reactive.flush()
+			vim.cmd("normal \r")
+			reactive.flush()
+		end
+	]])
+end
+
+T["options"]["opens a popup listing every option"] = function()
+	open_options()
+	eq(child.lua_get("vim.api.nvim_get_current_win() == inspector.options_win.win"), true)
+	for _, label in ipairs({ "Follow cursor", "Show groups", "Mark selection", "Geometry", "Highlight names", "Indent guides", "Live updates", "Max fps" }) do
+		eq(child.lua_get(("option_row(%q) ~= nil"):format(label)), true)
+	end
+end
+
+T["options"]["toggles what is pressed"] = function()
+	open_options()
+	run([[press("Geometry")]])
+	eq(child.lua_get("inspector.geometry"), false)
+	eq(child.lua_get("inspector_lines()[2]"):match("%d+×%d+"), nil)
+	run([[press("Highlight names")]])
+	eq(contains(" Label"), false)
+	run([[press("Indent guides")]])
+	eq(child.lua_get("inspector_lines()[2]"):find("│", 1, true), nil)
+	run([[press("Mark selection")]])
+	eq(child.lua_get("winbar():find('○ mark', 1, true) ~= nil"), true)
+	run([[press("Geometry")]])
+	eq(child.lua_get("inspector_lines()[2]"):match("%d+×%d+") ~= nil, true)
+end
+
+T["options"]["live updates can be paused"] = function()
+	open_options()
+	run([[
+		press("Live updates")
+		view:render(m.block({ m.block("later") }))
+		reactive.flush()
+		vim.wait(250, function() return false end, 10)
+	]])
+	eq(contains('"later"'), false)
+end
+
+T["options"]["a slider sets the frame rate"] = function()
+	open_options()
+	run([[
+		vim.api.nvim_win_set_cursor(inspector.options_win.win, { option_row("Max fps"), 2 })
+		vim.cmd("doautocmd CursorMoved")
+		reactive.flush()
+		before = Markup.animate.fps
+		vim.cmd("normal l")
+		reactive.flush()
+		up = Markup.animate.fps
+		for _ = 1, 10 do vim.cmd("normal l") end
+		reactive.flush()
+		top = Markup.animate.fps
+		top_line = vim.api.nvim_buf_get_lines(inspector.options_win.buf, option_row("Max fps") - 1, option_row("Max fps"), false)[1]
+		for _ = 1, 20 do vim.cmd("normal h") end
+		bottom = Markup.animate.fps
+	]])
+	eq(child.lua_get("before"), 30)
+	eq(child.lua_get("up"), 60)
+	eq(child.lua_get("top == math.huge"), true)
+	eq(child.lua_get("top_line"):find("unlimited", 1, true) ~= nil, true)
+	eq(child.lua_get("bottom"), 10)
+end
+
+T["options"]["defaults come from setup"] = function()
+	run([[
+		m.setup({ inspector = { geometry = false, guides = false } })
+		view:render(m.block({ m.block("one") }))
+		open()
+	]])
+	eq(child.lua_get("inspector.geometry"), false)
+	eq(child.lua_get("inspector.guides"), false)
+	eq(child.lua_get("inspector.follow"), true)
+end
+
+T["options"]["closes with q and with the inspector"] = function()
+	open_options()
+	run([[
+		vim.cmd("normal q")
+		closed_with_q = inspector.options_win == nil
+		back_in_tree = vim.api.nvim_get_current_win() == inspector.win.win
+		vim.cmd("normal s")
+		popup = inspector.options_win.win
+		inspector:close()
+	]])
+	eq(child.lua_get("closed_with_q"), true)
+	eq(child.lua_get("back_in_tree"), true)
+	eq(child.lua_get("vim.api.nvim_win_is_valid(popup)"), false)
+end
+
 T["hides groups until asked"] = function()
 	run([[
 		local Comp = m.component(function() return m.block("x") end)
