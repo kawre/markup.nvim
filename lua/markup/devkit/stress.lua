@@ -2,7 +2,12 @@
 --- cells recolored on every frame, meters that keep animating to new values, a
 --- long list that churns, panels that open and close, and text that reflows.
 ---
---- Keys: + / - change the intensity, <Space> pauses, q closes.
+--- It runs at full throttle: animations move as often as the main loop allows
+--- rather than at `Markup.animate.fps`, so frames per second show what the work
+--- costs.
+---
+--- Keys: + / - change the intensity, t toggles the frame cap, <Space> pauses,
+--- q closes.
 
 local m = require("markup")
 local reactive = require("markup.reactive")
@@ -32,6 +37,8 @@ local TEXT = ("Markup lays this paragraph out again on every frame, because the 
 
 local paused = m.signal(false)
 local intensity = m.signal(2)
+local capped = m.signal(false)
+local fps = 30 ---@type number the rate other views use, restored on close
 
 --- Calls `fn` every `ms` for as long as the calling scope lives, unless paused.
 local function every(ms, fn)
@@ -253,12 +260,15 @@ local function Header(now)
 		}),
 		m.block({
 			m.inline(function()
+				return capped() and ("capped at %d fps  "):format(fps) or "full throttle  "
+			end, "DiagnosticWarn"),
+			m.inline(function()
 				return ("intensity %d  "):format(intensity())
 			end, "Number"),
 			m.inline(function()
 				return ("%5.1fs  "):format((now() - started) / 1000)
 			end, "Comment"),
-			m.inline("+/- intensity  <Space> pause  q close", "Comment"),
+			m.inline("+/- intensity  t cap  <Space> pause  q close", "Comment"),
 		}),
 	})
 end
@@ -299,11 +309,26 @@ function M.open()
 	vim.bo[win.buf].bufhidden = "wipe"
 
 	paused(false)
+	capped(false)
+	if Markup.animate.fps ~= math.huge then
+		fps = Markup.animate.fps
+	end
+	Markup.animate.set_fps(math.huge)
 	local view = Markup.view(win)
 	view:render(Stress())
 
 	local tab = api.nvim_get_current_tabpage()
+	-- However the tab goes away, other views get their usual rate back.
+	api.nvim_create_autocmd("BufWipeout", {
+		buffer = win.buf,
+		once = true,
+		callback = function()
+			Markup.animate.set_fps(fps)
+		end,
+	})
+
 	local function close()
+		Markup.animate.set_fps(fps)
 		local inspector = Markup.devkit.tree().get(view)
 		if inspector then
 			inspector:close()
@@ -315,6 +340,10 @@ function M.open()
 	end
 
 	win:map("n", "q", close)
+	win:map("n", "t", function()
+		capped(not capped())
+		Markup.animate.set_fps(capped() and fps or math.huge)
+	end)
 	win:map("n", "<Space>", function()
 		paused(not paused())
 	end)

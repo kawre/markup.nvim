@@ -39,6 +39,58 @@ local function get(code)
 	return child.lua_get(code)
 end
 
+T["clock"] = new_set()
+
+T["clock"]["runs as fast as the main loop allows when uncapped"] = function()
+	run([[
+		animate.manual = false
+		animate.set_fps(math.huge)
+		ticks = 0
+		animate.run({ duration = 10000, update = function() ticks = ticks + 1 end })
+		vim.wait(300, function() return false end, 1)
+	]])
+	-- At the usual 30 fps this would be about 9.
+	eq(get("ticks") > 30, true)
+end
+
+T["clock"]["drops ticks the main loop cannot keep up with"] = function()
+	run([[
+		animate.manual = false
+		animate.set_fps(math.huge)
+		ticks = 0
+		animate.run({
+			duration = 10000,
+			update = function()
+				ticks = ticks + 1
+				local until_ = vim.uv.hrtime() + 20e6
+				while vim.uv.hrtime() < until_ do end
+			end,
+		})
+		vim.wait(300, function() return false end, 1)
+		started = vim.uv.hrtime()
+		animate.set_fps(30)
+		vim.wait(0)
+		-- Nothing queued while ticks were slow, so the loop is free right away.
+		waited = (vim.uv.hrtime() - started) / 1e6
+	]])
+	eq(get("ticks") <= 16, true)
+	eq(get("waited") < 50, true)
+end
+
+T["clock"]["a new rate takes over a running clock"] = function()
+	run([[
+		animate.manual = false
+		ticks = 0
+		animate.run({ duration = 10000, update = function() ticks = ticks + 1 end })
+		vim.wait(100, function() return false end, 1)
+		before = ticks
+		animate.set_fps(500)
+		vim.wait(200, function() return false end, 1)
+		after = ticks - before
+	]])
+	eq(get("after") > 30, true)
+end
+
 T["value"] = new_set()
 
 T["value"]["moves to its target over time"] = function()
@@ -52,6 +104,39 @@ T["value"]["moves to its target over time"] = function()
 	run("animate.tick(50)")
 	eq(get("value()"), 10)
 	eq(get("animate.running()"), false)
+end
+
+T["value"]["stops when its owner goes, however late it was moved"] = function()
+	run([[
+		_, owner = reactive.scope(function()
+			value = animate.value(0, { duration = 300 })
+		end)
+		-- Moved from outside any scope, as a timer or an after_commit callback does.
+		value(10)
+		running = animate.count()
+		reactive.dispose(owner)
+		stopped = animate.count()
+		value(20)
+		after = animate.count()
+	]])
+	eq(get("running"), 1)
+	eq(get("stopped"), 0)
+	eq(get("after"), 0)
+	eq(get("value()"), 20)
+end
+
+T["value"]["a stopped animation does not finish"] = function()
+	run([[
+		-- Each stops the other, so whichever the tick finishes first, the other
+		-- must not finish after it.
+		finished = {}
+		local stop_a, stop_b
+		stop_a = animate.run({ duration = 100, update = function() end, done = function() finished[#finished + 1] = "a"; stop_b() end })
+		stop_b = animate.run({ duration = 100, update = function() end, done = function() finished[#finished + 1] = "b"; stop_a() end })
+		animate.tick(200)
+	]])
+	local finished = get("finished")
+	eq(#finished, 1)
 end
 
 T["value"]["waits for its delay"] = function()

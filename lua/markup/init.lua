@@ -151,7 +151,7 @@ _G.Markup.list = require("markup.collection.list")
 ---@private
 ---@param opts? table
 function M.setup(opts)
-	Markup.config.merge(opts)
+	Markup.config.user = Markup.config.merge(Markup.config.user, opts or {})
 	Markup.cmd.setup()
 end
 

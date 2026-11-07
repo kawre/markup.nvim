@@ -9,7 +9,7 @@
 --- stay in place however far the tree scrolls.
 ---
 --- Keys: <CR> expand or load more, c show groups, f follow the cursor,
---- r refresh, q close.
+--- m mark the selection in the view, r refresh, q close.
 
 local m = require("markup")
 local reactive = require("markup.reactive")
@@ -212,6 +212,7 @@ function M:new(target)
 	self.keys_by_handler = {}
 	self.show_groups = false
 	self.follow = true
+	self.mark = Markup.config.user.inspector.mark ~= false
 
 	self.rows = m.signal({})
 	self.selected = m.signal(protocol.ROOT)
@@ -379,6 +380,11 @@ function M:bind_keys()
 	map("f", function()
 		self.follow = not self.follow
 		self:refresh()
+	end)
+	map("m", function()
+		self.mark = not self.mark
+		self:update_winbar()
+		self:show_selection()
 	end)
 	map("c", function()
 		self.show_groups = not self.show_groups
@@ -596,6 +602,7 @@ function M:update_winbar()
 		("%%#MarkupInspectorBarDim#%s nodes"):format(compact(self.target.engine:node_count())),
 		"%#MarkupInspectorBarText#%<%=",
 		flag(self.follow, "follow"),
+		flag(self.mark, "mark"),
 		flag(self.show_groups, "groups"),
 	})
 end
@@ -610,7 +617,7 @@ function M:show_selection()
 
 	local buf = target.win.buf
 	api.nvim_buf_clear_namespace(buf, self.ns, 0, -1)
-	if not node or not node.x or not target.win:valid() then
+	if not self.mark or not node or not node.x or not target.win:valid() then
 		return
 	end
 
@@ -962,7 +969,7 @@ end
 
 function M:panel()
 	local hints = { label(" ") }
-	for _, hint in ipairs({ { "<CR>", "open" }, { "c", "groups" }, { "f", "follow" }, { "r", "refresh" }, { "q", "close" } }) do
+	for _, hint in ipairs({ { "<CR>", "open" }, { "c", "groups" }, { "f", "follow" }, { "m", "mark" }, { "r", "refresh" }, { "q", "close" } }) do
 		hints[#hints + 1] = { hint[1], "MarkupInspectorKey" }
 		hints[#hints + 1] = label((" %s  "):format(hint[2]))
 	end

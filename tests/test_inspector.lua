@@ -422,6 +422,41 @@ T["marks the selected node in the target"] = function()
 	eq(marks, { { 1, 0, 3 } })
 end
 
+T["marking the selection can be turned off"] = function()
+	run([[
+		view:render(m.block({ m.block("one"), m.block("two") }))
+		open()
+		vim.api.nvim_set_current_win(win.win)
+		vim.api.nvim_win_set_cursor(win.win, { 2, 0 })
+		inspector:follow_cursor()
+		before = #vim.api.nvim_buf_get_extmarks(win.buf, inspector.ns, 0, -1, {})
+		vim.api.nvim_set_current_win(inspector.win.win)
+		vim.cmd("normal m")
+		after = #vim.api.nvim_buf_get_extmarks(win.buf, inspector.ns, 0, -1, {})
+		vim.api.nvim_set_current_win(win.win)
+		vim.api.nvim_win_set_cursor(win.win, { 1, 0 })
+		inspector:follow_cursor()
+		moved = #vim.api.nvim_buf_get_extmarks(win.buf, inspector.ns, 0, -1, {})
+	]])
+	eq(child.lua_get("before") > 0, true)
+	eq(child.lua_get("after"), 0)
+	eq(child.lua_get("moved"), 0)
+	eq(child.lua_get("winbar():find('○ mark', 1, true) ~= nil"), true)
+end
+
+T["marking can be off from the start"] = function()
+	run([[
+		m.setup({ inspector = { mark = false } })
+		view:render(m.block({ m.block("one") }))
+		open()
+		vim.api.nvim_set_current_win(win.win)
+		vim.api.nvim_win_set_cursor(win.win, { 1, 0 })
+		inspector:follow_cursor()
+	]])
+	eq(child.lua_get("#vim.api.nvim_buf_get_extmarks(win.buf, inspector.ns, 0, -1, {})"), 0)
+	eq(child.lua_get("Markup.config.user.logging"), true)
+end
+
 T["hides groups until asked"] = function()
 	run([[
 		local Comp = m.component(function() return m.block("x") end)
@@ -597,6 +632,7 @@ T["stress test"]["runs with the inspector open and closes with q"] = function()
 		stress = Markup.playground.stress_test()
 		vim.wait(800, function() return false end, 20)
 		stress_inspector = tree.get(stress)
+		uncapped = Markup.animate.fps == math.huge
 		frames = #stress_inspector.samples
 		vim.cmd("normal +")
 		vim.wait(300, function() return false end, 20)
@@ -606,10 +642,22 @@ T["stress test"]["runs with the inspector open and closes with q"] = function()
 	]])
 	eq(child.lua_get("errors"), {})
 	eq(child.lua_get("frames") > 5, true)
+	eq(child.lua_get("Markup.animate.fps"), 30)
 	eq(child.lua_get("tabs"), 2)
+	eq(child.lua_get("uncapped"), true)
 	eq(child.lua_get("#vim.api.nvim_list_tabpages()"), 1)
 	eq(child.lua_get("tree.get(stress) == nil"), true)
 	eq(child.lua_get("type(require('markup.cmd').commands.playground.stress_test[1])"), "function")
+end
+
+T["stress test"]["gives the frame rate back however its tab closes"] = function()
+	run([[
+		Markup.playground.stress_test()
+		vim.wait(100, function() return false end, 10)
+		vim.cmd("tabclose")
+		vim.wait(50, function() return false end, 10)
+	]])
+	eq(child.lua_get("Markup.animate.fps"), 30)
 end
 
 return T
