@@ -66,7 +66,8 @@ function M:new(win, opts)
 	self.hide_cursor = opts.hide_cursor
 	Markup.views[self] = true
 	self.ns = api.nvim_create_namespace(("markup_view_[%s]"):format(win.id))
-	self.engine = Markup.core.create_engine(self:width())
+	self.laid_width = self:width()
+	self.engine = Markup.core.create_engine(self.laid_width)
 	self.commands = protocol.commands()
 	self.handlers = {}
 	self.clicks = {} ---@type table<integer, "single"|"double"|false>
@@ -86,8 +87,9 @@ function M:new(win, opts)
 
 	win:on("WinResized", function()
 		if win:valid() and vim.tbl_contains(vim.v.event.windows, win.win) then
-			self.commands:resize(self:width())
-			self.width_cells(self:width())
+			-- Laid out again whatever changed, which also keeps the scroll where
+			-- it was when only the height did.
+			self:sync_width(true)
 			self:request_commit()
 		end
 	end, { pattern = "*" })
@@ -156,14 +158,28 @@ function M:width()
 	return self.win:win_valid() and api.nvim_win_get_width(self.win.win) or vim.o.columns
 end
 
+--- Lays out for the window's width if it changed, or `always`, returning
+--- whether it did.
+---@param always? boolean
+---@return boolean
+function M:sync_width(always)
+	local width = self:width()
+	if width == self.laid_width and not always then
+		return false
+	end
+	self.laid_width = width
+	self.commands:resize(width)
+	self.width_cells(width)
+	return true
+end
+
 --- Starts over from a blank buffer, which the engine's next frame then fills.
 function M:attach()
 	self.attached = true
 	self.engine:reset_frame()
 	self:apply({ { 0, -1, lines = {}, marks = {} } })
 	-- A view made before its window opens only now knows how wide it is.
-	self.commands:resize(self:width())
-	self.width_cells(self:width())
+	self:sync_width()
 	self:request_commit()
 end
 
@@ -460,6 +476,11 @@ end
 function M:commit()
 	if self.destroyed then
 		return
+	end
+	-- Neovim only says a window was resized when it gets round to drawing, which
+	-- a busy view can keep it from for good, so every frame checks for itself.
+	if self.attached then
+		self:sync_width()
 	end
 	local commands = self.commands
 	local len = commands.len
