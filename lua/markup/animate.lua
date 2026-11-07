@@ -142,6 +142,16 @@ function M.running()
 	return next(active) ~= nil
 end
 
+--- How many animations are moving.
+---@return integer
+function M.count()
+	local count = 0
+	for _ in pairs(active) do
+		count = count + 1
+	end
+	return count
+end
+
 --- Starts an animation, returning a function that stops it.
 ---@param opts markup.animate.opts
 ---@return function stop

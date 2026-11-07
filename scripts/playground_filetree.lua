@@ -16,7 +16,6 @@ local view = Markup.playground.preview
 local api = vim.api
 
 local NODES = _G.MarkupTreeNodes or 20000
-local BUDGET = 1000 / 60
 
 local colors = {
 	Guide = "#45475a",
@@ -40,10 +39,6 @@ local colors = {
 	Go = "#89dceb",
 	Css = "#f5c2e7",
 	Image = "#f2cdcd",
-	Good = { fg = "#a6e3a1", bold = true },
-	Warn = { fg = "#f9e2af", bold = true },
-	Bad = { fg = "#f38ba8", bold = true },
-	Bar = { fg = "#cdd6f4", bg = "#313244" },
 	BarDim = { fg = "#a6adc8", bg = "#313244" },
 }
 for name, value in pairs(colors) do
@@ -420,30 +415,9 @@ for lhs, fn in pairs(bindings) do
 	view.win:map("n", lhs, fn)
 end
 
-local function update_winbar()
-	if not api.nvim_win_is_valid(view.win.win) then
-		return
-	end
-	local stats = view.stats
-	local elapsed = stats.engine + stats.apply
-	local status = elapsed <= BUDGET and "Good" or elapsed <= BUDGET * 3 and "Warn" or "Bad"
-	vim.wo[view.win.win].winbar = table.concat({
-		"%#MarkupTreeBar# ",
-		("%d nodes  %d rows"):format(total, visible_rows()),
-		"%#MarkupTreeBarDim#  layout ",
-		("%.1f  paint %.1f  diff %.1f  write %.1f  "):format(stats.layout, stats.paint, stats.diff, stats.apply),
-		"%#MarkupTree" .. status .. "#",
-		("%.1f ms"):format(elapsed),
-		"%#MarkupTreeBarDim#  %d lines  <CR> toggle  E/C all  b bench %=",
-	}):gsub("%%d lines", ("%d lines"):format(stats.lines))
-end
-
-local group = api.nvim_create_augroup("MarkupPlaygroundSignals", { clear = true })
-api.nvim_create_autocmd("User", {
-	group = group,
-	pattern = "MarkupViewCommit" .. view.win.id,
-	callback = update_winbar,
-})
+-- Timings live in the inspector (`:Markup inspect`), so the preview only says
+-- what the keys do.
+vim.wo[view.win.win].winbar = "%#MarkupTreeBarDim# <CR> toggle  E/C all  b bench  +/- nodes %="
 
 vim.wo[view.win.win].cursorline = true
 vim.wo[view.win.win].wrap = false

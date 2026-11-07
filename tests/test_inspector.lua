@@ -42,6 +42,16 @@ local T = new_set({
 					return vim.api.nvim_buf_get_lines(inspector.details_win.buf, 0, -1, false)
 				end
 
+				function stats_lines()
+					return vim.tbl_map(function(line)
+						return (line:gsub("%s+$", ""))
+					end, vim.api.nvim_buf_get_lines(inspector.stats_win.buf, 0, -1, false))
+				end
+
+				function stats_text()
+					return table.concat(stats_lines(), "\n")
+				end
+
 				function winbar()
 					return (vim.wo[inspector.win.win].winbar:gsub("%%#%w+#", ""))
 				end
@@ -116,7 +126,7 @@ end
 
 T["layout"] = new_set()
 
-T["layout"]["keeps stats in the winbar while the tree scrolls"] = function()
+T["layout"]["keeps stats in their own pane while the tree scrolls"] = function()
 	run([[
 		local rows = {}
 		for i = 1, 500 do
@@ -132,7 +142,7 @@ T["layout"]["keeps stats in the winbar while the tree scrolls"] = function()
 		reactive.flush()
 	]])
 	eq(child.lua_get("winbar():find('nodes', 1, true) ~= nil"), true)
-	eq(child.lua_get("winbar():find('effects', 1, true) ~= nil"), true)
+	eq(child.lua_get("stats_text():find('effects', 1, true) ~= nil"), true)
 	eq(child.lua_get("vim.fn.line('w0') > 1"), true)
 end
 
@@ -141,7 +151,7 @@ T["layout"]["shows the frame time and flags"] = function()
 		view:render(m.block("hello"))
 		open()
 	]])
-	eq(child.lua_get("winbar():find(' ms', 1, true) ~= nil"), true)
+	eq(child.lua_get("stats_text():find(' ms', 1, true) ~= nil"), true)
 	eq(child.lua_get("winbar():find('● follow', 1, true) ~= nil"), true)
 	eq(child.lua_get("winbar():find('○ groups', 1, true) ~= nil"), true)
 end
@@ -182,6 +192,61 @@ T["layout"]["updates the winbar when a flag changes"] = function()
 	eq(child.lua_get("winbar():find('● groups', 1, true) ~= nil"), true)
 end
 
+T["stats"] = new_set()
+
+T["stats"]["counts frames per second and keeps a sparkline"] = function()
+	run([[
+		count = m.signal(0)
+		view:render(m.block({ function() return tostring(count()) end }))
+		open()
+		for i = 1, 5 do
+			count(i)
+			reactive.flush()
+		end
+		inspector:update_perf()
+		reactive.flush()
+	]])
+	eq(child.lua_get("inspector.perf().fps") >= 5, true)
+	eq(child.lua_get("#inspector.perf().frames") >= 5, true)
+	eq(child.lua_get("stats_lines()[1]"):match("(%d+) fps") ~= nil, true)
+	eq(child.lua_get("stats_lines()[1]"):find("[▁▂▃▄▅▆▇█]") ~= nil, true)
+end
+
+T["stats"]["shows the phases of a frame and what the view is made of"] = function()
+	run([[
+		view:render(m.block({ m.block("a"), m.block("b") }))
+		open()
+	]])
+	local text = child.lua_get("stats_text()")
+	for _, word in ipairs({ "layout", "paint", "diff", "write", "nodes", "effects", "scopes", "anim", "MB", "lines" }) do
+		eq(text:find(word, 1, true) ~= nil, true)
+	end
+end
+
+T["stats"]["counts running animations"] = function()
+	run([[
+		Markup.animate.manual = true
+		Markup.animate.enabled = true
+		value = m.animated(0, { duration = 500 })
+		view:render(m.block({ function() return tostring(value()) end }))
+		value(10)
+		reactive.flush()
+		open()
+		inspector:update_perf()
+	]])
+	eq(child.lua_get("inspector.perf().animations"), 1)
+end
+
+T["stats"]["stops its clock on close"] = function()
+	run([[
+		view:render(m.block("x"))
+		open()
+		timer = inspector.timer
+		inspector:close()
+	]])
+	eq(child.lua_get("timer:is_closing()"), true)
+end
+
 T["layout"]["the tree buffer only holds rows"] = function()
 	run([[
 		view:render(m.block({ m.block("a"), m.block("b") }))
@@ -199,9 +264,12 @@ T["layout"]["details have their own pane"] = function()
 		inspector:follow_cursor()
 		reactive.flush()
 	]])
-	eq(child.lua_get("#panel_lines()"), 8)
-	eq(child.lua_get("panel_lines()[6]"):find('"one"', 1, true) ~= nil, true)
-	eq(child.lua_get("panel_lines()[8]"):find("<CR> open", 1, true) ~= nil, true)
+	local lines = child.lua_get("panel_lines()")
+	eq(#lines, 9)
+	eq(lines[1]:find('"one"', 1, true) ~= nil, true)
+	eq(table.concat(lines, "\n"):find("margin", 1, true) ~= nil, true)
+	eq(lines[8]:find('"one"', 1, true) ~= nil, true)
+	eq(lines[9]:find("<CR> open", 1, true) ~= nil, true)
 end
 
 T["layout"]["aligns geometry to the right edge"] = function()
@@ -518,6 +586,30 @@ T["reports live effects"] = function()
 		end
 	]])
 	eq(child.lua_get("reactive.stats().effects == base"), true)
+end
+
+T["stress test"] = new_set()
+
+T["stress test"]["runs with the inspector open and closes with q"] = function()
+	run([[
+		errors = {}
+		vim.notify = function(message) errors[#errors + 1] = message end
+		stress = Markup.playground.stress_test()
+		vim.wait(800, function() return false end, 20)
+		stress_inspector = tree.get(stress)
+		frames = #stress_inspector.samples
+		vim.cmd("normal +")
+		vim.wait(300, function() return false end, 20)
+		tabs = #vim.api.nvim_list_tabpages()
+		vim.cmd("normal q")
+		vim.wait(100, function() return false end, 10)
+	]])
+	eq(child.lua_get("errors"), {})
+	eq(child.lua_get("frames") > 5, true)
+	eq(child.lua_get("tabs"), 2)
+	eq(child.lua_get("#vim.api.nvim_list_tabpages()"), 1)
+	eq(child.lua_get("tree.get(stress) == nil"), true)
+	eq(child.lua_get("type(require('markup.cmd').commands.playground.stress_test[1])"), "function")
 end
 
 return T
