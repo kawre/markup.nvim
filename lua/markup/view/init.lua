@@ -200,6 +200,10 @@ function M:sync_cursor()
 		shown_cursor, cursor_owner = vim.o.guicursor, self
 		api.nvim_set_hl(0, "MarkupHiddenCursor", { blend = 100, nocombine = true })
 		vim.o.guicursor = shown_cursor .. ",n:MarkupHiddenCursor"
+	else
+		-- Another view hid it, and its own WinEnter may run after this one, so
+		-- this view takes it over rather than let that one give it back.
+		cursor_owner = self
 	end
 end
 
