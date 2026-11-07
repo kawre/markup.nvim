@@ -512,6 +512,7 @@ end
 --- Calls the `on_press` handler under the cursor, returning whether there was one.
 ---@return boolean
 --- Presses what is under the mouse, which `mouse` from `getmousepos()` points at.
+--- Views call it on a double click.
 ---@param mouse table
 ---@return boolean pressed
 function M:click(mouse)
@@ -535,17 +536,12 @@ function M:click(mouse)
 	return true
 end
 
-local LEFT_RELEASE = vim.keycode("<LeftRelease>")
+local DOUBLE_CLICK = vim.keycode("<2-LeftMouse>")
 
---- Presses whatever was clicked, in whichever view holds it. One listener for
---- every view, since a mapping only reaches the window that already has the
---- focus, and windows that cannot have it, such as some floats, never do.
-local function on_click()
-	-- A release that ends a selection is for the text, not for what is under it.
-	if vim.fn.mode():match("^[vV\22]") then
-		return
-	end
-
+--- Presses whatever was double clicked, in whichever view holds it. One
+--- listener for every view, since a mapping only reaches the window that already
+--- has the focus, and windows that cannot have it, such as some floats, never do.
+local function on_double_click()
 	local mouse = vim.fn.getmousepos()
 	if mouse.winid == 0 or mouse.line == 0 then
 		return
@@ -554,14 +550,18 @@ local function on_click()
 	-- More than one view may have been made for a window, so each gets a go.
 	for view in pairs(Markup.views) do
 		if view.win.win == mouse.winid and view:click(mouse) then
+			-- Neovim selects the word on a double click, which a press leaves out.
+			if vim.fn.mode():match("^[vV\22]") then
+				api.nvim_feedkeys(vim.keycode("<Esc>"), "nx", false)
+			end
 			return
 		end
 	end
 end
 
 vim.on_key(function(key)
-	if key == LEFT_RELEASE then
-		vim.schedule(on_click)
+	if key == DOUBLE_CLICK then
+		vim.schedule(on_double_click)
 	end
 end, api.nvim_create_namespace("markup_clicks"))
 
