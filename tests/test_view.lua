@@ -2040,4 +2040,35 @@ T["cursor"]["a slide that is the whole view still takes the cursor back to each 
 	eq(child.lua_get("back"), 5)
 end
 
+T["redraw"] = new_set()
+
+T["redraw"]["asks for the screen when Neovim has not drawn it for a frame"] = function()
+	child.lua([[
+		count = m.signal(0)
+		view = Markup.view(win)
+		view:render(m.block({ function() return "frame " .. count() end }))
+		reactive.flush()
+		redraws = 0
+		local cmd = vim.cmd
+		vim.cmd = setmetatable({}, {
+			__call = function(_, command)
+				if command == "redraw" then redraws = redraws + 1 end
+				return cmd(command)
+			end,
+			__index = cmd,
+		})
+		vim.wait(60, function() return false end, 5)
+		count(1)
+		reactive.flush()
+		after_quiet = redraws
+		count(2)
+		reactive.flush()
+		right_after = redraws
+		vim.cmd = cmd
+	]])
+	eq(child.lua_get("after_quiet"), 1)
+	-- Within a frame of the last one, it leaves the screen to Neovim.
+	eq(child.lua_get("right_after"), 1)
+end
+
 return T
