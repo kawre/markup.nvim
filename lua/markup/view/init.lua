@@ -34,6 +34,8 @@ local MARK = { end_col = 0, hl_group = "", hl_mode = "combine", hl_eol = true }
 ---@class markup.view.opts
 ---@field snap? boolean|"text" keep the cursor on interactive nodes, like a menu,
 --- or with `"text"` on those and on text, like a document
+---@field hide_cursor? boolean hide the cursor in normal mode while in this window,
+--- for views that show where it is by themselves
 
 ---@param win markup.window
 ---@param opts? markup.view.opts
@@ -41,6 +43,7 @@ function M:new(win, opts)
 	opts = opts or {}
 	self.win = win
 	self.snap_text = opts.snap == "text"
+	self.hide_cursor = opts.hide_cursor
 	Markup.views[self] = true
 	self.ns = api.nvim_create_namespace(("markup_view_[%s]"):format(win.id))
 	self.engine = Markup.core.create_engine(self:width())
@@ -65,6 +68,12 @@ function M:new(win, opts)
 			self:request_commit()
 		end
 	end, { pattern = "*" })
+
+	if opts.hide_cursor then
+		win:on("WinEnter", function()
+			self:sync_cursor()
+		end, { pattern = "*" })
+	end
 
 	win:on("WinScrolled", function()
 		self:update_scroll()
@@ -125,6 +134,30 @@ function M:snap_cursor()
 			local byte = vim.fn.virtcol2col(self.win.win, target_row + 1, target_col + 1) - 1
 			api.nvim_win_set_cursor(self.win.win, { target_row + 1, math.max(byte, 0) })
 		end
+	end
+end
+
+--- `guicursor` from before hiding it, and the view that hides it.
+local shown_cursor, cursor_owner ---@type string?, markup.view?
+
+--- Shows the cursor again, if this view hid it.
+function M:release_cursor()
+	if cursor_owner == self then
+		vim.o.guicursor = shown_cursor
+		shown_cursor, cursor_owner = nil, nil
+	end
+end
+
+--- Hides the cursor while this window is the current one.
+function M:sync_cursor()
+	if not (self.win:win_valid() and api.nvim_get_current_win() == self.win.win) then
+		return self:release_cursor()
+	end
+
+	if not cursor_owner then
+		shown_cursor, cursor_owner = vim.o.guicursor, self
+		api.nvim_set_hl(0, "MarkupHiddenCursor", { blend = 100, nocombine = true })
+		vim.o.guicursor = shown_cursor .. ",n:MarkupHiddenCursor"
 	end
 end
 
@@ -239,6 +272,8 @@ end
 
 --- Stops everything and forgets the view. The window is left to its owner.
 function M:destroy()
+	self.hide_cursor = false
+	self:release_cursor()
 	self:unmount()
 	self:commit()
 	Markup.views[self] = nil
@@ -286,6 +321,10 @@ function M:commit()
 	end
 
 	self:update_hover()
+
+	if self.hide_cursor then
+		self:sync_cursor()
+	end
 
 	local next_commit = self.next_commit
 	self.next_commit = {}

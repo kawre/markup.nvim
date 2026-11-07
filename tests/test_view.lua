@@ -1047,6 +1047,62 @@ T["snap"]["text mode stops on text and buttons only"] = function()
 	eq(row_text(), "button")
 end
 
+T["hide_cursor"] = new_set()
+
+local function hidden()
+	return child.lua_get("vim.o.guicursor:find('MarkupHiddenCursor', 1, true) ~= nil")
+end
+
+local function hiding_view()
+	child.lua([[
+		original = vim.o.guicursor
+		view = Markup.view(win, { hide_cursor = true })
+		view:render(m.block("x"))
+		reactive.flush()
+	]])
+end
+
+T["hide_cursor"]["hides it only in normal mode"] = function()
+	hiding_view()
+	eq(hidden(), true)
+	eq(child.lua_get("vim.o.guicursor:find(',n:MarkupHiddenCursor$') ~= nil"), true)
+	eq(child.lua_get("vim.api.nvim_get_hl(0, { name = 'MarkupHiddenCursor' }).blend"), 100)
+end
+
+T["hide_cursor"]["comes back when leaving the window"] = function()
+	hiding_view()
+	child.cmd("vnew")
+	eq(child.lua_get("vim.o.guicursor == original"), true)
+
+	child.cmd("wincmd p")
+	eq(hidden(), true)
+end
+
+T["hide_cursor"]["comes back when changing tabs"] = function()
+	hiding_view()
+	child.cmd("tabnew")
+	eq(child.lua_get("vim.o.guicursor == original"), true)
+
+	child.cmd("tabprevious")
+	eq(hidden(), true)
+end
+
+T["hide_cursor"]["comes back with the view gone"] = function()
+	hiding_view()
+	child.lua("view:destroy()")
+	eq(child.lua_get("vim.o.guicursor == original"), true)
+end
+
+T["hide_cursor"]["stays out of other views"] = function()
+	child.lua([[
+		original = vim.o.guicursor
+		view = Markup.view(win)
+		view:render(m.block("x"))
+		reactive.flush()
+	]])
+	eq(child.lua_get("vim.o.guicursor == original"), true)
+end
+
 T["snap"]["presses land on the snapped node"] = function()
 	snap_view()
 	child.type_keys("j")

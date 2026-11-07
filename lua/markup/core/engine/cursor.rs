@@ -43,7 +43,9 @@ impl Engine {
 
     /// Where a cursor that moved from `from` to `to` should land. Stays inside
     /// an interactive node, otherwise jumps to the nearest one in the direction
-    /// of travel, and goes back when there is none. Positions are `(row, col)`.
+    /// of travel, and goes back when there is none. A vertical move leaves a
+    /// node taller than a row, since one press should reach the next one.
+    /// Positions are `(row, col)`.
     ///
     /// With `text`, text counts as well. The column then survives the jump, and
     /// with nothing ahead the nearest text wins, so that `gg` still gets there.
@@ -61,12 +63,23 @@ impl Engine {
         let contains = |rect: &Rect| {
             row >= rect.y && row < rect.y + rect.height && col >= rect.x && col < rect.x + rect.width
         };
-        if rects.iter().any(contains) {
-            return Some(to);
+        let holds_from = |rect: &Rect| {
+            from.0 >= rect.y
+                && from.0 < rect.y + rect.height
+                && from.1 >= rect.x
+                && from.1 < rect.x + rect.width
+        };
+        let leaving = !text && row != from.0 && rects.iter().any(|rect| contains(rect) && holds_from(rect));
+
+        if !leaving && let Some(rect) = rects.iter().find(|rect| contains(rect)) {
+            // A button is entered at its top, whichever side it is reached from.
+            return Some(if text { to } else { (rect.y, col) });
         }
 
         let on_row = |rect: &Rect| row >= rect.y && row < rect.y + rect.height;
         let ahead = |rect: &&Rect| match row.cmp(&from.0) {
+            std::cmp::Ordering::Greater if leaving => rect.y > row,
+            std::cmp::Ordering::Less if leaving => rect.y + rect.height <= row,
             std::cmp::Ordering::Greater => rect.y + rect.height > row,
             std::cmp::Ordering::Less => rect.y <= row,
             std::cmp::Ordering::Equal if !text => true,
@@ -155,6 +168,53 @@ mod tests {
         let engine = engine_with_buttons(&[1, 4]);
         assert_eq!(engine.snap((1, 0), (2, 0), false), Some((4, 0)));
         assert_eq!(engine.snap((4, 0), (3, 0), false), Some((1, 0)));
+    }
+
+    /// Buttons two rows tall, one after the other.
+    fn engine_with_tall_buttons(count: i32) -> Engine {
+        let mut engine = Engine::new(20);
+        let mut id = 2;
+        for _ in 0..count {
+            let button = id;
+            engine.apply(Command::Create { id: button, display: Display::Block }).unwrap();
+            engine.apply(Command::Insert { parent: ROOT, child: button, before: None }).unwrap();
+            let property = StyleProperty::Interactive(true);
+            engine.apply(Command::SetStyle { id: button, property }).unwrap();
+
+            for _ in 0..2 {
+                engine.apply(Command::Create { id: id + 1, display: Display::Block }).unwrap();
+                engine.apply(Command::CreateText { id: id + 2, text: "row".to_string(), width: 3 }).unwrap();
+                engine.apply(Command::Insert { parent: id + 1, child: id + 2, before: None }).unwrap();
+                engine.apply(Command::Insert { parent: button, child: id + 1, before: None }).unwrap();
+                id += 2;
+            }
+            id += 1;
+        }
+        engine.render(|_, _| ());
+        engine
+    }
+
+    #[test]
+    fn one_press_leaves_a_tall_button() {
+        let engine = engine_with_tall_buttons(3);
+
+        assert_eq!(engine.snap((0, 0), (1, 0), false), Some((2, 0)));
+        assert_eq!(engine.snap((2, 0), (3, 0), false), Some((4, 0)));
+        assert_eq!(engine.snap((4, 0), (3, 0), false), Some((2, 0)));
+    }
+
+    #[test]
+    fn a_tall_button_keeps_the_cursor_at_the_ends() {
+        let engine = engine_with_tall_buttons(2);
+
+        assert_eq!(engine.snap((2, 0), (3, 0), false), Some((2, 0)));
+    }
+
+    #[test]
+    fn moving_sideways_stays_in_a_tall_button() {
+        let engine = engine_with_tall_buttons(2);
+
+        assert_eq!(engine.snap((0, 0), (0, 1), false), Some((0, 1)));
     }
 
     /// Rows of text at the given cells, with blank rows where there is none.
