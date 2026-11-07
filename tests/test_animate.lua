@@ -658,6 +658,74 @@ T["overflow keeps wide content readable"] = function()
 	eq(get("lines()"), { "abcdefghij" })
 end
 
+T["spinner"] = new_set()
+
+T["spinner"]["every frame is one cell"] = function()
+	run([[
+		components = require("markup.view.components")
+		wide = {}
+		for name, spinner in pairs(components.spinners) do
+			for _, frame in ipairs(spinner.frames) do
+				if vim.api.nvim_strwidth(frame) ~= 1 then wide[#wide + 1] = name .. " " .. frame end
+			end
+		end
+	]])
+	eq(get("wide"), {})
+end
+
+T["spinner"]["spins for as long as it is shown"] = function()
+	run([[
+		shown = m.signal(true)
+		view:render(m.show(shown, function() return m.spinner({ name = "quarters" }) end))
+		reactive.flush()
+		first = lines()[1]
+		animate.tick(120)
+		reactive.flush()
+		second = lines()[1]
+		shown(false)
+		reactive.flush()
+	]])
+	eq(get("first"), "▖")
+	eq(get("second"), "▘")
+	eq(get("animate.running()"), false)
+end
+
+T["spinner"]["picks one at random"] = function()
+	run([[
+		seen = {}
+		for _ = 1, 40 do
+			view:render(m.spinner())
+			reactive.flush()
+			local first = lines()[1]
+			seen[first] = true
+		end
+		count = vim.tbl_count(seen)
+	]])
+	eq(get("count > 1"), true)
+end
+
+T["spinner"]["names must exist"] = function()
+	run([[
+		ok, err = pcall(function()
+			view:render(m.spinner({ name = "nope" }))
+			reactive.flush()
+		end)
+	]])
+	eq(get("ok"), false)
+	eq(get("tostring(err):find('unknown spinner `nope`', 1, true) ~= nil"), true)
+end
+
+T["spinner"]["stands still with reduced motion"] = function()
+	run([[
+		animate.enabled = false
+		view:render(m.spinner({ name = "quarters" }))
+		reactive.flush()
+		animate.tick(500)
+		reactive.flush()
+	]])
+	eq(get("lines()"), { "▖" })
+end
+
 T["progress"] = new_set()
 
 T["progress"]["has eighths of a cell of precision"] = function()

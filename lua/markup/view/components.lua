@@ -37,4 +37,55 @@ function M.progress(props)
 	})
 end
 
+--- Frames of each spinner, every one a single cell wide. Only characters that
+--- common coding fonts have, such as JetBrains Mono, Cascadia and Noto Sans Mono,
+--- so that none shows as a box or leans on a fallback font.
+---@type table<string, { frames: string[], interval: integer }>
+M.spinners = {
+	dots = { frames = { "⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏" }, interval = 80 },
+	braille = { frames = { "⣾", "⣽", "⣻", "⢿", "⡿", "⣟", "⣯", "⣷" }, interval = 80 },
+	bounce = { frames = { "⠁", "⠂", "⠄", "⡀", "⢀", "⠠", "⠐", "⠈" }, interval = 90 },
+	quarters = { frames = { "▖", "▘", "▝", "▗" }, interval = 110 },
+	grow = { frames = { "▁", "▂", "▃", "▄", "▅", "▆", "▇", "█", "▇", "▆", "▅", "▄", "▃", "▂" }, interval = 70 },
+	blocks = { frames = { "▏", "▎", "▍", "▌", "▋", "▊", "▉", "█", "▉", "▊", "▋", "▌", "▍", "▎" }, interval = 70 },
+	box = { frames = { "┤", "┘", "┴", "└", "├", "┌", "┬", "┐" }, interval = 100 },
+	corners = { frames = { "╭", "╮", "╯", "╰" }, interval = 120 },
+	squish = { frames = { "▌", "▀", "▐", "▄" }, interval = 120 },
+	shade = { frames = { "░", "▒", "▓", "█", "▓", "▒" }, interval = 100 },
+	line = { frames = { "-", "\\", "|", "/" }, interval = 110 },
+}
+
+--- Names of the spinners, in a stable order.
+---@return string[]
+function M.spinner_names()
+	local names = vim.tbl_keys(M.spinners)
+	table.sort(names)
+	return names
+end
+
+---@class markup.view.spinner
+---@field name? string one of `spinners`, a random one by default
+---@field style? string
+---@field interval? integer ms per frame
+
+local Spinner
+
+--- An animated character that runs for as long as it is shown.
+---@param props? markup.view.spinner
+function M.spinner(props)
+	local m = require("markup")
+
+	Spinner = Spinner
+		or m.component(function(opts)
+			local names = M.spinner_names()
+			local name = opts.name or names[math.random(#names)]
+			local spinner = M.spinners[name] or error(("unknown spinner `%s`"):format(name), 0)
+
+			local frame = m.frames(spinner.frames, { interval = opts.interval or spinner.interval })
+			return m.inline(frame, opts.style)
+		end)
+
+	return Spinner(props or {})
+end
+
 return M
