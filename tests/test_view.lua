@@ -1015,6 +1015,68 @@ T["snap"]["stays put at the end"] = function()
 	eq(child.lua_get("vim.api.nvim_win_get_cursor(0)")[1], 3)
 end
 
+local function tall_view()
+	run([[
+		view = Markup.view(win, { snap = true })
+		local rows = {
+			m.block({ on_press = function() end, "button one" }),
+			m.block({ on_press = function() end, "button two" }),
+		}
+		for i = 1, 60 do rows[#rows + 1] = m.block("text " .. i) end
+		view:render(m.block(rows))
+		reactive.flush()
+		vim.api.nvim_win_set_cursor(0, { 2, 0 })
+		view.cursor = { 1, 0 }
+		height = vim.api.nvim_win_get_height(0)
+	]])
+end
+
+local function top_line()
+	return child.lua_get("vim.fn.line('w0')")
+end
+
+T["snap"]["j past the last button scrolls to what is below"] = function()
+	tall_view()
+	child.type_keys("j")
+	eq(top_line(), 2)
+	child.type_keys("j")
+	eq(top_line(), 3)
+end
+
+T["snap"]["the whole page can be reached"] = function()
+	tall_view()
+	for _ = 1, 80 do
+		child.type_keys("j")
+	end
+	eq(child.lua_get("vim.fn.line('w$')"), 62)
+end
+
+T["snap"]["k comes back to the buttons"] = function()
+	tall_view()
+	for _ = 1, 30 do
+		child.type_keys("j")
+	end
+	for _ = 1, 80 do
+		child.type_keys("k")
+	end
+	eq(top_line(), 1)
+	eq(child.lua_get("vim.api.nvim_win_get_cursor(0)[1] <= 2"), true)
+end
+
+T["snap"]["scrolling is not undone"] = function()
+	tall_view()
+	child.type_keys("<C-e>", "<C-e>", "<C-e>", "<C-e>")
+	eq(top_line(), 5)
+	child.type_keys("<C-d>")
+	eq(top_line() > 5, true)
+end
+
+T["snap"]["a page that fits does not scroll"] = function()
+	snap_view()
+	child.type_keys("j", "j", "j")
+	eq(top_line(), 1)
+end
+
 T["snap"]["text mode stops on text and buttons only"] = function()
 	child.lua([[
 		view = Markup.view(win, { snap = "text" })

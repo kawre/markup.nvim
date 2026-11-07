@@ -129,11 +129,38 @@ function M:snap_cursor()
 	local from = self.cursor or { row, col }
 
 	local target_row, target_col = self.engine:snap(from[1], from[2], row, col, self.snap_text)
-	if target_row then
-		self.cursor = { target_row, target_col }
-		if target_row ~= row or target_col ~= col then
-			local byte = vim.fn.virtcol2col(self.win.win, target_row + 1, target_col + 1) - 1
-			api.nvim_win_set_cursor(self.win.win, { target_row + 1, math.max(byte, 0) })
+	if not target_row then
+		return
+	end
+
+	-- Scrolling pushes the cursor along, which is when the row it was on went out
+	-- of sight. Pulling it back to a node out of sight would undo the scroll, so
+	-- it stays until a node comes into view. Moving onto something just past
+	-- the edge is different, and scrolls to it as usual.
+	local top, bottom = vim.fn.line("w0") - 1, vim.fn.line("w$") - 1
+	local function visible(at)
+		return at >= top and at <= bottom
+	end
+	if not visible(from[1]) and not visible(target_row) then
+		self.cursor = { row, col }
+		return
+	end
+
+	self.cursor = { target_row, target_col }
+	if target_row ~= row or target_col ~= col then
+		local byte = vim.fn.virtcol2col(self.win.win, target_row + 1, target_col + 1) - 1
+		api.nvim_win_set_cursor(self.win.win, { target_row + 1, math.max(byte, 0) })
+	end
+
+	-- With nothing more that way, show what is there instead, or it could never
+	-- be seen: the cursor has to stay on screen.
+	local stuck = target_row == from[1] and target_col == from[2] and row ~= from[1]
+	if stuck then
+		local down = row > from[1]
+		if down and bottom + 1 < api.nvim_buf_line_count(self.win.buf) then
+			vim.cmd("normal! \5")
+		elseif not down and top > 0 then
+			vim.cmd("normal! \25")
 		end
 	end
 end
