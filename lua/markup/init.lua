@@ -1,37 +1,27 @@
 ---@class markup: markup.factory.element
----@field hooks markup.hooks
 ---@field private setup any
 ---@field [string] markup.factory.element.new
 local M = {}
 
 ---@class markup.global
 ---@field core markup.core
----@field collection markup.collection
 ---@field log markup.logger
 ---@field util markup.util
 ---@field devkit markup.devkit
 ---@field playground markup.playground
 ---@field factory markup.factory
----@field dispatcher markup.dispatcher
 ---@field window markup.window
----@field renderer markup.renderer
----@field assert markup.assert
 ---@field config markup.config
----@field node markup.node
 ---@field cmd markup.cmd
----@field reconciler markup.reconciler
 ---@field layout markup.layout
 ---@field object markup.object
 ---@field singleton markup.singleton
----@field parser markup.parser
-_G.Markup = setmetatable({ renderers = {}, views = setmetatable({}, { __mode = "k" }) }, {
+_G.Markup = setmetatable({ views = setmetatable({}, { __mode = "k" }) }, {
 	__index = function(t, k)
 		t[k] = require("markup." .. k)
 		return rawget(t, k)
 	end,
 })
-
-M.hooks = require("markup.reconciler.hooks")
 
 local reactive = require("markup.reactive")
 M.signal = reactive.signal
@@ -91,9 +81,7 @@ setmetatable(M, { ---@diagnostic disable-line: param-type-mismatch
 	end,
 })
 
-_G.Markup.dispatcher = require("markup.reconciler.dispatcher")
 _G.Markup.list = require("markup.collection.list")
-_G.Markup.stack = require("markup.collection.stack")
 
 ---@private
 ---@param opts? table

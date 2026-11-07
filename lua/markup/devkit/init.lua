@@ -1,13 +1,20 @@
 ---@class markup.devkit
 local M = {}
 
-M.visualizer = require("markup.devkit.visualizer")
-M.inspect = require("markup.devkit.inspect")
-
---- Inspector for views. Loaded on first use, because it needs the native core.
+--- The inspector. Loaded on first use, because it needs the native core.
 ---@return markup.devkit.tree
 function M.tree()
 	return require("markup.devkit.tree")
+end
+
+--- Toggles the inspector for the view in the current window or tab.
+function M.inspect()
+	local view = Markup.view.find()
+	if view then
+		M.tree().toggle(view)
+	else
+		Markup.log.warn("No view to inspect")
+	end
 end
 
 return M

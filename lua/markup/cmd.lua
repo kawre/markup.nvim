@@ -120,12 +120,7 @@ end
 cmd.commands = {
 	inspect = {
 		function()
-			local view = Markup.view.find()
-			if view then
-				Markup.devkit.tree().toggle(view)
-			else
-				Markup.devkit.inspect()
-			end
+			Markup.devkit.inspect()
 		end,
 	},
 	playground = {
@@ -139,17 +134,7 @@ cmd.commands = {
 		},
 		layout = {
 			function()
-				Markup.playground.open({ view = true, file = "layout.lua" })
-			end,
-		},
-		signals = {
-			function()
-				Markup.playground.open({ view = true, file = "signals.lua" })
-			end,
-		},
-		bare = {
-			function()
-				Markup.playground.open({ inspect = false })
+				Markup.playground.open({ file = "layout.lua" })
 			end,
 		},
 	},
