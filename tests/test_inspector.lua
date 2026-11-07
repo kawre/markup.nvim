@@ -828,4 +828,117 @@ T["stress test"]["gives the frame rate back however its tab closes"] = function(
 	eq(child.lua_get("Markup.animate.fps"), 60)
 end
 
+T["stress test"]["settings"] = new_set()
+
+local function open_stress(preset)
+	run(([[
+		errors = {}
+		vim.notify = function(message) errors[#errors + 1] = message end
+		stress_module = require("markup.devkit.stress")
+		stress = stress_module.open({ preset = %q })
+		vim.wait(300, function() return false end, 10)
+		function stress_lines()
+			return table.concat(vim.api.nvim_buf_get_lines(stress.win.buf, 0, -1, false), "\n")
+		end
+		function popup_row(label)
+			for i, line in ipairs(vim.api.nvim_buf_get_lines(stress_module.settings_win.buf, 0, -1, false)) do
+				if line:find(label, 1, true) then return i end
+			end
+		end
+		function hover_row(label)
+			vim.api.nvim_win_set_cursor(stress_module.settings_win.win, { popup_row(label), 3 })
+			vim.cmd("doautocmd CursorMoved")
+			reactive.flush()
+		end
+	]]):format(preset or "medium"))
+end
+
+T["stress test"]["settings"]["a popup lists every workload and preset"] = function()
+	open_stress()
+	run([[
+		vim.api.nvim_set_current_win(stress.win.win)
+		vim.cmd("normal s")
+		reactive.flush()
+		in_popup = vim.api.nvim_get_current_win() == stress_module.settings_win.win
+	]])
+	eq(child.lua_get("in_popup"), true)
+	for _, label in ipairs({ "Wave", "Meters", "Churn rate", "Cards", "Carousel", "Tree", "Rich text", "Highlights", "Spinners", "idle", "insane", "Paused" }) do
+		eq(child.lua_get(("popup_row(%q) ~= nil"):format(label)), true)
+	end
+end
+
+T["stress test"]["settings"]["sliders change a workload and 0 turns it off"] = function()
+	open_stress()
+	run([[
+		vim.api.nvim_set_current_win(stress.win.win)
+		vim.cmd("normal s")
+		reactive.flush()
+		hover_row("Cards")
+		before = stress_module.amount("cards")
+		vim.cmd("normal l")
+		reactive.flush()
+		after = stress_module.amount("cards")
+		for _ = 1, 10 do vim.cmd("normal h") end
+		reactive.flush()
+		off = stress_module.amount("cards")
+		vim.wait(50, function() return false end, 10)
+		has_cards = stress_lines():find("card 1", 1, true) ~= nil
+		preset = stress_module.preset()
+	]])
+	eq(child.lua_get("before"), 8)
+	eq(child.lua_get("after"), 16)
+	eq(child.lua_get("off"), 0)
+	eq(child.lua_get("has_cards"), false)
+	eq(child.lua_get("preset"), vim.NIL)
+	eq(child.lua_get("errors"), {})
+end
+
+T["stress test"]["settings"]["presets set every workload"] = function()
+	open_stress("idle")
+	run([[
+		idle_text = stress_lines()
+		stress_module.apply_preset("heavy")
+		vim.wait(400, function() return false end, 10)
+		heavy_nodes = stress.engine:node_count()
+		stress_module.apply_preset("idle")
+		vim.wait(400, function() return false end, 10)
+		idle_nodes = stress.engine:node_count()
+	]])
+	eq(child.lua_get("idle_text"):find("Churn", 1, true), nil)
+	eq(child.lua_get("heavy_nodes") > child.lua_get("idle_nodes") * 20, true)
+	eq(child.lua_get("errors"), {})
+end
+
+T["stress test"]["settings"]["every workload runs at its most"] = function()
+	open_stress("idle")
+	run([[
+		for _, setting in ipairs(stress_module.settings) do
+			stress_module.step(setting.key, 100)
+			vim.wait(150, function() return false end, 10)
+			stress_module.step(setting.key, -100)
+			vim.wait(50, function() return false end, 10)
+		end
+	]])
+	eq(child.lua_get("errors"), {})
+end
+
+T["stress test"]["settings"]["the popup closes with q and with the test"] = function()
+	open_stress()
+	run([[
+		vim.api.nvim_set_current_win(stress.win.win)
+		vim.cmd("normal s")
+		vim.cmd("normal q")
+		closed = stress_module.settings_win == nil
+		back = vim.api.nvim_get_current_win() == stress.win.win
+		vim.cmd("normal s")
+		popup = stress_module.settings_win.win
+		vim.api.nvim_set_current_win(stress.win.win)
+		vim.cmd("normal q")
+		vim.wait(50, function() return false end, 10)
+	]])
+	eq(child.lua_get("closed"), true)
+	eq(child.lua_get("back"), true)
+	eq(child.lua_get("vim.api.nvim_win_is_valid(popup)"), false)
+end
+
 return T
