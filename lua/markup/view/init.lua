@@ -353,6 +353,9 @@ function M:next_id()
 end
 
 function M:request_commit()
+	if self.destroyed then
+		return
+	end
 	reactive.after_flush(self.commit_job)
 end
 
@@ -410,6 +413,7 @@ function M:destroy()
 	self:release_cursor()
 	self:unmount()
 	self:commit()
+	self.destroyed = true
 	Markup.views[self] = nil
 end
 
@@ -434,6 +438,9 @@ end
 
 --- Sends pending commands and applies the resulting patches.
 function M:commit()
+	if self.destroyed then
+		return
+	end
 	local commands = self.commands
 	local len = commands.len
 	commands.len = 0

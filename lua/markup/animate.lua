@@ -56,6 +56,7 @@ M.easing = {
 local active = {} ---@type table<markup.animation, boolean>
 local timer ---@type uv.uv_timer_t?
 local last_tick = 0
+local ticking = false
 
 local function now()
 	return vim.uv.hrtime() / 1e6
@@ -76,16 +77,32 @@ local function start_clock()
 
 	last_tick = now()
 	timer = vim.uv.new_timer()
-	local interval = math.floor(1000 / M.fps)
-	timer:start(
-		interval,
-		interval,
-		vim.schedule_wrap(function()
+	local interval = math.max(math.floor(1000 / M.fps), 1)
+	timer:start(interval, interval, function()
+		-- A tick slower than the interval would otherwise queue up more ticks
+		-- than the main loop can ever run.
+		if ticking then
+			return
+		end
+		ticking = true
+		vim.schedule(function()
+			ticking = false
 			local current = now()
 			M.tick(current - last_tick)
 			last_tick = current
 		end)
-	)
+	end)
+end
+
+--- Changes how many frames a second animations move at, `math.huge` for as
+--- many as the main loop can run.
+---@param fps number
+function M.set_fps(fps)
+	M.fps = fps
+	if timer then
+		stop_clock()
+		start_clock()
+	end
 end
 
 local function ease_of(opts)
@@ -123,9 +140,12 @@ function M.tick(ms)
 	end
 
 	for _, animation in ipairs(finished) do
-		active[animation] = nil
-		if animation.opts.done then
-			animation.opts.done()
+		-- One finishing can stop another, which then must not finish too.
+		if active[animation] then
+			active[animation] = nil
+			if animation.opts.done then
+				animation.opts.done()
+			end
 		end
 	end
 
@@ -187,6 +207,19 @@ end
 function M.value(initial, defaults)
 	local current = reactive.signal(initial)
 	local stop
+	local disposed = false
+
+	-- It belongs to where it was made, however late it is told to move: a value
+	-- moved from a timer or after a commit still stops when its owner goes.
+	if reactive.current_owner() then
+		reactive.on_cleanup(function()
+			disposed = true
+			if stop then
+				stop()
+				stop = nil
+			end
+		end)
+	end
 
 	return function(...)
 		if select("#", ...) == 0 then
@@ -196,6 +229,10 @@ function M.value(initial, defaults)
 		local target, opts = ...
 		if stop then
 			stop()
+		end
+		if disposed then
+			current(target)
+			return target
 		end
 
 		local from = reactive.untrack(current)

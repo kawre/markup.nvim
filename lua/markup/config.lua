@@ -2,6 +2,11 @@
 local M = {
 	user = {
 		logging = true,
+		inspector = {
+			--- Marks the element selected in the inspector inside the view itself.
+			--- Toggle it with `m` while the inspector is open.
+			mark = true,
+		},
 	},
 	name = "markup.nvim",
 	debug = false,

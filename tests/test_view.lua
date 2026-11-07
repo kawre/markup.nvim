@@ -1811,4 +1811,27 @@ T["lifecycle"]["holds more nodes than mlua has handles"] = function()
 	eq(child.lua_get("vim.api.nvim_buf_line_count(win.buf)"), 20000)
 end
 
+T["destroy"] = new_set()
+
+T["destroy"]["a collapse closing as the view goes away writes nothing late"] = function()
+	child.lua([[
+		Markup.animate.manual = true
+		Markup.animate.enabled = true
+		errors = {}
+		vim.notify = function(message) errors[#errors + 1] = message end
+		open = m.signal(true)
+		view = Markup.view(win)
+		view:render(m.block({ m.collapse(open, m.block({ "a", "b", "c" }), { duration = 100 }) }))
+		reactive.flush()
+		open(false)
+		reactive.flush()
+		Markup.animate.tick(30)
+		view:destroy()
+		Markup.animate.tick(200)
+		reactive.flush()
+	]])
+	eq(child.lua_get("errors"), {})
+	eq(child.lua_get("Markup.animate.count()"), 0)
+end
+
 return T
