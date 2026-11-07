@@ -48,6 +48,7 @@ function M:new(win, opts)
 	self.commit_listeners = {}
 	self.next_commit = {}
 	self.fixed = {} ---@type markup.view.fixed[]
+	self.top_row = reactive.signal(0)
 	self.stats = { commands = 0, lines = 0, layout = 0, paint = 0, diff = 0, engine = 0, apply = 0 }
 	self.last_id = protocol.ROOT
 	self.commit_job = function()
@@ -59,6 +60,10 @@ function M:new(win, opts)
 			self.commands:resize(self:width())
 			self:request_commit()
 		end
+	end, { pattern = "*" })
+
+	win:on("WinScrolled", function()
+		self:update_scroll()
 	end, { pattern = "*" })
 
 	win:on("CursorMoved", function()
@@ -109,6 +114,19 @@ function M:snap_cursor()
 			local byte = vim.fn.virtcol2col(self.win.win, target_row + 1, target_col + 1) - 1
 			api.nvim_win_set_cursor(self.win.win, { target_row + 1, math.max(byte, 0) })
 		end
+	end
+end
+
+--- Rows scrolled past the top of the window. Reading it tracks the scrolling.
+---@return integer
+function M:scroll()
+	return self.top_row()
+end
+
+function M:update_scroll()
+	if self.win:win_valid() then
+		self.top_row(vim.fn.line("w0", self.win.win) - 1)
+		reactive.flush()
 	end
 end
 

@@ -1267,6 +1267,58 @@ local function band_lines()
 	return child.lua_get("vim.tbl_map(vim.trim, vim.api.nvim_buf_get_lines(band.win.buf, 0, -1, false))")
 end
 
+local function overlay_view()
+	child.lua([[
+		visible = m.signal(false)
+		rows = {}
+		for i = 1, 40 do rows[i] = m.block("row " .. i) end
+		view:render(m.block({
+			m.block({ "band", position = "fixed", top = 0 }),
+			m.block({
+				position = "fixed",
+				overlay = true,
+				m.show(visible, function() return m.block("note") end),
+			}),
+			m.block(rows),
+		}))
+		reactive.flush()
+		band, note = view.fixed[1], view.fixed[2]
+	]])
+end
+
+T["fixed"]["an overlay stacks below and reserves nothing"] = function()
+	overlay_view()
+	child.lua([[
+		before = vim.api.nvim_buf_get_lines(win.buf, 0, 3, false)
+		visible(true)
+		reactive.flush()
+		reactive.flush()
+	]])
+	eq(child.lua_get("vim.api.nvim_buf_get_lines(win.buf, 0, 3, false)"), child.lua_get("before"))
+	eq(child.lua_get("vim.api.nvim_win_get_config(note.win.win).row"), 1)
+	eq(child.lua_get("vim.api.nvim_win_get_config(note.win.win).hide"), false)
+end
+
+T["fixed"]["an empty overlay stays out of sight"] = function()
+	overlay_view()
+	eq(child.lua_get("vim.api.nvim_win_get_config(note.win.win).hide"), true)
+
+	child.lua("visible(true); reactive.flush(); reactive.flush(); visible(false); reactive.flush(); reactive.flush()")
+	eq(child.lua_get("vim.api.nvim_win_get_config(note.win.win).hide"), true)
+end
+
+T["fixed"]["scrolling can be tracked"] = function()
+	overlay_view()
+	child.lua([[
+		seen = {}
+		reactive.effect(function() seen[#seen + 1] = view:scroll() end)
+		vim.api.nvim_win_set_cursor(win.win, { 6, 0 })
+		vim.cmd("normal! zt")
+		view:update_scroll()
+	]])
+	eq(child.lua_get("seen[#seen]"), 5)
+end
+
 T["fixed"]["renders in a float over the window"] = function()
 	fixed_view()
 	eq(band_lines(), { "", "title", "" })
