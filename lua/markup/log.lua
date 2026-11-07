@@ -49,8 +49,10 @@ function M.inspect(...)
 end
 
 return setmetatable(M, {
-	__call = function(...)
-		return M.log(...)
+	-- `Markup.log(...)` is information for the user. The module itself comes
+	-- first here, so it must not be taken for the level.
+	__call = function(_, ...)
+		return M.log(lvls.INFO, ...)
 	end,
 	__index = function(_, key)
 		local lvl = lvls[key:upper()]
