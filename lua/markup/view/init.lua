@@ -31,6 +31,26 @@ M.CONTEXT = "markup.view"
 
 local MARK = { end_col = 0, hl_group = "", hl_mode = "combine", hl_eol = true }
 
+-- When Neovim last drew the screen. It draws once its queue of events runs dry,
+-- which a busy enough UI never lets happen: frames would keep coming and none
+-- would show. Views then ask for the screen themselves.
+local last_redraw = 0
+api.nvim_set_decoration_provider(api.nvim_create_namespace("markup_redraws"), {
+	on_start = function()
+		last_redraw = vim.uv.hrtime()
+	end,
+})
+
+--- Draws the screen if it has not been drawn for longer than a frame.
+local function keep_drawing()
+	local fps = Markup.animate.fps
+	local frame = fps == math.huge and 8 or math.max(1000 / fps, 8)
+	if (vim.uv.hrtime() - last_redraw) / 1e6 > frame then
+		last_redraw = vim.uv.hrtime()
+		vim.cmd("redraw")
+	end
+end
+
 ---@class markup.view.opts
 ---@field snap? boolean|"text" keep the cursor on interactive nodes, like a menu,
 --- or with `"text"` on those and on text, like a document
@@ -456,6 +476,9 @@ function M:commit()
 	started = vim.uv.hrtime()
 	stats.lines = self.attached and self:apply(frame.patches) or 0
 	stats.apply = (vim.uv.hrtime() - started) / 1e6
+	if stats.lines > 0 then
+		keep_drawing()
+	end
 
 	for _, listener in ipairs(self.commit_listeners) do
 		listener()
