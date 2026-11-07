@@ -128,7 +128,9 @@ function M:attach()
 	self.attached = true
 	self.engine:reset_frame()
 	self:apply({ { 0, -1, lines = {}, marks = {} } })
+	-- A view made before its window opens only now knows how wide it is.
 	self.commands:resize(self:width())
+	self.width_cells(self:width())
 	self:request_commit()
 end
 
