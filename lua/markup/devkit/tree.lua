@@ -19,14 +19,16 @@ local hl = require("markup.view.hl")
 local api = vim.api
 
 local PAGE = 100
-local REFRESH_MS = 100
+-- How often the tree and the stats follow the target. Its frames can come by
+-- the hundred a second, which the inspector need not, and should not, redraw.
+local REFRESH_MS = 250
 local MAX_HIGHLIGHT_ROWS = 200
 local BUDGET = 1000 / 60
 local STATS_HEIGHT = 5
 local DETAIL_HEIGHT = 10
 local WIDTH = 0.4
 local SAMPLES = 120
-local TICK_MS = 250
+local TICK_MS = 500
 local SPARK = { "▁", "▂", "▃", "▄", "▅", "▆", "▇", "█" }
 local PHASES = { "layout", "paint", "diff", "write" }
 local BOX_WIDTH = 30
@@ -120,9 +122,11 @@ function M.get(target)
 	return instances[target]
 end
 
+--- Cuts `text` to `limit` characters, never inside one, which the engine
+--- would refuse as invalid UTF-8.
 local function short(text, limit)
-	if #text > limit then
-		return text:sub(1, limit) .. "..."
+	if vim.fn.strcharlen(text) > limit then
+		return vim.fn.strcharpart(text, 0, limit) .. "…"
 	end
 	return text
 end
@@ -282,6 +286,7 @@ function M:new(target)
 	self.rows = m.signal({})
 	self.selected = m.signal(protocol.ROOT)
 	self.details = m.signal({})
+	self.match_ids = {} ---@type integer[] matches marking the selection in the target
 	self.node = m.signal(nil) ---@type markup.core.node?
 	self.samples = {} ---@type { at: number, ms: number }[] the last frames of the target, oldest first
 	-- When each frame of the last second came, oldest at `first`. Separate from
@@ -289,7 +294,6 @@ function M:new(target)
 	self.stamps, self.first, self.last = {}, 1, 0
 	self.perf = m.signal(self:measure())
 
-	self.ns = api.nvim_create_namespace(("markup_inspector_target_[%s]"):format(target.win.id))
 	self.win = Markup.window({
 		position = "right",
 		relative = "editor",
@@ -678,7 +682,7 @@ function M:refresh()
 
 	self.rows(rows)
 
-	self:update_perf()
+	-- The stats follow their own, slower clock.
 	self:update_winbar()
 	self:show_selection()
 end
@@ -694,7 +698,7 @@ function M:update_winbar()
 		return ("%%#MarkupInspectorBar%s#%s %s "):format(group, enabled and "●" or "○", name)
 	end
 
-	vim.wo[self.win.win].winbar = table.concat({
+	local winbar = table.concat({
 		"%#MarkupInspectorBarStrong# \u{f0645} Elements ",
 		("%%#MarkupInspectorBarDim#%s nodes"):format(compact(self.target.engine:node_count())),
 		"%#MarkupInspectorBarText#%<%=",
@@ -702,28 +706,107 @@ function M:update_winbar()
 		flag(self.mark, "mark"),
 		flag(self.show_groups, "groups"),
 	})
+	-- Setting it redraws it, even to the same text.
+	if winbar ~= self.winbar then
+		self.winbar = winbar
+		vim.wo[self.win.win].winbar = winbar
+	end
 end
 
 --- Shows details for the selected node and marks it in the target.
 function M:show_selection()
 	local target = self.target
+	-- The node may be gone by now, which leaves nothing selected.
 	local ok, node = pcall(target.engine.describe, target.engine, reactive.untrack(self.selected))
 	node = ok and node or nil
-	self.details(details_of(node))
-	self.node(node)
 
-	local buf = target.win.buf
-	api.nvim_buf_clear_namespace(buf, self.ns, 0, -1)
-	if not self.mark or not node or not node.x or not target.win:valid() then
-		return
+	-- Only what changed is drawn again: a fresh table each time would redraw the
+	-- details pane, however often the target commits.
+	if not vim.deep_equal(node, reactive.untrack(self.node)) then
+		self.details(details_of(node))
+		self.node(node)
 	end
 
-	local last = math.min(node.y + node.outer_height, node.y + MAX_HIGHLIGHT_ROWS, api.nvim_buf_line_count(buf))
+	if not api.nvim_buf_is_valid(target.win.buf) then
+		return
+	end
+	local marks = (self.mark and node and node.x and target.win:valid()) and self:marks_of(node) or {}
+	if vim.deep_equal(marks, self.marks) then
+		return
+	end
+	self:clear_marks()
+	self.marks = marks
+
+	-- Matches of the window rather than extmarks: the target rewrites its lines
+	-- on every frame, which collapses extmarks on them, so a mark would only
+	-- show for the moment after each refresh and blink at a high frame rate.
+	-- Matches stay where they are put whatever the text does.
 	local win = target.win.win
+	self.match_win = win
+	local positions = {}
+	for _, mark in ipairs(marks) do
+		positions[#positions + 1] = { mark[1] + 1, mark[2] + 1, mark[3] - mark[2] }
+	end
+	-- `matchaddpos` takes at most eight positions a call.
+	for i = 1, #positions, 8 do
+		local ok, id = pcall(vim.fn.matchaddpos, "MarkupInspectorTarget", vim.list_slice(positions, i, i + 7), 10000, -1, {
+			window = win,
+		})
+		if ok and id > 0 then
+			self.match_ids[#self.match_ids + 1] = id
+		end
+	end
+end
+
+function M:clear_marks()
+	for _, id in ipairs(self.match_ids) do
+		if self.match_win and api.nvim_win_is_valid(self.match_win) then
+			pcall(vim.fn.matchdelete, id, self.match_win)
+		end
+	end
+	self.match_ids, self.marks = {}, nil
+end
+
+--- What is marked in the target, as `{ row, start_col, end_col }` from zero.
+---@return [integer, integer, integer][]
+function M:target_marks()
+	local marks = {}
+	local win = self.match_win
+	if not win or not api.nvim_win_is_valid(win) then
+		return marks
+	end
+	local ours = {}
+	for _, id in ipairs(self.match_ids) do
+		ours[id] = true
+	end
+	for _, match in ipairs(vim.fn.getmatches(win)) do
+		if ours[match.id] then
+			for i = 1, 8 do
+				local pos = match["pos" .. i]
+				if pos then
+					marks[#marks + 1] = { pos[1] - 1, pos[2] - 1, pos[2] - 1 + pos[3] }
+				end
+			end
+		end
+	end
+	table.sort(marks, function(a, b)
+		return a[1] < b[1]
+	end)
+	return marks
+end
+
+--- Where the parts of `node` that are on screen are, as rows and columns.
+---@param node markup.core.node
+---@return [integer, integer, integer][]
+function M:marks_of(node)
+	local target = self.target
+	local buf, win = target.win.buf, target.win.win
+	local last = math.min(node.y + node.outer_height, node.y + MAX_HIGHLIGHT_ROWS, api.nvim_buf_line_count(buf))
 	-- A node may reach past the edges of the buffer, such as while it slides in,
 	-- so only the part of it that is there is marked.
 	local left = math.max(node.x, 0)
 	local right = node.x + node.outer_width
+	local marks = {}
 	for row = math.max(node.y, 0), last - 1 do
 		local line = api.nvim_buf_get_lines(buf, row, row + 1, false)[1] or ""
 		local width = vim.fn.strdisplaywidth(line)
@@ -731,14 +814,11 @@ function M:show_selection()
 			local start_col = math.max(vim.fn.virtcol2col(win, row + 1, left + 1) - 1, 0)
 			local end_col = width <= right and #line or vim.fn.virtcol2col(win, row + 1, right + 1) - 1
 			if end_col > start_col then
-				pcall(api.nvim_buf_set_extmark, buf, self.ns, row, start_col, {
-					end_col = end_col,
-					hl_group = "MarkupInspectorTarget",
-					priority = 10000,
-				})
+				marks[#marks + 1] = { row, start_col, end_col }
 			end
 		end
 	end
+	return marks
 end
 
 ---@param key integer
@@ -1312,9 +1392,7 @@ function M:close()
 		self.timer:stop()
 		self.timer:close()
 	end
-	if api.nvim_buf_is_valid(self.target.win.buf) then
-		api.nvim_buf_clear_namespace(self.target.win.buf, self.ns, 0, -1)
-	end
+	self:clear_marks()
 
 	self:close_options()
 	self.view:destroy()
