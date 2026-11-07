@@ -194,7 +194,9 @@ function M:snap_cursor()
 	local from = self.cursor or { row, col }
 
 	local target_row, target_col = self.engine:snap(from[1], from[2], row, col, self.snap_text)
-	if not target_row then
+	-- The engine can be a frame ahead of the buffer, with rows the buffer does
+	-- not have yet. The cursor waits for them.
+	if not target_row or target_row >= api.nvim_buf_line_count(self.win.buf) then
 		return
 	end
 
