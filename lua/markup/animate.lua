@@ -190,6 +190,15 @@ function M.value(initial, defaults)
 
 		local from = reactive.untrack(current)
 		local settings = vim.tbl_extend("force", defaults or {}, opts or {})
+
+		-- Already there: nothing moves, so the clock can stay off.
+		if from == target then
+			if settings.done then
+				settings.done()
+			end
+			return target
+		end
+
 		settings.update = function(progress)
 			current(from + (target - from) * progress)
 		end
