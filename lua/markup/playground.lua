@@ -40,6 +40,11 @@ function M.open(opts)
 	vim.schedule(run)
 end
 
+--- Opens a view that keeps markup busy, with the inspector beside it.
+function M.stress_test()
+	return require("markup.devkit.stress").open()
+end
+
 function M.run()
 	vim.cmd("luafile " .. M.file)
 end

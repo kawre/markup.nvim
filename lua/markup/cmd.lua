@@ -137,6 +137,11 @@ cmd.commands = {
 				Markup.playground.open({ file = "layout.lua" })
 			end,
 		},
+		stress_test = {
+			function()
+				Markup.playground.stress_test()
+			end,
+		},
 	},
 }
 
