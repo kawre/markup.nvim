@@ -502,18 +502,23 @@ function M:show_selection()
 
 	local last = math.min(node.y + node.outer_height, node.y + MAX_HIGHLIGHT_ROWS, api.nvim_buf_line_count(buf))
 	local win = target.win.win
-	for row = node.y, last - 1 do
-		local line = api.nvim_buf_get_lines(buf, row, row + 1, false)[1]
-		local right = node.x + node.outer_width
-		local start_col = vim.fn.virtcol2col(win, row + 1, node.x + 1) - 1
-		local end_col = vim.fn.strdisplaywidth(line) <= right and #line
-			or vim.fn.virtcol2col(win, row + 1, right + 1) - 1
-		if end_col > start_col then
-			api.nvim_buf_set_extmark(buf, self.ns, row, start_col, {
-				end_col = end_col,
-				hl_group = "MarkupInspectorTarget",
-				priority = 10000,
-			})
+	-- A node may reach past the edges of the buffer, such as while it slides in,
+	-- so only the part of it that is there is marked.
+	local left = math.max(node.x, 0)
+	local right = node.x + node.outer_width
+	for row = math.max(node.y, 0), last - 1 do
+		local line = api.nvim_buf_get_lines(buf, row, row + 1, false)[1] or ""
+		local width = vim.fn.strdisplaywidth(line)
+		if left < width and right > left then
+			local start_col = math.max(vim.fn.virtcol2col(win, row + 1, left + 1) - 1, 0)
+			local end_col = width <= right and #line or vim.fn.virtcol2col(win, row + 1, right + 1) - 1
+			if end_col > start_col then
+				pcall(api.nvim_buf_set_extmark, buf, self.ns, row, start_col, {
+					end_col = end_col,
+					hl_group = "MarkupInspectorTarget",
+					priority = 10000,
+				})
+			end
 		end
 	end
 end
