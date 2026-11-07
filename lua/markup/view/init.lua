@@ -226,7 +226,7 @@ end
 function M:set_image(id, image)
 	local current = self.images[id]
 	if current and current.placed and (not image or image.data ~= current.data) then
-		Markup.image.backend.del(current.placed)
+		Markup.image.resolve().del(current.placed)
 		current.placed = nil
 	end
 
@@ -244,7 +244,7 @@ function M:place_images()
 		return
 	end
 
-	local backend = Markup.image.backend
+	local backend = Markup.image.resolve()
 	local info = self.win:win_valid()
 		and api.nvim_win_get_tabpage(self.win.win) == api.nvim_get_current_tabpage()
 		and vim.fn.getwininfo(self.win.win)[1]

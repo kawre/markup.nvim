@@ -197,9 +197,81 @@ end
 T["says what is there without a backend"] = function()
 	run([[
 		images.backend = nil
+		images.resolve = function() return nil end
 		view:render(m.image({ data = png(100, 100), width = 20, alt = "a diagram" }))
 	]])
 	eq(get("vim.trim(vim.api.nvim_buf_get_lines(0, 0, 1, false)[1])"), "a diagram")
+end
+
+T["backends"] = new_set()
+
+T["backends"]["one that is set wins"] = function()
+	eq(get("images.resolve() == images.backend"), true)
+end
+
+T["backends"]["vim.ui.img comes first"] = function()
+	run([[
+		images.backend = nil
+		native = { set = function() end, del = function() end }
+		images.native = function() return native end
+	]])
+	eq(get("images.resolve() == native"), true)
+end
+
+local function fake_image_nvim()
+	run([[
+		images.backend = nil
+		images.native = function() return nil end
+		calls = {}
+		package.loaded["image"] = {
+			from_file = function(path, opts)
+				local image = { path = path, opts = opts }
+				function image:render(geometry) calls[#calls + 1] = { "render", self.path, geometry } end
+				function image:clear() calls[#calls + 1] = { "clear", self.path } end
+				return image
+			end,
+		}
+	]])
+end
+
+T["backends"]["image.nvim when Neovim cannot"] = function()
+	fake_image_nvim()
+	eq(get("images.resolve() ~= nil"), true)
+	eq(get("images.available()"), true)
+end
+
+T["backends"]["image.nvim gets a file and cells from zero"] = function()
+	fake_image_nvim()
+	run([[
+		backend = images.resolve()
+		id = backend.set(png(100, 100), { row = 3, col = 5, width = 10, height = 5 })
+	]])
+	eq(get("calls[1][1]"), "render")
+	eq(get("calls[1][3]"), { x = 4, y = 2, width = 10, height = 5 })
+	eq(get("vim.fn.readblob(calls[1][2]) == png(100, 100)"), true)
+
+	run([[backend.set(id, { row = 6, col = 5, width = 10, height = 5 })]])
+	eq(get("calls[2][3].y"), 5)
+
+	run([[deleted_it = backend.del(id)]])
+	eq(get("calls[3][1]"), "clear")
+	eq(get("deleted_it"), true)
+end
+
+T["backends"]["image.nvim draws what a view shows"] = function()
+	fake_image_nvim()
+	run([[view:render(m.image({ data = png(100, 100), width = 10 }))]])
+	eq(get("calls[1] and calls[1][1]"), "render")
+end
+
+T["backends"]["nothing without either"] = function()
+	run([[
+		images.backend = nil
+		images.native = function() return nil end
+		package.loaded["image"] = nil
+		package.preload["image"] = function() error("not installed") end
+	]])
+	eq(get("images.available()"), false)
 end
 
 return T
