@@ -211,7 +211,8 @@ local function mount_fixed(view, parent, before, element)
 	local Fixed = require("markup.view.fixed")
 
 	local props = vim.tbl_extend("force", {}, element.props)
-	props.position, props.top = nil, nil
+	local overlay = props.overlay
+	props.position, props.top, props.overlay = nil, nil, nil
 	-- A band without a border is colored as a whole. With one, the element keeps
 	-- its style and the float blends in with what is underneath.
 	local style = props.style
@@ -221,12 +222,16 @@ local function mount_fixed(view, parent, before, element)
 		props.style = nil
 	end
 
-	local spacer = view:next_id()
-	view.commands:create(spacer, DISPLAY.block)
-	view.commands:insert(parent, spacer, before)
+	local spacer
+	if not overlay then
+		spacer = view:next_id()
+		view.commands:create(spacer, DISPLAY.block)
+		view.commands:insert(parent, spacer, before)
+	end
 
 	local fixed = Fixed(view, spacer, require("markup.element").new(element.type, props), style)
 	table.insert(view.fixed, fixed)
+	fixed:place()
 
 	reactive.on_cleanup(function()
 		fixed:dispose()

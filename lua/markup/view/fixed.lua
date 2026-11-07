@@ -3,6 +3,9 @@
 --- A buffer scrolls as a whole, so pinned content cannot live in it. It gets a
 --- view of its own in a float over the window, and a spacer in the buffer keeps
 --- the float from covering the first rows.
+---
+--- With `overlay` there is no spacer, so appearing moves nothing. Fixed elements
+--- stack in order, and an empty one takes no room.
 
 local protocol = require("markup.view.protocol")
 local reactive = require("markup.reactive")
@@ -26,7 +29,7 @@ function M.winhighlight(parent, style)
 end
 
 ---@param parent markup.view
----@param spacer integer node that reserves the rows in the parent
+---@param spacer? integer node that reserves the rows in the parent
 ---@param content any
 ---@param style? string|false highlight for the whole band, false for none
 function M:new(parent, spacer, content, style)
@@ -107,9 +110,26 @@ end
 --- Follows the width of the window underneath.
 function M:reposition()
 	if self.win:win_valid() then
-		self.win:update()
+		self:place()
 		self.view.commands:resize(api.nvim_win_get_width(self.win.win))
 		self.view:request_commit()
+	end
+end
+
+--- Stacks the float below the fixed elements before it.
+function M:place()
+	local row = 0
+	for _, other in ipairs(self.parent.fixed) do
+		if other == self then
+			break
+		end
+		row = row + other.height
+	end
+
+	self.win.opts.row = row
+	if self.win:win_valid() then
+		self.win:update()
+		api.nvim_win_set_config(self.win.win, { hide = self.height == 0 })
 	end
 end
 
@@ -122,12 +142,14 @@ function M:sync()
 	self.height = height
 
 	self.win.opts.height = math.max(height, 1)
-	if self.win:win_valid() then
-		self.win:update()
+	for _, fixed in ipairs(self.parent.fixed) do
+		fixed:place()
 	end
 
-	self.parent.commands:set_style(self.spacer, "height", height)
-	self.parent:request_commit()
+	if self.spacer then
+		self.parent.commands:set_style(self.spacer, "height", height)
+		self.parent:request_commit()
+	end
 end
 
 function M:dispose()
