@@ -2071,4 +2071,26 @@ T["redraw"]["asks for the screen when Neovim has not drawn it for a frame"] = fu
 	eq(child.lua_get("right_after"), 1)
 end
 
+T["resize"] = new_set()
+
+T["resize"]["follows the window on the next frame even if Neovim never said"] = function()
+	child.lua([[
+		count = m.signal(0)
+		view = Markup.view(win)
+		view:render(m.block({ function() return "frame " .. count() end }))
+		reactive.flush()
+		before = view.engine:describe(1).outer_width
+		-- As when Neovim is too busy to get round to WinResized.
+		vim.o.eventignore = "WinResized"
+		vim.cmd("vsplit")
+		vim.api.nvim_win_set_width(win.win, 20)
+		count(1)
+		reactive.flush()
+		after = view.engine:describe(1).outer_width
+		vim.o.eventignore = ""
+	]])
+	eq(child.lua_get("before"), 60)
+	eq(child.lua_get("after"), 20)
+end
+
 return T
