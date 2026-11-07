@@ -1221,6 +1221,73 @@ T["hide_cursor"]["stays out of other views"] = function()
 	eq(child.lua_get("vim.o.guicursor == original"), true)
 end
 
+T["click"] = new_set()
+
+local function click_view()
+	child.lua([[
+		pressed = nil
+		view = Markup.view(win)
+		local function button(name)
+			return m.block({ name, width = "fit", on_press = function() pressed = name end })
+		end
+		view:render(m.block({ m.block("title"), button("one"), m.block(""), button("two") }))
+		reactive.flush()
+	]])
+end
+
+--- Clicks a cell of the buffer, from zero, wherever its window is.
+local function click(row, col)
+	local screen = child.lua_get(("vim.fn.screenpos(win.win, %d, %d)"):format(row + 1, col + 1))
+	child.api.nvim_input_mouse("left", "press", "", 0, screen.row - 1, screen.col - 1)
+	child.api.nvim_input_mouse("left", "release", "", 0, screen.row - 1, screen.col - 1)
+	child.lua("vim.wait(20, function() return false end, 5)")
+end
+
+T["click"]["presses what is under the mouse"] = function()
+	click_view()
+	click(3, 1)
+	eq(child.lua_get("pressed"), "two")
+	click(1, 0)
+	eq(child.lua_get("pressed"), "one")
+end
+
+T["click"]["anything else stays a click"] = function()
+	click_view()
+	click(0, 2)
+	eq(child.lua_get("pressed"), vim.NIL)
+	eq(child.lua_get("vim.api.nvim_win_get_cursor(0)[1]"), 1)
+end
+
+T["click"]["reaches a window without the focus"] = function()
+	click_view()
+	child.cmd("vnew")
+	click(3, 1)
+	eq(child.lua_get("pressed"), "two")
+end
+
+T["click"]["picks a row of the picker"] = function()
+	child.lua([[
+		picked = nil
+		local items = {}
+		for i, name in ipairs({ "first", "second", "third" }) do items[i] = { label = name, value = name } end
+		Markup.picker({ items = items, on_select = function(value) picked = value end })
+		reactive.flush()
+		for _, w in ipairs(vim.api.nvim_list_wins()) do
+			local config = vim.api.nvim_win_get_config(w)
+			if config.relative ~= "" and w ~= vim.api.nvim_get_current_win() then list = w end
+		end
+	]])
+	-- Without a UI Neovim sends clicks past floats, so this hands the view what
+	-- a click on the second row gives.
+	child.lua([[
+		for view in pairs(Markup.views) do
+			if view.win.win == list then view:click({ line = 2, wincol = 3 }) end
+		end
+		vim.wait(20, function() return false end, 5)
+	]])
+	eq(child.lua_get("picked"), "second")
+end
+
 T["snap"]["presses land on the snapped node"] = function()
 	snap_view()
 	child.type_keys("j")

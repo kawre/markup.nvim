@@ -145,7 +145,8 @@ function M.open(opts)
 		height = height,
 		border = { "├", "─", "┤", "│", "╯", "─", "╰", "│" },
 		enter = false,
-		focusable = false,
+		-- Clicks pass through windows that cannot have the focus.
+		focusable = true,
 		minimal = true,
 		backdrop = false,
 		zindex = 60,
@@ -211,8 +212,9 @@ function M.open(opts)
 		end
 	end
 
-	local function Row(entry, active)
+	local function Row(entry, index)
 		local item = entry.item
+		local active = index == selected()
 		local spans = {}
 		for _, span in ipairs(item.prefix or {}) do
 			spans[#spans + 1] = m.inline(span[1], span[2])
@@ -222,6 +224,11 @@ function M.open(opts)
 		end
 
 		return m.flex({
+			-- Clicking a row picks it.
+			on_press = function()
+				selected(index)
+				confirm()
+			end,
 			white_space = "nowrap",
 			justify = "between",
 			style = active and "MarkupPickerSelected" or nil,
@@ -250,7 +257,7 @@ function M.open(opts)
 		local rows = {}
 		local first = offset() + 1
 		for index = first, math.min(first + height - 1, #entries) do
-			rows[#rows + 1] = Row(entries[index], index == selected())
+			rows[#rows + 1] = Row(entries[index], index)
 		end
 		return rows
 	end))
@@ -280,12 +287,22 @@ function M.open(opts)
 		end,
 	})
 
-	-- Leaving the prompt, by any means, ends the picker.
+	-- Leaving the prompt ends the picker, unless it was for the list, such as
+	-- with a click, which then picks what it hit.
 	api.nvim_create_autocmd("WinLeave", {
 		buffer = prompt_buf,
-		once = true,
 		callback = function()
-			vim.schedule(close)
+			vim.schedule(function()
+				if closed then
+					return
+				end
+				if list:win_valid() and api.nvim_get_current_win() == list.win and api.nvim_win_is_valid(prompt_win) then
+					api.nvim_set_current_win(prompt_win)
+					vim.cmd.startinsert({ bang = true })
+					return
+				end
+				close()
+			end)
 		end,
 	})
 

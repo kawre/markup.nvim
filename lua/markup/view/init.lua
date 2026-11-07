@@ -511,6 +511,60 @@ end
 
 --- Calls the `on_press` handler under the cursor, returning whether there was one.
 ---@return boolean
+--- Presses what is under the mouse, which `mouse` from `getmousepos()` points at.
+---@param mouse table
+---@return boolean pressed
+function M:click(mouse)
+	if not self.win:win_valid() then
+		return false
+	end
+
+	local info = vim.fn.getwininfo(self.win.win)[1]
+	local leftcol = api.nvim_win_call(self.win.win, function()
+		return vim.fn.winsaveview().leftcol
+	end)
+
+	local id = self.engine:node_at(mouse.line - 1, mouse.wincol - 1 - info.textoff + leftcol)
+	local handler = id and self.handlers[id]
+	if not handler then
+		return false
+	end
+
+	handler()
+	reactive.flush()
+	return true
+end
+
+local LEFT_RELEASE = vim.keycode("<LeftRelease>")
+
+--- Presses whatever was clicked, in whichever view holds it. One listener for
+--- every view, since a mapping only reaches the window that already has the
+--- focus, and windows that cannot have it, such as some floats, never do.
+local function on_click()
+	-- A release that ends a selection is for the text, not for what is under it.
+	if vim.fn.mode():match("^[vV\22]") then
+		return
+	end
+
+	local mouse = vim.fn.getmousepos()
+	if mouse.winid == 0 or mouse.line == 0 then
+		return
+	end
+
+	-- More than one view may have been made for a window, so each gets a go.
+	for view in pairs(Markup.views) do
+		if view.win.win == mouse.winid and view:click(mouse) then
+			return
+		end
+	end
+end
+
+vim.on_key(function(key)
+	if key == LEFT_RELEASE then
+		vim.schedule(on_click)
+	end
+end, api.nvim_create_namespace("markup_clicks"))
+
 function M:press()
 	local handler = self.handlers[self:node_at_cursor()]
 	if handler then
