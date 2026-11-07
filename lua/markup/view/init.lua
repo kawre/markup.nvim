@@ -486,6 +486,14 @@ function M:apply(patches)
 		return 0
 	end
 
+	-- Writes from the API all join one undo step, as nothing typed in between
+	-- closes it, so with undo on every frame would keep growing it forever.
+	-- Nothing undoes into a view anyway.
+	if self.undo_off ~= buf then
+		self.undo_off = buf
+		vim.bo[buf].undolevels = -1
+	end
+
 	local modifiable = vim.bo[buf].modifiable
 	vim.bo[buf].modifiable = true
 

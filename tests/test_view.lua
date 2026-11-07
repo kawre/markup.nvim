@@ -1834,4 +1834,27 @@ T["destroy"]["a collapse closing as the view goes away writes nothing late"] = f
 	eq(child.lua_get("Markup.animate.count()"), 0)
 end
 
+T["memory"] = new_set()
+
+T["memory"]["keeps no undo history of what it draws"] = function()
+	child.lua([[
+		-- A buffer from elsewhere, with undo on as usual.
+		vim.bo[win.buf].undolevels = 1000
+		count = m.signal(0)
+		view = Markup.view(win)
+		view:render(m.block({ function() return ("frame %d"):format(count()) end }))
+		reactive.flush()
+		for i = 1, 200 do
+			count(i)
+			reactive.flush()
+		end
+		entries = #vim.fn.undotree(win.buf).entries
+		undolevels = vim.bo[win.buf].undolevels
+	]])
+	-- Writes through the API all join one undo step, which then grows on every frame.
+	eq(child.lua_get("entries"), 0)
+	eq(child.lua_get("undolevels"), -1)
+	eq(child.lua_get("vim.api.nvim_buf_get_lines(win.buf, 0, 1, false)[1]"), "frame 200")
+end
+
 return T
