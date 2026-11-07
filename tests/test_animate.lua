@@ -49,7 +49,7 @@ T["clock"]["runs as fast as the main loop allows when uncapped"] = function()
 		animate.run({ duration = 10000, update = function() ticks = ticks + 1 end })
 		vim.wait(300, function() return false end, 1)
 	]])
-	-- At the usual 30 fps this would be about 9.
+	-- At the usual 60 fps this would be about 18.
 	eq(get("ticks") > 30, true)
 end
 

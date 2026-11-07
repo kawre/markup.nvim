@@ -38,7 +38,7 @@ local TEXT = ("Markup lays this paragraph out again on every frame, because the 
 local paused = m.signal(false)
 local intensity = m.signal(2)
 local capped = m.signal(false)
-local fps = 30 ---@type number the rate other views use, restored on close
+local fps = 60 ---@type number the rate other views use, restored on close
 
 --- Calls `fn` every `ms` for as long as the calling scope lives, unless paused.
 local function every(ms, fn)

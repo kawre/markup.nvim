@@ -5,7 +5,7 @@ local M = {
 		animate = {
 			--- The most frames a second animations move at, `math.huge` for no cap.
 			--- Match it to the display, such as 60, 120 or 180.
-			fps = 30,
+			fps = 60,
 			--- Tick only when an animation can change, so `fps` is a ceiling
 			--- rather than a constant rate.
 			vrr = true,

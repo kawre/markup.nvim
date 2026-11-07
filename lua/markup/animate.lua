@@ -14,7 +14,7 @@ local hl = require("markup.view.hl")
 local M = {
 	--- Set to false for reduced motion: everything jumps to its end.
 	enabled = true,
-	fps = 30,
+	fps = 60,
 	--- Tick only when an animation can change, rather than `fps` times a second.
 	vrr = true,
 	--- Ticks since startup, for devtools.
@@ -136,10 +136,15 @@ local function next_wait()
 	if wait == math.huge then
 		return least
 	end
-	return math.max(math.ceil(wait), least)
+	-- Timers count whole milliseconds, rounded down, so one more keeps the
+	-- wake from landing just before the change.
+	return math.max(math.ceil(wait) + 1, least)
 end
 
 schedule = function(wait)
+	-- Timers count from the loop's cached time, which can be behind, and then
+	-- wake before the change they are waiting for.
+	vim.uv.update_time()
 	due = now() + wait
 	timer:stop()
 	timer:start(wait, 0, function()
