@@ -78,6 +78,42 @@ T["shows the root and its first level"] = function()
 	eq(contains("block"), true)
 end
 
+T["marks a node that reaches past the edge"] = function()
+	child.lua([[
+		errors = {}
+		vim.notify = function(message) errors[#errors + 1] = message end
+		-- Moved half out of the window, as while a page slides in.
+		view:render(m.block({ position = "relative", left = -4, m.block("sliding in") }))
+		reactive.flush()
+		open()
+		for id = 1, view.last_id do
+			local ok, node = pcall(view.engine.describe, view.engine, id)
+			if ok and node.x and node.x < 0 then
+				inspector:select(id)
+				moved = node
+			end
+		end
+		marks = #vim.api.nvim_buf_get_extmarks(win.buf, inspector.ns, 0, -1, {})
+	]])
+	eq(child.lua_get("moved ~= nil"), true)
+	eq(child.lua_get("errors"), {})
+	eq(child.lua_get("marks > 0"), true)
+end
+
+T["marks nothing of a node out of sight"] = function()
+	child.lua([[
+		view:render(m.block({ position = "relative", left = -200, m.block("gone") }))
+		reactive.flush()
+		open()
+		for id = 1, view.last_id do
+			local ok, node = pcall(view.engine.describe, view.engine, id)
+			if ok and node.x and node.x < -100 then inspector:select(id) end
+		end
+		marks = #vim.api.nvim_buf_get_extmarks(win.buf, inspector.ns, 0, -1, {})
+	]])
+	eq(child.lua_get("marks"), 0)
+end
+
 T["layout"] = new_set()
 
 T["layout"]["keeps stats in the winbar while the tree scrolls"] = function()
