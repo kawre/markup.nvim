@@ -44,6 +44,14 @@ impl LuaUserData for LuaEngine {
             },
         );
 
+        // Where a node is visible, as `x, y, width, height, whole`, or nothing.
+        methods.add_method("visible_rect", |_, this, id: ClientId| {
+            Ok(match this.0.visible_rect(id).map_err(to_lua_error)? {
+                Some((rect, whole)) => (Some(rect.x), Some(rect.y), Some(rect.width), Some(rect.height), Some(whole)),
+                None => (None, None, None, None, None),
+            })
+        });
+
         // Devtools, see `engine::inspect`.
         methods.add_method("path_at", |_, this, (row, col): (i32, i32)| {
             Ok(this.0.path_at(row, col))

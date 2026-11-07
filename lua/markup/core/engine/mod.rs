@@ -3,6 +3,7 @@
 pub mod cursor;
 pub mod diff;
 pub mod inspect;
+mod visible;
 pub mod layout;
 pub mod lua;
 pub mod paint;

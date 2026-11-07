@@ -50,6 +50,7 @@ function M:new(win, opts)
 	self.commands = protocol.commands()
 	self.handlers = {}
 	self.hover_handlers = {}
+	self.images = {} ---@type table<integer, { data: string, width: integer, height: integer, placed?: integer, at?: string }>
 	self.key_stacks = {}
 	self.commit_listeners = {}
 	self.next_commit = {}
@@ -78,7 +79,18 @@ function M:new(win, opts)
 
 	win:on("WinScrolled", function()
 		self:update_scroll()
+		self:place_images()
 	end, { pattern = "*" })
+
+	-- Images are drawn on the screen, so anything that moves the window moves
+	-- them, and a window out of sight takes them away.
+	for _, event in ipairs({ "VimResized", "TabEnter", "WinClosed", "WinNew" }) do
+		win:on(event, function()
+			vim.schedule(function()
+				self:place_images()
+			end)
+		end, { pattern = "*" })
+	end
 
 	if opts.snap == "text" then
 		win:on("WinEnter", function()
@@ -209,6 +221,74 @@ function M:sync_cursor()
 	end
 end
 
+---@param id integer
+---@param image? { data: string, width: integer, height: integer }
+function M:set_image(id, image)
+	local current = self.images[id]
+	if current and current.placed and (not image or image.data ~= current.data) then
+		Markup.image.backend.del(current.placed)
+		current.placed = nil
+	end
+
+	if image then
+		image.placed = current and current.data == image.data and current.placed or nil
+		image.at = current and image.placed and current.at or nil
+	end
+	self.images[id] = image
+end
+
+--- Shows each image over its box, moves it with the box, and takes it away
+--- when the box is out of sight or cut, since an image cannot be cut.
+function M:place_images()
+	if next(self.images) == nil or not Markup.image.available() then
+		return
+	end
+
+	local backend = Markup.image.backend
+	local info = self.win:win_valid()
+		and api.nvim_win_get_tabpage(self.win.win) == api.nvim_get_current_tabpage()
+		and vim.fn.getwininfo(self.win.win)[1]
+	local leftcol = info and api.nvim_win_call(self.win.win, function()
+		return vim.fn.winsaveview().leftcol
+	end) or 0
+
+	for id, image in pairs(self.images) do
+		local where
+		if info then
+			local x, y, width, height, whole = self.engine:visible_rect(id)
+			local top, bottom = info.topline - 1, info.botline - 1
+			local col = x and x - leftcol
+			local inside = x
+				and whole
+				and y >= top
+				and y + height - 1 <= bottom
+				and col >= 0
+				and col + width <= info.width - info.textoff
+			if inside then
+				where = {
+					row = info.winrow + y - top,
+					col = info.wincol + info.textoff + col,
+					width = image.width,
+					height = image.height,
+				}
+			end
+		end
+
+		if where then
+			local at = ("%d:%d:%d:%d"):format(where.row, where.col, where.width, where.height)
+			if not image.placed then
+				image.placed = backend.set(image.data, where)
+			elseif image.at ~= at then
+				backend.set(image.placed, where)
+			end
+			image.at = at
+		elseif image.placed then
+			backend.del(image.placed)
+			image.placed, image.at = nil, nil
+		end
+	end
+end
+
 --- Width of the window. Reading it tracks resizes.
 ---@return integer
 function M:columns()
@@ -320,6 +400,9 @@ end
 
 --- Stops everything and forgets the view. The window is left to its owner.
 function M:destroy()
+	for id in pairs(self.images) do
+		self:set_image(id, nil)
+	end
 	self.hide_cursor = false
 	self:release_cursor()
 	self:unmount()
@@ -369,6 +452,7 @@ function M:commit()
 	end
 
 	self:update_hover()
+	self:place_images()
 
 	if self.hide_cursor then
 		self:sync_cursor()
