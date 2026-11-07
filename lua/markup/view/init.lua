@@ -494,6 +494,20 @@ function M:apply(patches)
 		vim.bo[buf].undolevels = -1
 	end
 
+	-- Neovim keeps a cursor at the same byte of its line when the line is
+	-- replaced, and puts it back at the top when the lines around it are, so
+	-- with text of wide characters changing on every frame the cursor would
+	-- wander, or jump to the start, and take the scroll along. Every window
+	-- showing the buffer keeps where it was on screen instead.
+	local windows = {}
+	for _, win in ipairs(vim.fn.win_findbuf(buf)) do
+		windows[win] = api.nvim_win_call(win, function()
+			local view = vim.fn.winsaveview()
+			view.virtcol = vim.fn.virtcol(".")
+			return view
+		end)
+	end
+
 	local modifiable = vim.bo[buf].modifiable
 	vim.bo[buf].modifiable = true
 
@@ -516,6 +530,20 @@ function M:apply(patches)
 	end
 
 	vim.bo[buf].modifiable = modifiable
+
+	local count = api.nvim_buf_line_count(buf)
+	for win, view in pairs(windows) do
+		if api.nvim_win_is_valid(win) then
+			api.nvim_win_call(win, function()
+				local lnum = math.min(view.lnum, count)
+				view.lnum = lnum
+				view.col = math.max(vim.fn.virtcol2col(win, lnum, view.virtcol) - 1, 0)
+				view.topline = math.min(view.topline, count)
+				view.virtcol = nil
+				vim.fn.winrestview(view)
+			end)
+		end
+	end
 	return total
 end
 
