@@ -50,6 +50,7 @@ function M:new(win, opts)
 	self.commands = protocol.commands()
 	self.handlers = {}
 	self.hover_handlers = {}
+	self.key_stacks = {}
 	self.commit_listeners = {}
 	self.next_commit = {}
 	self.fixed = {} ---@type markup.view.fixed[]
