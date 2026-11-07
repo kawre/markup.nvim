@@ -7,6 +7,82 @@ local Element = require("markup.element")
 
 ---@alias markup.factory.element.children number|string|table|markup.factory.element.children.dynamic
 
+---@alias markup.length integer|"auto"|"fit"|"full" cells, or as wide as there is room, the content, or the parent
+---@alias markup.edges integer|integer[] one value for every side, or CSS order: `{ y, x }`, `{ top, x, bottom }`, `{ top, right, bottom, left }`
+---@alias markup.align "start"|"end"|"center"|"stretch"
+---@alias markup.justify "start"|"end"|"center"|"between"|"around"|"evenly"|"stretch"
+---@alias markup.track integer|"auto"|string cells, as wide as the content, or a share such as `"1fr"`
+---@alias markup.border "single"|"rounded"|"double"|"heavy"|"half"|{ chars: string }
+
+--- Props every element takes. Each value can also be a function, which is read
+--- again whenever a signal it reads changes, updating only that property.
+---@class markup.node.props
+---@field children? markup.factory.element.children
+---@field style? markup.factory.element.style|fun(): markup.factory.element.style? highlight group, or attributes of one
+--- Box
+---@field width? markup.length|fun(): markup.length
+---@field height? markup.length|fun(): markup.length
+---@field min_width? markup.length|fun(): markup.length
+---@field max_width? markup.length|fun(): markup.length
+---@field min_height? markup.length|fun(): markup.length
+---@field max_height? markup.length|fun(): markup.length
+---@field margin? markup.edges|fun(): markup.edges
+---@field margin_top? integer|fun(): integer
+---@field margin_right? integer|fun(): integer
+---@field margin_bottom? integer|fun(): integer
+---@field margin_left? integer|fun(): integer
+---@field padding? markup.edges|fun(): markup.edges
+---@field padding_top? integer|fun(): integer
+---@field padding_right? integer|fun(): integer
+---@field padding_bottom? integer|fun(): integer
+---@field padding_left? integer|fun(): integer
+---@field border? markup.border drawn inside the box, around the padding
+---@field border_style? string highlight of the border
+---@field border_sides? ("top"|"right"|"bottom"|"left")[] the sides to draw, all by default
+---@field overflow? "visible"|"hidden"|fun(): "visible"|"hidden" cuts off what does not fit
+---@field overflow_x? "visible"|"hidden"|fun(): "visible"|"hidden" cuts off only what is too wide
+---@field white_space? "normal"|"nowrap"|fun(): "normal"|"nowrap" whether text wraps, inherited
+--- Flex and grid
+---@field direction? "row"|"column"|fun(): "row"|"column"
+---@field vertical? boolean|fun(): boolean shorthand for `direction = "column"`
+---@field reverse? boolean|fun(): boolean
+---@field wrap? boolean|fun(): boolean
+---@field justify? markup.justify|fun(): markup.justify
+---@field align? markup.align|fun(): markup.align
+---@field align_content? markup.justify|fun(): markup.justify
+---@field align_self? markup.align|"auto"|fun(): markup.align|"auto"
+---@field justify_items? markup.align|fun(): markup.align
+---@field justify_self? markup.align|"auto"|fun(): markup.align|"auto"
+---@field gap? integer|integer[]|fun(): integer|integer[] between children, or `{ rows, columns }`
+---@field row_gap? integer|fun(): integer
+---@field column_gap? integer|fun(): integer
+---@field spacing? integer|fun(): integer the least gap between children
+---@field grow? number|fun(): number
+---@field shrink? number|fun(): number
+---@field basis? markup.length|fun(): markup.length
+---@field order? integer|fun(): integer
+---@field columns? integer|markup.track[] grid columns, or how many equal ones
+---@field rows? integer|markup.track[] grid rows, or how many equal ones
+---@field auto_flow? "row"|"column"|fun(): "row"|"column"
+---@field column? integer|fun(): integer grid column to start in
+---@field row? integer|fun(): integer grid row to start in
+---@field column_span? integer|fun(): integer
+---@field row_span? integer|fun(): integer
+--- Position
+---@field position? "static"|"relative"|"absolute"|"fixed" `fixed` pins the element above the view, in a float of its own
+---@field overlay? boolean with `fixed`, float over the content rather than pushing it down
+---@field inset? markup.edges|fun(): markup.edges shorthand for `top`, `right`, `bottom` and `left`
+---@field top? integer|fun(): integer
+---@field right? integer|fun(): integer
+---@field bottom? integer|fun(): integer
+---@field left? integer|fun(): integer
+---@field z? integer|fun(): integer
+--- Interaction
+---@field on_press? fun() called on <CR>, or on a click, which makes the element a place the cursor can land
+---@field click? "single"|"double"|false which click of the mouse presses it, single by default
+---@field on_hover? fun(hovered: boolean) called as the cursor comes onto the element and leaves it
+---@field interactive? boolean|fun(): boolean a place the cursor can land, without `on_press`
+
 ---@alias markup.factory.element.fragment.props
 ---| { children?: markup.factory.element.children }
 ---| markup.factory.element.children
