@@ -1857,4 +1857,102 @@ T["memory"]["keeps no undo history of what it draws"] = function()
 	eq(child.lua_get("vim.api.nvim_buf_get_lines(win.buf, 0, 1, false)[1]"), "frame 200")
 end
 
+T["cursor"] = new_set()
+
+T["cursor"]["keeps its screen column when the text around it narrows"] = function()
+	child.lua([[
+		wide = m.signal(true)
+		view = Markup.view(win)
+		view:render(m.block({ function() return (wide() and ("█"):rep(10) or (" "):rep(10)) .. "end" end }))
+		reactive.flush()
+		vim.api.nvim_set_current_win(win.win)
+		vim.cmd("normal! 8|")
+		before = vim.fn.virtcol(".")
+		wide(false)
+		reactive.flush()
+		after = vim.fn.virtcol(".")
+	]])
+	eq(child.lua_get("before"), 8)
+	eq(child.lua_get("after"), 8)
+end
+
+T["cursor"]["holds its place and the scroll when lines come and go"] = function()
+	child.lua([[
+		count = m.signal(5)
+		view = Markup.view(win)
+		view:render(m.block({
+			m.block(function()
+				local lines = {}
+				for i = 1, count() do lines[i] = m.block("top " .. i) end
+				return lines
+			end),
+			m.block(function()
+				local lines = {}
+				for i = 1, 60 do lines[i] = m.block("row " .. i) end
+				return lines
+			end),
+		}))
+		reactive.flush()
+		vim.api.nvim_set_current_win(win.win)
+		vim.fn.winrestview({ topline = 10, lnum = 14, col = 2 })
+		count(1)
+		reactive.flush()
+		shrunk = vim.fn.winsaveview()
+		count(12)
+		reactive.flush()
+		grown = vim.fn.winsaveview()
+	]])
+	for _, name in ipairs({ "shrunk", "grown" }) do
+		eq(child.lua_get(name .. ".lnum"), 14)
+		eq(child.lua_get(name .. ".topline"), 10)
+	end
+end
+
+T["cursor"]["a slide that is part of a page leaves a cursor elsewhere alone"] = function()
+	child.lua([[
+		Markup.animate.enabled = false
+		page = m.signal(1)
+		view = Markup.view(win)
+		local rows = {}
+		for i = 1, 8 do rows[i] = m.block("row " .. i) end
+		view:render(m.block({
+			m.slide(page, function(key) return m.block("page " .. key) end),
+			rows,
+		}))
+		reactive.flush()
+		vim.api.nvim_set_current_win(win.win)
+		vim.api.nvim_win_set_cursor(win.win, { 6, 2 })
+		page(2)
+		reactive.flush()
+		page(3)
+		reactive.flush()
+		cursor = vim.api.nvim_win_get_cursor(win.win)
+	]])
+	eq(child.lua_get("cursor"), { 6, 2 })
+end
+
+T["cursor"]["a slide still takes back a cursor that was on it"] = function()
+	child.lua([[
+		Markup.animate.enabled = false
+		page = m.signal(1)
+		view = Markup.view(win)
+		view:render(m.slide(page, function(key)
+			local rows = {}
+			for i = 1, 8 do rows[i] = m.block(("page %d row %d"):format(key, i)) end
+			return rows
+		end))
+		reactive.flush()
+		vim.api.nvim_set_current_win(win.win)
+		vim.api.nvim_win_set_cursor(win.win, { 5, 0 })
+		page(2)
+		reactive.flush()
+		on_new = vim.api.nvim_win_get_cursor(win.win)[1]
+		page(1)
+		reactive.flush()
+		back = vim.api.nvim_win_get_cursor(win.win)[1]
+	]])
+	eq(child.lua_get("on_new"), 1)
+	eq(child.lua_get("back"), 5)
+end
+
 return T

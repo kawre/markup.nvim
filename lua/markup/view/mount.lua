@@ -588,6 +588,22 @@ function Slide.mount(view, parent, before, props)
 		end
 	end
 
+	--- Whether the cursor is on the slide. Only then is it the slide's to move:
+	--- a slide that is part of a page leaves a cursor elsewhere on it alone.
+	local function holds_cursor()
+		if not view.win:win_valid() or api.nvim_win_get_buf(view.win.win) ~= view.win.buf then
+			return false
+		end
+		local ok, node = pcall(view.engine.describe, view.engine, outer)
+		if not ok or not node.x then
+			return false
+		end
+		local row, col = api.nvim_win_call(view.win.win, function()
+			return vim.fn.line(".") - 1, vim.fn.virtcol(".") - 1
+		end)
+		return row >= node.y and row < node.y + node.outer_height and col >= node.x and col < node.x + node.outer_width
+	end
+
 	--- Back to where the cursor was on this page, or to the top of a new one.
 	local function restore_cursor(key)
 		view:after_commit(function()
@@ -613,7 +629,8 @@ function Slide.mount(view, parent, before, props)
 
 		settle()
 
-		if view.win:win_valid() then
+		local had_cursor = holds_cursor()
+		if had_cursor then
 			cursors[current_key] = api.nvim_win_get_cursor(view.win.win)
 		end
 
@@ -627,7 +644,9 @@ function Slide.mount(view, parent, before, props)
 
 		local function arrive()
 			settle()
-			restore_cursor(key)
+			if had_cursor then
+				restore_cursor(key)
+			end
 		end
 
 		if forward then
