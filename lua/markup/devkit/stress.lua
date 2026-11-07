@@ -323,12 +323,17 @@ function M.open()
 		buffer = win.buf,
 		once = true,
 		callback = function()
-			Markup.animate.set_fps(fps)
+			if Markup.animate.fps == math.huge then
+				Markup.animate.set_fps(fps)
+			end
 		end,
 	})
 
 	local function close()
-		Markup.animate.set_fps(fps)
+		-- A rate picked in the inspector while it ran is kept.
+		if Markup.animate.fps == math.huge then
+			Markup.animate.set_fps(fps)
+		end
 		local inspector = Markup.devkit.tree().get(view)
 		if inspector then
 			inspector:close()

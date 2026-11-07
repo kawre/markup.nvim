@@ -8,8 +8,8 @@
 --- tree in the middle and the selected node at the bottom, so stats and details
 --- stay in place however far the tree scrolls.
 ---
---- Keys: <CR> expand or load more, c show groups, f follow the cursor,
---- m mark the selection in the view, r refresh, q close.
+--- Keys: <CR> expand or load more, s options, c show groups, f follow the
+--- cursor, m mark the selection in the view, r refresh, q close.
 
 local m = require("markup")
 local reactive = require("markup.reactive")
@@ -203,6 +203,34 @@ local function details_of(node)
 	}
 end
 
+--- Steps of the frame rate slider, the last one for no cap at all.
+M.fps_steps = { 10, 15, 24, 30, 60, 120, 240, math.huge }
+local SLIDER = 18
+
+--- The step closest to `fps`.
+local function fps_step(fps)
+	local best, distance = 1, math.huge
+	for i, step in ipairs(M.fps_steps) do
+		local d = step == math.huge and (fps == math.huge and 0 or math.huge) or math.abs(step - fps)
+		if d < distance then
+			best, distance = i, d
+		end
+	end
+	return best
+end
+
+--- What the options popup lists, in order.
+---@type { key: string, label: string, desc: string, shortcut?: string, default: boolean }[]
+M.options = {
+	{ key = "follow", label = "Follow cursor", desc = "select the element under the view's cursor", shortcut = "f", default = true },
+	{ key = "show_groups", label = "Show groups", desc = "list the nodes components wrap content in", shortcut = "c", default = false },
+	{ key = "mark", label = "Mark selection", desc = "highlight the selected element in the view", shortcut = "m", default = true },
+	{ key = "geometry", label = "Geometry", desc = "position and size on every row", default = true },
+	{ key = "hl_names", label = "Highlight names", desc = "highlight groups on every row", default = true },
+	{ key = "guides", label = "Indent guides", desc = "lines joining nested elements", default = true },
+	{ key = "live", label = "Live updates", desc = "refresh the tree as the view changes", default = true },
+}
+
 ---@param target markup.view
 function M:new(target)
 	self.target = target
@@ -210,9 +238,14 @@ function M:new(target)
 	self.offsets = {} ---@type table<integer, integer> first child shown per parent
 	self.entries = {}
 	self.keys_by_handler = {}
-	self.show_groups = false
-	self.follow = true
-	self.mark = Markup.config.user.inspector.mark ~= false
+	local defaults = Markup.config.user.inspector or {}
+	for _, option in ipairs(M.options) do
+		local default = defaults[option.key]
+		if default == nil then
+			default = option.default
+		end
+		self[option.key] = default
+	end
 
 	self.rows = m.signal({})
 	self.selected = m.signal(protocol.ROOT)
@@ -378,17 +411,16 @@ function M:bind_keys()
 		self:refresh()
 	end)
 	map("f", function()
-		self.follow = not self.follow
-		self:refresh()
+		self:set_option("follow", not self.follow)
 	end)
 	map("m", function()
-		self.mark = not self.mark
-		self:update_winbar()
-		self:show_selection()
+		self:set_option("mark", not self.mark)
 	end)
 	map("c", function()
-		self.show_groups = not self.show_groups
-		self:refresh()
+		self:set_option("show_groups", not self.show_groups)
+	end)
+	map("s", function()
+		self:open_options()
 	end)
 end
 
@@ -456,7 +488,7 @@ end
 
 --- Refreshes at most once per `REFRESH_MS`, however often the target commits.
 function M:request_refresh()
-	if self.refresh_pending then
+	if self.refresh_pending or not self.live then
 		return
 	end
 	self.refresh_pending = true
@@ -510,8 +542,9 @@ end
 ---@param row table
 ---@param expanded boolean
 ---@param width integer
-local function row_values(row, expanded, width)
-	local guide = ("│ "):rep(row.depth)
+---@param options markup.devkit.tree
+local function row_values(row, expanded, width, options)
+	local guide = (options.guides and "│ " or "  "):rep(row.depth)
 	local values = { guide = guide, marker = "  ", id = "", hl_name = "", hl_group = false }
 
 	if row.kind == "node" then
@@ -522,7 +555,10 @@ local function row_values(row, expanded, width)
 		if node.children > 0 then
 			values.marker = expanded and "▾ " or "▸ "
 		end
-		if node.hl ~= 0 then
+		if not options.geometry then
+			values.geometry = ""
+		end
+		if node.hl ~= 0 and options.hl_names then
 			values.hl_name = " " .. hl.name(node.hl) .. " "
 			values.hl_group = hl.name(node.hl)
 		end
@@ -558,7 +594,7 @@ function M:refresh()
 	local live = {}
 	for _, row in ipairs(rows) do
 		live[row.key] = true
-		local values = row_values(row, self.expanded[row.key], width)
+		local values = row_values(row, self.expanded[row.key], width, self)
 		local entry = self.entries[row.key]
 		if entry then
 			entry.row = row
@@ -969,7 +1005,7 @@ end
 
 function M:panel()
 	local hints = { label(" ") }
-	for _, hint in ipairs({ { "<CR>", "open" }, { "c", "groups" }, { "f", "follow" }, { "m", "mark" }, { "r", "refresh" }, { "q", "close" } }) do
+	for _, hint in ipairs({ { "<CR>", "open" }, { "s", "options" }, { "f", "follow" }, { "m", "mark" }, { "r", "refresh" }, { "q", "close" } }) do
 		hints[#hints + 1] = { hint[1], "MarkupInspectorKey" }
 		hints[#hints + 1] = label((" %s  "):format(hint[2]))
 	end
@@ -1008,6 +1044,190 @@ function M:panel()
 	})
 end
 
+--- Changes an option and redraws what it affects.
+---@param key string
+---@param enabled boolean
+function M:set_option(key, enabled)
+	self[key] = enabled
+	if self.option_signals then
+		self.option_signals[key](enabled)
+	end
+	self:update_winbar()
+	if key == "mark" then
+		self:show_selection()
+	else
+		self:refresh()
+	end
+end
+
+--- A popup over the tree with every option and whether it is on.
+function M:open_options()
+	if self.options_win and self.options_win:win_valid() then
+		self.options_win:focus()
+		return
+	end
+
+	self.option_signals = {}
+	for _, option in ipairs(M.options) do
+		self.option_signals[option.key] = m.signal(self[option.key])
+	end
+
+	local width = math.min(api.nvim_win_get_width(self.win.win) - 4, 52)
+	local height = #M.options * 2 + 3
+	self.options_win = Markup.window({
+		position = "float",
+		relative = "win",
+		win = self.win.win,
+		width = width,
+		height = height,
+		row = 1,
+		col = math.max(math.floor((api.nvim_win_get_width(self.win.win) - width) / 2) - 1, 0),
+		border = "rounded",
+		title = " Inspector options ",
+		title_pos = "center",
+		footer = " <CR> toggle  q close ",
+		footer_pos = "center",
+		enter = true,
+		focusable = true,
+		minimal = true,
+		backdrop = false,
+	})
+	local win = self.options_win
+	self.options_view = Markup.view(win, { snap = true, hide_cursor = true })
+	self.options_view.devtool = true
+
+	local rows = {}
+	for _, option in ipairs(M.options) do
+		local enabled = self.option_signals[option.key]
+		local hovered = m.signal(false)
+		rows[#rows + 1] = m.block({
+			padding = { 0, 1 },
+			style = function()
+				return hovered() and "MarkupInspectorSelected" or nil
+			end,
+			on_hover = function(value)
+				hovered(value)
+			end,
+			on_press = function()
+				self:set_option(option.key, not reactive.untrack(enabled))
+			end,
+			m.flex({
+				justify = "between",
+				m.block({
+					m.inline(function()
+						return enabled() and "\u{f0132} " or "\u{f0131} "
+					end, function()
+						return enabled() and "MarkupInspectorGood" or "MarkupInspectorLabel"
+					end),
+					m.inline(option.label, function()
+						return enabled() and "MarkupInspectorStrong" or "MarkupInspectorValue"
+					end),
+				}),
+				m.inline(option.shortcut or "", "MarkupInspectorKey"),
+			}),
+			m.block({ m.inline("  " .. option.desc, "MarkupInspectorLabel") }),
+		})
+	end
+	local step = m.signal(fps_step(Markup.animate.fps))
+	local slider_hovered = m.signal(false)
+	local function move(by)
+		local index = math.max(math.min(reactive.untrack(step) + by, #M.fps_steps), 1)
+		step(index)
+		Markup.animate.set_fps(M.fps_steps[index])
+	end
+	local function filled()
+		return math.floor((step() - 1) / (#M.fps_steps - 1) * (SLIDER - 1))
+	end
+
+	rows[#rows + 1] = m.block({ "" })
+	rows[#rows + 1] = m.block({
+		padding = { 0, 1 },
+		style = function()
+			return slider_hovered() and "MarkupInspectorSelected" or nil
+		end,
+		on_hover = function(value)
+			slider_hovered(value)
+		end,
+		on_press = function()
+			move(reactive.untrack(step) == #M.fps_steps and 1 - #M.fps_steps or 1)
+		end,
+		m.flex({
+			justify = "between",
+			m.block({
+				m.inline("\u{f0e4} ", "MarkupInspectorKey"),
+				m.inline("Max fps  ", "MarkupInspectorStrong"),
+				m.inline(function()
+					return ("━"):rep(filled())
+				end, "MarkupInspectorGood"),
+				m.inline("●", "MarkupInspectorStrong"),
+				m.inline(function()
+					return ("─"):rep(SLIDER - 1 - filled())
+				end, "MarkupInspectorGuide"),
+			}),
+			m.inline(function()
+				local fps = M.fps_steps[step()]
+				return fps == math.huge and "unlimited" or tostring(fps)
+			end, "MarkupInspectorValue"),
+		}),
+		m.block({ m.inline("  how often animations move, h / l to change", "MarkupInspectorLabel") }),
+	})
+
+	self.options_view:render(m.block({ white_space = "nowrap", rows }))
+	self.move_fps = move
+
+	for _, lhs in ipairs({ "h", "<Left>" }) do
+		win:map("n", lhs, function()
+			if reactive.untrack(slider_hovered) then
+				move(-1)
+			end
+		end)
+	end
+	for _, lhs in ipairs({ "l", "<Right>" }) do
+		win:map("n", lhs, function()
+			if reactive.untrack(slider_hovered) then
+				move(1)
+			end
+		end)
+	end
+
+	local function close()
+		self:close_options()
+		if self.win:win_valid() then
+			api.nvim_set_current_win(self.win.win)
+		end
+	end
+	win:map("n", "<CR>", function()
+		self.options_view:press()
+	end)
+	win:map("n", "<Space>", function()
+		self.options_view:press()
+	end)
+	win:map("n", "q", close)
+	win:map("n", "<Esc>", close)
+	win:map("n", "s", close)
+	api.nvim_create_autocmd("WinLeave", {
+		group = self.group,
+		buffer = win.buf,
+		once = true,
+		callback = function()
+			vim.schedule(function()
+				self:close_options()
+			end)
+		end,
+	})
+end
+
+function M:close_options()
+	if self.options_view then
+		self.options_view:destroy()
+		self.options_view = nil
+	end
+	if self.options_win and self.options_win:win_valid() then
+		self.options_win:close()
+	end
+	self.options_win, self.option_signals, self.move_fps = nil, nil, nil
+end
+
 function M:close()
 	if instances[self.target] ~= self then
 		return
@@ -1023,6 +1243,7 @@ function M:close()
 		api.nvim_buf_clear_namespace(self.target.win.buf, self.ns, 0, -1)
 	end
 
+	self:close_options()
 	self.view:destroy()
 	self.stats_view:destroy()
 	self.details_view:destroy()

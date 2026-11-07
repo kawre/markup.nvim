@@ -2,10 +2,16 @@
 local M = {
 	user = {
 		logging = true,
+		--- Defaults for the inspector's options, which `s` in the inspector
+		--- changes while it is open.
 		inspector = {
-			--- Marks the element selected in the inspector inside the view itself.
-			--- Toggle it with `m` while the inspector is open.
-			mark = true,
+			follow = true, -- select the element under the view's cursor
+			show_groups = false, -- list the invisible nodes components wrap their content in
+			mark = true, -- mark the selected element inside the view itself
+			geometry = true, -- position and size on every row
+			hl_names = true, -- highlight groups on every row
+			guides = true, -- lines joining nested elements
+			live = true, -- refresh the tree as the view changes
 		},
 	},
 	name = "markup.nvim",
