@@ -103,7 +103,7 @@ T["marks a node that reaches past the edge"] = function()
 				moved = node
 			end
 		end
-		marks = #vim.api.nvim_buf_get_extmarks(win.buf, inspector.ns, 0, -1, {})
+		marks = #inspector:target_marks()
 	]])
 	eq(child.lua_get("moved ~= nil"), true)
 	eq(child.lua_get("errors"), {})
@@ -119,7 +119,7 @@ T["marks nothing of a node out of sight"] = function()
 			local ok, node = pcall(view.engine.describe, view.engine, id)
 			if ok and node.x and node.x < -100 then inspector:select(id) end
 		end
-		marks = #vim.api.nvim_buf_get_extmarks(win.buf, inspector.ns, 0, -1, {})
+		marks = #inspector:target_marks()
 	]])
 	eq(child.lua_get("marks"), 0)
 end
@@ -446,10 +446,70 @@ T["marks the selected node in the target"] = function()
 		vim.api.nvim_win_set_cursor(win.win, { 2, 0 })
 		inspector:follow_cursor()
 	]])
-	local marks = child.lua_get([[vim.tbl_map(function(mark)
-		return { mark[2], mark[3], mark[4].end_col }
-	end, vim.api.nvim_buf_get_extmarks(win.buf, inspector.ns, 0, -1, { details = true }))]])
+	local marks = child.lua_get([[inspector:target_marks()]])
 	eq(marks, { { 1, 0, 3 } })
+end
+
+T["shortens long text without cutting a character"] = function()
+	run([[
+		errors = {}
+		vim.notify = function(message) errors[#errors + 1] = message end
+		view:render(m.block({ m.block(("⣿─"):rep(40)) }))
+		open()
+		vim.api.nvim_set_current_win(win.win)
+		vim.api.nvim_win_set_cursor(win.win, { 1, 0 })
+		inspector:follow_cursor()
+		reactive.flush()
+	]])
+	eq(child.lua_get("errors"), {})
+	eq(contains("…"), true)
+end
+
+T["lets go of a node that disappears"] = function()
+	run([[
+		errors = {}
+		vim.notify = function(message) errors[#errors + 1] = message end
+		shown = m.signal(true)
+		view:render(m.block({ m.show(shown, m.block("brief")), m.block("stays") }))
+		open()
+		vim.api.nvim_set_current_win(win.win)
+		vim.api.nvim_win_set_cursor(win.win, { 1, 0 })
+		inspector:follow_cursor()
+		marked = #inspector:target_marks()
+		shown(false)
+		reactive.flush()
+		inspector:refresh()
+		reactive.flush()
+		gone_marks = #inspector:target_marks()
+		gone_panel = vim.api.nvim_buf_get_lines(inspector.details_win.buf, 0, 1, false)[1]
+		-- Pressing rows while the tree catches up must not fail either.
+		vim.api.nvim_set_current_win(inspector.win.win)
+		vim.cmd("normal \r")
+		reactive.flush()
+	]])
+	eq(child.lua_get("marked") > 0, true)
+	eq(child.lua_get("gone_marks"), 0)
+	eq(child.lua_get("gone_panel"):find("nothing selected", 1, true) ~= nil, true)
+	eq(child.lua_get("errors"), {})
+end
+
+T["the mark stays while the target rewrites its lines"] = function()
+	run([[
+		count = m.signal(0)
+		view:render(m.block({ m.block({ function() return "frame " .. count() end }), m.block("two") }))
+		open()
+		vim.api.nvim_set_current_win(win.win)
+		vim.api.nvim_win_set_cursor(win.win, { 1, 0 })
+		inspector:follow_cursor()
+		before = inspector:target_marks()
+		for i = 1, 50 do
+			count(i)
+			reactive.flush()
+		end
+		after = inspector:target_marks()
+	]])
+	eq(#child.lua_get("before") > 0, true)
+	eq(child.lua_get("after"), child.lua_get("before"))
 end
 
 T["marking the selection can be turned off"] = function()
@@ -459,14 +519,14 @@ T["marking the selection can be turned off"] = function()
 		vim.api.nvim_set_current_win(win.win)
 		vim.api.nvim_win_set_cursor(win.win, { 2, 0 })
 		inspector:follow_cursor()
-		before = #vim.api.nvim_buf_get_extmarks(win.buf, inspector.ns, 0, -1, {})
+		before = #inspector:target_marks()
 		vim.api.nvim_set_current_win(inspector.win.win)
 		vim.cmd("normal m")
-		after = #vim.api.nvim_buf_get_extmarks(win.buf, inspector.ns, 0, -1, {})
+		after = #inspector:target_marks()
 		vim.api.nvim_set_current_win(win.win)
 		vim.api.nvim_win_set_cursor(win.win, { 1, 0 })
 		inspector:follow_cursor()
-		moved = #vim.api.nvim_buf_get_extmarks(win.buf, inspector.ns, 0, -1, {})
+		moved = #inspector:target_marks()
 	]])
 	eq(child.lua_get("before") > 0, true)
 	eq(child.lua_get("after"), 0)
@@ -483,7 +543,7 @@ T["marking can be off from the start"] = function()
 		vim.api.nvim_win_set_cursor(win.win, { 1, 0 })
 		inspector:follow_cursor()
 	]])
-	eq(child.lua_get("#vim.api.nvim_buf_get_extmarks(win.buf, inspector.ns, 0, -1, {})"), 0)
+	eq(child.lua_get("#inspector:target_marks()"), 0)
 	eq(child.lua_get("Markup.config.user.logging"), true)
 end
 
@@ -714,7 +774,7 @@ T["closing removes everything"] = function()
 	eq(child.lua_get("reactive.stats().scopes == before.scopes"), true)
 	eq(child.lua_get("tree.get(view) == nil"), true)
 	eq(child.lua_get("#vim.api.nvim_tabpage_list_wins(0)"), 1)
-	eq(child.lua_get("#vim.api.nvim_buf_get_extmarks(win.buf, inspector.ns, 0, -1, {})"), 0)
+	eq(child.lua_get("#inspector:target_marks()"), 0)
 end
 
 T["closing the inspector window cleans up"] = function()
