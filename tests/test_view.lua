@@ -1528,6 +1528,44 @@ T["fixed"]["the width can be tracked"] = function()
 	eq(child.lua_get("seen[#seen]"), 30)
 end
 
+T["hold_width"] = new_set()
+
+local function right_aligned()
+	child.lua([[
+		view = Markup.view(win)
+		view:render(m.flex({ justify = "between", m.inline("left"), m.inline("right") }))
+		reactive.flush()
+		full = vim.api.nvim_win_get_width(win.win)
+	]])
+end
+
+T["hold_width"]["keeps the layout while the window resizes"] = function()
+	right_aligned()
+	child.lua([[
+		before = vim.api.nvim_buf_get_lines(win.buf, 0, 1, false)[1]
+		view:hold_width(full)
+		vim.cmd("vnew")
+		vim.api.nvim_win_set_width(win.win, 20)
+	]])
+	child.lua("vim.wait(20, function() return false end, 5)")
+	child.lua("reactive.flush()")
+	eq(child.lua_get("vim.api.nvim_buf_get_lines(win.buf, 0, 1, false)[1]"), child.lua_get("before"))
+	eq(child.lua_get("view:columns()"), child.lua_get("full"))
+end
+
+T["hold_width"]["follows the window once released"] = function()
+	right_aligned()
+	child.lua([[
+		view:hold_width(full)
+		vim.cmd("vnew")
+		vim.api.nvim_win_set_width(win.win, 20)
+	]])
+	child.lua("vim.wait(20, function() return false end, 5)")
+	child.lua("view:release_width(); reactive.flush()")
+	eq(child.lua_get("vim.fn.strdisplaywidth(vim.api.nvim_buf_get_lines(win.buf, 0, 1, false)[1])"), 20)
+	eq(child.lua_get("view:columns()"), 20)
+end
+
 T["fixed"]["scrolling can be tracked"] = function()
 	overlay_view()
 	child.lua([[
