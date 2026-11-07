@@ -101,6 +101,12 @@ function M.progress(...)
 	return require("markup.view.components").progress(...)
 end
 
+--- An image, drawn over its box in the layout.
+---@see markup.view.mount.image
+function M.image(...)
+	return require("markup.view.mount").image(...)
+end
+
 --- A spinner, a random one unless named.
 ---@see markup.view.components.spinner
 function M.spinner(...)

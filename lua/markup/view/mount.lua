@@ -464,6 +464,47 @@ function M.collapse(when, content, opts)
 	return element(Collapse, { when = when, children = content, duration = opts and opts.duration })
 end
 
+local Image = { typeof = "control" }
+
+function Image.mount(view, parent, before, props)
+	local images = require("markup.image")
+
+	local id = view:next_id()
+	view.commands:create(id, DISPLAY.block)
+	view.commands:insert(parent, id, before)
+
+	-- Without anything to show images, the box keeps its place and says what
+	-- would be there.
+	if not images.available() and props.alt then
+		mount(view, require("markup").inline(props.alt, "Comment"), id)
+	end
+
+	effect(function()
+		local data = props.data
+		if type(data) == "function" then
+			data = data()
+		end
+
+		local width, height = images.size(data, props.width, props.height)
+		view.commands:set_style(id, "width", width)
+		view.commands:set_style(id, "height", height)
+		view:set_image(id, data and { data = data, width = width, height = height } or nil)
+		view:request_commit()
+	end)
+
+	reactive.on_cleanup(function()
+		view:set_image(id, nil)
+	end)
+end
+
+--- An image, as a box in the layout that it is drawn over.
+---@param props { data: string|fun(): string?, width?: integer, height?: integer, alt?: string }
+--- `data` is the bytes of a PNG, or a function giving them once they are there.
+--- A missing height follows the proportions of the image.
+function M.image(props)
+	return element(Image, props)
+end
+
 local Slide = { typeof = "control" }
 
 local SLIDE_DURATION = 320
