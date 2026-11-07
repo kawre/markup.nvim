@@ -87,6 +87,16 @@ T["value"]["drives the UI"] = function()
 	eq(get("lines()"), { "5" })
 end
 
+T["value"]["at its target it does not start the clock"] = function()
+	run([[
+		done = false
+		value = m.animated(5)
+		value(5, { done = function() done = true end })
+	]])
+	eq(get("animate.running()"), false)
+	eq(get("done"), true)
+end
+
 T["value"]["a zero duration applies at once"] = function()
 	run([[
 		value = m.animated(0)
