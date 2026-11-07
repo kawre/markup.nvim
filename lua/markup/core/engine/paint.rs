@@ -17,6 +17,8 @@ pub struct Mark {
 pub struct Line {
     pub text: String,
     pub marks: Vec<Mark>,
+    /// Cells holding text, from start to end. Borders and padding are left out.
+    pub spans: Vec<(i32, i32)>,
 }
 
 /// A run of text on a row. Text is borrowed from the tree until it has to be
@@ -95,9 +97,21 @@ impl<'a> Segment<'a> {
 struct Row<'a> {
     segments: Vec<Segment<'a>>,
     ranges: Vec<(i32, i32, u32)>,
+    spans: Vec<(i32, i32)>,
 }
 
 impl<'a> Row<'a> {
+    /// Writes the text of a node, as opposed to what decorates it.
+    fn write_text(&mut self, cell: i32, text: Cow<'a, str>, width: i32, cells: Cow<'a, [u8]>) {
+        let leading = text.len() - text.trim_start_matches(' ').len();
+        let trailing = text.len() - text.trim_end_matches(' ').len();
+        if leading < text.len() {
+            self.spans.push((cell + leading as i32, cell + width - trailing as i32));
+        }
+
+        self.write(cell, text, width, cells);
+    }
+
     fn write(&mut self, cell: i32, text: Cow<'a, str>, width: i32, cells: Cow<'a, [u8]>) {
         let segment = Segment { cell, width, text, cells };
 
@@ -201,7 +215,7 @@ impl<'a> Row<'a> {
             })
             .collect();
 
-        Line { text, marks }
+        Line { text, marks, spans: self.spans }
     }
 }
 
@@ -296,14 +310,14 @@ impl<'a> Painter<'a> {
                             let last = (first + wide(&node.text[start..end])).min(all.len());
 
                             let text = Cow::Borrowed(&node.text[start..end]);
-                            row.write(x + fragment.x, text, fragment.width, Cow::Borrowed(&all[first..last]));
+                            row.write_text(x + fragment.x, text, fragment.width, Cow::Borrowed(&all[first..last]));
                         }
                     }
                 }
                 None => {
                     if let Some(row) = self.row(y) {
                         let cells = node.cells.as_deref().unwrap_or(&[]);
-                        row.write(x, Cow::Borrowed(&node.text), node.text_width, Cow::Borrowed(cells));
+                        row.write_text(x, Cow::Borrowed(&node.text), node.text_width, Cow::Borrowed(cells));
                     }
                 }
             }
@@ -724,12 +738,23 @@ mod tests {
         let row = Row {
             segments: Vec::new(),
             ranges: vec![(-9, 4, 1), (-5, -2, 2)],
+            spans: Vec::new(),
         };
 
         let line = row.finish();
 
         assert_eq!(line.marks.len(), 1);
         assert_eq!((line.marks[0].start, line.marks[0].end), (0, 4));
+    }
+
+    #[test]
+    fn spans_cover_text_without_its_blanks() {
+        let mut row = Row::default();
+        row.write_text(2, Cow::Borrowed("  ab "), 5, Cow::Borrowed(&[]));
+        row.write_text(9, Cow::Borrowed("   "), 3, Cow::Borrowed(&[]));
+        row.write(14, Cow::Borrowed("edge"), 4, Cow::Borrowed(&[]));
+
+        assert_eq!(row.finish().spans, vec![(4, 6)]);
     }
 
     #[test]

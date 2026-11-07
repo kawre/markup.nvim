@@ -38,8 +38,9 @@ impl LuaUserData for LuaEngine {
         // Zero indexed cells. Returns the row and column to move to, if any.
         methods.add_method(
             "snap",
-            |_, this, (from_row, from_col, row, col): (i32, i32, i32, i32)| {
-                Ok(this.0.snap((from_row, from_col), (row, col)).unzip())
+            |_, this, (from_row, from_col, row, col, text): (i32, i32, i32, i32, Option<bool>)| {
+                let target = this.0.snap((from_row, from_col), (row, col), text.unwrap_or(false));
+                Ok(target.unzip())
             },
         );
 

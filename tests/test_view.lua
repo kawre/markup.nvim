@@ -1015,6 +1015,38 @@ T["snap"]["stays put at the end"] = function()
 	eq(child.lua_get("vim.api.nvim_win_get_cursor(0)")[1], 3)
 end
 
+T["snap"]["text mode stops on text and buttons only"] = function()
+	child.lua([[
+		view = Markup.view(win, { snap = "text" })
+		view:render(m.block({
+			padding = { 1, 2 },
+			m.block("one"),
+			m.block({ margin_top = 1, border = "half", style = "Visual", "two" }),
+			m.block({ margin_top = 1, on_press = function() end, "button" }),
+		}))
+		reactive.flush()
+		vim.api.nvim_win_set_cursor(win.win, { 2, 2 })
+		view.cursor = nil
+		view:snap_cursor()
+	]])
+
+	local function row_text()
+		return child.lua_get("vim.trim(vim.api.nvim_get_current_line())")
+	end
+
+	eq(row_text(), "one")
+	child.type_keys("j")
+	eq(row_text(), "two")
+	child.type_keys("j")
+	eq(row_text(), "button")
+	child.type_keys("j")
+	eq(row_text(), "button")
+	child.type_keys("gg")
+	eq(row_text(), "one")
+	child.type_keys("G")
+	eq(row_text(), "button")
+end
+
 T["snap"]["presses land on the snapped node"] = function()
 	snap_view()
 	child.type_keys("j")
