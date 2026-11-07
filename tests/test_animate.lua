@@ -506,6 +506,29 @@ T["slide"]["keeps content in the window while moving"] = function()
 	eq(get("widest <= width"), true)
 end
 
+T["slide"]["survives the window resizing midway"] = function()
+	slide("home")
+	run([[
+		page("next")
+		reactive.flush()
+		animate.tick(50)
+		reactive.flush()
+		vim.cmd("vnew")
+		vim.api.nvim_win_set_width(win.win, 30)
+	]])
+	child.lua("vim.wait(20, function() return false end, 5)")
+	run([[
+		reactive.flush()
+		animate.tick(500)
+		reactive.flush()
+		reactive.flush()
+	]])
+	eq(get("lines()"), { "top", "next" })
+	-- It finished: the page that left is gone, and nothing still moves.
+	eq(get("unmounts"), 1)
+	eq(get("animate.running()"), false)
+end
+
 T["slide"]["can change its mind midway"] = function()
 	slide("home")
 	run([[

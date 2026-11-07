@@ -552,8 +552,7 @@ function Slide.mount(view, parent, before, props)
 		end)
 	end
 
-	effect(function()
-		local key = props.key()
+	local function change(key)
 		if key == current_key then
 			return
 		end
@@ -590,6 +589,15 @@ function Slide.mount(view, parent, before, props)
 			offset(width, { duration = 0 })
 			offset(0, { done = arrive })
 		end
+	end
+
+	-- Only the key may rerun this: a rerun stops the slide under way, so anything
+	-- else it reads, such as the width, must not be tracked.
+	effect(function()
+		local key = props.key()
+		untrack(function()
+			change(key)
+		end)
 	end)
 end
 
