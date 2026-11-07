@@ -37,22 +37,50 @@ function M.progress(props)
 	})
 end
 
---- Frames of each spinner, every one a single cell wide. Only characters that
---- common coding fonts have, such as JetBrains Mono, Cascadia and Noto Sans Mono,
---- so that none shows as a box or leans on a fallback font.
+--- Frames of a tail circling the edge of two braille cells, which have four
+--- columns of four dots between them.
+---@param tail integer dots lit at once
+---@return string[]
+local function snake(tail)
+	-- Dot bits by column within a cell, then by row.
+	local bits = { { 0x01, 0x02, 0x04, 0x40 }, { 0x08, 0x10, 0x20, 0x80 } }
+
+	local path = {}
+	for col = 0, 3 do
+		path[#path + 1] = { col, 0 }
+	end
+	for row = 1, 3 do
+		path[#path + 1] = { 3, row }
+	end
+	for col = 2, 0, -1 do
+		path[#path + 1] = { col, 3 }
+	end
+	for row = 2, 1, -1 do
+		path[#path + 1] = { 0, row }
+	end
+
+	local frames = {}
+	for start = 1, #path do
+		local cells = { 0, 0 }
+		for offset = 0, tail - 1 do
+			local dot = path[(start + offset - 1) % #path + 1]
+			local cell = math.floor(dot[1] / 2) + 1
+			cells[cell] = bit.bor(cells[cell], bits[dot[1] % 2 + 1][dot[2] + 1])
+		end
+		frames[start] = vim.fn.nr2char(0x2800 + cells[1]) .. vim.fn.nr2char(0x2800 + cells[2])
+	end
+	return frames
+end
+
+--- A few spinners that read clearly as motion. Only braille and block
+--- characters, which coding fonts such as JetBrains Mono and Cascadia have in
+--- full. All frames of a spinner share their width.
 ---@type table<string, { frames: string[], interval: integer }>
 M.spinners = {
 	dots = { frames = { "⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏" }, interval = 80 },
-	braille = { frames = { "⣾", "⣽", "⣻", "⢿", "⡿", "⣟", "⣯", "⣷" }, interval = 80 },
-	bounce = { frames = { "⠁", "⠂", "⠄", "⡀", "⢀", "⠠", "⠐", "⠈" }, interval = 90 },
-	quarters = { frames = { "▖", "▘", "▝", "▗" }, interval = 110 },
-	grow = { frames = { "▁", "▂", "▃", "▄", "▅", "▆", "▇", "█", "▇", "▆", "▅", "▄", "▃", "▂" }, interval = 70 },
-	blocks = { frames = { "▏", "▎", "▍", "▌", "▋", "▊", "▉", "█", "▉", "▊", "▋", "▌", "▍", "▎" }, interval = 70 },
-	box = { frames = { "┤", "┘", "┴", "└", "├", "┌", "┬", "┐" }, interval = 100 },
-	corners = { frames = { "╭", "╮", "╯", "╰" }, interval = 120 },
-	squish = { frames = { "▌", "▀", "▐", "▄" }, interval = 120 },
-	shade = { frames = { "░", "▒", "▓", "█", "▓", "▒" }, interval = 100 },
-	line = { frames = { "-", "\\", "|", "/" }, interval = 110 },
+	orbit = { frames = { "⣾", "⣽", "⣻", "⢿", "⡿", "⣟", "⣯", "⣷" }, interval = 90 },
+	snake = { frames = snake(4), interval = 70 },
+	pulse = { frames = { "▁", "▂", "▃", "▄", "▅", "▆", "▇", "▆", "▅", "▄", "▃", "▂" }, interval = 80 },
 }
 
 --- Names of the spinners, in a stable order.
