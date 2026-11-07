@@ -34,7 +34,6 @@ local MARK = { end_col = 0, hl_group = "", hl_mode = "combine", hl_eol = true }
 ---@class markup.view.opts
 ---@field snap? boolean|"text" keep the cursor on interactive nodes, like a menu,
 --- or with `"text"` on those and on text, like a document
----@field click? "single"|"double"|false which click presses a node, single by default
 ---@field hide_cursor? boolean hide the cursor in normal mode while in this window,
 --- for views that show where it is by themselves
 
@@ -45,12 +44,12 @@ function M:new(win, opts)
 	self.win = win
 	self.snap_text = opts.snap == "text"
 	self.hide_cursor = opts.hide_cursor
-	self.click_mode = opts.click == nil and "single" or opts.click
 	Markup.views[self] = true
 	self.ns = api.nvim_create_namespace(("markup_view_[%s]"):format(win.id))
 	self.engine = Markup.core.create_engine(self:width())
 	self.commands = protocol.commands()
 	self.handlers = {}
+	self.clicks = {} ---@type table<integer, "single"|"double"|false>
 	self.hover_handlers = {}
 	self.images = {} ---@type table<integer, { data: string, width: integer, height: integer, placed?: integer, at?: string }>
 	self.key_stacks = {}
@@ -359,8 +358,10 @@ end
 
 ---@param id integer
 ---@param handler? function
-function M:set_handler(id, handler)
+---@param click? "single"|"double"|false which click of the mouse presses it, single by default
+function M:set_handler(id, handler, click)
 	self.handlers[id] = handler
+	self.clicks[id] = handler and (click == nil and "single" or click) or nil
 end
 
 ---@param id integer
@@ -513,10 +514,12 @@ end
 
 --- Calls the `on_press` handler under the cursor, returning whether there was one.
 ---@return boolean
---- Presses what is under the mouse, which `mouse` from `getmousepos()` points at.
+--- Presses what is under the mouse, which `mouse` from `getmousepos()` points at,
+--- if it takes this kind of click.
 ---@param mouse table
+---@param kind? "single"|"double" any when left out
 ---@return boolean pressed
-function M:click(mouse)
+function M:click(mouse, kind)
 	if not self.win:win_valid() then
 		return false
 	end
@@ -528,7 +531,7 @@ function M:click(mouse)
 
 	local id = self.engine:node_at(mouse.line - 1, mouse.wincol - 1 - info.textoff + leftcol)
 	local handler = id and self.handlers[id]
-	if not handler then
+	if not handler or (kind and self.clicks[id] ~= kind) then
 		return false
 	end
 
@@ -561,7 +564,7 @@ local function on_click(kind)
 
 	-- More than one view may have been made for a window, so each gets a go.
 	for view in pairs(Markup.views) do
-		if view.win.win == mouse.winid and view.click_mode == kind and view:click(mouse) then
+		if view.win.win == mouse.winid and view:click(mouse, kind) then
 			-- Neovim selects the word on a double click, which a press leaves out.
 			if kind == "double" and selecting then
 				api.nvim_feedkeys(vim.keycode("<Esc>"), "nx", false)

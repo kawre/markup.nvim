@@ -152,7 +152,7 @@ local function apply_props(view, id, tag, props)
 	end
 
 	if props.on_press then
-		view:set_handler(id, props.on_press)
+		view:set_handler(id, props.on_press, props.click)
 		bind_style(view, id, "interactive", true)
 		reactive.on_cleanup(function()
 			view:set_handler(id, nil)
