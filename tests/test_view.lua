@@ -986,7 +986,7 @@ local function snap_view()
 		view = Markup.view(win, { snap = true })
 		pressed = nil
 		local function item(name)
-			return m.block({ name, width = "fit", on_press = function() pressed = name end })
+			return m.block({ name, width = "fit", click = click, on_press = function() pressed = name end })
 		end
 		view:render(m.block({
 			m.block("title"),
@@ -1226,9 +1226,10 @@ T["click"] = new_set()
 local function click_view(mode)
 	child.lua(([[
 		pressed = nil
-		view = Markup.view(win, { click = %s })
+		view = Markup.view(win)
+		click = %s
 		local function button(name)
-			return m.block({ name, width = "fit", on_press = function() pressed = name end })
+			return m.block({ name, width = "fit", click = click, on_press = function() pressed = name end })
 		end
 		view:render(m.block({ m.block("title"), button("one"), m.block(""), button("two") }))
 		reactive.flush()
@@ -1280,6 +1281,24 @@ T["click"]["with double, a double click presses and selects nothing"] = function
 	click(3, 1, 2)
 	eq(child.lua_get("pressed"), "two")
 	eq(child.fn.mode(), "n")
+end
+
+T["click"]["each button says which click it takes"] = function()
+	child.lua([[
+		pressed = nil
+		view = Markup.view(win)
+		view:render(m.block({
+			m.block({ "single", width = "fit", on_press = function() pressed = "single" end }),
+			m.block({ "double", width = "fit", click = "double", on_press = function() pressed = "double" end }),
+		}))
+		reactive.flush()
+	]])
+	click(1, 1, 1)
+	eq(child.lua_get("pressed"), vim.NIL)
+	click(0, 1, 1)
+	eq(child.lua_get("pressed"), "single")
+	click(1, 1, 2)
+	eq(child.lua_get("pressed"), "double")
 end
 
 T["click"]["can be turned off"] = function()

@@ -153,7 +153,7 @@ function M.open(opts)
 		zindex = 60,
 	})
 	list:show()
-	local view = Markup.view(list, { click = opts.click })
+	local view = Markup.view(list)
 
 	local ns = api.nvim_create_namespace("markup_picker")
 	local count_mark
@@ -226,6 +226,7 @@ function M.open(opts)
 
 		return m.flex({
 			-- Clicking a row picks it.
+			click = opts.click,
 			on_press = function()
 				selected(index)
 				confirm()
