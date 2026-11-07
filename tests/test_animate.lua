@@ -568,6 +568,74 @@ T["slide"]["returns the cursor to where it was"] = function()
 	eq(get("vim.api.nvim_win_get_cursor(win.win)[1]"), 4)
 end
 
+T["slide"]["pages can share keys"] = function()
+	run([[
+		page, pressed = m.signal("home"), nil
+		local Page = m.component(function(props)
+			m.use_key("x", function() pressed = props.name end)
+			return m.block(props.name)
+		end)
+		view:render(m.slide(page, function(key)
+			return Page({ name = key })
+		end, { duration = 100 }))
+		reactive.flush()
+		page("next")
+		reactive.flush()
+		animate.tick(200)
+		reactive.flush()
+		reactive.flush()
+	]])
+	child.type_keys("x")
+	eq(get("pressed"), "next")
+end
+
+T["keys"] = new_set()
+
+local function shared_key()
+	run([[
+		pressed = nil
+		first, second = m.signal(true), m.signal(true)
+		local function Key(name)
+			return m.component(function()
+				m.use_key("x", function() pressed = name end)
+				return m.block(name)
+			end)
+		end
+		local First, Second = Key("first"), Key("second")
+		view:render(m.block({
+			m.show(first, function() return First() end),
+			m.show(second, function() return Second() end),
+		}))
+		reactive.flush()
+	]])
+end
+
+T["keys"]["the latest component wins"] = function()
+	shared_key()
+	child.type_keys("x")
+	eq(get("pressed"), "second")
+end
+
+T["keys"]["removing the older one keeps the key"] = function()
+	shared_key()
+	run("first(false); reactive.flush()")
+	child.type_keys("x")
+	eq(get("pressed"), "second")
+end
+
+T["keys"]["removing the latest gives it back"] = function()
+	shared_key()
+	run("second(false); reactive.flush()")
+	child.type_keys("x")
+	eq(get("pressed"), "first")
+end
+
+T["keys"]["go away with the last component"] = function()
+	shared_key()
+	run("first(false); second(false); reactive.flush()")
+	eq(get("vim.fn.maparg('x', 'n', false, true).buffer"), vim.NIL)
+end
+
 T["overflow_x"] = function()
 	run([[
 		view:render(m.block({

@@ -50,10 +50,36 @@ function M.use_key(lhs, fn, opts)
 	local mode = opts.mode or "n"
 	opts.mode = nil
 
-	local win = M.use_view().win
-	win:map(mode, lhs, fn, opts)
+	local view = M.use_view()
+	local win = view.win
+
+	-- Components can overlap, such as pages during a slide, so the latest one wins
+	-- and the key goes back to the one before it when that unmounts.
+	local id = mode .. " " .. lhs
+	local stack = view.key_stacks[id]
+	if not stack then
+		stack = {}
+		view.key_stacks[id] = stack
+		win:map(mode, lhs, function()
+			stack[#stack].fn()
+		end, opts)
+	end
+
+	local entry = { fn = fn }
+	table.insert(stack, entry)
+
 	reactive.on_cleanup(function()
-		win:unmap(mode, lhs)
+		for i, other in ipairs(stack) do
+			if other == entry then
+				table.remove(stack, i)
+				break
+			end
+		end
+
+		if #stack == 0 then
+			view.key_stacks[id] = nil
+			win:unmap(mode, lhs)
+		end
 	end)
 end
 
