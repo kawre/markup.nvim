@@ -55,7 +55,8 @@ function M:new(parent, spacer, content, style)
 		wo = { winhighlight = M.winhighlight(parent, style) },
 	})
 
-	self.view = Markup.view(self.win)
+	-- Clicks on it press the same way as on the view it belongs to.
+	self.view = Markup.view(self.win, { click = parent.click_mode })
 	self.view.devtool = true
 	self.view:on_commit(function()
 		self:sync()

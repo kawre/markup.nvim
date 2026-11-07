@@ -34,6 +34,7 @@ local MARK = { end_col = 0, hl_group = "", hl_mode = "combine", hl_eol = true }
 ---@class markup.view.opts
 ---@field snap? boolean|"text" keep the cursor on interactive nodes, like a menu,
 --- or with `"text"` on those and on text, like a document
+---@field click? "single"|"double"|false which click presses a node, single by default
 ---@field hide_cursor? boolean hide the cursor in normal mode while in this window,
 --- for views that show where it is by themselves
 
@@ -44,6 +45,7 @@ function M:new(win, opts)
 	self.win = win
 	self.snap_text = opts.snap == "text"
 	self.hide_cursor = opts.hide_cursor
+	self.click_mode = opts.click == nil and "single" or opts.click
 	Markup.views[self] = true
 	self.ns = api.nvim_create_namespace(("markup_view_[%s]"):format(win.id))
 	self.engine = Markup.core.create_engine(self:width())
@@ -512,7 +514,6 @@ end
 --- Calls the `on_press` handler under the cursor, returning whether there was one.
 ---@return boolean
 --- Presses what is under the mouse, which `mouse` from `getmousepos()` points at.
---- Views call it on a double click.
 ---@param mouse table
 ---@return boolean pressed
 function M:click(mouse)
@@ -536,12 +537,23 @@ function M:click(mouse)
 	return true
 end
 
-local DOUBLE_CLICK = vim.keycode("<2-LeftMouse>")
+local CLICKS = {
+	[vim.keycode("<LeftRelease>")] = "single",
+	[vim.keycode("<2-LeftMouse>")] = "double",
+}
 
---- Presses whatever was double clicked, in whichever view holds it. One
---- listener for every view, since a mapping only reaches the window that already
---- has the focus, and windows that cannot have it, such as some floats, never do.
-local function on_double_click()
+--- Presses whatever was clicked, in whichever view holds it, when the view
+--- presses on that kind of click. One listener for every view, since a mapping
+--- only reaches the window that already has the focus, and windows that cannot
+--- have it, such as some floats, never do.
+---@param kind "single"|"double"
+local function on_click(kind)
+	local selecting = vim.fn.mode():match("^[vV\22]")
+	-- A release that ends a selection is for the text, not for what is under it.
+	if kind == "single" and selecting then
+		return
+	end
+
 	local mouse = vim.fn.getmousepos()
 	if mouse.winid == 0 or mouse.line == 0 then
 		return
@@ -549,9 +561,9 @@ local function on_double_click()
 
 	-- More than one view may have been made for a window, so each gets a go.
 	for view in pairs(Markup.views) do
-		if view.win.win == mouse.winid and view:click(mouse) then
+		if view.win.win == mouse.winid and view.click_mode == kind and view:click(mouse) then
 			-- Neovim selects the word on a double click, which a press leaves out.
-			if vim.fn.mode():match("^[vV\22]") then
+			if kind == "double" and selecting then
 				api.nvim_feedkeys(vim.keycode("<Esc>"), "nx", false)
 			end
 			return
@@ -560,8 +572,11 @@ local function on_double_click()
 end
 
 vim.on_key(function(key)
-	if key == DOUBLE_CLICK then
-		vim.schedule(on_double_click)
+	local kind = CLICKS[key]
+	if kind then
+		vim.schedule(function()
+			on_click(kind)
+		end)
 	end
 end, api.nvim_create_namespace("markup_clicks"))
 
