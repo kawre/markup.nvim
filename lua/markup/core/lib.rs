@@ -13,6 +13,11 @@
 
 pub mod engine;
 
+// Neovim provides the Lua symbols at runtime, only test binaries need them linked.
+#[cfg(test)]
+#[link(name = "luajit-5.1")]
+unsafe extern "C" {}
+
 use mlua::prelude::*;
 
 // NOTE: skip_memory_check greatly improves performance

@@ -291,13 +291,4 @@ function M.typeof(obj, type)
 	return getmetatable(obj).__type == "markup." .. type
 end
 
----@param id integer
-function M.win_get_renderer(id)
-	for _, renderer in ipairs(Markup.renderers) do
-		if renderer.win.win == id then
-			return renderer
-		end
-	end
-end
-
 return M

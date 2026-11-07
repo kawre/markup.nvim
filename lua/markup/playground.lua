@@ -4,8 +4,6 @@ local path = vim.fn.stdpath("data") .. "/markup/lua/playground"
 local M = {}
 
 ---@class markup.playground.opts
----@field inspect? boolean set to `false` to skip the inspector
----@field view? boolean render with `Markup.view` instead of the old renderer
 ---@field file? string file in the playground folder, `init.lua` by default
 
 ---@param opts? markup.playground.opts
@@ -23,18 +21,7 @@ function M.open(opts)
 		relative = "win",
 		position = "bottom",
 	})
-	M.preview = opts.view and Markup.view(win) or Markup.renderer(win)
-
-	M.inspect = nil
-	if opts.inspect ~= false and not opts.view then
-		M.inspect = Markup.devkit.inspect({
-			win = M.preview.win.win,
-			relative = "editor",
-			position = "right",
-			width = 0.4,
-		})
-		M.inspect:map(buf)
-	end
+	M.preview = Markup.view(win)
 
 	local function run()
 		local ok, err = pcall(M.run)

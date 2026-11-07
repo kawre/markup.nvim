@@ -9,7 +9,7 @@
 local protocol = require("markup.view.protocol")
 local reactive = require("markup.reactive")
 local hl = require("markup.view.hl")
-local defaults = require("markup.renderer.box.props.defaults")
+local defaults = require("markup.view.defaults")
 
 local DISPLAY = protocol.display
 local STYLE = protocol.style
@@ -129,7 +129,7 @@ local function apply_props(view, id, tag, props)
 
 	local style = props.style
 	if style == nil then
-		style = defaults[tag] and defaults[tag].style
+		style = defaults[tag]
 	end
 	if style ~= nil then
 		bind_style(view, id, "hl", style)

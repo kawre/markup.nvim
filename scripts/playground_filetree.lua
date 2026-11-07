@@ -1,16 +1,18 @@
--- markup.nvim file tree stress test
+-- markup.nvim file tree on signals and the native engine
 --
--- A generated tree with fixed contents, so runs can be compared.
--- Live stats are in the winbar. Move into the preview with <C-w>j, then:
+-- Each folder owns an `open` signal, so a toggle touches that folder only, and
+-- a subtree is not mounted until it is first opened.
+--
+-- Move into the preview with <C-w>j, then:
 --
 --   <CR> o l  toggle or expand        h    collapse, or jump to parent
 --   E         expand everything       C    collapse everything
---   m         toggle memoized rows    b    run the benchmark
---   + / -     double or halve nodes
+--   b         run the benchmark       + / -  double or halve nodes
+--   I         toggle the inspector, or use `:Markup inspect`
 
 local m = require("markup")
-local hooks = m.hooks
-local preview = Markup.playground.preview
+local reactive = require("markup.reactive")
+local view = Markup.playground.preview
 local api = vim.api
 
 local NODES = _G.MarkupTreeNodes or 20000
@@ -93,7 +95,7 @@ end
 local function generate(target)
 	seed = 20240
 	local count = 0
-	local root = { id = 0, name = "markup-project", dir = true, children = {}, depth = 0, prefix = "" }
+	local root = { id = 0, name = "markup-project", dir = true, children = {}, depth = 0, open = m.signal(true) }
 	local queue = { root }
 	local head = 1
 
@@ -114,6 +116,7 @@ local function generate(target)
 			if is_dir then
 				node.name = dir_names[rnd(#dir_names)]
 				node.children = {}
+				node.open = m.signal(false)
 				queue[#queue + 1] = node
 			else
 				local kind = file_types[rnd(#file_types)]
@@ -155,57 +158,43 @@ local function generate(target)
 	return root, count
 end
 
-local tree = {
-	root = nil,
-	total = 0,
-	open = {},
-	rows = {},
-	memo = false,
-	cache = {},
-	refresh = function() end,
-}
 
-local function reset_tree()
-	tree.root, tree.total = generate(NODES)
-	tree.open = { [tree.root] = true }
-	for _, child in ipairs(tree.root.children) do
-		if child.dir then
-			tree.open[child] = true
-		end
+local root, total = generate(NODES)
+for _, child in ipairs(root.children) do
+	if child.dir then
+		child.open(true)
 	end
-	tree.cache = {}
 end
 
-local function collect_rows()
-	local rows, n = {}, 0
-	local function walk(node)
-		n = n + 1
-		rows[n] = node
-		if node.dir and tree.open[node] then
-			for _, child in ipairs(node.children) do
-				walk(child)
-			end
-		end
-	end
-	walk(tree.root)
-	return rows
-end
+local width = api.nvim_win_get_width(view.win.win)
+local nodes_by_handler = {}
 
-local function build_row(node, width)
-	local open = tree.open[node]
-	local spans = { key = node.id }
-	local left = 0
+local function Entry(node)
+	local spans = { m.inline(" " .. (node.guide or ""), hl("Guide")) }
+	local left = vim.fn.strdisplaywidth(" " .. (node.guide or ""))
 
 	local function add(text, group)
 		spans[#spans + 1] = m.inline(text, hl(group))
 		left = left + vim.fn.strdisplaywidth(text)
 	end
 
-	add(" " .. (node.guide or ""), "Guide")
 	if node.dir then
-		add(open and "▾ " or "▸ ", "Chevron")
-		add((open and ICON_DIR_OPEN or ICON_DIR) .. " ", open and "DirOpen" or "Dir")
-		add(node.name, open and "DirOpen" or "Dir")
+		local open = node.open
+		local function group()
+			return hl(open() and "DirOpen" or "Dir")
+		end
+
+		spans[#spans + 1] = m.inline(function()
+			return open() and "▾ " or "▸ "
+		end, hl("Chevron"))
+		spans[#spans + 1] = m.inline({
+			function()
+				return (open() and ICON_DIR_OPEN or ICON_DIR) .. " "
+			end,
+			style = group,
+		})
+		spans[#spans + 1] = m.inline({ node.name, style = group })
+		left = left + 4 + vim.fn.strdisplaywidth(node.name)
 		add((" %d"):format(#node.children), "Size")
 	else
 		add("  ", "Chevron")
@@ -223,51 +212,46 @@ local function build_row(node, width)
 		add(node.date or "", "Date")
 	end
 
-	return m.block(spans)
-end
-
-local function row_element(node, width)
-	if not tree.memo then
-		return build_row(node, width)
-	end
-
-	local open = tree.open[node] or false
-	local entry = tree.cache[node]
-	if not entry or entry.open ~= open or entry.width ~= width then
-		entry = { open = open, width = width, element = build_row(node, width) }
-		tree.cache[node] = entry
-	end
-	return entry.element
-end
-
-local function toggle(node, value)
-	if node and node.dir then
-		if value == nil then
-			value = not tree.open[node]
+	local function press()
+		if node.dir then
+			node.open(function(value)
+				return not value
+			end)
 		end
-		tree.open[node] = value or nil
-		tree.refresh()
 	end
+	nodes_by_handler[press] = node
+	spans.on_press = press
+
+	if not node.dir then
+		return m.block(spans)
+	end
+
+	return {
+		m.block(spans),
+		m.show(node.open, function()
+			local children = {}
+			for i, child in ipairs(node.children) do
+				children[i] = Entry(child)
+			end
+			return children
+		end),
+	}
 end
 
 local function cursor_node()
-	return tree.rows[api.nvim_win_get_cursor(preview.win.win)[1]]
+	return nodes_by_handler[view.handlers[view:node_at_cursor()]]
 end
 
-local function set_all(open)
-	tree.open = { [tree.root] = true }
-	if open then
-		local function walk(node)
-			tree.open[node] = true
-			for _, child in ipairs(node.children) do
-				if child.dir then
-					walk(child)
-				end
+local function each_dir(fn)
+	local function walk(node)
+		fn(node)
+		for _, child in ipairs(node.children) do
+			if child.dir then
+				walk(child)
 			end
 		end
-		walk(tree.root)
 	end
-	tree.refresh()
+	walk(root)
 end
 
 local function median(values)
@@ -275,15 +259,31 @@ local function median(values)
 	return values[math.ceil(#values / 2)] or 0
 end
 
---- Toggles one directory repeatedly in each state and reports the median frame.
-local function benchmark()
-	local saved, saved_memo = tree.open, tree.memo
-	local target
+local function visible_rows()
+	return api.nvim_buf_line_count(view.win.buf)
+end
 
-	--- Picks the smallest directory nearest the middle of the visible rows, so
-	--- each toggle is a small change and the row count stays about the same.
+--- Toggles a small folder near the middle of what is visible, at each depth.
+local function benchmark()
+	local function open_to_depth(depth)
+		each_dir(function(node)
+			node.open(node.depth < depth or node == root)
+		end)
+		reactive.flush()
+	end
+
 	local function pick_target()
-		local rows = collect_rows()
+		local rows = {}
+		local function walk(node)
+			rows[#rows + 1] = node
+			if node.dir and reactive.untrack(node.open) then
+				for _, child in ipairs(node.children) do
+					walk(child)
+				end
+			end
+		end
+		walk(root)
+
 		local best, best_score
 		for i, node in ipairs(rows) do
 			if node.dir and node.parent and #node.children > 0 then
@@ -296,89 +296,71 @@ local function benchmark()
 		return best
 	end
 
-	local function measure()
-		local frames = { reconcile = {}, layout = {}, paint = {}, total = {}, wall = {}, cursor = {} }
-		local started = vim.uv.hrtime()
-		local i = 0
-		target = pick_target()
-		tree.refresh()
-		preview:rerender()
-		local rows_before = #tree.rows
-		while i < 15 and (i < 3 or (vim.uv.hrtime() - started) / 1e9 < 4) do
-			i = i + 1
-			tree.open[target] = not tree.open[target] or nil
-			tree.refresh()
-			local frame_start = vim.uv.hrtime()
-			preview:rerender()
-			table.insert(frames.wall, (vim.uv.hrtime() - frame_start) / 1e6)
-			local cursor_start = vim.uv.hrtime()
-			preview:handle_cursor_moved()
-			table.insert(frames.cursor, (vim.uv.hrtime() - cursor_start) / 1e6)
-			local stats = preview.stats
-			table.insert(frames.reconcile, stats.reconciliation)
-			table.insert(frames.layout, stats.layout)
-			table.insert(frames.paint, stats.paint)
-			table.insert(frames.total, stats.elapsed)
+	local results = {}
+	for _, depth in ipairs({ 2, 3, 4, 13 }) do
+		open_to_depth(depth)
+		local target = pick_target()
+		local rows = visible_rows()
+		local wall, layout, paint, diff, engine, apply, lines, cursor = {}, {}, {}, {}, {}, {}, {}, {}
+
+		for i = 1, 31 do
+			target.open(function(value)
+				return not value
+			end)
+			local started = vim.uv.hrtime()
+			reactive.flush()
+			wall[i] = (vim.uv.hrtime() - started) / 1e6
+
+			local stats = view.stats
+			layout[i], paint[i], diff[i] = stats.layout, stats.paint, stats.diff
+			engine[i], apply[i], lines[i] = stats.engine, stats.apply, stats.lines
+
+			started = vim.uv.hrtime()
+			view.engine:node_at(math.floor(rows / 2), 4)
+			cursor[i] = (vim.uv.hrtime() - started) / 1e6
 		end
-		return {
-			rows = rows_before,
+
+		local total_wall = median(wall)
+		local total_engine = median(engine)
+		local total_apply = median(apply)
+		results[#results + 1] = {
+			depth = depth,
+			rows = rows,
 			changed = #target.children,
-			frames = i,
-			reconcile = median(frames.reconcile),
-			layout = median(frames.layout),
-			paint = median(frames.paint),
-			total = median(frames.total),
-			wall = median(frames.wall),
-			cursor = median(frames.cursor),
+			lua = math.max(total_wall - total_engine - total_apply, 0),
+			layout = median(layout),
+			paint = median(paint),
+			diff = median(diff),
+			engine = total_engine,
+			apply = total_apply,
+			total = total_wall,
+			cursor = median(cursor),
+			lines = median(lines),
 		}
 	end
 
-	local function open_to_depth(depth)
-		tree.open = { [tree.root] = true }
-		local function walk(node)
-			for _, child in ipairs(node.children) do
-				if child.dir and child.depth <= depth then
-					tree.open[child] = true
-					walk(child)
-				end
-			end
-		end
-		walk(tree.root)
-	end
+	open_to_depth(1)
 
-	local results = {}
-	for _, memo in ipairs({ false, true }) do
-		tree.memo = memo
-		for _, depth in ipairs({ 1, 2, 3, 12 }) do
-			open_to_depth(depth)
-			local result = measure()
-			result.memo, result.depth = memo, depth
-			results[#results + 1] = result
-		end
-	end
-
-	tree.open, tree.memo = saved, saved_memo
-	tree.refresh()
-
-	local lines = { ("file tree benchmark, %d nodes, median ms per toggle"):format(tree.total) }
-	lines[#lines + 1] = "memo  depth   rows  +/-rows frames  reconcile  layout    paint     total     wall      cursor"
+	local report = { ("signal file tree benchmark, %d nodes, median ms per toggle"):format(total) }
+	report[#report + 1] = "depth   rows  +/-rows lua     layout  paint   diff    engine  apply   total    cursor  lines"
 	for _, r in ipairs(results) do
-		lines[#lines + 1] = ("%-5s %-5d %6d  %-7d %-6d %9.2f  %-8.2f  %-8.2f  %-8.2f  %-8.2f  %.2f"):format(
-			r.memo and "on" or "off",
+		report[#report + 1] = ("%-5d %6d  %-7d %-7.2f %-7.2f %-7.2f %-7.2f %-7.2f %-7.2f %-8.2f %-7.3f %d"):format(
 			r.depth,
 			r.rows,
 			r.changed,
-			r.frames,
-			r.reconcile,
+			r.lua,
 			r.layout,
 			r.paint,
+			r.diff,
+			r.engine,
+			r.apply,
 			r.total,
-			r.wall,
-			r.cursor
+			r.cursor,
+			r.lines
 		)
 	end
-	_G.MarkupTreeBench = lines
-	vim.notify(table.concat(lines, "\n"))
+	_G.MarkupTreeBench = report
+	vim.notify(table.concat(report, "\n"))
 end
 
 local function resize(factor)
@@ -386,44 +368,45 @@ local function resize(factor)
 	vim.cmd("Markup playground run")
 end
 
+local function toggle_cursor()
+	view:press()
+end
+
 local bindings = {
-	["<CR>"] = function()
-		toggle(cursor_node())
-	end,
-	o = function()
-		toggle(cursor_node())
-	end,
+	["<CR>"] = toggle_cursor,
+	o = toggle_cursor,
 	l = function()
-		toggle(cursor_node(), true)
+		local node = cursor_node()
+		if node and node.dir then
+			node.open(true)
+		end
 	end,
 	h = function()
 		local node = cursor_node()
 		if not node then
 			return
 		end
-		if node.dir and tree.open[node] and node.parent then
-			toggle(node, false)
+		if node.dir and reactive.untrack(node.open) and node.parent then
+			node.open(false)
 		elseif node.parent then
-			for row, candidate in ipairs(tree.rows) do
-				if candidate == node.parent then
-					api.nvim_win_set_cursor(preview.win.win, { row, 0 })
-					break
-				end
-			end
+			vim.fn.search("\\V" .. vim.fn.escape(node.parent.name, "\\"), "bW")
 		end
 	end,
 	E = function()
-		set_all(true)
+		each_dir(function(node)
+			node.open(true)
+		end)
 	end,
 	C = function()
-		set_all(false)
-	end,
-	m = function()
-		tree.memo = not tree.memo
-		tree.refresh()
+		each_dir(function(node)
+			node.open(node == root)
+		end)
 	end,
 	b = function()
 		vim.schedule(benchmark)
+	end,
+	I = function()
+		vim.cmd("Markup inspect")
 	end,
 	["+"] = function()
 		resize(2)
@@ -433,60 +416,36 @@ local bindings = {
 	end,
 }
 
-local App = m.component(function()
-	local version, set_version = hooks.variable(0)
-	local win = hooks.window()
-
-	tree.refresh = function()
-		set_version(function(v)
-			return v + 1
-		end)
-	end
-
-	hooks.effect(function()
-		for lhs, fn in pairs(bindings) do
-			win:map("n", lhs, fn)
-		end
-	end, {})
-
-	local width = api.nvim_win_get_width(win.win)
-	local rows = collect_rows()
-	tree.rows = rows
-
-	local elements = {}
-	for i, node in ipairs(rows) do
-		elements[i] = row_element(node, width)
-	end
-
-	return m.block(elements), version
-end)
-
-local function update_winbar()
-	local stats = preview.stats
-	if not stats.elapsed or not api.nvim_win_is_valid(preview.win.win) then
-		return
-	end
-	local status = stats.elapsed <= BUDGET and "Good" or stats.elapsed <= BUDGET * 3 and "Warn" or "Bad"
-	vim.wo[preview.win.win].winbar = table.concat({
-		"%#MarkupTreeBar# ",
-		("%d nodes  %d rows  memo %s"):format(tree.total, #tree.rows, tree.memo and "on" or "off"),
-		"%#MarkupTreeBarDim#  reconcile ",
-		("%.1f  layout %.1f  paint %.1f  "):format(stats.reconciliation, stats.layout, stats.paint),
-		"%#MarkupTree" .. status .. "#",
-		("%.1f ms"):format(stats.elapsed),
-		"%#MarkupTreeBarDim#  <CR> toggle  E/C all  m memo  b bench %=",
-	})
+for lhs, fn in pairs(bindings) do
+	view.win:map("n", lhs, fn)
 end
 
-local group = api.nvim_create_augroup("MarkupPlaygroundTree", { clear = true })
+local function update_winbar()
+	if not api.nvim_win_is_valid(view.win.win) then
+		return
+	end
+	local stats = view.stats
+	local elapsed = stats.engine + stats.apply
+	local status = elapsed <= BUDGET and "Good" or elapsed <= BUDGET * 3 and "Warn" or "Bad"
+	vim.wo[view.win.win].winbar = table.concat({
+		"%#MarkupTreeBar# ",
+		("%d nodes  %d rows"):format(total, visible_rows()),
+		"%#MarkupTreeBarDim#  layout ",
+		("%.1f  paint %.1f  diff %.1f  write %.1f  "):format(stats.layout, stats.paint, stats.diff, stats.apply),
+		"%#MarkupTree" .. status .. "#",
+		("%.1f ms"):format(elapsed),
+		"%#MarkupTreeBarDim#  %d lines  <CR> toggle  E/C all  b bench %=",
+	}):gsub("%%d lines", ("%d lines"):format(stats.lines))
+end
+
+local group = api.nvim_create_augroup("MarkupPlaygroundSignals", { clear = true })
 api.nvim_create_autocmd("User", {
 	group = group,
-	pattern = "MarkupRender" .. preview.win.id,
+	pattern = "MarkupViewCommit" .. view.win.id,
 	callback = update_winbar,
 })
 
-vim.wo[preview.win.win].cursorline = true
-vim.wo[preview.win.win].wrap = false
+vim.wo[view.win.win].cursorline = true
+vim.wo[view.win.win].wrap = false
 
-reset_tree()
-preview:render(App)
+view:render(m.block({ white_space = "nowrap", Entry(root) }))
