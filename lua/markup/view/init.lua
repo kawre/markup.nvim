@@ -44,6 +44,7 @@ function M:new(win, opts)
 	self.engine = Markup.core.create_engine(self:width())
 	self.commands = protocol.commands()
 	self.handlers = {}
+	self.hover_handlers = {}
 	self.commit_listeners = {}
 	self.next_commit = {}
 	self.fixed = {} ---@type markup.view.fixed[]
@@ -60,11 +61,12 @@ function M:new(win, opts)
 		end
 	end, { pattern = "*" })
 
-	if opts.snap then
-		win:on("CursorMoved", function()
+	win:on("CursorMoved", function()
+		if opts.snap then
 			self:snap_cursor()
-		end, { buf = true })
-	end
+		end
+		self:update_hover()
+	end, { buf = true })
 
 	-- A hidden window has no buffer yet, so the first frame waits for it.
 	win:on_show(function()
@@ -110,6 +112,30 @@ function M:snap_cursor()
 	end
 end
 
+--- Tells nodes with `on_hover` that the cursor came or went.
+function M:update_hover()
+	if next(self.hover_handlers) == nil or not self.win:valid() then
+		return
+	end
+
+	local id = self:node_at_cursor()
+	if id == self.hovered then
+		return
+	end
+
+	local left = self.hover_handlers[self.hovered]
+	self.hovered = id
+	if left then
+		left(false)
+	end
+
+	local entered = self.hover_handlers[id]
+	if entered then
+		entered(true)
+	end
+	reactive.flush()
+end
+
 --- Calls `listener` after the next commit.
 ---@param listener function
 function M:after_commit(listener)
@@ -137,6 +163,12 @@ end
 ---@param handler? function
 function M:set_handler(id, handler)
 	self.handlers[id] = handler
+end
+
+---@param id integer
+---@param handler? fun(hovered: boolean)
+function M:set_hover_handler(id, handler)
+	self.hover_handlers[id] = handler
 end
 
 --- Replaces what the view shows. `content` is rendered once, and stays live
@@ -217,6 +249,8 @@ function M:commit()
 	for _, listener in ipairs(self.commit_listeners) do
 		listener()
 	end
+
+	self:update_hover()
 
 	local next_commit = self.next_commit
 	self.next_commit = {}
