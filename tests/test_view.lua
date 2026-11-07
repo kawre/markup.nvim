@@ -1235,11 +1235,14 @@ local function click_view()
 	]])
 end
 
---- Clicks a cell of the buffer, from zero, wherever its window is.
-local function click(row, col)
+--- Clicks a cell of the buffer, from zero, wherever its window is: twice, unless
+--- told otherwise.
+local function click(row, col, times)
 	local screen = child.lua_get(("vim.fn.screenpos(win.win, %d, %d)"):format(row + 1, col + 1))
-	child.api.nvim_input_mouse("left", "press", "", 0, screen.row - 1, screen.col - 1)
-	child.api.nvim_input_mouse("left", "release", "", 0, screen.row - 1, screen.col - 1)
+	for _ = 1, times or 2 do
+		child.api.nvim_input_mouse("left", "press", "", 0, screen.row - 1, screen.col - 1)
+		child.api.nvim_input_mouse("left", "release", "", 0, screen.row - 1, screen.col - 1)
+	end
 	child.lua("vim.wait(20, function() return false end, 5)")
 end
 
@@ -1249,6 +1252,20 @@ T["click"]["presses what is under the mouse"] = function()
 	eq(child.lua_get("pressed"), "two")
 	click(1, 0)
 	eq(child.lua_get("pressed"), "one")
+end
+
+T["click"]["a single click only moves the cursor"] = function()
+	click_view()
+	click(3, 1, 1)
+	eq(child.lua_get("pressed"), vim.NIL)
+	eq(child.lua_get("vim.api.nvim_win_get_cursor(0)[1]"), 4)
+end
+
+T["click"]["a double click leaves no selection behind"] = function()
+	click_view()
+	click(3, 1)
+	eq(child.lua_get("pressed"), "two")
+	eq(child.fn.mode(), "n")
 end
 
 T["click"]["anything else stays a click"] = function()
