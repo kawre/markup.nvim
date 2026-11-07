@@ -248,7 +248,7 @@ T["stats"]["shows the phases of a frame and what the view is made of"] = functio
 		open()
 	]])
 	local text = child.lua_get("stats_text()")
-	for _, word in ipairs({ "layout", "paint", "diff", "write", "nodes", "effects", "scopes", "anim", "MB", "lines" }) do
+	for _, word in ipairs({ "layout", "paint", "diff", "write", "nodes", "effects", "scopes", "anim", "MB", "lines", "ticks" }) do
 		eq(text:find(word, 1, true) ~= nil, true)
 	end
 end
@@ -515,7 +515,7 @@ end
 T["options"]["opens a popup listing every option"] = function()
 	open_options()
 	eq(child.lua_get("vim.api.nvim_get_current_win() == inspector.options_win.win"), true)
-	for _, label in ipairs({ "Follow cursor", "Show groups", "Mark selection", "Geometry", "Highlight names", "Indent guides", "Live updates", "Max fps" }) do
+	for _, label in ipairs({ "Follow cursor", "Show groups", "Mark selection", "Geometry", "Highlight names", "Indent guides", "Live updates", "Variable rate", "Max fps" }) do
 		eq(child.lua_get(("option_row(%q) ~= nil"):format(label)), true)
 	end
 end
@@ -567,7 +567,36 @@ T["options"]["a slider sets the frame rate"] = function()
 	eq(child.lua_get("up"), 60)
 	eq(child.lua_get("top == math.huge"), true)
 	eq(child.lua_get("top_line"):find("unlimited", 1, true) ~= nil, true)
-	eq(child.lua_get("bottom"), 10)
+	eq(child.lua_get("bottom"), 15)
+end
+
+T["options"]["the slider stops at the configured rate"] = function()
+	run([[
+		m.setup({ animate = { fps = 200 } })
+	]])
+	open_options()
+	run([[
+		row = option_row("Max fps")
+		line = vim.api.nvim_buf_get_lines(inspector.options_win.buf, row - 1, row, false)[1]
+		vim.api.nvim_win_set_cursor(inspector.options_win.win, { row, 2 })
+		vim.cmd("doautocmd CursorMoved")
+		reactive.flush()
+		vim.cmd("normal h")
+		lower = Markup.animate.fps
+		vim.cmd("normal l")
+		back = Markup.animate.fps
+	]])
+	eq(child.lua_get("line"):find("200", 1, true) ~= nil, true)
+	eq(child.lua_get("lower"), 180)
+	eq(child.lua_get("back"), 200)
+end
+
+T["options"]["variable rate turns vrr off everywhere"] = function()
+	open_options()
+	run([[press("Variable rate")]])
+	eq(child.lua_get("Markup.animate.vrr"), false)
+	run([[press("Variable rate")]])
+	eq(child.lua_get("Markup.animate.vrr"), true)
 end
 
 T["options"]["defaults come from setup"] = function()

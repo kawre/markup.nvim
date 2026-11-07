@@ -2,6 +2,14 @@
 local M = {
 	user = {
 		logging = true,
+		animate = {
+			--- The most frames a second animations move at, `math.huge` for no cap.
+			--- Match it to the display, such as 60, 120 or 180.
+			fps = 30,
+			--- Tick only when an animation can change, so `fps` is a ceiling
+			--- rather than a constant rate.
+			vrr = true,
+		},
 		--- Defaults for the inspector's options, which `s` in the inspector
 		--- changes while it is open.
 		inspector = {

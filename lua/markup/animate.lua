@@ -1,7 +1,10 @@
 --- Time based values.
 ---
 --- One clock drives every animation and only runs while something moves, so an
---- idle UI costs nothing. Animations belong to the current owner, which means
+--- idle UI costs nothing. With `vrr` on it also skips ticks that could not
+--- change anything, waking when the next animation is due to move: a spinner
+--- ticks once per frame of its own, a value with a `step` once per step, and
+--- `fps` becomes the most the clock ever ticks. Animations belong to the current owner, which means
 --- unmounting a component stops whatever it started.
 
 local reactive = require("markup.reactive")
@@ -12,6 +15,10 @@ local M = {
 	--- Set to false for reduced motion: everything jumps to its end.
 	enabled = true,
 	fps = 30,
+	--- Tick only when an animation can change, rather than `fps` times a second.
+	vrr = true,
+	--- Ticks since startup, for devtools.
+	ticks = 0,
 	--- With this set the clock stands still until `tick` is called.
 	manual = false,
 }
@@ -70,15 +77,72 @@ local function stop_clock()
 	timer = nil
 end
 
-local function start_clock()
-	if timer or M.manual then
-		return
-	end
+local function interval()
+	return math.max(math.floor(1000 / M.fps), 1)
+end
 
-	last_tick = now()
-	timer = vim.uv.new_timer()
-	local interval = math.max(math.floor(1000 / M.fps), 1)
-	timer:start(interval, interval, function()
+local due = 0 -- when the clock wakes next
+local schedule
+
+--- How long until `animation` could look different, or nil when it can change
+--- on any tick.
+---@param animation table
+---@return number?
+local function wait_for(animation)
+	local opts = animation.opts
+	local running = animation.elapsed - (opts.delay or 0)
+	if running < 0 then
+		return -running
+	end
+	if opts.next then
+		return opts.next(running)
+	end
+	if opts.step and opts.at then
+		local duration = opts.duration or 300
+		local remaining = duration - running
+		if remaining <= 0 then
+			return 0
+		end
+		-- Half a step, so whether it is rounded or floored the change is never late.
+		local half = opts.step / 2
+		local function quantum(at)
+			return math.floor(opts.at(animation.ease(math.min(at / duration, 1))) / half)
+		end
+		local current = quantum(running)
+		for ms = 1, math.ceil(remaining) do
+			if quantum(running + ms) ~= current then
+				return ms
+			end
+		end
+		return remaining
+	end
+	return nil
+end
+
+--- The time to sleep before the next tick.
+local function next_wait()
+	local least = interval()
+	if not M.vrr then
+		return least
+	end
+	local wait = math.huge
+	for animation in pairs(active) do
+		local until_change = wait_for(animation)
+		if not until_change then
+			return least
+		end
+		wait = math.min(wait, until_change)
+	end
+	if wait == math.huge then
+		return least
+	end
+	return math.max(math.ceil(wait), least)
+end
+
+schedule = function(wait)
+	due = now() + wait
+	timer:stop()
+	timer:start(wait, 0, function()
 		-- A tick slower than the interval would otherwise queue up more ticks
 		-- than the main loop can ever run.
 		if ticking then
@@ -87,11 +151,34 @@ local function start_clock()
 		ticking = true
 		vim.schedule(function()
 			ticking = false
+			if not timer then
+				return
+			end
 			local current = now()
 			M.tick(current - last_tick)
 			last_tick = current
+			if timer then
+				schedule(next_wait())
+			end
 		end)
 	end)
+end
+
+local function start_clock()
+	if M.manual then
+		return
+	end
+	if timer then
+		-- A sleeping clock wakes for what just started, if that is sooner.
+		if due - now() > interval() and not ticking then
+			schedule(interval())
+		end
+		return
+	end
+
+	last_tick = now()
+	timer = vim.uv.new_timer()
+	schedule(interval())
 end
 
 --- Changes how many frames a second animations move at, `math.huge` for as
@@ -116,6 +203,7 @@ end
 --- Moves every animation forward.
 ---@param ms number
 function M.tick(ms)
+	M.ticks = M.ticks + 1
 	local finished = {}
 
 	for animation in pairs(active) do
@@ -202,7 +290,9 @@ end
 --- A number that moves to a new target instead of jumping to it. Reads and
 --- writes like a signal.
 ---@param initial number
----@param defaults? { duration?: number, delay?: number, easing?: string|markup.easing }
+---@param defaults? { duration?: number, delay?: number, easing?: string|markup.easing, step?: number }
+--- `step` is the least change that shows, such as 1 for a value drawn in whole
+--- cells, so the clock can sleep until the value next crosses one.
 ---@return fun(target?: number, opts?: table): number
 function M.value(initial, defaults)
 	local current = reactive.signal(initial)
@@ -246,8 +336,11 @@ function M.value(initial, defaults)
 			return target
 		end
 
+		settings.at = function(progress)
+			return from + (target - from) * progress
+		end
 		settings.update = function(progress)
-			current(from + (target - from) * progress)
+			current(settings.at(progress))
 		end
 		stop = M.run(settings)
 		return target
@@ -267,6 +360,9 @@ function M.frames(values, opts)
 		duration = interval * #values,
 		easing = "linear",
 		loop = true,
+		next = function(running)
+			return interval - running % interval
+		end,
 		update = function(progress)
 			index(math.min(math.floor(progress * #values) + 1, #values))
 		end,

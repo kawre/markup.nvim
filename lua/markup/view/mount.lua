@@ -361,7 +361,7 @@ function Collapse.mount(view, parent, before, props)
 	view.commands:insert(parent, outer, before)
 
 	local inner, inner_owner
-	local height = animate.value(0, { duration = props.duration or COLLAPSE_DURATION })
+	local height = animate.value(0, { duration = props.duration or COLLAPSE_DURATION, step = 1 })
 	local settled = false
 
 	local function mount_content()
@@ -535,6 +535,7 @@ function Slide.mount(view, parent, before, props)
 	local offset = animate.value(0, {
 		duration = props.duration or SLIDE_DURATION,
 		easing = "in_out_cubic",
+		step = 1,
 	})
 
 	effect(function()

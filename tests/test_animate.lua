@@ -91,6 +91,84 @@ T["clock"]["a new rate takes over a running clock"] = function()
 	eq(get("after") > 30, true)
 end
 
+T["vrr"] = new_set()
+
+local function count_ticks(code, ms)
+	run(([[
+		animate.manual = false
+		animate.set_fps(240)
+		local before = animate.ticks
+		%s
+		vim.wait(%d, function() return false end, 1)
+		ticks = animate.ticks - before
+	]]):format(code, ms))
+	return get("ticks")
+end
+
+T["vrr"]["a spinner ticks once per frame of its own"] = function()
+	local ticks = count_ticks([[
+		_, owner = reactive.scope(function() frames = animate.frames({ "a", "b", "c" }, { interval = 100 }) end)
+	]], 500)
+	-- About one a frame, five here. At 240 fps it would be about 120.
+	eq(ticks >= 3, true)
+	eq(ticks <= 15, true)
+end
+
+T["vrr"]["without it the clock ticks at its rate"] = function()
+	local ticks = count_ticks([[
+		animate.vrr = false
+		_, owner = reactive.scope(function() frames = animate.frames({ "a", "b", "c" }, { interval = 100 }) end)
+	]], 500)
+	eq(ticks > 40, true)
+end
+
+T["vrr"]["a value with a step ticks when it crosses one and still ends on time"] = function()
+	local ticks = count_ticks([[
+		value = animate.value(0, { duration = 400, step = 1, easing = "linear" })
+		ended_at = nil
+		local started = vim.uv.hrtime()
+		value(4, { done = function() ended_at = (vim.uv.hrtime() - started) / 1e6 end })
+	]], 600)
+	-- Four cells in 400 ms: a tick per half cell, not 96.
+	eq(ticks <= 12, true)
+	eq(get("value()"), 4)
+	-- Never early. The upper bound only says it did not wait for another step,
+	-- with room for a busy machine.
+	eq(get("ended_at") >= 395, true)
+	eq(get("ended_at") < 600, true)
+end
+
+T["vrr"]["a value without a step ticks at the rate"] = function()
+	local ticks = count_ticks([[
+		value = animate.value(0, { duration = 300 })
+		value(4)
+	]], 400)
+	eq(ticks > 30, true)
+end
+
+T["vrr"]["something new wakes a sleeping clock"] = function()
+	run([[
+		animate.manual = false
+		animate.set_fps(240)
+		_, owner = reactive.scope(function() animate.frames({ "a", "b" }, { interval = 1000 }) end)
+		vim.wait(50, function() return false end, 1)
+		moved_at = nil
+		local started = vim.uv.hrtime()
+		animate.run({ duration = 1000, update = function() moved_at = moved_at or (vim.uv.hrtime() - started) / 1e6 end })
+		vim.wait(100, function() return moved_at ~= nil end, 1)
+	]])
+	-- Not a second later, when the spinner was next due.
+	eq(get("moved_at") ~= vim.NIL and get("moved_at") < 30, true)
+end
+
+T["vrr"]["fps and vrr come from setup"] = function()
+	run([[
+		m.setup({ animate = { fps = 180, vrr = false } })
+	]])
+	eq(get("animate.fps"), 180)
+	eq(get("animate.vrr"), false)
+end
+
 T["value"] = new_set()
 
 T["value"]["moves to its target over time"] = function()
