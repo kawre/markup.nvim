@@ -61,14 +61,6 @@ function M.wo(win, bo)
 		vim.api.nvim_set_option_value(k, v, { win = win, scope = "local" })
 	end
 end
-
-function M.starts_with(str, start)
-	return str:sub(1, #start) == start
-end
-
-function M.ends_with(str, ending)
-	return ending == "" or str:sub(-#ending) == ending
-end
 function M.benchmark(fn)
 	local start_time = vim.uv.hrtime()
 	fn()
@@ -76,66 +68,6 @@ function M.benchmark(fn)
 
 	local elapsed = end_time - start_time -- ns
 	return elapsed / 1e6 -- ms
-end
-
-function M.benchmark_repeat(times, fn)
-	local total = 0
-	for _ = 1, times do
-		local start_time = vim.uv.hrtime()
-		fn()
-		local end_time = vim.uv.hrtime()
-		local elapsed = end_time - start_time -- ns
-		total = total + elapsed / 1e6
-	end
-	return total / times -- average in ms
-end
-
----@param orig table
-function M.shallow_copy(orig)
-	assert(type(orig) == "table", "`orig` must be a table")
-	local copy = {}
-	for key, value in pairs(orig) do
-		copy[key] = value
-	end
-	return copy
-end
-
----@param t1 table
----@param t2 table
-function M.shallow_eq(t1, t2)
-	if t1 == t2 then
-		return true
-	end
-	if type(t1) ~= "table" or type(t2) ~= "table" then
-		return false
-	end
-	if #t1 ~= #t2 then
-		return false
-	end
-
-	for key, value in pairs(t1) do
-		if t2[key] == nil or t2[key] ~= value then
-			return false
-		end
-	end
-
-	return true
-end
-
-function M.index_of(tbl, value)
-	for i, v in ipairs(tbl) do
-		if v == value then
-			return i
-		end
-	end
-end
-
-function M.tbl_len(tbl)
-	local count = 0
-	for _ in pairs(tbl) do
-		count = count + 1
-	end
-	return count
 end
 
 function M.lookup(tbl, key, fn)
@@ -156,15 +88,6 @@ function M.call(value, ...)
 end
 
 local counter = 1000
-
-function M.gen_id()
-	counter = counter + 1
-	return counter
-end
-
-function M.reset_id()
-	counter = 1000
-end
 
 ---@param str string
 function M.keycode(str)
@@ -262,19 +185,6 @@ function M.blend(fg, bg, alpha)
 		return math.floor(math.min(math.max(0, ret), 255) + 0.5)
 	end
 	return string.format("#%02x%02x%02x", blend(1), blend(2), blend(3))
-end
-
----@param value number
----@param min number
----@param max number
-function M.clamp(value, min, max)
-	if value < min then
-		return min
-	elseif value > max then
-		return max
-	else
-		return value
-	end
 end
 
 ---@alias markup.object.type
