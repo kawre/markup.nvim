@@ -660,33 +660,56 @@ end
 
 T["spinner"] = new_set()
 
-T["spinner"]["every frame is one cell"] = function()
+T["spinner"]["frames of a spinner share their width"] = function()
 	run([[
 		components = require("markup.view.components")
-		wide = {}
+		uneven = {}
 		for name, spinner in pairs(components.spinners) do
+			local width = vim.api.nvim_strwidth(spinner.frames[1])
 			for _, frame in ipairs(spinner.frames) do
-				if vim.api.nvim_strwidth(frame) ~= 1 then wide[#wide + 1] = name .. " " .. frame end
+				if vim.api.nvim_strwidth(frame) ~= width then uneven[#uneven + 1] = name .. " " .. frame end
 			end
 		end
 	]])
-	eq(get("wide"), {})
+	eq(get("uneven"), {})
+end
+
+T["spinner"]["the snake keeps its length all the way round"] = function()
+	run([[
+		frames = require("markup.view.components").spinners.snake.frames
+		counts = {}
+		for i, frame in ipairs(frames) do
+			local dots = 0
+			for _, char in ipairs(vim.fn.split(frame, "\\zs")) do
+				local n = vim.fn.char2nr(char) - 0x2800
+				while n > 0 do
+					dots = dots + n % 2
+					n = math.floor(n / 2)
+				end
+			end
+			counts[i] = dots
+		end
+		distinct = #vim.fn.uniq(vim.fn.sort(vim.deepcopy(frames)))
+	]])
+	eq(get("#frames"), 12)
+	eq(get("vim.fn.uniq(vim.fn.sort(counts))"), { 4 })
+	eq(get("distinct"), 12)
 end
 
 T["spinner"]["spins for as long as it is shown"] = function()
 	run([[
 		shown = m.signal(true)
-		view:render(m.show(shown, function() return m.spinner({ name = "quarters" }) end))
+		view:render(m.show(shown, function() return m.spinner({ name = "dots" }) end))
 		reactive.flush()
 		first = lines()[1]
-		animate.tick(120)
+		animate.tick(90)
 		reactive.flush()
 		second = lines()[1]
 		shown(false)
 		reactive.flush()
 	]])
-	eq(get("first"), "▖")
-	eq(get("second"), "▘")
+	eq(get("first"), "⠋")
+	eq(get("second"), "⠙")
 	eq(get("animate.running()"), false)
 end
 
@@ -718,12 +741,12 @@ end
 T["spinner"]["stands still with reduced motion"] = function()
 	run([[
 		animate.enabled = false
-		view:render(m.spinner({ name = "quarters" }))
+		view:render(m.spinner({ name = "dots" }))
 		reactive.flush()
 		animate.tick(500)
 		reactive.flush()
 	]])
-	eq(get("lines()"), { "▖" })
+	eq(get("lines()"), { "⠋" })
 end
 
 T["progress"] = new_set()
