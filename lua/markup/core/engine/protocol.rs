@@ -60,6 +60,7 @@ pub enum StyleProperty {
     ColumnSpan(i32),
     RowSpan(i32),
     WhiteSpace(Option<WhiteSpace>),
+    Clip(bool),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -122,6 +123,7 @@ impl StyleProperty {
             StyleProperty::ColumnSpan(value) => style.extra_mut().column_span = value,
             StyleProperty::RowSpan(value) => style.extra_mut().row_span = value,
             StyleProperty::WhiteSpace(value) => style.extra_mut().white_space = value,
+            StyleProperty::Clip(value) => style.extra_mut().clip = value,
         }
     }
 }
@@ -334,6 +336,7 @@ impl Reader<'_> {
                 Some(0) => Some(WhiteSpace::Normal),
                 Some(_) => Some(WhiteSpace::Nowrap),
             }),
+            45 => StyleProperty::Clip(self.int()? != 0),
             other => return Err(LuaError::runtime(format!("unknown style property {other}"))),
         })
     }

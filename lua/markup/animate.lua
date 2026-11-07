@@ -1,0 +1,300 @@
+--- Time based values.
+---
+--- One clock drives every animation and only runs while something moves, so an
+--- idle UI costs nothing. Animations belong to the current owner, which means
+--- unmounting a component stops whatever it started.
+
+local reactive = require("markup.reactive")
+
+---@class markup.animate
+local M = {
+	--- Set to false for reduced motion: everything jumps to its end.
+	enabled = true,
+	fps = 30,
+	--- With this set the clock stands still until `tick` is called.
+	manual = false,
+}
+
+---@alias markup.easing fun(t: number): number
+
+---@type table<string, markup.easing>
+M.easing = {
+	linear = function(t)
+		return t
+	end,
+	out_quad = function(t)
+		return 1 - (1 - t) ^ 2
+	end,
+	out_cubic = function(t)
+		return 1 - (1 - t) ^ 3
+	end,
+	out_quint = function(t)
+		return 1 - (1 - t) ^ 5
+	end,
+	in_out_cubic = function(t)
+		return t < 0.5 and 4 * t ^ 3 or 1 - (-2 * t + 2) ^ 3 / 2
+	end,
+	out_back = function(t)
+		local c = 1.70158
+		return 1 + (c + 1) * (t - 1) ^ 3 + c * (t - 1) ^ 2
+	end,
+}
+
+---@class markup.animate.opts
+---@field duration? number ms, 300 by default
+---@field delay? number ms
+---@field easing? string|markup.easing `out_cubic` by default
+---@field loop? boolean restart when finished
+---@field update fun(progress: number) called with the eased progress
+---@field done? fun()
+
+---@class markup.animation
+---@field elapsed number
+---@field opts markup.animate.opts
+
+local active = {} ---@type table<markup.animation, boolean>
+local timer ---@type uv.uv_timer_t?
+local last_tick = 0
+
+local function now()
+	return vim.uv.hrtime() / 1e6
+end
+
+local function stop_clock()
+	if timer and not timer:is_closing() then
+		timer:stop()
+		timer:close()
+	end
+	timer = nil
+end
+
+local function start_clock()
+	if timer or M.manual then
+		return
+	end
+
+	last_tick = now()
+	timer = vim.uv.new_timer()
+	local interval = math.floor(1000 / M.fps)
+	timer:start(
+		interval,
+		interval,
+		vim.schedule_wrap(function()
+			local current = now()
+			M.tick(current - last_tick)
+			last_tick = current
+		end)
+	)
+end
+
+local function ease_of(opts)
+	local easing = opts.easing or "out_cubic"
+	if type(easing) == "function" then
+		return easing
+	end
+	return M.easing[easing] or error(("unknown easing `%s`"):format(tostring(easing)), 0)
+end
+
+--- Moves every animation forward.
+---@param ms number
+function M.tick(ms)
+	local finished = {}
+
+	for animation in pairs(active) do
+		local opts = animation.opts
+		animation.elapsed = animation.elapsed + ms
+
+		local running = animation.elapsed - (opts.delay or 0)
+		if running >= 0 then
+			local duration = opts.duration or 300
+			local t = duration > 0 and math.min(running / duration, 1) or 1
+
+			if t >= 1 and opts.loop then
+				animation.elapsed = (opts.delay or 0) + running % duration
+				opts.update(animation.ease(0))
+			else
+				opts.update(animation.ease(t))
+				if t >= 1 then
+					finished[#finished + 1] = animation
+				end
+			end
+		end
+	end
+
+	for _, animation in ipairs(finished) do
+		active[animation] = nil
+		if animation.opts.done then
+			animation.opts.done()
+		end
+	end
+
+	reactive.flush()
+
+	if next(active) == nil then
+		stop_clock()
+	end
+end
+
+--- Whether anything is moving.
+---@return boolean
+function M.running()
+	return next(active) ~= nil
+end
+
+--- Starts an animation, returning a function that stops it.
+---@param opts markup.animate.opts
+---@return function stop
+function M.run(opts)
+	local animation = { elapsed = 0, opts = opts, ease = ease_of(opts) }
+
+	local function stop()
+		active[animation] = nil
+	end
+
+	-- Without a duration there is nothing to wait for, so it must not take a tick.
+	if not M.enabled or (opts.duration == 0 and not opts.delay) then
+		if not opts.loop then
+			opts.update(animation.ease(1))
+			if opts.done then
+				opts.done()
+			end
+		end
+		return stop
+	end
+
+	active[animation] = true
+	reactive.on_cleanup(stop)
+	start_clock()
+	return stop
+end
+
+--- A number that moves to a new target instead of jumping to it. Reads and
+--- writes like a signal.
+---@param initial number
+---@param defaults? { duration?: number, delay?: number, easing?: string|markup.easing }
+---@return fun(target?: number, opts?: table): number
+function M.value(initial, defaults)
+	local current = reactive.signal(initial)
+	local stop
+
+	return function(...)
+		if select("#", ...) == 0 then
+			return current()
+		end
+
+		local target, opts = ...
+		if stop then
+			stop()
+		end
+
+		local from = reactive.untrack(current)
+		local settings = vim.tbl_extend("force", defaults or {}, opts or {})
+		settings.update = function(progress)
+			current(from + (target - from) * progress)
+		end
+		stop = M.run(settings)
+		return target
+	end
+end
+
+--- Cycles through values for as long as the owner lives.
+---@generic T
+---@param values T[]
+---@param opts? { interval?: number }
+---@return fun(): T
+function M.frames(values, opts)
+	local index = reactive.signal(1)
+	local interval = opts and opts.interval or 80
+
+	M.run({
+		duration = interval * #values,
+		easing = "linear",
+		loop = true,
+		update = function(progress)
+			index(math.min(math.floor(progress * #values) + 1, #values))
+		end,
+	})
+
+	return function()
+		return values[index()]
+	end
+end
+
+local function channels(color)
+	return math.floor(color / 65536) % 256, math.floor(color / 256) % 256, color % 256
+end
+
+--- Blends two colors, given as numbers.
+---@param from integer
+---@param to integer
+---@param t number
+---@return integer
+function M.mix(from, to, t)
+	local r1, g1, b1 = channels(from)
+	local r2, g2, b2 = channels(to)
+	local function blend(a, b)
+		return math.floor(a + (b - a) * t + 0.5)
+	end
+	return blend(r1, r2) * 65536 + blend(g1, g2) * 256 + blend(b1, b2)
+end
+
+--- A color from a highlight, as a number.
+---@param group string
+---@param attribute "fg"|"bg"
+---@return integer?
+function M.color(group, attribute)
+	return vim.api.nvim_get_hl(0, { name = group, link = false })[attribute]
+end
+
+local groups = 0
+
+--- A new highlight that animates from `from` to `to`, which are tables of
+--- colors in the form `{ fg = 0xrrggbb, bg = 0xrrggbb }`. Runs without touching
+--- the layout, so it is the cheapest animation there is.
+---@param from table
+---@param to table
+---@param opts? markup.animate.opts|{ name?: string, base?: table }
+---@return string name
+function M.highlight(from, to, opts)
+	opts = vim.tbl_extend("force", {}, opts or {})
+	groups = groups + 1
+	local name = opts.name or ("MarkupAnimated%d"):format(groups)
+
+	local function set(t)
+		local definition = vim.deepcopy(opts.base or {})
+		for _, attribute in ipairs({ "fg", "bg" }) do
+			if from[attribute] and to[attribute] then
+				definition[attribute] = M.mix(from[attribute], to[attribute], t)
+			end
+		end
+		vim.api.nvim_set_hl(0, name, definition)
+	end
+
+	set(0)
+	opts.update = function(progress)
+		set(progress)
+	end
+	M.run(opts)
+	return name
+end
+
+--- Text that fades in from a background, as a highlight.
+---@param group string highlight to end up as
+---@param background? integer color to start from
+---@param opts? markup.animate.opts
+---@return string name
+function M.fade_in(group, background, opts)
+	local target = vim.api.nvim_get_hl(0, { name = group, link = false })
+	local base = background or M.color("Normal", "bg") or 0
+
+	if not target.fg then
+		return group
+	end
+
+	local name = M.highlight({ fg = base }, { fg = target.fg }, vim.tbl_extend("force", opts or {}, {
+		base = target,
+	}))
+	return name
+end
+
+return M

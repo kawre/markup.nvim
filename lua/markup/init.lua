@@ -5,6 +5,7 @@ local M = {}
 
 ---@class markup.global
 ---@field core markup.core
+---@field animate markup.animate
 ---@field log markup.logger
 ---@field util markup.util
 ---@field devkit markup.devkit
@@ -54,6 +55,28 @@ function M.use_key(lhs, fn, opts)
 	reactive.on_cleanup(function()
 		win:unmap(mode, lhs)
 	end)
+end
+
+--- A number that animates towards the values written to it.
+---@see markup.animate.value
+function M.animated(...)
+	return Markup.animate.value(...)
+end
+
+--- Cycles through values, such as a spinner.
+---@see markup.animate.frames
+function M.frames(...)
+	return Markup.animate.frames(...)
+end
+
+--- A bar with eighths of a cell of precision.
+---@see markup.view.components.progress
+function M.progress(...)
+	return require("markup.view.components").progress(...)
+end
+
+function M.collapse(...)
+	return require("markup.view.mount").collapse(...)
 end
 
 function M.show(...)

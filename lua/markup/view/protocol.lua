@@ -114,6 +114,7 @@ M.style = {
 	column_span = { 42, number },
 	row_span = { 43, number },
 	white_space = { 44, optional_white_space },
+	overflow = { 45, choice({ visible = 0, hidden = 1 }, "overflow") },
 }
 
 local TRACK = { auto = 0, cells = 1, fr = 2 }
