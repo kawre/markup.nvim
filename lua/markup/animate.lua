@@ -5,6 +5,7 @@
 --- unmounting a component stops whatever it started.
 
 local reactive = require("markup.reactive")
+local hl = require("markup.view.hl")
 
 ---@class markup.animate
 local M = {
@@ -249,6 +250,13 @@ end
 local free_groups = {} ---@type string[]
 local groups = 0
 
+---@param name string
+---@param definition vim.api.keyset.highlight
+local function set_highlight(name, definition)
+	vim.api.nvim_set_hl(0, name, definition)
+	hl.sync_edge(name)
+end
+
 --- Neovim cannot delete highlights, so names are reused once their owner goes.
 ---@return string
 local function acquire_group()
@@ -289,16 +297,16 @@ function M.highlight(from, to, opts)
 	local name = acquire_group()
 	local at = blended(from, to, opts.base)
 
-	vim.api.nvim_set_hl(0, name, at(0))
+	set_highlight(name, at(0))
 
 	opts.update = function(progress)
-		vim.api.nvim_set_hl(0, name, at(progress))
+		set_highlight(name, at(progress))
 	end
 
 	local done = opts.done
 	opts.done = function()
 		if opts.link then
-			vim.api.nvim_set_hl(0, name, { link = opts.link })
+			set_highlight(name, { link = opts.link })
 		end
 		if done then
 			done()
@@ -321,7 +329,7 @@ function M.tint(from, to, progress, opts)
 	local at = blended(from, to, opts and opts.base)
 
 	reactive.effect(function()
-		vim.api.nvim_set_hl(0, name, at(progress()))
+		set_highlight(name, at(progress()))
 	end)
 	return name
 end
