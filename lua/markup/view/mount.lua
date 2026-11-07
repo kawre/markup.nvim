@@ -347,7 +347,7 @@ end
 
 local Collapse = { typeof = "control" }
 
-local COLLAPSE_DURATION = 180
+local COLLAPSE_DURATION = 130
 
 function Collapse.mount(view, parent, before, props)
 	local animate = Markup.animate
