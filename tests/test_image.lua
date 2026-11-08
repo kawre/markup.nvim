@@ -274,4 +274,50 @@ T["backends"]["nothing without either"] = function()
 	eq(get("images.available()"), false)
 end
 
+T["covered"] = new_set()
+
+T["covered"]["a popup over an image takes it away until it closes"] = function()
+	run([[view:render(m.block({ m.image({ data = png(200, 100), width = 20 }) }))]])
+	eq(get("count()"), 1)
+
+	run([[
+		popup = vim.api.nvim_open_win(vim.api.nvim_create_buf(false, true), false, {
+			relative = "editor", row = 2, col = 5, width = 10, height = 3, border = "rounded",
+		})
+		view:place_images()
+	]])
+	eq(get("count()"), 0)
+
+	run([[
+		vim.api.nvim_win_close(popup, true)
+		view:place_images()
+	]])
+	eq(get("count()"), 1)
+end
+
+T["covered"]["a popup elsewhere leaves it be"] = function()
+	run([[view:render(m.block({ m.image({ data = png(200, 100), width = 20 }) }))]])
+	run([[
+		popup = vim.api.nvim_open_win(vim.api.nvim_create_buf(false, true), false, {
+			relative = "editor", row = 15, col = 40, width = 10, height = 2,
+		})
+		view:place_images()
+	]])
+	eq(get("count()"), 1)
+end
+
+T["covered"]["a float under the image's own float does not cover it"] = function()
+	run([[
+		below = vim.api.nvim_open_win(vim.api.nvim_create_buf(false, true), false, {
+			relative = "editor", row = 0, col = 0, width = 60, height = 18, zindex = 10,
+		})
+		float = Markup.window({ position = "float", row = 0, col = 0, width = 50, height = 15, zindex = 40, dim = false, enter = true })
+		float_view = Markup.view(float)
+		float_view:render(m.block({ m.image({ data = png(200, 100), width = 20 }) }))
+		reactive.flush(); reactive.flush()
+		float_view:place_images()
+	]])
+	eq(get("count()"), 1)
+end
+
 return T
