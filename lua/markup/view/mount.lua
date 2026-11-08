@@ -492,11 +492,56 @@ function Image.mount(view, parent, before, props)
 			return prop
 		end
 
-		local width, height = images.size(data, value(props.width), value(props.height))
+		-- A list of frames plays like a GIF, at each frame's own delay.
+		local frames = type(data) == "table" and #data > 0 and data or nil
+		local first = frames and frames[1].data or (type(data) == "string" and data or nil)
+
+		local width, height = images.size(first, value(props.width), value(props.height))
 		view.commands:set_style(id, "width", width)
 		view.commands:set_style(id, "height", height)
-		view:set_image(id, data and { data = data, width = width, height = height } or nil)
-		view:request_commit()
+
+		if not frames or #frames == 1 then
+			view:set_image(id, first and { data = first, width = width, height = height } or nil)
+			view:request_commit()
+			return
+		end
+
+		-- When each frame starts, in ms from the start of the loop.
+		local starts, total = {}, 0
+		for i, frame in ipairs(frames) do
+			starts[i] = total
+			total = total + math.max(frame.delay or 100, 20)
+		end
+		local function frame_at(ms)
+			local index = 1
+			for i = #starts, 1, -1 do
+				if ms >= starts[i] then
+					index = i
+					break
+				end
+			end
+			return index
+		end
+
+		local index = reactive.signal(1)
+		Markup.animate.run({
+			duration = total,
+			easing = "linear",
+			loop = true,
+			-- Sleeps until the next frame is due.
+			next = function(running)
+				local at = running % total
+				local following = starts[frame_at(at) + 1] or total
+				return following - at
+			end,
+			update = function(progress)
+				index(frame_at(progress * total))
+			end,
+		})
+		effect(function()
+			view:set_image(id, { data = frames[index()].data, width = width, height = height })
+			view:request_commit()
+		end)
 	end)
 
 	reactive.on_cleanup(function()
@@ -505,9 +550,10 @@ function Image.mount(view, parent, before, props)
 end
 
 --- An image, as a box in the layout that it is drawn over.
----@param props { data: string|fun(): string?, width?: integer|fun(): integer, height?: integer|fun(): integer, alt?: string }
---- `data` is the bytes of a PNG, or a function giving them once they are there.
---- A missing height follows the proportions of the image.
+---@param props { data: string|markup.image.frame[]|fun(): (string|markup.image.frame[])?, width?: integer|fun(): integer, height?: integer|fun(): integer, alt?: string }
+--- `data` is the bytes of a PNG, or a list of frames that play in a loop like a
+--- GIF, or a function giving either once they are there. A missing height
+--- follows the proportions of the image.
 function M.image(props)
 	return element(Image, props)
 end
