@@ -2,7 +2,7 @@
 ---
 --- One clock drives every animation and only runs while something moves, so an
 --- idle UI costs nothing. With `vrr` on it also skips ticks that could not
---- change anything, waking when the next animation is due to move: a spinner
+--- change anything, waking when the next animation is due to move: a loader
 --- ticks once per frame of its own, a value with a `step` once per step, and
 --- `fps` becomes the most the clock ever ticks. Animations belong to the current owner, which means
 --- unmounting a component stops whatever it started.
@@ -221,8 +221,11 @@ function M.tick(ms)
 			local t = duration > 0 and math.min(running / duration, 1) or 1
 
 			if t >= 1 and opts.loop then
-				animation.elapsed = (opts.delay or 0) + running % duration
-				opts.update(animation.ease(0))
+				-- Where the loop is now, not its start: a tick that passes the end
+				-- lands part of the way into the next round.
+				local into = duration > 0 and running % duration or 0
+				animation.elapsed = (opts.delay or 0) + into
+				opts.update(animation.ease(duration > 0 and into / duration or 0))
 			else
 				opts.update(animation.ease(t))
 				if t >= 1 then

@@ -77,7 +77,6 @@ local M = Markup.object()
 ---@field text? string|string[]|fun():(string[]|string) Initial lines to set in the buffer
 ---@field actions? table<string, markup.window.Action.spec> Actions that can be used in key mappings
 ---@field resize? boolean Automatically resize the window when the editor is resized
----@field hijack? boolean|number If set, hijack the current window and use it as the new window. If a number, use that window instead.
 
 local SCROLL_UP, SCROLL_DOWN = Markup.util.keycode("<c-u>"), Markup.util.keycode("<c-d>")
 
@@ -185,9 +184,6 @@ function M:new(opts)
 		opts = M.resolve("minimal", opts)
 	end
 
-	-- if opts.hijack then
-	-- 	opts.win = opts.hijack == true and vim.api.nvim_get_current_win() or opts.hijack
-	-- else
 	if opts.position == "float" then
 		opts = M.resolve("float", opts)
 	else
@@ -287,9 +283,6 @@ function M:action(actions)
 		table.concat(desc, ", ")
 end
 
----@param event string|string[]
----@param cb fun(self: markup.window, ev:vim.api.keyset.create_autocmd.callback_args):boolean?
----@param opts? markup.window.Event
 --- Calls `listener` every time the window opens.
 ---@param listener fun(self: markup.window)
 function M:on_show(listener)
@@ -297,6 +290,9 @@ function M:on_show(listener)
 	table.insert(self.show_listeners, listener)
 end
 
+---@param event string|string[]
+---@param cb fun(self: markup.window, ev:vim.api.keyset.create_autocmd.callback_args):boolean?
+---@param opts? markup.window.Event
 function M:on(event, cb, opts)
 	opts = opts or {}
 	opts.callback = cb
@@ -480,7 +476,7 @@ function M:scratch()
 		if self.opts.scratch_ft then
 			vim.bo[self.buf].filetype = self.opts.scratch_ft
 		else
-			vim.bo[self.buf].filetype = self.opts.bo.filetype or "snacks_win"
+			vim.bo[self.buf].filetype = "snacks_win"
 		end
 		vim.bo[self.buf].syntax = ""
 	end
@@ -813,22 +809,63 @@ function M:on_close()
 	end
 end
 
---- Gives the floats this window dimmed their colors back.
+--- Windows dimming the floats under them, oldest first.
+local dimmers = {} ---@type markup.window[]
+
+--- The namespace each dimmed float had of its own, such as the one its
+--- `winhighlight` makes, to give back once nothing dims it any more.
+local own_namespaces = {} ---@type table<integer, integer>
+
+--- Gives the floats this window dimmed their colors back, or the dimming of
+--- another popup still over them, whichever order the popups close in.
 function M:undim()
-	for _, win in ipairs(self.dimmed or {}) do
-		if vim.api.nvim_win_is_valid(win) then
-			vim.api.nvim_win_set_hl_ns(win, 0)
+	if not self.dimmed then
+		return
+	end
+	for i, other in ipairs(dimmers) do
+		if other == self then
+			table.remove(dimmers, i)
+			break
 		end
 	end
-	self.dimmed = nil
+
+	for win in pairs(self.dimmed) do
+		local ns
+		for i = #dimmers, 1, -1 do
+			ns = dimmers[i].dimmed[win]
+			if ns then
+				break
+			end
+		end
+		if not ns then
+			-- -1 when it never had one.
+			ns = math.max(own_namespaces[win] or 0, 0)
+			own_namespaces[win] = nil
+		end
+		if vim.api.nvim_win_is_valid(win) then
+			vim.api.nvim_win_set_hl_ns(win, ns)
+		end
+	end
+	self.dimmed, self.dim_ns = nil, nil
 end
 
 --- A highlight namespace with every group as it is, only darker: `brightness`
 --- of each color, which is what a black backdrop of that opacity leaves.
+---
+--- With `source`, the namespace of a window, its groups are dimmed instead of
+--- the global ones of the same name. That is how `winhighlight` keeps coloring
+--- a window while it is dimmed.
 ---@param brightness number
+---@param source? integer
 ---@return integer
-function M.dim_namespace(brightness)
-	local ns = vim.api.nvim_create_namespace("markup_dim_" .. math.floor(brightness * 100))
+function M.dim_namespace(brightness, source)
+	local own = source and source > 0 and vim.api.nvim_get_hl(source, {}) or {}
+	local name = "markup_dim_" .. math.floor(brightness * 100)
+	if next(own) then
+		name = name .. "_" .. vim.fn.sha256(vim.inspect(own)):sub(1, 16)
+	end
+	local ns = vim.api.nvim_create_namespace(name)
+
 	local function dim(color)
 		if not color then
 			return nil
@@ -836,11 +873,26 @@ function M.dim_namespace(brightness)
 		local r, g, b = math.floor(color / 65536) % 256, math.floor(color / 256) % 256, color % 256
 		return math.floor(r * brightness) * 65536 + math.floor(g * brightness) * 256 + math.floor(b * brightness)
 	end
-	for name in pairs(vim.api.nvim_get_hl(0, {})) do
-		local definition = vim.api.nvim_get_hl(0, { name = name, link = false })
+	local function set(group, definition)
 		definition.fg, definition.bg, definition.sp = dim(definition.fg), dim(definition.bg), dim(definition.sp)
 		definition.default = nil
-		pcall(vim.api.nvim_set_hl, ns, name, definition)
+		pcall(vim.api.nvim_set_hl, ns, group, definition)
+	end
+
+	for group in pairs(vim.api.nvim_get_hl(0, {})) do
+		if not own[group] then
+			set(group, vim.api.nvim_get_hl(0, { name = group, link = false }))
+		end
+	end
+	for group, definition in pairs(own) do
+		local shown = definition.link
+				and vim.api.nvim_get_hl(0, { name = definition.link, link = false })
+			or vim.deepcopy(definition)
+		-- A color the group leaves out comes from the global one, as on screen:
+		-- `NormalFloat` without a foreground draws with that of `Normal`.
+		local global = vim.api.nvim_get_hl(0, { name = group, link = false })
+		shown.fg, shown.bg = shown.fg or global.fg, shown.bg or global.bg
+		set(group, shown)
 	end
 	return ns
 end
@@ -911,12 +963,23 @@ function M:drop()
 	end
 	local under = math.max(math.min(bottom, self.opts.zindex) - 1, 1)
 
-	-- As dark as the backdrop makes the grid: it lets `blend` of each color through.
-	local ns = M.dim_namespace(backdrop.blend / 100)
-	self.dimmed = {}
+	-- As dark as the backdrop makes the grid: it lets `blend` of each color
+	-- through. Each float keeps its own groups, which windows with the same
+	-- ones share.
+	local brightness = backdrop.blend / 100
+	self:undim()
+	self.dimmed, self.dim_ns = {}, M.dim_namespace(brightness)
+	dimmers[#dimmers + 1] = self
+	local made = {} ---@type table<integer, integer>
 	for _, win in ipairs(floats) do
-		vim.api.nvim_win_set_hl_ns(win, ns)
-		self.dimmed[#self.dimmed + 1] = win
+		local own = own_namespaces[win]
+		if own == nil then
+			own = vim.api.nvim_get_hl_ns({ winid = win })
+			own_namespaces[win] = own
+		end
+		made[own] = made[own] or (own > 0 and M.dim_namespace(brightness, own) or self.dim_ns)
+		self.dimmed[win] = made[own]
+		vim.api.nvim_win_set_hl_ns(win, made[own])
 	end
 
 	self.backdrop = Markup.window(M.resolve({

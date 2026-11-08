@@ -157,6 +157,8 @@ pub struct Inset {
 pub struct Extra {
     /// Unset inherits from the parent.
     pub white_space: Option<WhiteSpace>,
+    /// Whether text is a place a snapping cursor lands on. Unset inherits.
+    pub snap: Option<bool>,
 
     pub border: Option<Border>,
 
@@ -210,6 +212,7 @@ impl Default for Extra {
     fn default() -> Self {
         Extra {
             white_space: None,
+            snap: None,
             border: None,
             clip: false,
             clip_x: false,

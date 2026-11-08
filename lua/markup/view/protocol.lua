@@ -68,6 +68,14 @@ local function optional_white_space(value)
 	return value == nil and UNSET or white_space(value)
 end
 
+--- Unset inherits, which a flag alone could not say.
+local function optional_flag(value)
+	if value == nil then
+		return UNSET
+	end
+	return value and 1 or 0
+end
+
 --- Style properties by name, with the encoder for each value.
 M.style = {
 	margin_top = { 1, number },
@@ -116,6 +124,7 @@ M.style = {
 	white_space = { 44, optional_white_space },
 	overflow = { 45, choice({ visible = 0, hidden = 1 }, "overflow") },
 	overflow_x = { 46, choice({ visible = 0, hidden = 1 }, "overflow_x") },
+	snap = { 47, optional_flag },
 }
 
 local TRACK = { auto = 0, cells = 1, fr = 2 }
@@ -201,10 +210,48 @@ end
 --- never reaches the buffer.
 local TAB = (" "):rep(4)
 
+local REPLACEMENT = "\u{fffd}"
+
+--- Text with every byte that is not part of a UTF-8 character replaced, as
+--- the engine does, so that what Neovim measures is what gets drawn.
+local function valid_utf8(text)
+	local parts, n, start, at, length = nil, 0, 1, 1, #text
+	while at <= length do
+		local byte = text:byte(at)
+		local size = byte < 0x80 and 1
+			or byte >= 0xC2 and byte <= 0xDF and 2
+			or byte >= 0xE0 and byte <= 0xEF and 3
+			or byte >= 0xF0 and byte <= 0xF4 and 4
+			or 0
+		local valid = size > 0 and at + size - 1 <= length
+		for i = at + 1, at + size - 1 do
+			local continuation = text:byte(i)
+			valid = valid and continuation >= 0x80 and continuation <= 0xBF
+		end
+		if valid then
+			at = at + size
+		else
+			parts = parts or {}
+			parts[n + 1], parts[n + 2] = text:sub(start, at - 1), REPLACEMENT
+			n = n + 2
+			at = at + 1
+			start = at
+		end
+	end
+	if not parts then
+		return text
+	end
+	parts[n + 1] = text:sub(start)
+	return table.concat(parts)
+end
+
 ---@param opcode integer
 local function write_text(self, opcode, id, text)
 	if text:find("\t", 1, true) then
 		text = text:gsub("\t", TAB)
+	end
+	if text:find("[\128-\255]") then
+		text = valid_utf8(text)
 	end
 
 	if not known_cell_widths then

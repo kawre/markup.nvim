@@ -117,8 +117,11 @@ function M.open(opts)
 	local selected = reactive.signal(1)
 	local offset = reactive.signal(0)
 
-	local filtered = reactive.memo(function()
-		return M.filter(items, query())
+	-- Owns what the picker computes, so closing it stops all of that.
+	local filtered, owner = reactive.scope(function()
+		return reactive.memo(function()
+			return M.filter(items, query())
+		end)
 	end)
 
 	local prompt_buf = api.nvim_create_buf(false, true)
@@ -152,7 +155,6 @@ function M.open(opts)
 		backdrop = false,
 		zindex = 60,
 	})
-	list:show()
 	local view = Markup.view(list)
 
 	local ns = api.nvim_create_namespace("markup_picker")
@@ -166,6 +168,7 @@ function M.open(opts)
 		closed = true
 
 		vim.cmd.stopinsert()
+		reactive.dispose(owner)
 		view:destroy()
 		list:close()
 		if api.nvim_win_is_valid(prompt_win) then
@@ -266,16 +269,18 @@ function M.open(opts)
 		return rows
 	end))
 
-	reactive.effect(function()
-		local text = ("%d/%d"):format(#filtered(), #items)
-		if api.nvim_buf_is_valid(prompt_buf) then
-			count_mark = api.nvim_buf_set_extmark(prompt_buf, ns, 0, 0, {
-				id = count_mark,
-				virt_text = { { text, "MarkupPickerCount" } },
-				virt_text_pos = "right_align",
-			})
-		end
-	end)
+	reactive.scope(function()
+		reactive.effect(function()
+			local text = ("%d/%d"):format(#filtered(), #items)
+			if api.nvim_buf_is_valid(prompt_buf) then
+				count_mark = api.nvim_buf_set_extmark(prompt_buf, ns, 0, 0, {
+					id = count_mark,
+					virt_text = { { text, "MarkupPickerCount" } },
+					virt_text_pos = "right_align",
+				})
+			end
+		end)
+	end, owner)
 
 	api.nvim_buf_set_extmark(prompt_buf, ns, 0, 0, {
 		virt_text = { { "> ", "MarkupPickerPrompt" } },

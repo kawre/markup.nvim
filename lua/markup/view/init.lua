@@ -53,7 +53,8 @@ end
 
 ---@class markup.view.opts
 ---@field snap? boolean|"text" keep the cursor on interactive nodes, like a menu,
---- or with `"text"` on those and on text, like a document
+--- or with `"text"` on those and on text, like a document. Text under an element
+--- with `snap = false` is passed over.
 ---@field hide_cursor? boolean hide the cursor in normal mode while in this window,
 --- for views that show where it is by themselves
 
@@ -479,6 +480,8 @@ function M:unmount()
 		self.owner = nil
 	end
 	self.commands:clear(protocol.ROOT)
+	-- Nothing else may commit for a while, and the old frame would stay up.
+	self:request_commit()
 end
 
 --- Stops everything and forgets the view. The window is left to its owner.
@@ -535,6 +538,19 @@ function M:commit()
 
 	stats.layout, stats.paint, stats.diff = frame.layout, frame.paint, frame.diff
 
+	-- What the engine left out, each said once, since it is a bug somewhere
+	-- that would otherwise say it on every frame.
+	if frame.errors then
+		self.said = self.said or {}
+		for _, message in ipairs(frame.errors) do
+			if not self.said[message] then
+				self.said[message] = true
+				local text = ("markup: a command was left out: %s"):format(message)
+				vim.notify(text, vim.log.levels.ERROR)
+			end
+		end
+	end
+
 	started = vim.uv.hrtime()
 	stats.lines = self.attached and self:apply(frame.patches) or 0
 	stats.apply = (vim.uv.hrtime() - started) / 1e6
@@ -567,7 +583,9 @@ end
 ---@return integer lines rewritten
 function M:apply(patches)
 	local buf, ns = self.win.buf, self.ns
-	if #patches == 0 or not api.nvim_buf_is_valid(buf) then
+	-- A closed window lets go of its buffer, though what is still running keeps
+	-- committing. Opening it again starts over from a blank buffer.
+	if #patches == 0 or not buf or not api.nvim_buf_is_valid(buf) then
 		return 0
 	end
 
@@ -654,8 +672,6 @@ function M:node_at_cursor()
 	return self.engine:node_at(cursor[1] - 1, col)
 end
 
---- Calls the `on_press` handler under the cursor, returning whether there was one.
----@return boolean
 --- Presses what is under the mouse, which `mouse` from `getmousepos()` points at,
 --- if it takes this kind of click.
 ---@param mouse table
@@ -725,6 +741,8 @@ vim.on_key(function(key)
 	end
 end, api.nvim_create_namespace("markup_clicks"))
 
+--- Calls the `on_press` handler under the cursor, returning whether there was one.
+---@return boolean
 function M:press()
 	local handler = self.handlers[self:node_at_cursor()]
 	if handler then

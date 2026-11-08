@@ -9,7 +9,8 @@
 --- stay in place however far the tree scrolls.
 ---
 --- Keys: <CR> expand or load more, s options, c show groups, f follow the
---- cursor, m mark the selection in the view, r refresh, q close.
+--- cursor, m mark the selection in the view, r refresh, q close. Moving onto
+--- an element scrolls the view to it.
 
 local m = require("markup")
 local reactive = require("markup.reactive")
@@ -47,6 +48,80 @@ local M = Markup.object()
 ---@type table<markup.view, markup.devkit.tree>
 local instances = setmetatable({}, { __mode = "k" })
 
+--- The inspector marking each window, by window.
+---@type table<integer, markup.devkit.tree>
+local marking = {}
+
+local PARTS = {
+	margin = "MarkupInspectorMarkMargin",
+	border = "MarkupInspectorMarkBorder",
+	padding = "MarkupInspectorMarkPadding",
+	content = "MarkupInspectorTarget",
+}
+
+local mark_ns = api.nvim_create_namespace("markup_inspector_marks")
+
+--- Draws the mark again with the window, as the target rewrites its lines on
+--- every frame: anything placed on them would go with the text it was on.
+--- Cells with text take the color of their part, and where a line is too
+--- short for the box, blanks of that color fill it out.
+api.nvim_set_decoration_provider(mark_ns, {
+	on_win = function(_, win)
+		local inspector = marking[win]
+		if not inspector or not inspector.marks_by_row then
+			return false
+		end
+		inspector.leftcol = api.nvim_win_call(win, function()
+			return vim.fn.winsaveview().leftcol
+		end)
+	end,
+	on_line = function(_, win, buf, row)
+		local inspector = marking[win]
+		local marks = inspector and inspector.marks_by_row and inspector.marks_by_row[row]
+		if not marks then
+			return
+		end
+		local line = api.nvim_buf_get_lines(buf, row, row + 1, false)[1] or ""
+		local width = vim.fn.strdisplaywidth(line)
+		local leftcol = inspector.leftcol or 0
+		for _, mark in ipairs(marks) do
+			local first, last, group = mark[2], mark[3], PARTS[mark[4]]
+			if first < width then
+				local start_byte = math.max(vim.fn.virtcol2col(win, row + 1, first + 1) - 1, 0)
+				local end_byte = last >= width and #line or vim.fn.virtcol2col(win, row + 1, last + 1) - 1
+				if end_byte > start_byte then
+					api.nvim_buf_set_extmark(buf, mark_ns, row, start_byte, {
+						end_col = end_byte,
+						hl_group = group,
+						priority = 10000,
+						ephemeral = true,
+					})
+				end
+			end
+			local blank = math.max(first, width, leftcol)
+			if last > blank then
+				api.nvim_buf_set_extmark(buf, mark_ns, row, 0, {
+					virt_text = { { (" "):rep(last - blank), group } },
+					virt_text_win_col = blank - leftcol,
+					priority = 10000,
+					ephemeral = true,
+				})
+			end
+		end
+	end,
+})
+
+--- Asks for the window to be drawn again, which draws the mark.
+local function redraw(win)
+	if api.nvim_win_is_valid(win) then
+		if api.nvim__redraw then
+			api.nvim__redraw({ win = win, valid = false })
+		else
+			vim.cmd("redraw")
+		end
+	end
+end
+
 --- Winbar text needs the winbar's background, which depends on the colorscheme.
 local function apply_colors()
 	local function get(name)
@@ -69,8 +144,26 @@ local function apply_colors()
 		api.nvim_set_hl(0, "MarkupInspectorBar" .. name, { fg = get(source[1]).fg, bg = bg, bold = source.bold })
 	end
 
+	-- The mark in the view, as browser devtools draw it: content, padding,
+	-- border and margin each tinted from the color the box model uses for it.
+	local normal_bg = get("Normal").bg
+	local layers = {
+		Target = { "DiagnosticInfo", "Search" },
+		MarkPadding = { "DiagnosticOk", "DiffAdd" },
+		MarkBorder = { "DiagnosticHint", "DiffText" },
+		MarkMargin = { "DiagnosticWarn", "DiffChange" },
+	}
+	for name, sources in pairs(layers) do
+		local fg = get(sources[1]).fg
+		local definition = { link = sources[2], default = true }
+		if fg and normal_bg then
+			local blend = Markup.util.blend(("#%06x"):format(fg), ("#%06x"):format(normal_bg), 0.35)
+			definition = { bg = blend, default = true }
+		end
+		api.nvim_set_hl(0, "MarkupInspector" .. name, definition)
+	end
+
 	local links = {
-		Target = "Search",
 		Selected = "Visual",
 		Guide = "NonText",
 		Rule = "WinSeparator",
@@ -286,7 +379,6 @@ function M:new(target)
 	self.rows = m.signal({})
 	self.selected = m.signal(protocol.ROOT)
 	self.details = m.signal({})
-	self.match_ids = {} ---@type integer[] matches marking the selection in the target
 	self.node = m.signal(nil) ---@type markup.core.node?
 	self.samples = {} ---@type { at: number, ms: number }[] the last frames of the target, oldest first
 	-- When each frame of the last second came, oldest at `first`. Separate from
@@ -519,6 +611,7 @@ function M:bind_events()
 			local key = self.keys_by_handler[self.view.handlers[self.view:node_at_cursor()]]
 			if type(key) == "number" then
 				self:select(key)
+				self:scroll_to(key)
 			end
 		end,
 	})
@@ -735,90 +828,121 @@ function M:show_selection()
 		return
 	end
 	self:clear_marks()
-	self.marks = marks
+	if #marks == 0 then
+		return
+	end
 
-	-- Matches of the window rather than extmarks: the target rewrites its lines
-	-- on every frame, which collapses extmarks on them, so a mark would only
-	-- show for the moment after each refresh and blink at a high frame rate.
-	-- Matches stay where they are put whatever the text does.
-	local win = target.win.win
-	self.match_win = win
-	local positions = {}
+	self.marks = marks
+	self.marks_by_row = {}
 	for _, mark in ipairs(marks) do
-		positions[#positions + 1] = { mark[1] + 1, mark[2] + 1, mark[3] - mark[2] }
+		local row = self.marks_by_row[mark[1]] or {}
+		row[#row + 1] = mark
+		self.marks_by_row[mark[1]] = row
 	end
-	-- `matchaddpos` takes at most eight positions a call.
-	for i = 1, #positions, 8 do
-		local ok, id = pcall(vim.fn.matchaddpos, "MarkupInspectorTarget", vim.list_slice(positions, i, i + 7), 10000, -1, {
-			window = win,
-		})
-		if ok and id > 0 then
-			self.match_ids[#self.match_ids + 1] = id
-		end
-	end
+	self.marked_win = target.win.win
+	marking[self.marked_win] = self
+	redraw(self.marked_win)
 end
 
 function M:clear_marks()
-	for _, id in ipairs(self.match_ids) do
-		if self.match_win and api.nvim_win_is_valid(self.match_win) then
-			pcall(vim.fn.matchdelete, id, self.match_win)
-		end
+	if self.marked_win and marking[self.marked_win] == self then
+		marking[self.marked_win] = nil
+		redraw(self.marked_win)
 	end
-	self.match_ids, self.marks = {}, nil
+	self.marks, self.marks_by_row, self.marked_win = nil, nil, nil
 end
 
---- What is marked in the target, as `{ row, start_col, end_col }` from zero.
----@return [integer, integer, integer][]
+--- What is marked in the target, as `{ row, first_cell, end_cell, part }`
+--- from zero, where the part is "margin", "border", "padding" or "content".
+---@return [integer, integer, integer, string][]
 function M:target_marks()
-	local marks = {}
-	local win = self.match_win
-	if not win or not api.nvim_win_is_valid(win) then
-		return marks
-	end
-	local ours = {}
-	for _, id in ipairs(self.match_ids) do
-		ours[id] = true
-	end
-	for _, match in ipairs(vim.fn.getmatches(win)) do
-		if ours[match.id] then
-			for i = 1, 8 do
-				local pos = match["pos" .. i]
-				if pos then
-					marks[#marks + 1] = { pos[1] - 1, pos[2] - 1, pos[2] - 1 + pos[3] }
-				end
+	return vim.deepcopy(self.marks or {})
+end
+
+--- The rows a box covers, as `{ row, first_cell, end_cell }`: all of its
+--- width where `inside` does not cover the row, and what is left either side
+--- of it where it does.
+local function ring(box, inside, part, marks, first_row, last_row)
+	for row = math.max(box.top, first_row), math.min(box.bottom, last_row) - 1 do
+		local left, right = math.max(box.left, 0), box.right
+		local cut = inside and inside.right > inside.left and row >= inside.top and row < inside.bottom
+		if cut then
+			if inside.left > left then
+				marks[#marks + 1] = { row, left, math.max(inside.left, left), part }
 			end
+			if right > inside.right then
+				marks[#marks + 1] = { row, math.max(inside.right, left), right, part }
+			end
+		elseif right > left then
+			marks[#marks + 1] = { row, left, right, part }
 		end
 	end
+end
+
+--- The parts of `node` that are in the buffer: its margin, border, padding
+--- and content, each a box inside the one before.
+---@param node markup.core.node
+---@return [integer, integer, integer, string][]
+function M:marks_of(node)
+	local buf = self.target.win.buf
+	local function box(left, top, right, bottom)
+		return { left = left, top = top, right = right, bottom = bottom }
+	end
+	-- Edges come as `{ top, right, bottom, left }`.
+	local function shrink(outer, edges)
+		edges = edges or { 0, 0, 0, 0 }
+		return box(outer.left + edges[4], outer.top + edges[1], outer.right - edges[2], outer.bottom - edges[3])
+	end
+
+	local margin = box(node.x, node.y, node.x + node.outer_width, node.y + node.outer_height)
+	local border = shrink(margin, node.margin)
+	local padding = shrink(border, node.border)
+	local content = shrink(padding, node.padding)
+
+	-- A node may reach past the edges of the buffer, such as while it slides in,
+	-- so only the part of it that is there is marked.
+	local first_row = math.max(node.y, 0)
+	local last_row = math.min(margin.bottom, node.y + MAX_HIGHLIGHT_ROWS, api.nvim_buf_line_count(buf))
+
+	local marks = {}
+	ring(margin, border, "margin", marks, first_row, last_row)
+	ring(border, padding, "border", marks, first_row, last_row)
+	ring(padding, content, "padding", marks, first_row, last_row)
+	ring(content, nil, "content", marks, first_row, last_row)
 	table.sort(marks, function(a, b)
-		return a[1] < b[1]
+		return a[1] < b[1] or (a[1] == b[1] and a[2] < b[2])
 	end)
 	return marks
 end
 
---- Where the parts of `node` that are on screen are, as rows and columns.
----@param node markup.core.node
----@return [integer, integer, integer][]
-function M:marks_of(node)
+--- Scrolls the target so all of a node shows, or as much as fits from its
+--- top, centered when it has to move at all. The cursor stays in the
+--- inspector.
+---@param key integer
+function M:scroll_to(key)
 	local target = self.target
-	local buf, win = target.win.buf, target.win.win
-	local last = math.min(node.y + node.outer_height, node.y + MAX_HIGHLIGHT_ROWS, api.nvim_buf_line_count(buf))
-	-- A node may reach past the edges of the buffer, such as while it slides in,
-	-- so only the part of it that is there is marked.
-	local left = math.max(node.x, 0)
-	local right = node.x + node.outer_width
-	local marks = {}
-	for row = math.max(node.y, 0), last - 1 do
-		local line = api.nvim_buf_get_lines(buf, row, row + 1, false)[1] or ""
-		local width = vim.fn.strdisplaywidth(line)
-		if left < width and right > left then
-			local start_col = math.max(vim.fn.virtcol2col(win, row + 1, left + 1) - 1, 0)
-			local end_col = width <= right and #line or vim.fn.virtcol2col(win, row + 1, right + 1) - 1
-			if end_col > start_col then
-				marks[#marks + 1] = { row, start_col, end_col }
-			end
-		end
+	local ok, node = pcall(target.engine.describe, target.engine, key)
+	if not ok or not node.x or not target.win:win_valid() then
+		return
 	end
-	return marks
+	local win = target.win.win
+	local height = api.nvim_win_get_height(win)
+	local count = api.nvim_buf_line_count(target.win.buf)
+	local first = math.min(math.max(node.y, 0), count - 1)
+	local last = math.min(node.y + math.max(node.outer_height, 1), count) - 1
+
+	api.nvim_win_call(win, function()
+		local view = vim.fn.winsaveview()
+		local top, bottom = view.topline - 1, view.topline - 1 + height - 1
+		if first >= top and last <= bottom then
+			return
+		end
+		local size = last - first + 1
+		local topline = size >= height and first or math.max(first - math.floor((height - size) / 2), 0)
+		-- The cursor has to stay on screen, so it comes along when it would not.
+		local cursor = math.min(math.max(view.lnum - 1, topline), topline + height - 1)
+		vim.fn.winrestview({ topline = topline + 1, lnum = cursor + 1 })
+	end)
 end
 
 ---@param key integer

@@ -111,7 +111,8 @@ end
 function M:reposition()
 	if self.win:win_valid() then
 		self:place()
-		self.view.commands:resize(api.nvim_win_get_width(self.win.win))
+		-- Through the view, so what it says the width is follows too.
+		self.view:sync_width()
 		self.view:request_commit()
 	end
 end

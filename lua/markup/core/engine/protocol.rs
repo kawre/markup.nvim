@@ -62,6 +62,7 @@ pub enum StyleProperty {
     WhiteSpace(Option<WhiteSpace>),
     Clip(bool),
     ClipX(bool),
+    Snap(Option<bool>),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -126,6 +127,7 @@ impl StyleProperty {
             StyleProperty::WhiteSpace(value) => style.extra_mut().white_space = value,
             StyleProperty::Clip(value) => style.extra_mut().clip = value,
             StyleProperty::ClipX(value) => style.extra_mut().clip_x = value,
+            StyleProperty::Snap(value) => style.extra_mut().snap = value,
         }
     }
 }
@@ -169,9 +171,11 @@ impl Reader<'_> {
         self.value()
     }
 
+    /// Text that is not UTF-8 comes through with replacement characters, as
+    /// one string that cannot be read must not cost the rest of the frame.
     fn string(&mut self) -> LuaResult<String> {
         let value: LuaString = self.value()?;
-        Ok(value.to_str()?.to_owned())
+        Ok(String::from_utf8_lossy(&value.as_bytes()).into_owned())
     }
 
     /// Text arrives with its width, or `-1` when it is ASCII.
@@ -343,6 +347,7 @@ impl Reader<'_> {
             }),
             45 => StyleProperty::Clip(self.int()? != 0),
             46 => StyleProperty::ClipX(self.int()? != 0),
+            47 => StyleProperty::Snap(self.optional()?.map(|value| value != 0)),
             other => return Err(LuaError::runtime(format!("unknown style property {other}"))),
         })
     }
@@ -446,6 +451,7 @@ pub fn encode_node(lua: &Lua, info: &NodeInfo) -> LuaResult<LuaTable> {
     node.raw_set("content_width", info.content.width)?;
     node.raw_set("content_height", info.content.height)?;
     node.raw_set("margin", encode_edges(lua, info.margin)?)?;
+    node.raw_set("border", encode_edges(lua, info.border)?)?;
     node.raw_set("padding", encode_edges(lua, info.padding)?)?;
     node.raw_set("width", info.width.as_str())?;
     node.raw_set("height", info.height.as_str())?;
@@ -466,7 +472,9 @@ pub fn encode_node(lua: &Lua, info: &NodeInfo) -> LuaResult<LuaTable> {
 ///   layout = 0.1, paint = 0.2, diff = 0.3,
 /// }
 /// ```
-pub fn encode(lua: &Lua, patches: &[Patch], timings: Timings) -> LuaResult<LuaTable> {
+/// Errors are the commands that could not be applied, such as one for a node
+/// that is gone, each said once.
+pub fn encode(lua: &Lua, patches: &[Patch], timings: Timings, errors: &[String]) -> LuaResult<LuaTable> {
     let list = lua.create_table_with_capacity(patches.len(), 0)?;
 
     for (index, patch) in patches.iter().enumerate() {
@@ -498,5 +506,8 @@ pub fn encode(lua: &Lua, patches: &[Patch], timings: Timings) -> LuaResult<LuaTa
     frame.raw_set("layout", timings.layout)?;
     frame.raw_set("paint", timings.paint)?;
     frame.raw_set("diff", timings.diff)?;
+    if !errors.is_empty() {
+        frame.raw_set("errors", lua.create_sequence_from(errors.iter().map(String::as_str))?)?;
+    }
     Ok(frame)
 }

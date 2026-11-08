@@ -374,6 +374,70 @@ T["collapses and expands rows with the keyboard"] = function()
 	eq(contains('"hello"'), true)
 end
 
+--- Selects the first node `describe` says matches, in the inspector. Not
+--- following the cursor, which would select what is under it instead.
+local function select_where(condition)
+	run(([[
+		inspector:set_option("follow", false)
+		for id = 1, view.last_id do
+			local ok, node = pcall(view.engine.describe, view.engine, id)
+			if ok and node.x and (%s) then
+				inspector:select(id)
+				selected_id = id
+				break
+			end
+		end
+	]]):format(condition))
+end
+
+T["scroll"] = new_set()
+
+--- Puts the inspector's cursor on the row of the first block at `y` in the
+--- view, as moving onto it would.
+local function hover_block_at(y)
+	run(([[
+		vim.api.nvim_set_current_win(inspector.win.win)
+		for i, row in ipairs(reactive.untrack(inspector.rows)) do
+			if row.kind == "node" and row.node.display == "block" and row.node.y == %d then
+				vim.api.nvim_win_set_cursor(inspector.win.win, { i, 0 })
+				break
+			end
+		end
+		vim.cmd("doautocmd CursorMoved")
+		reactive.flush()
+	]]):format(y))
+end
+
+local function target_view()
+	return child.lua_get("vim.api.nvim_win_call(win.win, vim.fn.winsaveview)")
+end
+
+T["scroll"]["moving onto an element out of sight scrolls the view to it"] = function()
+	run([[
+		local items = {}
+		for i = 1, 100 do items[i] = m.block("item " .. i) end
+		view:render(m.block(items))
+		open()
+	]])
+	hover_block_at(80)
+	local topline = target_view().topline
+	local height = child.lua_get("vim.api.nvim_win_get_height(win.win)")
+	eq(topline <= 81 and 81 <= topline + height - 1, true)
+	-- The cursor stays in the inspector.
+	eq(child.lua_get("vim.api.nvim_get_current_win() == inspector.win.win"), true)
+end
+
+T["scroll"]["an element already in sight leaves the view where it is"] = function()
+	run([[
+		local items = {}
+		for i = 1, 100 do items[i] = m.block("item " .. i) end
+		view:render(m.block(items))
+		open()
+	]])
+	hover_block_at(3)
+	eq(target_view().topline, 1)
+end
+
 T["moving the cursor selects the row"] = function()
 	run([[
 		view:render(m.block({ m.block("one"), m.block("two") }))
@@ -447,7 +511,69 @@ T["marks the selected node in the target"] = function()
 		inspector:follow_cursor()
 	]])
 	local marks = child.lua_get([[inspector:target_marks()]])
-	eq(marks, { { 1, 0, 3 } })
+	-- Following the cursor selects the text, the innermost node there.
+	eq(marks, { { 1, 0, 3, "content" } })
+end
+
+T["box"] = new_set()
+
+T["box"]["marks margin, padding and content apart"] = function()
+	run([[
+		view:render(m.block({ m.block({ width = 12, margin = { 1, 2 }, padding = { 1, 1 }, "ab" }) }))
+		open()
+	]])
+	select_where([[node.margin[1] == 1]])
+	eq(child.lua_get("inspector:target_marks()"), {
+		{ 0, 0, 18, "margin" },
+		{ 1, 0, 2, "margin" },
+		{ 1, 2, 16, "padding" },
+		{ 1, 16, 18, "margin" },
+		{ 2, 0, 2, "margin" },
+		{ 2, 2, 3, "padding" },
+		{ 2, 3, 15, "content" },
+		{ 2, 15, 16, "padding" },
+		{ 2, 16, 18, "margin" },
+		{ 3, 0, 2, "margin" },
+		{ 3, 2, 16, "padding" },
+		{ 3, 16, 18, "margin" },
+		{ 4, 0, 18, "margin" },
+	})
+end
+
+T["box"]["marks a border apart from the padding inside it"] = function()
+	run([[
+		view:render(m.block({ m.block({ width = 4, border = "single", "ab" }) }))
+		open()
+	]])
+	select_where([[node.border and node.border[1] == 1]])
+	eq(child.lua_get("inspector:target_marks()"), {
+		{ 0, 0, 6, "border" },
+		{ 1, 0, 1, "border" },
+		{ 1, 1, 5, "content" },
+		{ 1, 5, 6, "border" },
+		{ 2, 0, 6, "border" },
+	})
+end
+
+T["box"]["the mark covers the whole box, past the end of its lines"] = function()
+	run([[
+		vim.o.termguicolors = true
+		vim.api.nvim_set_hl(0, "Normal", { fg = "#cdd6f4", bg = "#1e1e2e" })
+		require("markup.devkit.tree")
+		view:render(m.block({ m.block({ width = 20, "ab" }), m.block("below") }))
+		open()
+	]])
+	select_where([[node.display == "block" and node.outer_width == 20]])
+	run([[vim.cmd("redraw")]])
+	eq(#child.lua_get("inspector:target_marks()") > 0, true)
+	local screen = child.get_screenshot()
+	-- Row 1 of the screen is the box: "ab", then nothing in the buffer. Row 2
+	-- is text that is not marked.
+	local on_text, past_text, outside = screen.attr[1][1], screen.attr[1][15], screen.attr[1][25]
+	eq(screen.text[1][15], " ")
+	eq(on_text ~= screen.attr[2][1], true)
+	eq(past_text, on_text)
+	eq(outside ~= past_text, true)
 end
 
 T["shortens long text without cutting a character"] = function()

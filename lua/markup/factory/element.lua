@@ -82,6 +82,9 @@ local Element = require("markup.element")
 ---@field click? "single"|"double"|false which click of the mouse presses it, single by default
 ---@field on_hover? fun(hovered: boolean) called as the cursor comes onto the element and leaves it
 ---@field interactive? boolean|fun(): boolean a place the cursor can land, without `on_press`
+---@field snap? boolean|fun(): boolean with `false`, a view with `snap = "text"` moves the cursor
+--- past the text in here, such as labels and decoration. Inherited, so `true` inside brings it
+--- back. Interactive nodes are always a place to land.
 
 ---@alias markup.factory.element.fragment.props
 ---| { children?: markup.factory.element.children }
@@ -106,16 +109,25 @@ local function resolve(props, style)
 	else
 		if not props.children then
 			local new_props = {}
+			local positions = {}
 
 			for key, value in pairs(props) do
 				if type(key) == "number" then
-					if not new_props.children then
-						new_props.children = {}
-					end
-					table.insert(new_props.children, value)
+					positions[#positions + 1] = key
 				else
 					new_props[key] = value
 				end
+			end
+
+			-- In the order they were written. `pairs` promises no order, and a
+			-- child it put first would be laid out first.
+			if #positions > 0 then
+				table.sort(positions)
+				local children = {}
+				for i, position in ipairs(positions) do
+					children[i] = props[position]
+				end
+				new_props.children = children
 			end
 
 			props = new_props

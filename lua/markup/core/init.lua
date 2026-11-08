@@ -6,7 +6,8 @@
 ---@field node_at fun(self: markup.core.engine, row: integer, col: integer): integer?
 ---@field node_count fun(self: markup.core.engine): integer
 ---@field reset_frame fun(self: markup.core.engine)
----@field snap fun(self: markup.core.engine, from_row: integer, from_col: integer, row: integer, col: integer): integer?, integer?
+---@field snap fun(self: markup.core.engine, from_row: integer, from_col: integer, row: integer, col: integer, text?: boolean): integer?, integer?
+---@field visible_rect fun(self: markup.core.engine, id: integer): integer?, integer?, integer?, integer?, boolean?
 ---@field path_at fun(self: markup.core.engine, row: integer, col: integer): integer[]
 ---@field describe fun(self: markup.core.engine, id: integer): markup.core.node
 ---@field children fun(self: markup.core.engine, id: integer, offset: integer, limit: integer, flatten: boolean): markup.core.node[]
@@ -25,6 +26,7 @@
 ---@field content_width integer
 ---@field content_height integer
 ---@field margin integer[]
+---@field border integer[] cells each side of the border takes, between margin and padding
 ---@field padding integer[]
 ---@field width string
 ---@field height string

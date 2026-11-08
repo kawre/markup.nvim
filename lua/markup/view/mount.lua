@@ -26,7 +26,6 @@ local tags = {
 	inline = DISPLAY.inline,
 	text = DISPLAY.inline,
 	button = DISPLAY.block,
-	root = DISPLAY.block,
 	newl = DISPLAY.block,
 	flex = DISPLAY.flex,
 	hflex = DISPLAY.flex,
@@ -42,12 +41,8 @@ local tag_props = {
 
 local unsupported = { inblock = true }
 
-local shorthand = { margin = "margin", padding = "padding", inset = "inset" }
-
-local expand_edges
-
 --- Expands `margin = { 1, 2 }` style shorthands, CSS order.
-expand_edges = function(result, name, value)
+local function expand_edges(result, name, value)
 	if name == "inset" then
 		local edges = {}
 		expand_edges(edges, "edge", value)
@@ -71,6 +66,32 @@ expand_edges = function(result, name, value)
 	result[name .. "_bottom"] = result[name .. "_bottom"] or bottom
 	result[name .. "_left"] = result[name .. "_left"] or left
 end
+
+--- Shorthands, each to the properties it stands for.
+local shorthands = {
+	margin = function(value)
+		local sides = {}
+		expand_edges(sides, "margin", value)
+		return sides
+	end,
+	padding = function(value)
+		local sides = {}
+		expand_edges(sides, "padding", value)
+		return sides
+	end,
+	inset = function(value)
+		local sides = {}
+		expand_edges(sides, "inset", value)
+		return sides
+	end,
+	gap = function(value)
+		local rows, columns = value, value
+		if type(value) == "table" then
+			rows, columns = value[1], value[2]
+		end
+		return { row_gap = rows, column_gap = columns }
+	end,
+}
 
 ---@param view markup.view
 local function apply_style(view, id, name, value)
@@ -104,15 +125,31 @@ local function apply_props(view, id, tag, props)
 
 	local expanded
 	for name, value in pairs(props) do
-		if shorthand[name] then
+		local expand = shorthands[name]
+		if expand and type(value) == "function" then
+			-- Each side the element gives on its own wins, as it does below.
+			effect(function()
+				for side, side_value in pairs(expand(value())) do
+					if props[side] == nil then
+						apply_style(view, id, side, side_value)
+					end
+				end
+			end)
+		elseif expand then
 			expanded = expanded or {}
-			expand_edges(expanded, name, value)
-		elseif name == "gap" then
-			expanded = expanded or {}
-			expanded.row_gap = type(value) == "table" and value[1] or value
-			expanded.column_gap = type(value) == "table" and value[2] or value
+			for side, side_value in pairs(expand(value)) do
+				expanded[side] = side_value
+			end
 		elseif name == "vertical" then
-			bind_style(view, id, "direction", value and "column" or "row")
+			-- A shorthand, so `direction` wins, as `padding_left` does over `padding`.
+			if props.direction == nil then
+				local function direction(vertical)
+					return vertical and "column" or "row"
+				end
+				bind_style(view, id, "direction", type(value) == "function" and function()
+					return direction(value())
+				end or direction(value))
+			end
 		elseif name == "columns" or name == "rows" then
 			view.commands:set_tracks(id, name, value)
 		elseif STYLE[name] then
@@ -259,13 +296,15 @@ local function mount_host(view, parent, before, element)
 
 	local id = view:next_id()
 	view.commands:create(id, display)
+	-- In place before anything that can fail, so a mount that fails halfway
+	-- leaves what it made where the next clear of the parent frees it.
+	view.commands:insert(parent, id, before)
 
 	local props = element.props or {}
 	apply_props(view, id, tag, props)
 	if props.children ~= nil then
 		mount(view, props.children, id)
 	end
-	view.commands:insert(parent, id, before)
 end
 
 ---@param view markup.view

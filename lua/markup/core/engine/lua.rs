@@ -17,12 +17,19 @@ pub fn create_engine(_: &Lua, width: i32) -> LuaResult<LuaEngine> {
 
 impl LuaUserData for LuaEngine {
     fn add_methods<M: LuaUserDataMethods<Self>>(methods: &mut M) {
-        // Applies `len` values of commands and returns the resulting frame.
+        // Applies `len` values of commands and returns the resulting frame. A
+        // command that cannot be applied is left out and named in the frame:
+        // stopping there would drop the rest, and the tree would no longer be
+        // what the view thinks it is.
         methods.add_method_mut("commit", |lua, this, (ops, len): (LuaTable, usize)| {
+            let mut errors = Vec::new();
             protocol::decode(&ops, len, |command| {
-                this.0.apply(command).map_err(to_lua_error)
+                if let Err(error) = this.0.apply(command) {
+                    errors.push(error.to_string());
+                }
+                Ok(())
             })?;
-            this.0.render(|patches, timings| protocol::encode(lua, patches, timings))
+            this.0.render(|patches, timings| protocol::encode(lua, patches, timings, &errors))
         });
 
         // Zero indexed cell to the innermost interactive node, if any.

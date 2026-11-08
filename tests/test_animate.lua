@@ -105,7 +105,7 @@ local function count_ticks(code, ms)
 	return get("ticks")
 end
 
-T["vrr"]["a spinner ticks once per frame of its own"] = function()
+T["vrr"]["a loader ticks once per frame of its own"] = function()
 	local ticks = count_ticks([[
 		_, owner = reactive.scope(function() frames = animate.frames({ "a", "b", "c" }, { interval = 100 }) end)
 	]], 500)
@@ -157,7 +157,7 @@ T["vrr"]["something new wakes a sleeping clock"] = function()
 		animate.run({ duration = 1000, update = function() moved_at = moved_at or (vim.uv.hrtime() - started) / 1e6 end })
 		vim.wait(100, function() return moved_at ~= nil end, 1)
 	]])
-	-- Not a second later, when the spinner was next due.
+	-- Not a second later, when the loader was next due.
 	eq(get("moved_at") ~= vim.NIL and get("moved_at") < 30, true)
 end
 
@@ -327,6 +327,21 @@ T["frames cycle for as long as they live"] = function()
 	]])
 	eq(get("seen"), { "a", "b", "a" })
 	eq(get("animate.running()"), false)
+end
+
+-- Found by tests/test_properties.lua: a tick past the end of the loop showed
+-- the first frame, wherever in the next round it landed.
+T["frames land where the time is when a tick passes the end"] = function()
+	run([[
+		_, owner = reactive.scope(function()
+			frame = m.frames({ "a", "b", "c" }, { interval = 50 })
+		end)
+		animate.tick(210)
+		seen = frame()
+		reactive.dispose(owner)
+	]])
+	-- 210 ms is 60 into the second round of 150: the second frame.
+	eq(get("seen"), "b")
 end
 
 T["colors"] = new_set()
@@ -844,48 +859,44 @@ T["overflow keeps wide content readable"] = function()
 	eq(get("lines()"), { "abcdefghij" })
 end
 
-T["spinner"] = new_set()
+T["loader"] = new_set()
 
-T["spinner"]["frames of a spinner share their width"] = function()
+T["loader"]["every frame of every loader is one cell"] = function()
 	run([[
 		components = require("markup.view.components")
-		uneven = {}
-		for name, spinner in pairs(components.spinners) do
-			local width = vim.api.nvim_strwidth(spinner.frames[1])
-			for _, frame in ipairs(spinner.frames) do
-				if vim.api.nvim_strwidth(frame) ~= width then uneven[#uneven + 1] = name .. " " .. frame end
+		wide = {}
+		for name, loader in pairs(components.loaders) do
+			for _, frame in ipairs(loader.frames) do
+				if vim.api.nvim_strwidth(frame) ~= 1 then wide[#wide + 1] = name .. " " .. frame end
 			end
 		end
 	]])
-	eq(get("uneven"), {})
+	eq(get("wide"), {})
 end
 
-T["spinner"]["the snake keeps its length all the way round"] = function()
+T["loader"]["the snake keeps its length all the way round"] = function()
 	run([[
-		frames = require("markup.view.components").spinners.snake.frames
+		frames = require("markup.view.components").loaders.snake.frames
 		counts = {}
 		for i, frame in ipairs(frames) do
-			local dots = 0
-			for _, char in ipairs(vim.fn.split(frame, "\\zs")) do
-				local n = vim.fn.char2nr(char) - 0x2800
-				while n > 0 do
-					dots = dots + n % 2
-					n = math.floor(n / 2)
-				end
+			local n, dots = vim.fn.char2nr(frame) - 0x2800, 0
+			while n > 0 do
+				dots = dots + n % 2
+				n = math.floor(n / 2)
 			end
 			counts[i] = dots
 		end
 		distinct = #vim.fn.uniq(vim.fn.sort(vim.deepcopy(frames)))
 	]])
-	eq(get("#frames"), 12)
-	eq(get("vim.fn.uniq(vim.fn.sort(counts))"), { 4 })
-	eq(get("distinct"), 12)
+	eq(get("#frames"), 8)
+	eq(get("vim.fn.uniq(vim.fn.sort(counts))"), { 3 })
+	eq(get("distinct"), 8)
 end
 
-T["spinner"]["spins for as long as it is shown"] = function()
+T["loader"]["runs for as long as it is shown"] = function()
 	run([[
 		shown = m.signal(true)
-		view:render(m.show(shown, function() return m.spinner({ name = "dots" }) end))
+		view:render(m.show(shown, function() return m.loader({ name = "dots" }) end))
 		reactive.flush()
 		first = lines()[1]
 		animate.tick(90)
@@ -899,11 +910,11 @@ T["spinner"]["spins for as long as it is shown"] = function()
 	eq(get("animate.running()"), false)
 end
 
-T["spinner"]["picks one at random"] = function()
+T["loader"]["picks one at random"] = function()
 	run([[
 		seen = {}
 		for _ = 1, 40 do
-			view:render(m.spinner())
+			view:render(m.loader())
 			reactive.flush()
 			local first = lines()[1]
 			seen[first] = true
@@ -913,26 +924,64 @@ T["spinner"]["picks one at random"] = function()
 	eq(get("count > 1"), true)
 end
 
-T["spinner"]["names must exist"] = function()
+T["loader"]["names must exist"] = function()
 	run([[
 		ok, err = pcall(function()
-			view:render(m.spinner({ name = "nope" }))
+			view:render(m.loader({ name = "nope" }))
 			reactive.flush()
 		end)
 	]])
 	eq(get("ok"), false)
-	eq(get("tostring(err):find('unknown spinner `nope`', 1, true) ~= nil"), true)
+	eq(get("tostring(err):find('unknown loader `nope`', 1, true) ~= nil"), true)
 end
 
-T["spinner"]["stands still with reduced motion"] = function()
+T["loader"]["stands still with reduced motion"] = function()
 	run([[
 		animate.enabled = false
-		view:render(m.spinner({ name = "dots" }))
+		view:render(m.loader({ name = "dots" }))
 		reactive.flush()
 		animate.tick(500)
 		reactive.flush()
 	]])
 	eq(get("lines()"), { "⠋" })
+end
+
+T["loader"]["every frame of a loader differs from the next"] = function()
+	run([[
+		repeats = {}
+		for name, loader in pairs(require("markup.view.components").loaders) do
+			local frames = loader.frames
+			for i, frame in ipairs(frames) do
+				if frame == frames[i % #frames + 1] then repeats[#repeats + 1] = name .. " " .. i end
+			end
+		end
+	]])
+	eq(get("repeats"), {})
+end
+
+T["loader"]["blooms from a dot to a flower and back"] = function()
+	run([[
+		view:render(m.loader({ name = "bloom" }))
+		reactive.flush()
+		seen = {}
+		for _ = 1, 9 do
+			seen[#seen + 1] = vim.fn.char2nr(lines()[1])
+			animate.tick(120)
+			reactive.flush()
+		end
+	]])
+	eq(get("seen"), { 0xF09DF, 0xF09DE, 0xF0765, 0xF09F0, 0xF024A, 0xF09F0, 0xF0765, 0xF09DE, 0xF09DF })
+end
+
+T["loader"]["spinner is still a name for it"] = function()
+	run([[
+		view:render(m.spinner({ name = "dots" }))
+		reactive.flush()
+		components = require("markup.view.components")
+	]])
+	eq(get("lines()"), { "⠋" })
+	eq(get("components.spinners == components.loaders"), true)
+	eq(get("vim.deep_equal(components.spinner_names(), components.loader_names())"), true)
 end
 
 T["progress"] = new_set()

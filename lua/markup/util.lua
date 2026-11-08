@@ -1,9 +1,7 @@
 ---@class markup.util
 local M = {}
 
-local uv = vim.uv or vim.loop
 local key_cache = {} ---@type table<string, string>
-local langs = {} ---@type table<string, boolean>
 local hl_groups = {} ---@type table<string, vim.api.keyset.highlight>
 
 vim.api.nvim_create_autocmd("ColorScheme", {
@@ -16,7 +14,7 @@ vim.api.nvim_create_autocmd("ColorScheme", {
 })
 
 --- Ensures the hl groups are always set, even after a colorscheme change.
----@param groups snacks.util.hl
+---@param groups table<string, string|vim.api.keyset.highlight> a link or a definition, by name
 ---@param opts? { prefix?:string, default?:boolean, managed?:boolean, ns?:integer }
 function M.set_hl(groups, opts)
 	opts = opts or {}
@@ -86,8 +84,6 @@ end
 function M.call(value, ...)
 	return vim.is_callable(value) and value(...) or value
 end
-
-local counter = 1000
 
 ---@param str string
 function M.keycode(str)

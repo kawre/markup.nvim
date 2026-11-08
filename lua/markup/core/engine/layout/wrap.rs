@@ -348,10 +348,14 @@ fn break_lines(tree: &Tree, pieces: &[Piece], limit: i32) -> Breaker {
 }
 
 /// Lays out a run of inline nodes in `limit` cells at the origin of the run.
-pub fn flow(tree: &mut Tree, run: &[Index], limit: i32) -> Size {
+/// Flows a run of inline nodes, breaking lines past `limit`. Whatever cannot
+/// flow, such as a block among them, is laid out for `available`, which a run
+/// that never breaks still needs: `limit` is then unbounded, and a child as
+/// wide as its parent would be that wide too.
+pub fn flow(tree: &mut Tree, run: &[Index], limit: i32, available: i32) -> Size {
     let mut tokens = Tokens::default();
     for &node in run {
-        tokenize(tree, node, (0, 0), limit, &mut tokens);
+        tokenize(tree, node, (0, 0), available, &mut tokens);
     }
 
     let breaker = break_lines(tree, &tokens.pieces, limit);
