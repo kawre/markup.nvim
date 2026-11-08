@@ -62,6 +62,7 @@ local M = Markup.object()
 ---@field file? string If set, use this file instead of creating a new buffer
 ---@field enter? boolean Enter the window after opening (default: false)
 ---@field backdrop? number|false|markup.window.Backdrop Opacity of the backdrop (default: 60)
+---@field dim? boolean|number Dims everything under the window, floats included: `true`, or how dark from 0 to 1. Overrides `backdrop`.
 ---@field wo? vim.wo|{} window options
 ---@field bo? vim.bo|{} buffer options
 ---@field b? table<string, any> buffer local variables
@@ -797,6 +798,7 @@ function M:on_close()
 		self.backdrop:close()
 		self.backdrop = nil
 	end
+	self:undim()
 	if self.closed then
 		return
 	end
@@ -811,6 +813,38 @@ function M:on_close()
 	end
 end
 
+--- Gives the floats this window dimmed their colors back.
+function M:undim()
+	for _, win in ipairs(self.dimmed or {}) do
+		if vim.api.nvim_win_is_valid(win) then
+			vim.api.nvim_win_set_hl_ns(win, 0)
+		end
+	end
+	self.dimmed = nil
+end
+
+--- A highlight namespace with every group as it is, only darker: `brightness`
+--- of each color, which is what a black backdrop of that opacity leaves.
+---@param brightness number
+---@return integer
+function M.dim_namespace(brightness)
+	local ns = vim.api.nvim_create_namespace("markup_dim_" .. math.floor(brightness * 100))
+	local function dim(color)
+		if not color then
+			return nil
+		end
+		local r, g, b = math.floor(color / 65536) % 256, math.floor(color / 256) % 256, color % 256
+		return math.floor(r * brightness) * 65536 + math.floor(g * brightness) * 256 + math.floor(b * brightness)
+	end
+	for name in pairs(vim.api.nvim_get_hl(0, {})) do
+		local definition = vim.api.nvim_get_hl(0, { name = name, link = false })
+		definition.fg, definition.bg, definition.sp = dim(definition.fg), dim(definition.bg), dim(definition.sp)
+		definition.default = nil
+		pcall(vim.api.nvim_set_hl, ns, name, definition)
+	end
+	return ns
+end
+
 function M:is_floating()
 	return self:valid() and vim.api.nvim_win_get_config(self.win).zindex ~= nil
 end
@@ -822,6 +856,11 @@ function M:drop()
 		self.backdrop = nil
 	end
 	local backdrop = self.opts.backdrop
+	-- `dim = true`, or how dark from 0 to 1, says the same in plainer words.
+	local dim = self.opts.dim
+	if dim ~= nil then
+		backdrop = dim == true and 60 or dim and math.floor((1 - dim) * 100 + 0.5) or false
+	end
 	if not backdrop then
 		return
 	end
@@ -849,8 +888,36 @@ function M:drop()
 		winblend = 0
 	end
 
-	local group = ("SnacksBackdrop_%s"):format(bg and bg:sub(2) or "T")
+	local group = ("MarkupBackdrop_%s"):format(bg and bg:sub(2) or "T")
 	vim.api.nvim_set_hl(0, group, { bg = bg })
+
+	-- A blended float only blends with the windows of the grid, so laid over
+	-- other floats it would hide them rather than dim them. It goes under every
+	-- float instead, and the floats already open dim through a highlight
+	-- namespace of their own. This one goes above all of them.
+	local top, bottom = 0, math.huge
+	local floats = {}
+	for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
+		local config = vim.api.nvim_win_get_config(win)
+		if win ~= self.win and config.relative ~= "" and config.zindex then
+			top = math.max(top, config.zindex)
+			bottom = math.min(bottom, config.zindex)
+			floats[#floats + 1] = win
+		end
+	end
+	if self.opts.zindex <= top then
+		self.opts.zindex = top + 1
+		vim.api.nvim_win_set_config(self.win, { zindex = self.opts.zindex })
+	end
+	local under = math.max(math.min(bottom, self.opts.zindex) - 1, 1)
+
+	-- As dark as the backdrop makes the grid: it lets `blend` of each color through.
+	local ns = M.dim_namespace(backdrop.blend / 100)
+	self.dimmed = {}
+	for _, win in ipairs(floats) do
+		vim.api.nvim_win_set_hl_ns(win, ns)
+		self.dimmed[#self.dimmed + 1] = win
+	end
 
 	self.backdrop = Markup.window(M.resolve({
 		enter = false,
@@ -861,7 +928,7 @@ function M:drop()
 		style = "minimal",
 		border = "none",
 		focusable = false,
-		zindex = self.opts.zindex - 1,
+		zindex = under,
 		wo = {
 			winhighlight = "Normal:" .. group,
 			winblend = winblend,
@@ -869,7 +936,7 @@ function M:drop()
 		},
 		bo = {
 			buftype = "nofile",
-			filetype = "snacks_win_backdrop",
+			filetype = "markup_backdrop",
 		},
 	}, backdrop.win))
 end
