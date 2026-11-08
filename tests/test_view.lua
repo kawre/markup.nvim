@@ -2122,4 +2122,25 @@ T["snap"]["waits for rows the buffer does not have yet"] = function()
 	eq(child.lua_get("cursor[1] <= 2"), true)
 end
 
+T["protocol"] = new_set()
+
+T["protocol"]["a border that is not eight characters does not shift what follows"] = function()
+	child.lua([[
+		errors = {}
+		vim.notify = function(message) errors[#errors + 1] = message end
+		view = Markup.view(win)
+		view:render(m.block({
+			m.block({ "boxed", border = { chars = "1234567" }, width = 20 }),
+			m.flex({ justify = "between", m.inline("left"), m.inline("right") }),
+		}))
+		reactive.flush()
+		lines = vim.api.nvim_buf_get_lines(win.buf, 0, -1, false)
+		box = view.engine:describe(3)
+	]])
+	eq(child.lua_get("errors"), {})
+	-- No border, as it was not one, and the rest laid out as written.
+	eq(child.lua_get("lines[1]:match('^boxed')") ~= vim.NIL, true)
+	eq(child.lua_get("lines[2]:match('^left.*right$')") ~= vim.NIL, true)
+end
+
 return T

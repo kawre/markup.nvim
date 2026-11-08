@@ -266,23 +266,26 @@ impl Reader<'_> {
             .collect()
     }
 
-    /// Eight characters, a mask of sides, a highlight and a flag. No characters
-    /// means no border, with nothing else following.
+    /// Eight characters, a mask of sides, a highlight and a flag. Characters
+    /// other than eight mean no border, and the rest is read all the same, as
+    /// leaving it would read it as the commands that follow.
     fn border(&mut self) -> LuaResult<Option<Border>> {
         let characters: Vec<char> = self.string()?.chars().collect();
+        let sides = self.int()?;
+        let hl = self.value()?;
+        let outside_background = self.int()? != 0;
         let Ok(chars) = <[char; 8]>::try_from(characters) else {
             return Ok(None);
         };
 
-        let sides = self.int()?;
         Ok(Some(Border {
             chars,
             top: sides & 1 != 0,
             right: sides & 2 != 0,
             bottom: sides & 4 != 0,
             left: sides & 8 != 0,
-            hl: self.value()?,
-            outside_background: self.int()? != 0,
+            hl,
+            outside_background,
         }))
     }
 
@@ -409,6 +412,15 @@ pub fn decode(
     let mut reader = Reader { ops, position: 0 };
     while reader.position < len {
         apply(reader.command()?)?;
+    }
+    // A command read with more or fewer values than were written would have
+    // shifted everything after it, quietly setting whatever the values landed
+    // on. It ends anywhere but at the end then.
+    if reader.position != len {
+        return Err(LuaError::runtime(format!(
+            "commands out of step: read {} values of {}",
+            reader.position, len
+        )));
     }
     Ok(())
 }
