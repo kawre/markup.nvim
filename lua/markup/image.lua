@@ -4,6 +4,10 @@
 --- element does, and go when it scrolls away, is clipped, or unmounts. Views
 --- take care of that, this holds the backend and what images measure.
 
+---@class markup.image.frame
+---@field data string the bytes of a PNG
+---@field delay? integer how long it shows, in ms, 100 by default
+
 ---@class markup.image.backend
 ---@field set fun(data_or_id: string|integer, opts: table): integer
 ---@field del fun(id: integer): boolean

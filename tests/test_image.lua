@@ -320,4 +320,44 @@ T["covered"]["a float under the image's own float does not cover it"] = function
 	eq(get("count()"), 1)
 end
 
+T["frames"] = new_set()
+
+T["frames"]["play in a loop, each for its delay"] = function()
+	run([[
+		Markup.animate.manual = true
+		Markup.animate.enabled = true
+		local function frame(n) return png(200, 100) .. "frame" .. n end
+		gif = { { data = frame(1), delay = 100 }, { data = frame(2), delay = 50 }, { data = frame(3), delay = 100 } }
+		uploaded = {}
+		local set = images.backend.set
+		images.backend.set = function(data_or_id, opts)
+			if type(data_or_id) == "string" then uploaded[#uploaded + 1] = data_or_id:match("frame%d") end
+			return set(data_or_id, opts)
+		end
+		shown_flag = m.signal(true)
+		view:render(m.block({ m.show(shown_flag, function() return m.image({ data = gif, width = 20 }) end) }))
+	]])
+	local function tick(ms)
+		run(("Markup.animate.tick(%d)"):format(ms))
+		return get("uploaded[#uploaded]")
+	end
+	eq(get("uploaded[#uploaded]"), "frame1")
+	eq(tick(60), "frame1")
+	eq(tick(60), "frame2")
+	eq(tick(60), "frame3")
+	-- 250 ms in all, so it starts over.
+	eq(tick(100), "frame1")
+	eq(get("count()"), 1)
+
+	run("shown_flag(false)")
+	eq(get("count()"), 0)
+	eq(get("Markup.animate.count()"), 0)
+end
+
+T["frames"]["a single frame is a still image"] = function()
+	run([[view:render(m.block({ m.image({ data = { { data = png(200, 100), delay = 100 } }, width = 20 }) }))]])
+	eq(get("count()"), 1)
+	eq(get("Markup.animate.count()"), 0)
+end
+
 return T
