@@ -107,7 +107,7 @@ function M:new(win, opts)
 
 	-- Images are drawn on the screen, so anything that moves the window moves
 	-- them, and a window out of sight takes them away.
-	for _, event in ipairs({ "VimResized", "TabEnter", "WinClosed", "WinNew" }) do
+	for _, event in ipairs({ "VimResized", "TabEnter", "WinClosed", "WinNew", "WinResized" }) do
 		win:on(event, function()
 			vim.schedule(function()
 				self:place_images()
@@ -276,8 +276,34 @@ function M:set_image(id, image)
 	self.images[id] = image
 end
 
+--- Screen rectangles, from one, of the floats above `win`: the terminal draws
+--- images over everything, so an image under one of them has to go.
+---@param win integer
+---@return { top: integer, left: integer, bottom: integer, right: integer }[]
+local function covers(win)
+	local own = api.nvim_win_get_config(win)
+	local level = own.relative ~= "" and (own.zindex or 50) or nil
+	local rects = {}
+	for _, other in ipairs(api.nvim_tabpage_list_wins(0)) do
+		local config = api.nvim_win_get_config(other)
+		if other ~= win and config.relative ~= "" and not config.hide and (not level or (config.zindex or 50) > level) then
+			local row, col = unpack(api.nvim_win_get_position(other))
+			local border = config.border
+			local edge = (type(border) == "table" and #border > 0 or (type(border) == "string" and border ~= "none" and border ~= "")) and 1 or 0
+			rects[#rects + 1] = {
+				top = row + 1 - edge,
+				left = col + 1 - edge,
+				bottom = row + api.nvim_win_get_height(other) + edge,
+				right = col + api.nvim_win_get_width(other) + edge,
+			}
+		end
+	end
+	return rects
+end
+
 --- Shows each image over its box, moves it with the box, and takes it away
---- when the box is out of sight or cut, since an image cannot be cut.
+--- when the box is out of sight or cut, since an image cannot be cut, or when a
+--- float is over it.
 function M:place_images()
 	if next(self.images) == nil or not Markup.image.available() then
 		return
@@ -290,6 +316,8 @@ function M:place_images()
 	local leftcol = info and api.nvim_win_call(self.win.win, function()
 		return vim.fn.winsaveview().leftcol
 	end) or 0
+
+	local over = info and covers(self.win.win) or {}
 
 	for id, image in pairs(self.images) do
 		local where
@@ -310,6 +338,17 @@ function M:place_images()
 					width = image.width,
 					height = image.height,
 				}
+				for _, rect in ipairs(over) do
+					if
+						rect.top <= where.row + where.height - 1
+						and rect.bottom >= where.row
+						and rect.left <= where.col + where.width - 1
+						and rect.right >= where.col
+					then
+						where = nil
+						break
+					end
+				end
 			end
 		end
 
