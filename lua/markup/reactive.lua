@@ -71,11 +71,51 @@ local function adopt(child, parent)
 	return child
 end
 
+--- Subscribers are a set, and a list in the order they subscribed, which is
+--- the order they are told of a change. Walking the set would follow the
+--- addresses of the subscribers, which differ from one session to the next,
+--- and so would whatever depends on the order effects run in.
+local function unsubscribe(source, computation)
+	source.subs[computation] = nil
+	local stale = source.stale_subs + 1
+	source.stale_subs = stale
+	-- Left in the list until there are enough to sweep, so leaving costs nothing.
+	if stale > 16 and stale * 2 > #source.order then
+		local live, seen, n = {}, {}, 0
+		for _, sub in ipairs(source.order) do
+			if source.subs[sub] and not seen[sub] then
+				seen[sub] = true
+				n = n + 1
+				live[n] = sub
+			end
+		end
+		source.order, source.stale_subs = live, 0
+	end
+end
+
 local function clear_deps(computation)
 	for dep in pairs(computation.deps) do
-		dep.subs[computation] = nil
+		unsubscribe(dep, computation)
 	end
 	computation.deps = {}
+end
+
+--- Starts a run that tracks afresh, returning what it read last time.
+local function begin_tracking(computation)
+	local previous = computation.deps
+	computation.deps = {}
+	return previous
+end
+
+--- Leaves only what it did not read again, so a computation that reads the
+--- same as before keeps its place with each source and costs them nothing.
+local function end_tracking(computation, previous)
+	local deps = computation.deps
+	for dep in pairs(previous) do
+		if not deps[dep] then
+			unsubscribe(dep, computation)
+		end
+	end
 end
 
 --- Runs cleanups and disposes children, keeping the owner itself usable.
@@ -120,15 +160,24 @@ end
 local function track(source)
 	if observer then
 		observer.deps[source] = true
-		source.subs[observer] = true
+		if not source.subs[observer] then
+			source.subs[observer] = true
+			source.order[#source.order + 1] = observer
+		end
 	end
 end
 
 --- Effects are queued, memos only go stale until someone reads them, so a
 --- computation never sees a mix of old and new values.
 local function notify(source)
-	for sub in pairs(source.subs) do
-		if sub.memo then
+	local subs = source.subs
+	local order = source.order
+	for i = 1, #order do
+		local sub = order[i]
+		if not subs[sub] then
+			-- It left, and stays listed until a sweep. One that came back is
+			-- listed twice for as long, which the checks below make harmless.
+		elseif sub.memo then
 			if not sub.stale then
 				sub.stale = true
 				notify(sub)
@@ -147,12 +196,13 @@ end
 local function run(computation)
 	counts.runs = counts.runs + 1
 	reset(computation)
-	clear_deps(computation)
+	local previous = begin_tracking(computation)
 
 	local prev_owner, prev_observer = owner, observer
 	owner, observer = computation, computation
 	local ok, err = xpcall(computation.fn, debug.traceback)
 	owner, observer = prev_owner, prev_observer
+	end_tracking(computation, previous)
 
 	if not ok then
 		report(err)
@@ -163,7 +213,7 @@ end
 ---@param initial T
 ---@return fun(value?: T|fun(previous: T): T): T
 function M.signal(initial)
-	local source = { value = initial, subs = {} }
+	local source = { value = initial, subs = {}, order = {}, stale_subs = 0 }
 	counts.signals = counts.signals + 1
 
 	return function(...)
@@ -189,18 +239,22 @@ end
 ---@param fn fun(): T
 ---@return fun(): T
 function M.memo(fn)
-	local computation = adopt({ fn = fn, deps = {}, subs = {}, memo = true, stale = true }, owner)
+	local computation = adopt(
+		{ fn = fn, deps = {}, subs = {}, order = {}, stale_subs = 0, memo = true, stale = true },
+		owner
+	)
 
 	return function()
 		if computation.stale then
 			computation.stale = false
 			reset(computation)
-			clear_deps(computation)
+			local previous = begin_tracking(computation)
 
 			local prev_owner, prev_observer = owner, observer
 			owner, observer = computation, computation
 			local ok, value = xpcall(fn, debug.traceback)
 			owner, observer = prev_owner, prev_observer
+			end_tracking(computation, previous)
 
 			if not ok then
 				computation.stale = true

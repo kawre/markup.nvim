@@ -100,6 +100,8 @@ struct Row<'a> {
     spans: Vec<(i32, i32)>,
     /// Columns a clipping ancestor leaves visible, for what comes next.
     clip: Option<std::ops::Range<i32>>,
+    /// Whether what comes next is text a snapping cursor passes over.
+    no_snap: bool,
 }
 
 impl<'a> Row<'a> {
@@ -107,7 +109,7 @@ impl<'a> Row<'a> {
     fn write_text(&mut self, cell: i32, text: Cow<'a, str>, width: i32, cells: Cow<'a, [u8]>) {
         let leading = text.len() - text.trim_start_matches(' ').len();
         let trailing = text.len() - text.trim_end_matches(' ').len();
-        if leading < text.len() {
+        if leading < text.len() && !self.no_snap {
             let (start, end) = self.clipped(cell + leading as i32, cell + width - trailing as i32);
             if start < end {
                 self.spans.push((start, end));
@@ -276,6 +278,20 @@ impl Frame<'_> {
     }
 }
 
+/// Whether text under a node's ancestors snaps, from the nearest that says.
+/// The node's own `snap` is applied when it is painted.
+fn snaps(tree: &Tree, index: Index) -> bool {
+    let mut parent = tree.node(index).parent;
+    while let Some(index) = parent {
+        let node = tree.node(index);
+        if let Some(snap) = node.style.extra().snap {
+            return snap;
+        }
+        parent = node.parent;
+    }
+    true
+}
+
 struct Painter<'a> {
     tree: &'a Tree,
     rows: Vec<Row<'a>>,
@@ -287,6 +303,8 @@ struct Painter<'a> {
     columns: Option<std::ops::Range<i32>>,
     /// Where containing blocks ended up, only tracked when something needs it.
     origins: HashMap<Index, (i32, i32)>,
+    /// Whether text here is a place a snapping cursor lands on.
+    snap: bool,
 }
 
 impl<'a> Painter<'a> {
@@ -296,8 +314,10 @@ impl<'a> Painter<'a> {
         }
 
         let columns = self.columns.clone();
+        let snap = self.snap;
         let line = self.rows.get_mut(row as usize)?;
         line.clip = columns;
+        line.no_snap = !snap;
         Some(line)
     }
 
@@ -415,6 +435,9 @@ impl<'a> Painter<'a> {
             });
         }
 
+        let outer_snap = self.snap;
+        self.snap = style.extra().snap.unwrap_or(self.snap);
+
         let content_x = x + margin.left + padding.left;
         let content_y = y + margin.top + padding.top;
         for &child in &node.children {
@@ -423,6 +446,7 @@ impl<'a> Painter<'a> {
 
         self.visible = outer_visible;
         self.columns = outer_columns;
+        self.snap = outer_snap;
 
         // Painted last, so rows stay in order and take the fast path.
         if let Some(frame) = &frame {
@@ -491,6 +515,9 @@ impl<'a> Painter<'a> {
             let x = block_x + margin.left + geometry.x;
             let y = block_y + margin.top + geometry.y;
 
+            // Painted apart from its ancestors, so it looks up what they say.
+            self.snap = snaps(tree, index);
+
             for row in y..y + geometry.outer.height {
                 if let Some(row) = self.rows.get_mut(row as usize) {
                     row.cover(x, x + geometry.outer.width);
@@ -511,6 +538,7 @@ pub fn paint(tree: &Tree, root: Index, height: i32) -> Vec<Line> {
         visible: 0..height.max(0),
         columns: None,
         origins: HashMap::new(),
+        snap: true,
     };
 
     painter.paint_box(root, 0, 0);
@@ -797,6 +825,24 @@ mod tests {
         row.write(14, Cow::Borrowed("edge"), 4, Cow::Borrowed(&[]));
 
         assert_eq!(row.finish().spans, vec![(4, 6)]);
+    }
+
+    #[test]
+    fn text_that_does_not_snap_has_no_spans_until_a_child_says_so() {
+        let mut tree = Tree::default();
+        let a = text(&mut tree, 1, "ab", 2);
+        let b = text(&mut tree, 2, "cd", 2);
+        let inner = inline(&mut tree, 3, b, 0);
+        tree.node_mut(inner).style.extra_mut().snap = Some(true);
+        let outer = tree.create(4, Display::Inline).unwrap();
+        tree.insert(outer, a, None).unwrap();
+        tree.insert(outer, inner, None).unwrap();
+        tree.node_mut(outer).style.extra_mut().snap = Some(false);
+
+        let lines = render(&mut tree, outer);
+
+        assert_eq!(lines[0].text, "abcd");
+        assert_eq!(lines[0].spans, vec![(2, 4)]);
     }
 
     #[test]

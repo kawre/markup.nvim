@@ -411,7 +411,7 @@ local Card = m.component(function(props)
 		padding = { 0, 1 },
 		m.flex({
 			justify = "between",
-			m.block({ m.spinner(), m.inline((" card %d"):format(props.index), accent) }),
+			m.block({ m.loader(), m.inline((" card %d"):format(props.index), accent) }),
 			m.inline(function()
 				return ("%3d%%"):format(math.floor(value() * 100))
 			end, "Number"),
@@ -583,7 +583,7 @@ local function Spinners(count)
 		m.each(function()
 			return range(count())
 		end, function(index)
-			return m.inline({ m.spinner({ style = PALETTE[index % #PALETTE + 1] }), " " })
+			return m.inline({ m.loader({ style = PALETTE[index % #PALETTE + 1] }), " " })
 		end),
 	})
 end
@@ -595,7 +595,7 @@ local function Header(now)
 		padding = { 0, 1 },
 		style = "StatusLine",
 		m.block({
-			m.spinner(),
+			m.loader(),
 			m.inline(" markup stress test", "Title"),
 			m.inline(function()
 				return paused() and "  paused" or ""
@@ -849,7 +849,7 @@ end
 function M.open(opts)
 	opts = opts or {}
 	vim.cmd.tabnew()
-	local win = Markup.window({ position = "current", hijack = true, show = false, minimal = true })
+	local win = Markup.window({ position = "current", show = false, minimal = true })
 	win.buf = api.nvim_get_current_buf()
 	win:show()
 	vim.bo[win.buf].buftype = "nofile"

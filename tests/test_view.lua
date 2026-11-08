@@ -65,6 +65,69 @@ T["static"]["applies margin, padding and spacing"] = function()
 	eq(lines(), { "  a", "", "   b" })
 end
 
+-- The props docs promise every value can be a function. Found by
+-- tests/test_fuzz.lua, which made these dynamic and saw the mount fail.
+T["shorthands"] = new_set()
+
+T["shorthands"]["padding can follow a signal"] = function()
+	run([[
+		padding = m.signal({ 0, 2 })
+		view:render(m.block({ m.block({ "a", padding = padding }) }))
+		first = lines()
+		padding({ 1, 0, 0, 3 })
+		reactive.flush()
+	]])
+	eq(child.lua_get("first"), { "  a" })
+	eq(lines(), { "", "   a" })
+end
+
+T["shorthands"]["margin can follow a signal"] = function()
+	run([[
+		margin = m.signal(0)
+		view:render(m.block({ m.block({ "a", margin = margin }) }))
+		margin({ 1, 4 })
+		reactive.flush()
+	]])
+	eq(lines(), { "", "    a", "" })
+end
+
+T["shorthands"]["inset can follow a signal"] = function()
+	run([[
+		local function ui(inset)
+			return m.block({ m.block("....."), m.block({ "X", position = "absolute", inset = inset }) })
+		end
+		view:render(ui({ 0, 0, 0, 3 }))
+		static = lines()
+		inset = m.signal({ 0, 0, 0, 1 })
+		view:render(ui(inset))
+		first = lines()
+		inset({ 0, 0, 0, 3 })
+		reactive.flush()
+	]])
+	eq(child.lua_get("first ~= static"), true)
+	eq(lines(), child.lua_get("static"))
+end
+
+T["shorthands"]["gap can follow a signal, rows and columns too"] = function()
+	run([[
+		gap = m.signal(0)
+		view:render(m.grid({ columns = { 1, 1 }, gap = gap, m.block("a"), m.block("b"), m.block("c"), m.block("d") }))
+		gap({ 1, 2 })
+		reactive.flush()
+	]])
+	eq(lines(), { "a  b", "", "c  d" })
+end
+
+T["shorthands"]["a side given on its own wins over a dynamic shorthand"] = function()
+	run([[
+		padding = m.signal(1)
+		view:render(m.block({ m.block({ "a", padding = padding, padding_left = 0, padding_top = 0 }) }))
+		padding(2)
+		reactive.flush()
+	]])
+	eq(lines(), { "a", "", "" })
+end
+
 T["static"]["accepts numbers, lists and nothing"] = function()
 	run([[view:render(m.block({ m.inline(1), false, { m.inline(2), { m.inline(3) } } }))]])
 	eq(lines(), { "123" })
@@ -198,11 +261,72 @@ T["white_space"]["presses work on every line of a span"] = function()
 	eq(child.lua_get("pressed"), true)
 end
 
+-- Found by tests/test_fuzz.lua, seed 1003. A component wraps its content in
+-- a group, which the change has to see past to reach the grid.
+T["white_space"]["changing it inside a component lays the grid out again"] = function()
+	run([[
+		white_space = m.signal("normal")
+		local Cell = m.component(function()
+			return m.block({ white_space = white_space, "one two three four five six seven" })
+		end)
+		view:render(m.grid({ columns = 3, Cell() }))
+		white_space("nowrap")
+		reactive.flush()
+	]])
+	eq(lines(), { "one two three four five six seven" })
+end
+
+T["white_space"]["changing it back inside a component wraps again"] = function()
+	run([[
+		white_space = m.signal("nowrap")
+		local Cell = m.component(function()
+			return m.block({ white_space = white_space, "one two three four five six seven" })
+		end)
+		view:render(m.grid({ columns = 3, Cell() }))
+		white_space("normal")
+		reactive.flush()
+	]])
+	eq(lines(), { "one two three four", "five six seven" })
+end
+
 T["flex"] = new_set()
 
 T["flex"]["lays items out in a row"] = function()
 	run([[view:render(m.flex({ gap = 1, m.block("a"), m.block("bb"), m.block("c") }))]])
 	eq(lines(), { "a bb c" })
+end
+
+-- Found by tests/test_fuzz.lua, seeds 123 and 166: both set the direction,
+-- and whichever `pairs` met last won.
+T["flex"]["direction wins over vertical"] = function()
+	run([[view:render(m.flex({ vertical = true, direction = "row", m.block("a"), m.block("b") }))]])
+	eq(lines(), { "ab" })
+end
+
+T["flex"]["direction wins over vertical when it changes"] = function()
+	run([[
+		direction = m.signal("column")
+		view:render(m.flex({ vertical = true, direction = direction, m.block("a"), m.block("b") }))
+		direction("row")
+		reactive.flush()
+		first = lines()
+		view:render(m.flex({ vertical = true, direction = direction, m.block("a"), m.block("b") }))
+		reactive.flush()
+	]])
+	eq(child.lua_get("first"), { "ab" })
+	eq(lines(), { "ab" })
+end
+
+T["flex"]["vertical can follow a signal"] = function()
+	run([[
+		vertical = m.signal(false)
+		view:render(m.flex({ vertical = vertical, m.block("a"), m.block("b") }))
+		first = lines()
+		vertical(true)
+		reactive.flush()
+	]])
+	eq(child.lua_get("first"), { "ab" })
+	eq(lines(), { "a", "b" })
 end
 
 T["flex"]["pushes items apart"] = function()
@@ -314,6 +438,23 @@ T["grid"]["applies gaps"] = function()
 		m.block("a"), m.block("b"), m.block("c"), m.block("d"),
 	}))]])
 	eq(lines(), { "a  b", "", "c  d" })
+end
+
+T["grid"]["is as wide as the view when full, inside an inline"] = function()
+	-- A tall element among inline ones once laid out at a width of i32::MAX.
+	run([[view:render(m.inline({ m.grid({ columns = 2, width = "full", m.inline("a"), "b", "c" }) }))]])
+	eq(lines(), { "a" .. (" "):rep(29) .. "b", "c" })
+end
+
+T["grid"]["survives clipping a full width grid inside an inline"] = function()
+	-- Found by tests/test_fuzz.lua: this asked for a 1 GiB line and died.
+	run([[
+		clip = m.signal("visible")
+		view:render(m.inline({ m.grid({ columns = 2, width = "full", overflow_x = clip, m.inline("a"), "b", "c" }) }))
+		clip("hidden")
+		reactive.flush()
+	]])
+	eq(lines(), { "a" .. (" "):rep(29) .. "b", "c" })
 end
 
 T["grid"]["rejects bad tracks"] = function()
@@ -1142,6 +1283,96 @@ T["snap"]["text mode stops on text and buttons only"] = function()
 	eq(row_text(), "button")
 end
 
+--- Starts a text snapping view of `ui`, with the cursor on its first row.
+local function text_snapping(ui)
+	child.lua(([[
+		view = Markup.view(win, { snap = "text" })
+		view:render(%s)
+		reactive.flush()
+		vim.api.nvim_win_set_cursor(win.win, { 1, 0 })
+		view.cursor = nil
+		view:snap_cursor()
+	]]):format(ui))
+end
+
+local function current_line()
+	return child.lua_get("vim.trim(vim.api.nvim_get_current_line())")
+end
+
+T["snap"]["text mode passes over text that does not snap"] = function()
+	text_snapping([[m.block({
+		m.block("one"),
+		m.block({ snap = false, m.block("skipped"), m.block("this too") }),
+		m.block("two"),
+	})]])
+	eq(current_line(), "one")
+	child.type_keys("j")
+	eq(current_line(), "two")
+	child.type_keys("k")
+	eq(current_line(), "one")
+end
+
+T["snap"]["text mode lands on a button where text does not snap"] = function()
+	text_snapping([[m.block({
+		m.block("one"),
+		m.block({ snap = false, m.block("label"), m.block({ on_press = function() end, "button" }) }),
+	})]])
+	child.type_keys("j")
+	eq(current_line(), "button")
+end
+
+T["snap"]["text can snap again inside text that does not"] = function()
+	text_snapping([[m.block({
+		m.block("one"),
+		m.block({ snap = false, m.block("skipped"), m.block({ snap = true, "back" }) }),
+	})]])
+	child.type_keys("j")
+	eq(current_line(), "back")
+end
+
+T["snap"]["whether text snaps can follow a signal"] = function()
+	child.lua([[skip = m.signal(false)]])
+	text_snapping([[m.block({
+		m.block("one"),
+		m.block({ snap = function() return not skip() end, "middle" }),
+		m.block("two"),
+	})]])
+	child.type_keys("j")
+	eq(current_line(), "middle")
+	child.lua([[skip(true); reactive.flush()]])
+	child.type_keys("k", "j")
+	eq(current_line(), "two")
+end
+
+T["snap"]["absolute text inside text that does not snap does not snap either"] = function()
+	text_snapping([[m.block({
+		m.block("one"),
+		m.block({
+			snap = false,
+			position = "relative",
+			m.block("     "),
+			m.block({ position = "absolute", top = 0, left = 0, "floating" }),
+		}),
+		m.block("two"),
+	})]])
+	child.type_keys("j")
+	eq(current_line(), "two")
+end
+
+T["snap"]["gg and G stop at the first and last text that snaps"] = function()
+	text_snapping([[m.block({
+		m.block({ snap = false, "header" }),
+		m.block("one"),
+		m.block("two"),
+		m.block({ snap = false, "footer" }),
+	})]])
+	eq(current_line(), "one")
+	child.type_keys("G")
+	eq(current_line(), "two")
+	child.type_keys("gg")
+	eq(current_line(), "one")
+end
+
 T["hide_cursor"] = new_set()
 
 local function hidden()
@@ -1788,6 +2019,92 @@ T["lifecycle"]["rendering again replaces everything"] = function()
 	]])
 	eq(lines(), { "new" })
 	eq(child.lua_get("runs"), 1)
+end
+
+T["lifecycle"]["unmounting clears the buffer and the engine"] = function()
+	run([[
+		view:render(m.block({ m.block("one"), m.block("two") }))
+		view:unmount()
+		reactive.flush()
+	]])
+	eq(lines(), { "" })
+	eq(child.lua_get("view.engine:node_count()"), 1)
+end
+
+-- One bad command used to drop every command after it in the frame, leaving
+-- the engine apart from what the view thinks it holds. Effects run in an order
+-- that changed from one session to the next, so what got lost did too.
+T["lifecycle"]["text that is not UTF-8 shows, and the rest of its frame too"] = function()
+	run([[
+		reported = {}
+		vim.notify = function(message) reported[#reported + 1] = message end
+		a, b = m.signal("a"), m.signal("b")
+		view:render(m.block({ m.inline(function() return a() end), m.inline(" "), m.inline(function() return b() end) }))
+		a("x\255y")
+		b("second")
+		reactive.flush()
+		vim.wait(10)
+	]])
+	eq(lines(), { "x\u{fffd}y second" })
+	eq(child.lua_get("reported"), {})
+end
+
+T["lifecycle"]["a command for a node that is gone loses nothing else"] = function()
+	run([[
+		reported = {}
+		vim.notify = function(message) reported[#reported + 1] = message end
+		text = m.signal("before")
+		view:render(m.block({ m.inline(function() return text() end) }))
+		view.commands:set_style(99999, "width", 3)
+		text("after")
+		reactive.flush()
+		vim.wait(10)
+	]])
+	eq(lines(), { "after" })
+	-- Still said, once, so the bug behind it can be found.
+	eq(child.lua_get("#reported"), 1)
+	eq(child.lua_get("reported[1]:find('99999', 1, true) ~= nil"), true)
+end
+
+T["lifecycle"]["a collapse that unmounts before it measures sends nothing for itself"] = function()
+	run([[
+		reported = {}
+		vim.notify = function(message) reported[#reported + 1] = message end
+		Markup.animate.manual = true
+		open = m.signal(false)
+		view:render(m.block({ m.collapse(open, function() return m.block("inside") end) }))
+		open(true)
+		-- Gone before the commit it waits for.
+		view:render(m.block("other"))
+		reactive.flush()
+		vim.wait(10)
+	]])
+	eq(lines(), { "other" })
+	eq(child.lua_get("reported"), {})
+end
+
+T["lifecycle"]["a mount that fails leaves no nodes behind"] = function()
+	run([[
+		reported = 0
+		vim.notify = function() reported = reported + 1 end
+		bad = m.signal(false)
+		view:render(m.block({
+			m.show(bad, function()
+				return m.block({ m.block("a"), m.block({ justify = "bogus" }) })
+			end),
+		}))
+		before = view.engine:node_count()
+		for _ = 1, 10 do
+			bad(true)
+			reactive.flush()
+			bad(false)
+			reactive.flush()
+		end
+		vim.wait(10)
+		after = view.engine:node_count()
+	]])
+	eq(child.lua_get("reported"), 10)
+	eq(child.lua_get("after"), child.lua_get("before"))
 end
 
 T["lifecycle"]["follows the window width"] = function()

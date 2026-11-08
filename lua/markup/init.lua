@@ -89,7 +89,7 @@ function M.animated(...)
 	return Markup.animate.value(...)
 end
 
---- Cycles through values, such as a spinner.
+--- Cycles through values, such as a loader.
 ---@see markup.animate.frames
 function M.frames(...)
 	return Markup.animate.frames(...)
@@ -107,11 +107,15 @@ function M.image(...)
 	return require("markup.view.mount").image(...)
 end
 
---- A spinner, a random one unless named.
----@see markup.view.components.spinner
-function M.spinner(...)
-	return require("markup.view.components").spinner(...)
+--- An animated mark for work in progress, a random one unless named.
+---@see markup.view.components.loader
+function M.loader(...)
+	return require("markup.view.components").loader(...)
 end
+
+--- The old name of `loader`.
+---@deprecated use `loader`
+M.spinner = M.loader
 
 function M.slide(...)
 	return require("markup.view.mount").slide(...)

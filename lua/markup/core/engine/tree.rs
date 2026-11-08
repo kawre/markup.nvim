@@ -108,6 +108,13 @@ impl Tree {
         &self.absolutes
     }
 
+    /// Absolute nodes that have a parent to be placed against. One created but
+    /// not inserted yet, as when a mount fails halfway, would be its own
+    /// containing block, and finding where it is would never end.
+    pub fn attached_absolutes(&self) -> impl Iterator<Item = Index> + '_ {
+        self.absolutes.iter().copied().filter(|&index| self.node(index).parent.is_some())
+    }
+
     /// Call after a style change, to keep `absolutes` current.
     pub fn sync_position(&mut self, index: Index) {
         if self.node(index).style.position() == Position::Absolute {
@@ -175,7 +182,14 @@ impl Tree {
             let node = self.node(index);
             let parent = node.parent;
             let settled = node.dirty && node.display != Display::Contents;
-            if settled && parent.is_some_and(|p| self.node(p).dirty) {
+            // A dirty parent means the rest of the way up is dirty too, but
+            // not when it is contents: nothing lays those out, so they stay
+            // dirty however clean everything above them is.
+            let parent_settled = parent.is_some_and(|p| {
+                let parent = self.node(p);
+                parent.dirty && parent.display != Display::Contents
+            });
+            if settled && parent_settled {
                 return;
             }
             self.node_mut(index).dirty = true;
@@ -376,6 +390,24 @@ mod tests {
 
         let child = tree.create(4, Display::Block).unwrap();
         tree.insert(inner, child, None).unwrap();
+
+        assert!(tree.node(root).dirty);
+    }
+
+    #[test]
+    fn a_dirty_node_under_stale_contents_still_reaches_the_root() {
+        let mut tree = Tree::default();
+        let root = tree.create(1, Display::Block).unwrap();
+        let group = tree.create(2, Display::Contents).unwrap();
+        let child = tree.create(3, Display::Block).unwrap();
+        tree.insert(root, group, None).unwrap();
+        tree.insert(group, child, None).unwrap();
+
+        // After a layout the group is still dirty, as nothing measures it.
+        tree.node_mut(root).dirty = false;
+        tree.node_mut(child).dirty = false;
+
+        tree.mark_subtree_dirty(child);
 
         assert!(tree.node(root).dirty);
     }

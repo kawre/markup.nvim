@@ -16,16 +16,14 @@ fn depth(tree: &Tree, index: Index) -> usize {
 
 /// Outer boxes come first, because inner ones may be placed against them.
 pub fn layout(tree: &mut Tree) {
-    let mut nodes: Vec<Index> = tree.absolutes().iter().copied().collect();
+    let mut nodes: Vec<Index> = tree.attached_absolutes().collect();
     if nodes.is_empty() {
         return;
     }
     nodes.sort_by_key(|&index| depth(tree, index));
 
     for index in nodes {
-        if tree.node(index).parent.is_some() {
-            position(tree, index);
-        }
+        position(tree, index);
     }
 }
 

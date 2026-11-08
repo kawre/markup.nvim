@@ -43,6 +43,26 @@ T["effect"]["runs immediately and after changes"] = function()
 	eq(seen, { 0, 1 })
 end
 
+-- They ran in `pairs` order over a table keyed by the effects, which differs
+-- from one session to the next, so a bug that depends on it came and went.
+T["effect"]["run in the order they were made"] = function()
+	local source, order = r.signal(0), {}
+	for i = 1, 60 do
+		r.effect(function()
+			source()
+			order[#order + 1] = i
+		end)
+	end
+	order = {}
+	source(1)
+	r.flush()
+	local expected = {}
+	for i = 1, 60 do
+		expected[i] = i
+	end
+	eq(order, expected)
+end
+
 T["effect"]["runs once for many writes"] = function()
 	local count, runs = r.signal(0), 0
 	r.effect(function()

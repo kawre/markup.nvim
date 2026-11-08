@@ -238,7 +238,7 @@ mod tests {
             engine.apply(Command::CreateText { id: id + 1, text: text.to_string(), width }).unwrap();
             engine.apply(Command::Insert { parent: id, child: id + 1, before: None }).unwrap();
             engine.apply(Command::Insert { parent: 2, child: id, before: None }).unwrap();
-            if text.trim().len() > 0 {
+            if !text.trim().is_empty() {
                 let property = StyleProperty::Interactive(true);
                 engine.apply(Command::SetStyle { id, property }).unwrap();
             }

@@ -26,7 +26,7 @@ fn flush_run(tree: &mut Tree, run: &mut Vec<Index>, cursor: &mut Cursor, space: 
 
     if overflows || height > 1 {
         let limit = if overflows { space.width } else { i32::MAX };
-        let size = wrap::flow(tree, run, limit);
+        let size = wrap::flow(tree, run, limit, space.width);
         for &child in run.iter() {
             place(tree, child, 0, top);
         }

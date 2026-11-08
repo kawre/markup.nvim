@@ -1,5 +1,5 @@
-//! Read only queries for devtools. Nothing in the render path uses this, and
-//! everything is fetched on demand, so closed tools cost nothing.
+//! Read only queries, fetched on demand. Devtools use all of them, so closed
+//! tools cost nothing. Views also `describe` nodes, to measure them.
 
 use super::Engine;
 use super::style::{Display, Edges, Length, Position};
@@ -24,6 +24,8 @@ pub struct NodeInfo {
     pub rect: Option<Rect>,
     pub content: Size,
     pub margin: Edges,
+    /// Cells of each side the border takes, between the margin and the padding.
+    pub border: Edges,
     pub padding: Edges,
     pub width: String,
     pub height: String,
@@ -81,6 +83,7 @@ impl Engine {
             rect,
             content: node.geometry.content,
             margin: style.margin,
+            border: style.border_edges(),
             padding: style.padding,
             width: length_name(style.width),
             height: length_name(style.height),

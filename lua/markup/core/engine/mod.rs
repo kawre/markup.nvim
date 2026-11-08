@@ -170,7 +170,7 @@ impl Engine {
 
     /// Absolute boxes can reach past everything in flow.
     fn height_with_absolutes(&self, height: i32) -> i32 {
-        self.tree.absolutes().iter().fold(height, |height, &index| {
+        self.tree.attached_absolutes().fold(height, |height, index| {
             let bottom = self.origin(index).1 + self.tree.node(index).geometry.outer.height;
             height.max(bottom)
         })
@@ -222,7 +222,7 @@ impl Engine {
     pub fn path_at(&self, row: i32, col: i32) -> Vec<ClientId> {
         let tree = &self.tree;
 
-        let mut overlays: Vec<Index> = tree.absolutes().iter().copied().collect();
+        let mut overlays: Vec<Index> = tree.attached_absolutes().collect();
         overlays.sort_by_key(|&index| std::cmp::Reverse(tree.node(index).style.extra().z));
 
         for index in overlays {
@@ -366,6 +366,19 @@ mod tests {
 
         assert_eq!(engine.node_at(1, 0), Some(3));
         assert_eq!(engine.node_at(0, 0), None);
+    }
+
+    #[test]
+    fn an_absolute_node_not_inserted_yet_is_left_out() {
+        // A mount that fails halfway leaves its node created but never inserted.
+        let mut engine = Engine::new(20);
+        block(&mut engine, 2, ROOT, "one");
+        engine.apply(Command::Create { id: 3, display: Display::Block }).unwrap();
+        let property = StyleProperty::Position(Position::Absolute);
+        engine.apply(Command::SetStyle { id: 3, property }).unwrap();
+
+        assert_eq!(patched_lines(&mut engine), 1);
+        assert_eq!(engine.path_at(0, 0), vec![ROOT, 2, 1002]);
     }
 
     #[test]
