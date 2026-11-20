@@ -1,0 +1,151 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  format:
+    name: Format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: JohnnyMorganz/stylua-action@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          version: 2.5.2
+          args: --check lua tests scripts
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - run: cargo fmt --check
+
+  lint:
+    name: Clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo clippy --all-targets -- -D warnings
+
+  build:
+    name: Build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo build --release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: markup_core-${{ runner.os }}-${{ runner.arch }}
+          path: |
+            target/release/libmarkup_core.so
+            target/release/libmarkup_core.dylib
+          if-no-files-found: error
+
+  test-engine:
+    name: Engine tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      # The test binaries link against LuaJIT, Neovim provides it otherwise.
+      - run: sudo apt-get update && sudo apt-get install -y libluajit-5.1-dev
+      - run: cargo test
+
+  test:
+    name: Tests (Neovim ${{ matrix.neovim }})
+    runs-on: ubuntu-latest
+    # Development happens on nightly, stable only reports.
+    continue-on-error: ${{ matrix.neovim == 'stable' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        neovim: [nightly, stable]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: rhysd/action-setup-vim@v1
+        with:
+          neovim: true
+          version: ${{ matrix.neovim }}
+      - run: make test
+
+  coverage:
+    name: Coverage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: llvm-tools-preview
+      - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@cargo-llvm-cov
+      - run: sudo apt-get update && sudo apt-get install -y libluajit-5.1-dev
+      - uses: rhysd/action-setup-vim@v1
+        with:
+          neovim: true
+          version: nightly
+      - uses: leafo/gh-actions-lua@v11
+        with:
+          luaVersion: luajit-openresty
+      - uses: leafo/gh-actions-luarocks@v5
+
+      - name: Lua coverage
+        shell: bash
+        run: |
+          make coverage_lua | tee lua-coverage.txt
+          {
+            echo '### Lua coverage'
+            echo '```'
+            tail -n 1 lua-coverage.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Rust coverage
+        shell: bash
+        run: |
+          make coverage_rust | tee rust-coverage.txt
+          {
+            echo '### Rust coverage'
+            echo '```'
+            grep -E '^(Filename|TOTAL)' rust-coverage.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: .tests/coverage/*.lcov
+
+      - uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: .tests/coverage/lua.lcov
+          flags: lua
+          fail_ci_if_error: false
+      - uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: .tests/coverage/rust.lcov
+          flags: rust
+          fail_ci_if_error: false

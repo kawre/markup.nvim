@@ -1,0 +1,7 @@
+# Neovim provides the Lua symbols when it loads the module, so on macOS the
+# linker must leave them for later rather than fail on them.
+[target.x86_64-apple-darwin]
+rustflags = ["-C", "link-arg=-undefined", "-C", "link-arg=dynamic_lookup"]
+
+[target.aarch64-apple-darwin]
+rustflags = ["-C", "link-arg=-undefined", "-C", "link-arg=dynamic_lookup"]

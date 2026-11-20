@@ -1,10 +1,15 @@
+.PHONY: build test test_engine test_file format format_check lint coverage coverage_lua coverage_rust
+
+NVIM_TEST = nvim --headless --noplugin -u ./scripts/minimal_init.lua
+ROCKS = .tests/rocks
+
 # Build the native engine
 build:
 	cargo build --release
 
 # Run all test files
 test: deps/mini.test build
-	nvim --headless --noplugin -u ./scripts/minimal_init.lua -c "lua MiniTest.run()"
+	$(NVIM_TEST) -c "lua MiniTest.run()"
 
 # Run the engine's unit tests
 test_engine:
@@ -12,7 +17,41 @@ test_engine:
 
 # Run test from file at `$FILE` environment variable
 test_file: deps/mini.test build
-	nvim --headless --noplugin -u ./scripts/minimal_init.lua -c "lua MiniTest.run_file('$(FILE)')"
+	$(NVIM_TEST) -c "lua MiniTest.run_file('$(FILE)')"
+
+# Format Lua and Rust in place
+format:
+	stylua lua tests scripts
+	cargo fmt
+
+# Fail when anything is not formatted
+format_check:
+	stylua --check lua tests scripts
+	cargo fmt --check
+
+# Lint the engine
+lint:
+	cargo clippy --all-targets -- -D warnings
+
+# Coverage of both halves, in .tests/coverage
+coverage: coverage_lua coverage_rust
+
+# Lua coverage of the test suite, as LCOV in .tests/coverage/lua.lcov
+coverage_lua: deps/mini.test build $(ROCKS)
+	rm -f .tests/coverage/luacov.stats.*
+	MARKUP_COVERAGE=1 $(NVIM_TEST) -c "lua MiniTest.run()"
+	nvim -l scripts/coverage.lua
+
+# Rust coverage of the engine's unit tests, as LCOV in .tests/coverage/rust.lcov
+coverage_rust:
+	@mkdir -p .tests/coverage
+	cargo llvm-cov --lcov --output-path .tests/coverage/rust.lcov
+	cargo llvm-cov report --summary-only
+
+# LuaCov, in a tree of the project's own
+$(ROCKS):
+	luarocks --lua-version 5.1 --tree $(ROCKS) install luacov
+	luarocks --lua-version 5.1 --tree $(ROCKS) install luacov-reporter-lcov
 
 # Download 'mini.nvim' to use its 'mini.test' testing module
 deps/mini.test:
