@@ -484,15 +484,18 @@ end
 T["follows a real window resize"] = function()
 	run([[
 		view:render(m.block({ m.block({ "a", style = "Label" }) }))
-		width = vim.api.nvim_win_get_width(win.win)
 		vim.cmd("vsplit")
-		vim.wait(200, function()
-			reactive.flush()
-			return view.engine:describe(1).outer_width ~= width
-		end, 10)
 	]])
+	-- The view hears of the resize through WinResized, which Neovim sends from
+	-- its main loop: a vim.wait inside one call never turns it. Asked from here,
+	-- the loop turns between the questions.
 	eq(
-		child.lua_get("view.engine:describe(1).outer_width == vim.api.nvim_win_get_width(win.win)"),
+		vim.wait(2000, function()
+			return child.lua_get([[(function()
+				reactive.flush()
+				return view.engine:describe(1).outer_width == vim.api.nvim_win_get_width(win.win)
+			end)()]])
+		end, 10),
 		true
 	)
 end
