@@ -95,7 +95,7 @@ jobs:
           test -n "$min" || { echo "::error::min_nvim not found in lua/markup/config.lua"; exit 1; }
           gh api 'repos/neovim/neovim/releases?per_page=100' --paginate \
             --jq '.[] | select(.draft or .prerelease | not) | .tag_name' > tags.txt
-          # The version of today's nightly, such as v0.13.0-dev-2148+g2843068c7a.
+          # The version of today's nightly, shown as "v0.13.0-dev-2148+g2843068c7a nightly".
           gh api repos/neovim/neovim/releases/tags/nightly --jq .body > nightly.txt
           matrix=$(MIN="$min" python3 -c '
           import json, os, re
@@ -107,7 +107,7 @@ jobs:
           for t in tags:
               latest[parse(t)[:2]] = t
           nightly = re.search(r"NVIM (v\S+)", open("nightly.txt").read())
-          label = "nightly " + nightly.group(1) if nightly else "nightly"
+          label = nightly.group(1) + " nightly" if nightly else "nightly"
           include = [{"neovim": t, "label": t} for t in latest.values()]
           include.append({"neovim": "nightly", "label": label})
           print(json.dumps({"include": include}))
