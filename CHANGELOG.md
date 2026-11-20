@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/kawre/markup.nvim/compare/v0.3.0...v0.4.0) (2026-11-20)
+
+
+### Features
+
+* flowering Nerd Font loaders, and pick to choose what is drawn ([#28](https://github.com/kawre/markup.nvim/issues/28)) ([da23a0c](https://github.com/kawre/markup.nvim/commit/da23a0c87c9802804ce23cb90af76539de1aab4f))
+
 ## [0.3.0](https://github.com/kawre/markup.nvim/compare/v0.2.0...v0.3.0) (2026-11-20)
 
 
