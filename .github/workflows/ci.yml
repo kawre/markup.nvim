@@ -245,10 +245,11 @@ jobs:
         with:
           name: markup_core-Linux-X64
           path: target/release
+      # Measured on the Neovim users have, not on nightly.
       - uses: rhysd/action-setup-vim@v1
         with:
           neovim: true
-          version: nightly
+          version: stable
       # LuaCov in .tests/rocks, installed once for each version of the Makefile.
       - uses: actions/cache@v4
         id: rocks
