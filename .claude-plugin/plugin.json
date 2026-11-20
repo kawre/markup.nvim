@@ -1,10 +1,17 @@
 {
   "name": "markup-nvim",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "A skill for building reactive user interfaces inside Neovim with markup.nvim: elements with CSS-like props, signals, views, windows, animations, pickers and images.",
-  "author": { "name": "kawre" },
+  "author": {
+    "name": "kawre"
+  },
   "homepage": "https://github.com/kawre/markup.nvim",
   "repository": "https://github.com/kawre/markup.nvim",
   "license": "MIT",
-  "keywords": ["neovim", "lua", "ui", "markup.nvim"]
+  "keywords": [
+    "neovim",
+    "lua",
+    "ui",
+    "markup.nvim"
+  ]
 }
