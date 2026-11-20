@@ -1534,6 +1534,9 @@ T["click"]["with double, a double click presses and selects nothing"] = function
 	click_view("double")
 	click(3, 1, 2)
 	eq(child.lua_get("pressed"), "two")
+	-- The selection a double click starts ends on the next turn of the loop,
+	-- which a busy machine reaches later.
+	child.lua([[vim.wait(1000, function() return vim.fn.mode() == "n" end, 5)]])
 	eq(child.fn.mode(), "n")
 end
 
