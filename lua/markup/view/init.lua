@@ -713,9 +713,13 @@ function M:click(mouse, kind)
 	return true
 end
 
+--- The release ends each click. A double click is <LeftMouse> <LeftRelease>
+--- <2-LeftMouse> <2-LeftRelease>, and Neovim selects the word again on the last
+--- one, so pressing on <2-LeftMouse> and ending the selection there left it
+--- selected once the button came up.
 local CLICKS = {
 	[vim.keycode("<LeftRelease>")] = "single",
-	[vim.keycode("<2-LeftMouse>")] = "double",
+	[vim.keycode("<2-LeftRelease>")] = "double",
 }
 
 --- Presses whatever was clicked, in whichever view holds it, when the view
@@ -739,10 +743,10 @@ local function on_click(kind)
 	for view in pairs(Markup.views) do
 		if view.win.win == mouse.winid and view:click(mouse, kind) then
 			-- Neovim selects the word on a double click, which a press leaves out.
-			-- This runs once the click was seen, which can be before or after
-			-- Neovim has made the selection, so it is ended now if it is there,
-			-- and again once Neovim has handled what was typed. Once, so a
-			-- selection made on purpose later stays.
+			-- This runs once the last key of the click was seen, which can be
+			-- before or after Neovim has handled it, so the selection is ended now
+			-- if it is there, and again once Neovim has handled what was typed.
+			-- Once, so a selection made on purpose later stays.
 			if kind == "double" then
 				local function deselect()
 					if vim.fn.mode():match("^[vV\22]") then
