@@ -234,9 +234,6 @@ jobs:
 
       - name: Lua coverage
         shell: bash
-        # Names every case as it starts and ends, on stderr and at once.
-        env:
-          MARKUP_TEST_TRACE: "1"
         run: |
           make coverage_lua SKIP_BUILD=1 | tee lua-coverage.txt
           {
