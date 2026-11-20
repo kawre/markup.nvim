@@ -1,7 +1,11 @@
-.PHONY: build test test_lua test_engine test_file format format_check lint coverage coverage_lua coverage_rust
+.PHONY: build docs luals test test_lua test_engine test_file format format_check lint coverage coverage_lua coverage_rust
 
 NVIM_TEST = nvim --headless --noplugin -u ./scripts/minimal_init.lua
 ROCKS = .tests/rocks
+# lua-language-server for `make docs`. CI uses this version, so docs written
+# with it are the ones CI would write.
+LUALS_VERSION = 3.19.2
+LUALS = .tests/luals/bin/lua-language-server
 COVERAGE_TIMEOUT ?= 20m
 # The least coverage, in percent, of the Lua and of the Rust
 COVERAGE_MIN ?= 80
@@ -69,3 +73,14 @@ $(ROCKS):
 deps/mini.test:
 	@mkdir -p deps
 	git clone --filter=blob:none https://github.com/echasnovski/mini.test $@
+
+# Write docs/, doc/markup.txt, llms.txt and skills/ from the comments in the code
+docs:
+	nvim -l scripts/docs.lua
+
+# lua-language-server, at the version CI uses, in .tests/luals
+luals: $(LUALS)
+$(LUALS):
+	@mkdir -p .tests/luals
+	curl -fsSL https://github.com/LuaLS/lua-language-server/releases/download/$(LUALS_VERSION)/lua-language-server-$(LUALS_VERSION)-linux-x64.tar.gz \
+		| tar xz -C .tests/luals

@@ -1,0 +1,52 @@
+name: Docs
+
+# Writes docs/, doc/markup.txt, llms.txt and skills/ from the comments in the
+# code (scripts/docs.lua) after every push to master, and commits them there
+# when they changed.
+#
+# master takes changes only through pull requests. The "Protect master"
+# ruleset lets deploy keys past that, and this workflow pushes with the one in
+# the DOCS_DEPLOY_KEY secret. A push with a deploy key starts CI as any other,
+# and this workflow again, which then finds nothing to change.
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
+
+jobs:
+  docs:
+    name: Docs from comments
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ssh-key: ${{ secrets.DOCS_DEPLOY_KEY }}
+      - uses: rhysd/action-setup-vim@v1
+        with:
+          neovim: true
+          version: stable
+      - name: lua-language-server
+        run: make luals
+      - name: Write the docs
+        run: make docs
+      - name: Commit what changed
+        run: |
+          git add --all docs doc llms.txt skills
+          if git diff --cached --quiet; then
+            echo "Docs match the comments." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          { echo '### Docs updated'; echo '```'; git diff --cached --stat; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "docs: update from the comments in the code"
+          git push
