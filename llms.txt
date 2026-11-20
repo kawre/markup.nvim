@@ -1,0 +1,29 @@
+# markup.nvim
+
+> A Neovim plugin for building reactive user interfaces: elements with
+> CSS-like props, laid out by an engine in Rust and drawn into a buffer, and
+> signals that update only what changed. Lua API, Neovim 0.10+.
+
+Start with the skill, then the topic of the API you need.
+
+## Guide
+
+- [skills/claude/markup-nvim/SKILL.md](skills/claude/markup-nvim/SKILL.md): how to build UIs with markup.nvim, with examples and pitfalls
+
+## API
+
+- [docs/api/elements.md](docs/api/elements.md): require("markup"): element constructors (`m.block`, `m.inline`, `m.button`, `m.flex`, `m.grid`, ...), the props every element takes, and the types of their values.
+- [docs/api/reactive.md](docs/api/reactive.md): Signals, memos, effects, owners and scopes: what makes a view update.
+- [docs/api/view.md](docs/api/view.md): `Markup.view`: drawing elements in a window, pressing, components, loaders and progress bars.
+- [docs/api/window.md](docs/api/window.md): `Markup.window`: floats and splits, their options, backdrop and dimming, keys and events.
+- [docs/api/animate.md](docs/api/animate.md): `Markup.animate`: animated values, frames, the clock and easings.
+- [docs/api/picker.md](docs/api/picker.md): `Markup.picker`: a fuzzy picker in a popup.
+- [docs/api/image.md](docs/api/image.md): Images in views, and the backends that draw them.
+- [docs/api/layout.md](docs/api/layout.md): `Markup.layout`: windows arranged in boxes.
+- [docs/api/misc.md](docs/api/misc.md): Setup and config, commands, logging, lists and utilities.
+- [docs/api/devkit.md](docs/api/devkit.md): Tools for working on markup.nvim: the inspector, the stress test and the playground.
+- [docs/api/internals.md](docs/api/internals.md): What the view, the engine and the object system use inside. Plugins built on markup.nvim do not need these.
+
+## Engine
+
+- [docs/engine.md](docs/engine.md): the Rust engine, for working on markup.nvim itself
