@@ -1545,6 +1545,36 @@ T["click"]["with double, a double click presses and selects nothing"] = function
 	)
 end
 
+-- As a hand clicks: the button comes up a while after it went down. Neovim
+-- selects the word again on that last release, <2-LeftRelease>.
+T["click"]["with double, the word stays unselected when the button comes up late"] = function()
+	click_view("double")
+	local screen = child.lua_get("vim.fn.screenpos(win.win, 4, 2)")
+	local function mouse(action)
+		child.api.nvim_input_mouse("left", action, "", 0, screen.row - 1, screen.col - 1)
+	end
+	mouse("press")
+	mouse("release")
+	mouse("press")
+	-- Long enough for Neovim to handle the press and wait for the release.
+	vim.wait(100, function()
+		return false
+	end, 10)
+	child.fn.mode()
+	mouse("release")
+	eq(
+		vim.wait(2000, function()
+			return child.lua_get("pressed") == "two" and child.fn.mode() == "n"
+		end, 10),
+		true
+	)
+	-- And it stays that way.
+	vim.wait(100, function()
+		return false
+	end, 10)
+	eq(child.fn.mode(), "n")
+end
+
 T["click"]["each button says which click it takes"] = function()
 	child.lua([[
 		pressed = nil
