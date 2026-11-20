@@ -1,28 +1,29 @@
 #!/usr/bin/env bash
-# Runs the test files under LuaCov, at once on every core, and shows how far
-# they are as they run:
+# Runs the test files at once on every core, and shows how far they are as
+# they run. Under LuaCov when MARKUP_COVERAGE is set.
 #
 #   [##########..........]  362/727 cases  50%  0:41  test_view 120/200, test_fuzz 31/70
 #
 # In a terminal the line updates in place; elsewhere, such as CI, a new one
 # comes every PROGRESS_EVERY seconds. A file that passes takes one line at the
-# end; one that fails or runs past the limit shows its whole log, each case as
-# it ran.
+# end; one that fails or runs past the limit shows what failed and the last
+# cases before it, and keeps its whole log in .tests/logs.
 #
-#   scripts/coverage_run.sh <jobs> <timeout> <nvim command...>
+#   scripts/run_tests.sh <jobs> <timeout> <nvim command...>
 #
-# `make coverage_lua` calls it. Exits 1 when a file failed or ran too long.
+# `make test_lua` and `make coverage_lua` call it. Exits 1 when a file failed
+# or ran too long.
 
 set -u
 
-logs=.tests/coverage/logs
+logs=.tests/logs
 
 # One file, as each of the parallel runs: `--one <file> <timeout> <nvim...>`.
 if [[ ${1:-} == --one ]]; then
 	file=$2 limit=$3
 	shift 3
 	log=$logs/$(basename "$file").log
-	if MARKUP_COVERAGE=1 MARKUP_TEST_TRACE=1 timeout "$limit" \
+	if MARKUP_TEST_TRACE=1 timeout "$limit" \
 		"$@" -c "lua MiniTest.run_file(\"$file\")" >"$log" 2>&1; then
 		echo ok >"$log.status"
 	else
@@ -111,8 +112,12 @@ for log in "$logs"/*.log; do
 		echo "ok $file: $(sed 's/\x1b\[[0-9;]*m//g' "$log" | grep -a '^Fails' | tail -n 1)"
 	else
 		failed=1
+		# What failed, and the last cases before it: the whole log is on disk.
+		clean=$(sed 's/\x1b\[[0-9;]*m//g' "$log")
 		echo "== $file"
-		cat "$log"
+		echo "$clean" | grep -aE '^\[[0-9:]+\]|^[ox]\[' | grep -av 'Executing' | tail -n 15
+		echo "$clean" | sed -n '/^Fails (/,$p'
+		echo "   (whole log: $log)"
 	fi
 done
 exit $failed

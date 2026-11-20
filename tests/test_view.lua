@@ -1999,7 +1999,8 @@ T["fixed"]["follows the width of the window"] = function()
 	fixed_view()
 	run([[
 		vim.cmd("vsplit")
-		vim.wait(200, function()
+		-- Returns as soon as it holds; the time is for a busy machine.
+		vim.wait(2000, function()
 			reactive.flush()
 			return vim.api.nvim_win_get_width(band.win.win) == vim.api.nvim_win_get_width(win.win)
 		end, 10)
@@ -2020,7 +2021,7 @@ T["fixed"]["closes and reopens with its window"] = function()
 		reactive.flush()
 		band = hosted.fixed[1]
 		host:hide()
-		vim.wait(50, function() return not band.win:win_valid() end, 5)
+		vim.wait(2000, function() return not band.win:win_valid() end, 5)
 	]])
 	eq(child.lua_get("not band.win:win_valid()"), true)
 
