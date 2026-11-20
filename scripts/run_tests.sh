@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Runs the test files under LuaCov, at once on every core, and shows how far
-# they are as they run:
+# Runs the test files at once on every core, and shows how far they are as
+# they run. Under LuaCov when MARKUP_COVERAGE is set.
 #
 #   [##########..........]  362/727 cases  50%  0:41  test_view 120/200, test_fuzz 31/70
 #
@@ -9,20 +9,21 @@
 # end; one that fails or runs past the limit shows its whole log, each case as
 # it ran.
 #
-#   scripts/coverage_run.sh <jobs> <timeout> <nvim command...>
+#   scripts/run_tests.sh <jobs> <timeout> <nvim command...>
 #
-# `make coverage_lua` calls it. Exits 1 when a file failed or ran too long.
+# `make test_lua` and `make coverage_lua` call it. Exits 1 when a file failed
+# or ran too long.
 
 set -u
 
-logs=.tests/coverage/logs
+logs=.tests/logs
 
 # One file, as each of the parallel runs: `--one <file> <timeout> <nvim...>`.
 if [[ ${1:-} == --one ]]; then
 	file=$2 limit=$3
 	shift 3
 	log=$logs/$(basename "$file").log
-	if MARKUP_COVERAGE=1 MARKUP_TEST_TRACE=1 timeout "$limit" \
+	if MARKUP_TEST_TRACE=1 timeout "$limit" \
 		"$@" -c "lua MiniTest.run_file(\"$file\")" >"$log" 2>&1; then
 		echo ok >"$log.status"
 	else
