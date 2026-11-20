@@ -19,7 +19,7 @@ function markup.animated(...any)
 ```
 
 A number that animates towards the values written to it.
-See: [markup.animate.value](file:///home/kawre/projects/markup.nvim/lua/markup/animate.lua#305#9)
+See: [markup.animate.value](file:///home/runner/work/markup.nvim/markup.nvim/lua/markup/animate.lua#305#9)
 
 ### markup.block()
 
@@ -82,7 +82,7 @@ function markup.frames(...any)
 ```
 
 Cycles through values, such as a loader.
-See: [markup.animate.frames](file:///home/kawre/projects/markup.nvim/lua/markup/animate.lua#363#9)
+See: [markup.animate.frames](file:///home/runner/work/markup.nvim/markup.nvim/lua/markup/animate.lua#363#9)
 
 ### markup.image()
 
@@ -91,7 +91,7 @@ function markup.image(...any)
 ```
 
 An image, drawn over its box in the layout.
-See: [markup.view.mount.image](file:///home/kawre/projects/markup.nvim/lua/markup/view/mount.lua#596#9)
+See: [markup.view.mount.image](file:///home/runner/work/markup.nvim/markup.nvim/lua/markup/view/mount.lua#596#9)
 
 ### markup.inblock()
 
@@ -114,7 +114,7 @@ function markup.loader(...any)
 ```
 
 An animated mark for work in progress, a random one unless named.
-See: [markup.view.components.loader](file:///home/kawre/projects/markup.nvim/lua/markup/view/components.lua#198#9)
+See: [markup.view.components.loader](file:///home/runner/work/markup.nvim/markup.nvim/lua/markup/view/components.lua#198#9)
 
 ### markup.newl()
 
@@ -130,7 +130,7 @@ function markup.progress(...any)
 ```
 
 A bar with eighths of a cell of precision.
-See: [markup.view.components.progress](file:///home/kawre/projects/markup.nvim/lua/markup/view/components.lua#26#9)
+See: [markup.view.components.progress](file:///home/runner/work/markup.nvim/markup.nvim/lua/markup/view/components.lua#26#9)
 
 ### markup.show()
 

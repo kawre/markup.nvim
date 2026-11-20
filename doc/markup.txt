@@ -91,7 +91,7 @@ markup.spinner                                                *markup.spinner*
 markup.animated()                                          *markup.animated()*
     function markup.animated(...any)
     A number that animates towards the values written to it.
-    See: [markup.animate.value](file:///home/kawre/projects/markup.nvim/lua/markup/animate.lua#305#9)
+    See: [markup.animate.value](file:///home/runner/work/markup.nvim/markup.nvim/lua/markup/animate.lua#305#9)
 
 markup.block()                                                *markup.block()*
     function markup.factory.element.block(props: markup.factory.element.props, style: markup.factory.element.style)
@@ -126,12 +126,12 @@ markup.fragment()                                          *markup.fragment()*
 markup.frames()                                              *markup.frames()*
     function markup.frames(...any)
     Cycles through values, such as a loader.
-    See: [markup.animate.frames](file:///home/kawre/projects/markup.nvim/lua/markup/animate.lua#363#9)
+    See: [markup.animate.frames](file:///home/runner/work/markup.nvim/markup.nvim/lua/markup/animate.lua#363#9)
 
 markup.image()                                                *markup.image()*
     function markup.image(...any)
     An image, drawn over its box in the layout.
-    See: [markup.view.mount.image](file:///home/kawre/projects/markup.nvim/lua/markup/view/mount.lua#596#9)
+    See: [markup.view.mount.image](file:///home/runner/work/markup.nvim/markup.nvim/lua/markup/view/mount.lua#596#9)
 
 markup.inblock()                                            *markup.inblock()*
     function markup.factory.element.inblock(props: markup.factory.element.props, style: markup.factory.element.style)
@@ -144,7 +144,7 @@ markup.inline()                                              *markup.inline()*
 markup.loader()                                              *markup.loader()*
     function markup.loader(...any)
     An animated mark for work in progress, a random one unless named.
-    See: [markup.view.components.loader](file:///home/kawre/projects/markup.nvim/lua/markup/view/components.lua#198#9)
+    See: [markup.view.components.loader](file:///home/runner/work/markup.nvim/markup.nvim/lua/markup/view/components.lua#198#9)
 
 markup.newl()                                                  *markup.newl()*
     function markup.factory.element.newl()
@@ -153,7 +153,7 @@ markup.newl()                                                  *markup.newl()*
 markup.progress()                                          *markup.progress()*
     function markup.progress(...any)
     A bar with eighths of a cell of precision.
-    See: [markup.view.components.progress](file:///home/kawre/projects/markup.nvim/lua/markup/view/components.lua#26#9)
+    See: [markup.view.components.progress](file:///home/runner/work/markup.nvim/markup.nvim/lua/markup/view/components.lua#26#9)
 
 markup.show()                                                  *markup.show()*
     function markup.show(...any)
