@@ -6,8 +6,8 @@
 #
 # In a terminal the line updates in place; elsewhere, such as CI, a new one
 # comes every PROGRESS_EVERY seconds. A file that passes takes one line at the
-# end; one that fails or runs past the limit shows its whole log, each case as
-# it ran.
+# end; one that fails or runs past the limit shows what failed and the last
+# cases before it, and keeps its whole log in .tests/logs.
 #
 #   scripts/run_tests.sh <jobs> <timeout> <nvim command...>
 #
@@ -112,8 +112,12 @@ for log in "$logs"/*.log; do
 		echo "ok $file: $(sed 's/\x1b\[[0-9;]*m//g' "$log" | grep -a '^Fails' | tail -n 1)"
 	else
 		failed=1
+		# What failed, and the last cases before it: the whole log is on disk.
+		clean=$(sed 's/\x1b\[[0-9;]*m//g' "$log")
 		echo "== $file"
-		cat "$log"
+		echo "$clean" | grep -aE '^\[[0-9:]+\]|^[ox]\[' | grep -av 'Executing' | tail -n 15
+		echo "$clean" | sed -n '/^Fails (/,$p'
+		echo "   (whole log: $log)"
 	fi
 done
 exit $failed
