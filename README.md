@@ -67,6 +67,19 @@ vim.pack.add({
 Run `nvim -l build.lua` in the plugin's directory after installing or updating
 it.
 
+## Checking compatibility
+
+Client plugins can check their supported release range before loading the UI or
+the engine. For example, `^0.2` accepts stable releases from 0.2.0 up to 0.3.0
+(exclusive). The function accepts the same range syntax as `vim.version.range`.
+
+```lua
+local ok, config = pcall(require, "markup.config")
+if not (ok and config.supports and config.supports("^0.2")) then
+  return -- missing, predates the version check, or outside the supported range
+end
+```
+
 ## Example
 
 ```lua

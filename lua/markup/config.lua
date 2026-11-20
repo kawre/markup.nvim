@@ -31,6 +31,15 @@ local M = {
 	debug = false,
 }
 
+--- Whether the installed markup.nvim release satisfies a vim.version.range spec.
+--- Can be called before loading the UI or the native engine.
+---@param spec string
+---@return boolean
+function M.supports(spec)
+	local range = vim.version.range(spec)
+	return range ~= nil and range:has(M.version)
+end
+
 local is_dict_like = function(v) -- has string and number keys
 	return type(v) == "table" and (vim.tbl_isempty(v) or not vim.islist(v))
 end
