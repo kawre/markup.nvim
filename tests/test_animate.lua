@@ -52,10 +52,12 @@ local function platform_ticks(ms)
 	end)()]]):format(ms))
 end
 
---- `wanted`, or a good share of what the platform can do in `ms` if that is
---- less, for the tests that a clock ticks faster than 60 times a second.
+--- `wanted`, or a share of what the platform can do in `ms` if that is less,
+--- for the tests that a clock ticks faster than 60 times a second. A share,
+--- since timers on Windows wake at 15.6 ms or twice that, from one run to the
+--- next.
 local function at_least(wanted, ms)
-	return math.min(wanted, math.floor(platform_ticks(ms) * 0.6))
+	return math.min(wanted, math.floor(platform_ticks(ms) * 0.4))
 end
 
 T["clock"] = new_set()

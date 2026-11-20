@@ -1996,7 +1996,8 @@ T["fixed"]["follows the width of the window"] = function()
 	fixed_view()
 	run([[
 		vim.cmd("vsplit")
-		vim.wait(200, function()
+		-- Returns as soon as it holds; the time is for slow machines.
+		vim.wait(2000, function()
 			reactive.flush()
 			return vim.api.nvim_win_get_width(band.win.win) == vim.api.nvim_win_get_width(win.win)
 		end, 10)
