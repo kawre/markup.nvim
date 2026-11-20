@@ -71,24 +71,52 @@ jobs:
       - run: sudo apt-get update && sudo apt-get install -y libluajit-5.1-dev
       - run: cargo test
 
-  test:
-    name: Tests (Neovim ${{ matrix.neovim }})
+  versions:
+    name: Neovim versions
     runs-on: ubuntu-latest
-    # Development happens on nightly, stable only reports.
-    continue-on-error: ${{ matrix.neovim == 'stable' }}
-    strategy:
-      fail-fast: false
-      matrix:
-        neovim: [nightly, stable]
+    outputs:
+      matrix: ${{ steps.list.outputs.matrix }}
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
+      # Every release from `min_nvim` in lua/markup/config.lua up, and nightly.
+      - id: list
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          min=$(sed -n 's/^[[:space:]]*min_nvim = "\(.*\)",$/\1/p' lua/markup/config.lua)
+          test -n "$min" || { echo "::error::min_nvim not found in lua/markup/config.lua"; exit 1; }
+          gh api 'repos/neovim/neovim/releases?per_page=100' --paginate \
+            --jq '.[] | select(.draft or .prerelease | not) | .tag_name' > tags.txt
+          matrix=$(MIN="$min" python3 -c '
+          import json, os, re
+          parse = lambda v: tuple(int(x) for x in v.lstrip("v").split("."))
+          tags = [t.strip() for t in open("tags.txt") if re.fullmatch(r"v\d+\.\d+\.\d+", t.strip())]
+          tags = sorted({t for t in tags if parse(t) >= parse(os.environ["MIN"])}, key=parse)
+          print(json.dumps({"neovim": tags + ["nightly"]}))
+          ')
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+          echo "Testing on Neovim $min and up: $matrix" >> "$GITHUB_STEP_SUMMARY"
+
+  test:
+    name: Tests (Neovim ${{ matrix.neovim }})
+    needs: [versions, build]
+    runs-on: ubuntu-latest
+    # Every version at once, each on the engine the build job made.
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.versions.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: markup_core-Linux-X64
+          path: target/release
       - uses: rhysd/action-setup-vim@v1
         with:
           neovim: true
           version: ${{ matrix.neovim }}
-      - run: make test
+      - run: make test_lua
 
   coverage:
     name: Coverage

@@ -1,4 +1,4 @@
-.PHONY: build test test_engine test_file format format_check lint coverage coverage_lua coverage_rust
+.PHONY: build test test_lua test_engine test_file format format_check lint coverage coverage_lua coverage_rust
 
 NVIM_TEST = nvim --headless --noplugin -u ./scripts/minimal_init.lua
 ROCKS = .tests/rocks
@@ -8,7 +8,10 @@ build:
 	cargo build --release
 
 # Run all test files
-test: deps/mini.test build
+test: build test_lua
+
+# Run all test files on the engine already built, as CI does with a downloaded one
+test_lua: deps/mini.test
 	$(NVIM_TEST) -c "lua MiniTest.run()"
 
 # Run the engine's unit tests
