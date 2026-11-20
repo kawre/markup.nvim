@@ -49,21 +49,8 @@ coverage: coverage_lua coverage_rust
 coverage_lua: deps/mini.test $(if $(SKIP_BUILD),,build) $(ROCKS)
 	rm -rf .tests/coverage/luacov.stats.* .tests/coverage/logs
 	@mkdir -p .tests/coverage/logs
-	@# The files at once, on every core, the largest first so the cores finish
-	@# together. Each Neovim writes stats of its own and each file a log of its
-	@# own. A file that passes takes one line; one that fails or runs past the
-	@# limit shows its whole log, with each case as it ran, and the others
-	@# still count.
-	@ls -S tests/test_*.lua | xargs -P $(JOBS) -I{} sh -c '\
-		log=.tests/coverage/logs/$$(basename {}).log; \
-		if MARKUP_COVERAGE=1 MARKUP_TEST_TRACE=1 timeout $(COVERAGE_TIMEOUT) \
-			$(NVIM_TEST) -c "lua MiniTest.run_file(\"{}\")" > $$log 2>&1; then \
-			echo "ok {}: $$(sed "s/\x1b\[[0-9;]*m//g" $$log | grep -a "^Fails" | tail -n 1)"; \
-		else \
-			echo "!! {} failed or ran past $(COVERAGE_TIMEOUT)" >> $$log; \
-			echo "== {}"; cat $$log; \
-		fi'
-	@failed=0; grep -l '^!! ' .tests/coverage/logs/*.log >/dev/null 2>&1 && failed=1; \
+	@# The files at once on every core, with a progress bar; see the script.
+	@failed=0; scripts/coverage_run.sh $(JOBS) $(COVERAGE_TIMEOUT) $(NVIM_TEST) || failed=1; \
 	MARKUP_COVERAGE_MIN=$(COVERAGE_MIN) nvim -l scripts/coverage.lua || failed=1; \
 	exit $$failed
 
