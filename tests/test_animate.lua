@@ -174,7 +174,8 @@ T["vrr"]["a value without a step ticks at the rate"] = function()
 	]],
 		400
 	)
-	eq(ticks > at_least(30, 400), true)
+	-- It ticks for the 300 ms it runs, not the whole wait.
+	eq(ticks > at_least(30, 300), true)
 end
 
 T["vrr"]["something new wakes a sleeping clock"] = function()
