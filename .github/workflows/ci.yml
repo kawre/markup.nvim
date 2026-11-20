@@ -16,8 +16,54 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  # What a change touches, so jobs with nothing to check are skipped: a pull
+  # request of docs runs no build, one of Lua no Clippy. A manual run checks
+  # everything.
+  changes:
+    name: Changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      rust: ${{ steps.all.outputs.rust }}
+      lua: ${{ steps.all.outputs.lua }}
+      code: ${{ steps.all.outputs.code }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            rust:
+              - "Cargo.toml"
+              - "Cargo.lock"
+              - ".cargo/**"
+              - "lua/markup/core/**/*.rs"
+            lua:
+              - "lua/**/*.lua"
+              - "tests/**"
+              - "scripts/minimal_init.lua"
+              - "scripts/coverage.lua"
+              - "Makefile"
+              - ".stylua.toml"
+            ci:
+              - ".github/workflows/ci.yml"
+              - "codecov.yml"
+      - id: all
+        env:
+          EVERYTHING: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.ci == 'true' }}
+          RUST: ${{ steps.filter.outputs.rust }}
+          LUA: ${{ steps.filter.outputs.lua }}
+        run: |
+          rust=$([ "$EVERYTHING" = true ] || [ "$RUST" = true ] && echo true || echo false)
+          lua=$([ "$EVERYTHING" = true ] || [ "$LUA" = true ] && echo true || echo false)
+          code=$([ "$rust" = true ] || [ "$lua" = true ] && echo true || echo false)
+          { echo "rust=$rust"; echo "lua=$lua"; echo "code=$code"; } >> "$GITHUB_OUTPUT"
+          echo "Rust changed: $rust, Lua changed: $lua" >> "$GITHUB_STEP_SUMMARY"
+
   format:
     name: Format
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -34,6 +80,8 @@ jobs:
 
   lint:
     name: Clippy
+    needs: changes
+    if: needs.changes.outputs.rust == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -48,13 +96,24 @@ jobs:
   # macOS ten times, on a private repository.
   build:
     name: Build
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-      - run: cargo build --release
+      # The engine built from the same sources before: no toolchain, no build.
+      - uses: actions/cache@v4
+        id: engine
+        with:
+          path: target/release/libmarkup_core.so
+          key: engine-${{ runner.os }}-${{ hashFiles('Cargo.toml', 'Cargo.lock', '.cargo/**', 'lua/markup/core/**/*.rs') }}
+      - if: steps.engine.outputs.cache-hit != 'true'
+        uses: dtolnay/rust-toolchain@stable
+      - if: steps.engine.outputs.cache-hit != 'true'
+        uses: Swatinem/rust-cache@v2
+      - if: steps.engine.outputs.cache-hit != 'true'
+        run: cargo build --release
       - uses: actions/upload-artifact@v4
         with:
           name: markup_core-${{ runner.os }}-${{ runner.arch }}
@@ -63,6 +122,8 @@ jobs:
 
   test-engine:
     name: Engine tests
+    needs: changes
+    if: needs.changes.outputs.rust == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -75,6 +136,8 @@ jobs:
 
   versions:
     name: Neovim versions
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.list.outputs.matrix }}
@@ -133,10 +196,69 @@ jobs:
       - run: nvim --version | head -n 1
       - run: make test_lua
 
-  coverage:
-    name: Coverage
+  coverage-lua:
+    name: Coverage (Lua)
+    needs: [changes, build]
+    if: needs.changes.outputs.lua == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: markup_core-Linux-X64
+          path: target/release
+      - uses: rhysd/action-setup-vim@v1
+        with:
+          neovim: true
+          version: nightly
+      # LuaCov in .tests/rocks, installed once for each version of the Makefile.
+      - uses: actions/cache@v4
+        id: rocks
+        with:
+          path: .tests/rocks
+          key: rocks-${{ hashFiles('Makefile') }}
+      # Only for LuaRocks, which LuaJIT cannot run: its manifest has more
+      # constants than LuaJIT allows in a function. LuaCov is plain Lua and
+      # runs in Neovim's LuaJIT.
+      - if: steps.rocks.outputs.cache-hit != 'true'
+        uses: leafo/gh-actions-lua@v11
+        with:
+          luaVersion: "5.1.5"
+      - if: steps.rocks.outputs.cache-hit != 'true'
+        uses: leafo/gh-actions-luarocks@v5
+
+      - name: Lua coverage
+        shell: bash
+        # Names every case as it starts and ends, on stderr and at once.
+        env:
+          MARKUP_TEST_TRACE: "1"
+        run: |
+          make coverage_lua SKIP_BUILD=1 | tee lua-coverage.txt
+          {
+            echo '### Lua coverage'
+            echo '```'
+            tail -n 1 lua-coverage.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coverage-lua
+          path: .tests/coverage/lua.lcov
+      - uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: .tests/coverage/lua.lcov
+          flags: lua
+          fail_ci_if_error: false
+
+  coverage-rust:
+    name: Coverage (Rust)
+    needs: changes
+    if: needs.changes.outputs.rust == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -145,31 +267,6 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - uses: taiki-e/install-action@cargo-llvm-cov
       - run: sudo apt-get update && sudo apt-get install -y libluajit-5.1-dev
-      - uses: rhysd/action-setup-vim@v1
-        with:
-          neovim: true
-          version: nightly
-      # Only for LuaRocks, which LuaJIT cannot run: its manifest has more
-      # constants than LuaJIT allows in a function. LuaCov is plain Lua and
-      # runs in Neovim's LuaJIT.
-      - uses: leafo/gh-actions-lua@v11
-        with:
-          luaVersion: "5.1.5"
-      - uses: leafo/gh-actions-luarocks@v5
-
-      - name: Lua coverage
-        shell: bash
-        # Names every case as it starts and ends, on stderr and at once.
-        env:
-          MARKUP_TEST_TRACE: "1"
-        run: |
-          make coverage_lua | tee lua-coverage.txt
-          {
-            echo '### Lua coverage'
-            echo '```'
-            tail -n 1 lua-coverage.txt
-            echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Rust coverage
         shell: bash
@@ -184,15 +281,8 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: coverage
-          path: .tests/coverage/*.lcov
-
-      - uses: codecov/codecov-action@v5
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: .tests/coverage/lua.lcov
-          flags: lua
-          fail_ci_if_error: false
+          name: coverage-rust
+          path: .tests/coverage/rust.lcov
       - uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
@@ -200,18 +290,20 @@ jobs:
           flags: rust
           fail_ci_if_error: false
 
-  # The one check branch protection requires: every job above passed. Their
+  # The one check branch protection requires: every job above passed, or was
+  # skipped for having nothing to check. Their
   # names change with the Neovim versions, this one does not.
   ci:
     name: All checks
     if: always()
-    needs: [format, lint, build, versions, test-engine, test, coverage]
+    needs: [changes, format, lint, build, versions, test-engine, test, coverage-lua, coverage-rust]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Every job passed
+      # Skipped is fine: nothing it checks changed.
+      - name: Every job passed or had nothing to check
         env:
           RESULTS: ${{ toJSON(needs.*.result) }}
         run: |
           echo "$RESULTS"
-          echo "$RESULTS" | jq -e 'all(. == "success")'
+          echo "$RESULTS" | jq -e 'all(. == "success" or . == "skipped")'
