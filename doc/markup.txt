@@ -64,6 +64,8 @@ CONTENTS                                                     *markup-contents*
     markup.view.fixed....................................|markup.view.fixed|
     markup.view.hl..........................................|markup.view.hl|
     markup.view.loader..................................|markup.view.loader|
+    markup.view.loader_def..........................|markup.view.loader_def|
+    markup.view.loader_pick........................|markup.view.loader_pick|
     markup.view.mount....................................|markup.view.mount|
     markup.view.opts......................................|markup.view.opts|
     markup.view.progress..............................|markup.view.progress|
@@ -2188,12 +2190,13 @@ markup.view.components                                *markup.view.components*
     lua/markup/view/components.lua
 
 markup.view.components.loaders                *markup.view.components.loaders*
-    table<string, { frames: string[], interval: integer }>
+    table<string, markup.view.loader_def>
     Animated marks for work in progress, each one cell wide. Some spin, others
-    fill, grow, fade or bloom. Needs a Nerd Font.
+    fill, grow, fade or bloom. Those marked `nerd_font` need a Nerd Font;
+    `pick` draws from some of them.
 
 markup.view.components.spinners              *markup.view.components.spinners*
-    table<string, { frames: string[], interval: integer }>
+    table<string, markup.view.loader_def>
     The names from before there were loaders that do not spin, kept for the
     plugins that use them.
 
@@ -2208,9 +2211,15 @@ markup.view.components.loader()              *markup.view.components.loader()*
     An animated character that runs for as long as it is shown.
 
 markup.view.components.loader_names()  *markup.view.components.loader_names()*
-    function markup.view.components.loader_names()
+    function markup.view.components.loader_names(pick?: markup.view.loader_pick)
       -> string[]
-    Names of the loaders, in a stable order.
+    Names of the loaders, in a stable order: all of them, or those `pick`
+    allows.
+
+markup.view.components.loader_width()  *markup.view.components.loader_width()*
+    function markup.view.components.loader_width(loader: markup.view.loader_def)
+      -> integer
+    How many cells the widest frame of a loader takes.
 
 markup.view.components.progress()          *markup.view.components.progress()*
     function markup.view.components.progress(props: markup.view.progress)
@@ -2298,8 +2307,45 @@ markup.view.loader.name                              *markup.view.loader.name*
     string?
     one of `loaders`, a random one by default
 
+markup.view.loader.pick                              *markup.view.loader.pick*
+    (markup.view.loader_pick)?
+    which loaders the random one is drawn from
+
 markup.view.loader.style                            *markup.view.loader.style*
     string?
+
+==============================================================================
+markup.view.loader_def                                *markup.view.loader_def*
+
+    lua/markup/view/components.lua
+
+markup.view.loader_def.frames                  *markup.view.loader_def.frames*
+    string[]
+
+markup.view.loader_def.interval              *markup.view.loader_def.interval*
+    integer
+    ms per frame
+
+markup.view.loader_def.nerd_font            *markup.view.loader_def.nerd_font*
+    true?
+    needs a Nerd Font to show
+
+==============================================================================
+markup.view.loader_pick                              *markup.view.loader_pick*
+
+    lua/markup/view/components.lua
+
+markup.view.loader_pick.names                  *markup.view.loader_pick.names*
+    string[]?
+    only these loaders
+
+markup.view.loader_pick.nerd_font          *markup.view.loader_pick.nerd_font*
+    boolean?
+    true for only the loaders that need a Nerd Font, false for only those that do not
+
+markup.view.loader_pick.width                  *markup.view.loader_pick.width*
+    integer?
+    only the loaders this many cells wide
 
 ==============================================================================
 markup.view.mount                                          *markup.view.mount*

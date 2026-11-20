@@ -10,7 +10,7 @@ signatures and types, from the LuaCATS annotations in `lua/`.
 - [reactive.md](reactive.md): Signals, memos, effects, owners and scopes: what makes a view update.
   Classes: `markup.reactive`, `markup.reactive.computation`, `markup.reactive.owner`
 - [view.md](view.md): `Markup.view`: drawing elements in a window, pressing, components, loaders and progress bars.
-  Classes: `markup.view`, `markup.view.components`, `markup.view.fixed`, `markup.view.loader`, `markup.view.opts`, `markup.view.progress`
+  Classes: `markup.view`, `markup.view.components`, `markup.view.fixed`, `markup.view.loader`, `markup.view.loader_def`, `markup.view.loader_pick`, `markup.view.opts`, `markup.view.progress`
 - [window.md](window.md): `Markup.window`: floats and splits, their options, backdrop and dimming, keys and events.
   Classes: `markup.window`, `markup.window.Action`, `markup.window.Action.fn`, `markup.window.Action.spec`, `markup.window.Backdrop`, `markup.window.config`, `markup.window.Dim`, `markup.window.Event`, `markup.window.Keys`
 - [animate.md](animate.md): `Markup.animate`: animated values, frames, the clock and easings.

@@ -260,8 +260,8 @@ Source: `lua/markup/view/components.lua`
 
 Fields:
 
-- `loaders`: `table<string, { frames: string[], interval: integer }>` - Animated marks for work in progress, each one cell wide. Some spin, others fill, grow, fade or bloom. Needs a Nerd Font.
-- `spinners`: `table<string, { frames: string[], interval: integer }>` - The names from before there were loaders that do not spin, kept for the plugins that use them.
+- `loaders`: `table<string, markup.view.loader_def>` - Animated marks for work in progress, each one cell wide. Some spin, others fill, grow, fade or bloom. Those marked `nerd_font` need a Nerd Font; `pick` draws from some of them.
+- `spinners`: `table<string, markup.view.loader_def>` - The names from before there were loaders that do not spin, kept for the plugins that use them.
 
 ### markup.view.components.bar()
 
@@ -284,11 +284,21 @@ An animated character that runs for as long as it is shown.
 ### markup.view.components.loader_names()
 
 ```lua
-function markup.view.components.loader_names()
+function markup.view.components.loader_names(pick?: markup.view.loader_pick)
   -> string[]
 ```
 
-Names of the loaders, in a stable order.
+Names of the loaders, in a stable order: all of them, or those `pick`
+allows.
+
+### markup.view.components.loader_width()
+
+```lua
+function markup.view.components.loader_width(loader: markup.view.loader_def)
+  -> integer
+```
+
+How many cells the widest frame of a loader takes.
 
 ### markup.view.components.progress()
 
@@ -380,7 +390,28 @@ Fields:
 
 - `interval`: `integer?` - ms per frame
 - `name`: `string?` - one of `loaders`, a random one by default
+- `pick`: `(markup.view.loader_pick)?` - which loaders the random one is drawn from
 - `style`: `string?`
+
+## markup.view.loader_def
+
+Source: `lua/markup/view/components.lua`
+
+Fields:
+
+- `frames`: `string[]`
+- `interval`: `integer` - ms per frame
+- `nerd_font`: `true?` - needs a Nerd Font to show
+
+## markup.view.loader_pick
+
+Source: `lua/markup/view/components.lua`
+
+Fields:
+
+- `names`: `string[]?` - only these loaders
+- `nerd_font`: `boolean?` - true for only the loaders that need a Nerd Font, false for only those that do not
+- `width`: `integer?` - only the loaders this many cells wide
 
 ## markup.view.opts
 
