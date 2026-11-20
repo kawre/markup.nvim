@@ -26,7 +26,12 @@ Run `:checkhealth markup` to check them, and that the engine matches the plugin.
 
 ## Installation
 
-With [lazy.nvim](https://github.com/folke/lazy.nvim):
+The plugin runs `build.lua` on install and update. On a release it downloads
+the engine for your platform (Linux and macOS on x86_64 and arm64, Windows on
+x86_64) and checks its SHA-256; anywhere else, such as on `master`, it builds
+the engine with `cargo build --release`.
+
+### [lazy.nvim](https://github.com/folke/lazy.nvim)
 
 ```lua
 {
@@ -35,13 +40,32 @@ With [lazy.nvim](https://github.com/folke/lazy.nvim):
 }
 ```
 
-lazy.nvim runs `build.lua` on install and update. On a release it downloads
-the engine for your platform (Linux and macOS on x86_64 and arm64, Windows on
-x86_64); anywhere else, such as on `master` without `version`,
-it builds the engine with `cargo build --release`.
+lazy.nvim runs `build.lua` by itself.
 
-With any other plugin manager, run `nvim -l build.lua` in the plugin's
-directory after installing or updating it.
+### vim.pack (Neovim 0.12+)
+
+```lua
+-- Before vim.pack.add, so it sees the first install too.
+vim.api.nvim_create_autocmd("PackChanged", {
+  callback = function(ev)
+    local data = ev.data
+    if data.spec.name == "markup.nvim" and data.kind ~= "delete" then
+      vim.system({ "nvim", "-l", "build.lua" }, { cwd = data.path }):wait()
+    end
+  end,
+})
+
+vim.pack.add({
+  { src = "https://github.com/kawre/markup.nvim", version = vim.version.range("*") },
+})
+```
+
+`vim.version.range("*")` follows releases, as `version = "*"` does in lazy.nvim.
+
+### Other plugin managers
+
+Run `nvim -l build.lua` in the plugin's directory after installing or updating
+it.
 
 ## Example
 
