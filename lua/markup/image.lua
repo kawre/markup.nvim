@@ -46,7 +46,10 @@ function M.from_image_nvim()
 
 	local function file_for(data)
 		vim.fn.mkdir(dir, "p")
-		local path = ("%s/%s.png"):format(dir, vim.fn.sha256(data):sub(1, 16))
+		-- Before Neovim 0.12 a string with a NUL in it reaches Vimscript as a
+		-- Blob, which `sha256()` refuses, and image data has them.
+		local key = vim.fn.sha256(vim.base64.encode(data)):sub(1, 16)
+		local path = ("%s/%s.png"):format(dir, key)
 		if not vim.uv.fs_stat(path) then
 			local file = assert(io.open(path, "wb"))
 			file:write(data)
