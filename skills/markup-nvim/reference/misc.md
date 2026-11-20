@@ -56,6 +56,16 @@ function markup.config.merge(...<T>)
 Merges the values similar to vim.tbl_deep_extend with the **force** behavior,
 but the values can be any type
 
+### markup.config.supports()
+
+```lua
+function markup.config.supports(spec: string)
+  -> boolean
+```
+
+Whether the installed markup.nvim release satisfies a vim.version.range spec.
+Can be called before loading the UI or the native engine.
+
 ## markup.list
 
 Source: `lua/markup/collection/list.lua`
