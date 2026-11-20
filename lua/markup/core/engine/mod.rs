@@ -3,13 +3,13 @@
 pub mod cursor;
 pub mod diff;
 pub mod inspect;
-mod visible;
 pub mod layout;
 pub mod lua;
 pub mod paint;
 pub mod protocol;
 pub mod style;
 pub mod tree;
+mod visible;
 
 use paint::Line;
 use protocol::{Command, StyleProperty};
@@ -112,7 +112,11 @@ impl Engine {
                 tree.node_mut(index).cells = Some(cells.into_boxed_slice());
                 tree.mark_dirty(index);
             }
-            Command::Insert { parent, child, before } => {
+            Command::Insert {
+                parent,
+                child,
+                before,
+            } => {
                 let parent = tree.index_of(parent)?;
                 let child = tree.index_of(child)?;
                 let before = before.map(|id| tree.index_of(id)).transpose()?;
@@ -148,7 +152,11 @@ impl Engine {
         let mut timings = Timings::default();
 
         let started = Instant::now();
-        let size = layout::measure(&mut self.tree, self.root, layout::Constraints::available(self.width));
+        let size = layout::measure(
+            &mut self.tree,
+            self.root,
+            layout::Constraints::available(self.width),
+        );
         layout::absolute::layout(&mut self.tree);
         let height = self.height_with_absolutes(size.height);
         timings.layout = elapsed_ms(started);
@@ -170,10 +178,12 @@ impl Engine {
 
     /// Absolute boxes can reach past everything in flow.
     fn height_with_absolutes(&self, height: i32) -> i32 {
-        self.tree.attached_absolutes().fold(height, |height, index| {
-            let bottom = self.origin(index).1 + self.tree.node(index).geometry.outer.height;
-            height.max(bottom)
-        })
+        self.tree
+            .attached_absolutes()
+            .fold(height, |height, index| {
+                let bottom = self.origin(index).1 + self.tree.node(index).geometry.outer.height;
+                height.max(bottom)
+            })
     }
 
     /// Top left of a node's margin box, in buffer cells.
@@ -251,14 +261,24 @@ impl Engine {
     }
 
     /// Walks down from a node whose margin box starts at `x`, `y`.
-    fn descend(&self, index: Index, x: i32, y: i32, row: i32, col: i32, path: &mut Vec<ClientId>) -> bool {
+    fn descend(
+        &self,
+        index: Index,
+        x: i32,
+        y: i32,
+        row: i32,
+        col: i32,
+        path: &mut Vec<ClientId>,
+    ) -> bool {
         let node = self.tree.node(index);
         let outer = node.geometry.outer;
 
         // A wrapped node only covers its fragments, not its bounding box.
         let inside = match &node.fragments {
             Some(fragments) => fragments.iter().any(|fragment| {
-                row == y + fragment.y && col >= x + fragment.x && col < x + fragment.x + fragment.width
+                row == y + fragment.y
+                    && col >= x + fragment.x
+                    && col < x + fragment.x + fragment.width
             }),
             None => row >= y && row < y + outer.height && col >= x && col < x + outer.width.max(1),
         };
@@ -276,7 +296,15 @@ impl Engine {
         true
     }
 
-    fn descend_child(&self, index: Index, x: i32, y: i32, row: i32, col: i32, path: &mut Vec<ClientId>) -> bool {
+    fn descend_child(
+        &self,
+        index: Index,
+        x: i32,
+        y: i32,
+        row: i32,
+        col: i32,
+        path: &mut Vec<ClientId>,
+    ) -> bool {
         let node = self.tree.node(index);
 
         if node.display == Display::Contents {
@@ -296,7 +324,14 @@ impl Engine {
         }
 
         let (shift_x, shift_y) = node.style.relative_offset();
-        self.descend(index, x + node.geometry.x + shift_x, y + node.geometry.y + shift_y, row, col, path)
+        self.descend(
+            index,
+            x + node.geometry.x + shift_x,
+            y + node.geometry.y + shift_y,
+            row,
+            col,
+            path,
+        )
     }
 }
 
@@ -307,10 +342,25 @@ mod tests {
 
     fn block(engine: &mut Engine, id: u32, parent: u32, label: &str) {
         let commands = [
-            Command::Create { id, display: Display::Block },
-            Command::CreateText { id: id + 1000, text: label.to_string(), width: label.len() as i32 },
-            Command::Insert { parent: id, child: id + 1000, before: None },
-            Command::Insert { parent, child: id, before: None },
+            Command::Create {
+                id,
+                display: Display::Block,
+            },
+            Command::CreateText {
+                id: id + 1000,
+                text: label.to_string(),
+                width: label.len() as i32,
+            },
+            Command::Insert {
+                parent: id,
+                child: id + 1000,
+                before: None,
+            },
+            Command::Insert {
+                parent,
+                child: id,
+                before: None,
+            },
         ];
         for command in commands {
             engine.apply(command).unwrap();
@@ -330,7 +380,13 @@ mod tests {
         assert_eq!(patched_lines(&mut engine), 0);
 
         let text = "ONE".to_string();
-        engine.apply(Command::SetText { id: 1002, text, width: 3 }).unwrap();
+        engine
+            .apply(Command::SetText {
+                id: 1002,
+                text,
+                width: 3,
+            })
+            .unwrap();
         assert_eq!(patched_lines(&mut engine), 1);
         assert_eq!(patched_lines(&mut engine), 0);
     }
@@ -343,7 +399,10 @@ mod tests {
         engine.apply(Command::Clear { id: ROOT }).unwrap();
 
         let lines = engine.render(|patches, _| {
-            patches.iter().map(|p| (p.first, p.last, p.lines.len())).collect::<Vec<_>>()
+            patches
+                .iter()
+                .map(|p| (p.first, p.last, p.lines.len()))
+                .collect::<Vec<_>>()
         });
 
         assert_eq!(lines, vec![(0, 1, 1)]);
@@ -352,7 +411,10 @@ mod tests {
     #[test]
     fn unknown_nodes_are_errors_not_panics() {
         let mut engine = Engine::new(20);
-        assert_eq!(engine.apply(Command::Remove { id: 42 }), Err(TreeError::UnknownNode(42)));
+        assert_eq!(
+            engine.apply(Command::Remove { id: 42 }),
+            Err(TreeError::UnknownNode(42))
+        );
     }
 
     #[test]
@@ -373,7 +435,12 @@ mod tests {
         // A mount that fails halfway leaves its node created but never inserted.
         let mut engine = Engine::new(20);
         block(&mut engine, 2, ROOT, "one");
-        engine.apply(Command::Create { id: 3, display: Display::Block }).unwrap();
+        engine
+            .apply(Command::Create {
+                id: 3,
+                display: Display::Block,
+            })
+            .unwrap();
         let property = StyleProperty::Position(Position::Absolute);
         engine.apply(Command::SetStyle { id: 3, property }).unwrap();
 

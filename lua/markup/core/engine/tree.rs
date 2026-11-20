@@ -85,15 +85,22 @@ pub struct Tree {
 
 impl Tree {
     pub fn node(&self, index: Index) -> &Node {
-        self.slots[index as usize].as_ref().expect("stale node index")
+        self.slots[index as usize]
+            .as_ref()
+            .expect("stale node index")
     }
 
     pub fn node_mut(&mut self, index: Index) -> &mut Node {
-        self.slots[index as usize].as_mut().expect("stale node index")
+        self.slots[index as usize]
+            .as_mut()
+            .expect("stale node index")
     }
 
     pub fn index_of(&self, client: ClientId) -> Result<Index, TreeError> {
-        self.ids.get(&client).copied().ok_or(TreeError::UnknownNode(client))
+        self.ids
+            .get(&client)
+            .copied()
+            .ok_or(TreeError::UnknownNode(client))
     }
 
     pub fn len(&self) -> usize {
@@ -112,7 +119,10 @@ impl Tree {
     /// not inserted yet, as when a mount fails halfway, would be its own
     /// containing block, and finding where it is would never end.
     pub fn attached_absolutes(&self) -> impl Iterator<Item = Index> + '_ {
-        self.absolutes.iter().copied().filter(|&index| self.node(index).parent.is_some())
+        self.absolutes
+            .iter()
+            .copied()
+            .filter(|&index| self.node(index).parent.is_some())
     }
 
     /// Call after a style change, to keep `absolutes` current.
@@ -299,7 +309,11 @@ impl Tree {
     ) {
         let len = self.node(index).children.len();
         for position in 0..len {
-            let position = if reverse { len - 1 - position } else { position };
+            let position = if reverse {
+                len - 1 - position
+            } else {
+                position
+            };
             let child = self.node(index).children[position];
             let node = self.node(child);
             if node.display == Display::Contents {
@@ -317,7 +331,10 @@ mod tests {
 
     fn tree_with(ids: &[ClientId]) -> (Tree, Vec<Index>) {
         let mut tree = Tree::default();
-        let indexes = ids.iter().map(|&id| tree.create(id, Display::Block).unwrap()).collect();
+        let indexes = ids
+            .iter()
+            .map(|&id| tree.create(id, Display::Block).unwrap())
+            .collect();
         (tree, indexes)
     }
 

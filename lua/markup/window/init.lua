@@ -871,10 +871,13 @@ function M.dim_namespace(brightness, source)
 			return nil
 		end
 		local r, g, b = math.floor(color / 65536) % 256, math.floor(color / 256) % 256, color % 256
-		return math.floor(r * brightness) * 65536 + math.floor(g * brightness) * 256 + math.floor(b * brightness)
+		return math.floor(r * brightness) * 65536
+			+ math.floor(g * brightness) * 256
+			+ math.floor(b * brightness)
 	end
 	local function set(group, definition)
-		definition.fg, definition.bg, definition.sp = dim(definition.fg), dim(definition.bg), dim(definition.sp)
+		definition.fg, definition.bg, definition.sp =
+			dim(definition.fg), dim(definition.bg), dim(definition.sp)
 		definition.default = nil
 		pcall(vim.api.nvim_set_hl, ns, group, definition)
 	end

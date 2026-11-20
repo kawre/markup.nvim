@@ -10,6 +10,7 @@
 //! The opcodes mirror `lua/markup/view/protocol.lua`. Patches return as tables
 //! of strings and flat integer arrays, with highlights as interned ids.
 
+use super::Timings;
 use super::diff::Patch;
 use super::inspect::NodeInfo;
 use super::style::{
@@ -17,7 +18,6 @@ use super::style::{
     WhiteSpace,
 };
 use super::tree::ClientId;
-use super::Timings;
 use mlua::prelude::*;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -134,18 +134,52 @@ impl StyleProperty {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Command {
-    Create { id: ClientId, display: Display },
-    CreateText { id: ClientId, text: String, width: i32 },
-    SetText { id: ClientId, text: String, width: i32 },
-    SetStyle { id: ClientId, property: StyleProperty },
-    Insert { parent: ClientId, child: ClientId, before: Option<ClientId> },
-    Remove { id: ClientId },
-    Clear { id: ClientId },
-    Resize { width: i32 },
-    SetTracks { id: ClientId, axis: Direction, tracks: Vec<Track> },
-    SetBorder { id: ClientId, border: Option<Border> },
+    Create {
+        id: ClientId,
+        display: Display,
+    },
+    CreateText {
+        id: ClientId,
+        text: String,
+        width: i32,
+    },
+    SetText {
+        id: ClientId,
+        text: String,
+        width: i32,
+    },
+    SetStyle {
+        id: ClientId,
+        property: StyleProperty,
+    },
+    Insert {
+        parent: ClientId,
+        child: ClientId,
+        before: Option<ClientId>,
+    },
+    Remove {
+        id: ClientId,
+    },
+    Clear {
+        id: ClientId,
+    },
+    Resize {
+        width: i32,
+    },
+    SetTracks {
+        id: ClientId,
+        axis: Direction,
+        tracks: Vec<Track>,
+    },
+    SetBorder {
+        id: ClientId,
+        border: Option<Border>,
+    },
     /// Widths of the non ASCII characters of a text, as digits.
-    SetCells { id: ClientId, cells: Vec<u8> },
+    SetCells {
+        id: ClientId,
+        cells: Vec<u8>,
+    },
 }
 
 /// Stands for "unset" in optional values, because the array cannot hold nil.
@@ -242,7 +276,11 @@ impl Reader<'_> {
     }
 
     fn direction(&mut self) -> LuaResult<Direction> {
-        Ok(if self.int()? == 0 { Direction::Row } else { Direction::Column })
+        Ok(if self.int()? == 0 {
+            Direction::Row
+        } else {
+            Direction::Column
+        })
     }
 
     fn position(&mut self) -> LuaResult<Position> {
@@ -400,7 +438,10 @@ impl Reader<'_> {
                 let digits = self.string()?;
                 Command::SetCells {
                     id,
-                    cells: digits.bytes().map(|digit| digit.saturating_sub(b'0')).collect(),
+                    cells: digits
+                        .bytes()
+                        .map(|digit| digit.saturating_sub(b'0'))
+                        .collect(),
                 }
             }
             other => return Err(LuaError::runtime(format!("unknown opcode {other}"))),
@@ -474,7 +515,12 @@ pub fn encode_node(lua: &Lua, info: &NodeInfo) -> LuaResult<LuaTable> {
 /// ```
 /// Errors are the commands that could not be applied, such as one for a node
 /// that is gone, each said once.
-pub fn encode(lua: &Lua, patches: &[Patch], timings: Timings, errors: &[String]) -> LuaResult<LuaTable> {
+pub fn encode(
+    lua: &Lua,
+    patches: &[Patch],
+    timings: Timings,
+    errors: &[String],
+) -> LuaResult<LuaTable> {
     let list = lua.create_table_with_capacity(patches.len(), 0)?;
 
     for (index, patch) in patches.iter().enumerate() {
@@ -507,7 +553,10 @@ pub fn encode(lua: &Lua, patches: &[Patch], timings: Timings, errors: &[String])
     frame.raw_set("paint", timings.paint)?;
     frame.raw_set("diff", timings.diff)?;
     if !errors.is_empty() {
-        frame.raw_set("errors", lua.create_sequence_from(errors.iter().map(String::as_str))?)?;
+        frame.raw_set(
+            "errors",
+            lua.create_sequence_from(errors.iter().map(String::as_str))?,
+        )?;
     }
     Ok(frame)
 }

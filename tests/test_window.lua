@@ -85,14 +85,21 @@ T["dim"]["dims the windows under it on a transparent background"] = function()
 	-- No float to blend with a background that is not there.
 	eq(child.lua_get("backdrop()"), vim.NIL)
 	-- The text under it at 60% of its brightness.
-	eq(child.lua_get("dimmed_fg"), child.lua_get("math.floor(0xcd * 0.6) * 65536 + math.floor(0xd6 * 0.6) * 256 + math.floor(0xf4 * 0.6)"))
+	eq(
+		child.lua_get("dimmed_fg"),
+		child.lua_get(
+			"math.floor(0xcd * 0.6) * 65536 + math.floor(0xd6 * 0.6) * 256 + math.floor(0xf4 * 0.6)"
+		)
+	)
 
 	child.lua("popup:close()")
 	eq(child.lua_get("math.max(vim.api.nvim_get_hl_ns({ winid = editor }), 0)"), 0)
 end
 
 T["dim"]["lays a backdrop under the popup"] = function()
-	child.lua([[popup = Markup.window({ width = 0.5, height = 0.5, dim = true, enter = true, text = { "hi" } })]])
+	child.lua(
+		[[popup = Markup.window({ width = 0.5, height = 0.5, dim = true, enter = true, text = { "hi" } })]]
+	)
 	eq(child.lua_get("backdrop() ~= nil"), true)
 	eq(child.lua_get("backdrop().z < vim.api.nvim_win_get_config(popup.win).zindex"), true)
 end
@@ -119,7 +126,12 @@ T["dim"]["dims the floats already open, and gives their colors back"] = function
 	eq(child.lua_get("second_z > first_z"), true)
 	eq(child.lua_get("dimmed_ns ~= 0"), true)
 	-- 0.4 dark leaves 60% of each color.
-	eq(child.lua_get("normal.fg"), child.lua_get("math.floor(0xcd * 0.6) * 65536 + math.floor(0xd6 * 0.6) * 256 + math.floor(0xf4 * 0.6)"))
+	eq(
+		child.lua_get("normal.fg"),
+		child.lua_get(
+			"math.floor(0xcd * 0.6) * 65536 + math.floor(0xd6 * 0.6) * 256 + math.floor(0xf4 * 0.6)"
+		)
+	)
 	-- Its own again, which its `winhighlight` lives in.
 	eq(child.lua_get("restored_ns"), child.lua_get("own_ns"))
 end
@@ -137,10 +149,11 @@ T["dim"]["gives a float its winhighlight back"] = function()
 		popup = Markup.window({ width = 0.5, height = 0.5, dim = true, enter = true })
 		popup:close()
 		after = vim.api.nvim_get_hl_ns({ winid = float })
-		normal = vim.api.nvim_get_hl(after, { name = "Normal" })
+		-- Before Neovim 0.12 the group comes with the colors of what it links to.
+		normal_link = vim.api.nvim_get_hl(after, { name = "Normal" }).link
 	]])
 	eq(child.lua_get("after"), child.lua_get("own"))
-	eq(child.lua_get("normal"), { link = "Special" })
+	eq(child.lua_get("normal_link"), "Special")
 end
 
 T["dim"]["dims a float in the colors its winhighlight gives it"] = function()

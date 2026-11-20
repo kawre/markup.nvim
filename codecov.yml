@@ -1,0 +1,25 @@
+ignore:
+  - lua/markup/devkit
+
+coverage:
+  status:
+    project:
+      default:
+        target: 80%
+        informational: true
+    patch:
+      default:
+        informational: true
+
+flags:
+  lua:
+    paths:
+      - lua/markup/
+    carryforward: true
+  rust:
+    paths:
+      - lua/markup/core/
+    carryforward: true
+
+comment:
+  layout: "condensed_header, diff, flags, files"

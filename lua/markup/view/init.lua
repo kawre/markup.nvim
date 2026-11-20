@@ -287,10 +287,20 @@ local function covers(win)
 	local rects = {}
 	for _, other in ipairs(api.nvim_tabpage_list_wins(0)) do
 		local config = api.nvim_win_get_config(other)
-		if other ~= win and config.relative ~= "" and not config.hide and (not level or (config.zindex or 50) > level) then
+		if
+			other ~= win
+			and config.relative ~= ""
+			and not config.hide
+			and (not level or (config.zindex or 50) > level)
+		then
 			local row, col = unpack(api.nvim_win_get_position(other))
 			local border = config.border
-			local edge = (type(border) == "table" and #border > 0 or (type(border) == "string" and border ~= "none" and border ~= "")) and 1 or 0
+			local edge = (
+				type(border) == "table" and #border > 0
+				or (type(border) == "string" and border ~= "none" and border ~= "")
+			)
+					and 1
+				or 0
 			rects[#rects + 1] = {
 				top = row + 1 - edge,
 				left = col + 1 - edge,
@@ -314,9 +324,11 @@ function M:place_images()
 	local info = self.win:win_valid()
 		and api.nvim_win_get_tabpage(self.win.win) == api.nvim_get_current_tabpage()
 		and vim.fn.getwininfo(self.win.win)[1]
-	local leftcol = info and api.nvim_win_call(self.win.win, function()
-		return vim.fn.winsaveview().leftcol
-	end) or 0
+	local leftcol = info
+			and api.nvim_win_call(self.win.win, function()
+				return vim.fn.winsaveview().leftcol
+			end)
+		or 0
 
 	local over = info and covers(self.win.win) or {}
 
@@ -655,7 +667,10 @@ function M:apply(patches)
 				local virtcol = view.curswant >= vim.v.maxcol and math.huge or view.curswant + 1
 				local last = vim.fn.virtcol({ lnum, "$" }) - 1
 				view.lnum = lnum
-				view.col = math.max(vim.fn.virtcol2col(win, lnum, math.min(virtcol, math.max(last, 1))) - 1, 0)
+				view.col = math.max(
+					vim.fn.virtcol2col(win, lnum, math.min(virtcol, math.max(last, 1))) - 1,
+					0
+				)
 				view.topline = math.min(view.topline, count)
 				vim.fn.winrestview(view)
 			end)

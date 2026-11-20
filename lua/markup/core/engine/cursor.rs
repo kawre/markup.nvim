@@ -8,7 +8,14 @@ use super::tree::Index;
 impl Engine {
     /// Interactive nodes, each with the row a cursor lands on when entering it:
     /// its first row of content, rather than a border or padding above it.
-    fn interactive_rects(&self, index: Index, x: i32, y: i32, rects: &mut Vec<Rect>, lands: &mut Vec<i32>) {
+    fn interactive_rects(
+        &self,
+        index: Index,
+        x: i32,
+        y: i32,
+        rects: &mut Vec<Rect>,
+        lands: &mut Vec<i32>,
+    ) {
         let tree = self.tree();
         let node = tree.node(index);
 
@@ -66,7 +73,10 @@ impl Engine {
 
         let (row, col) = to;
         let contains = |rect: &Rect| {
-            row >= rect.y && row < rect.y + rect.height && col >= rect.x && col < rect.x + rect.width
+            row >= rect.y
+                && row < rect.y + rect.height
+                && col >= rect.x
+                && col < rect.x + rect.width
         };
         let holds_from = |rect: &&Rect| {
             from.0 >= rect.y
@@ -75,14 +85,21 @@ impl Engine {
                 && from.1 < rect.x + rect.width
         };
         // The node the cursor is leaving, as text is free to move within.
-        let own = if text { None } else { rects.iter().find(holds_from) };
+        let own = if text {
+            None
+        } else {
+            rects.iter().find(holds_from)
+        };
         let moved = to != from;
 
         if let Some(rect) = rects.iter().find(|rect| contains(rect)) {
             let inside_own = own.is_some_and(|own| std::ptr::eq(own, rect));
             if !(moved && inside_own) {
                 // A button is entered at its top, whichever side it is reached from.
-                let land = lands[rects.iter().position(|other| std::ptr::eq(other, rect)).unwrap_or(0)];
+                let land = lands[rects
+                    .iter()
+                    .position(|other| std::ptr::eq(other, rect))
+                    .unwrap_or(0)];
                 return Some(if text { to } else { (land, col) });
             }
         }
@@ -110,7 +127,11 @@ impl Engine {
         let target = if text {
             // The next line comes first, however far its text is from the column.
             let nearest = |rect: &&Rect| gaps(rect);
-            rects.iter().filter(ahead).min_by_key(nearest).or_else(|| rects.iter().min_by_key(nearest))
+            rects
+                .iter()
+                .filter(ahead)
+                .min_by_key(nearest)
+                .or_else(|| rects.iter().min_by_key(nearest))
         } else {
             // Rows cost twice as much as columns, since cells are twice as tall.
             let distance = |rect: &&Rect| {
@@ -126,7 +147,10 @@ impl Engine {
                 let last_col = rect.x + rect.width - 1;
                 (row.clamp(rect.y, last_row), col.clamp(rect.x, last_col))
             } else {
-                let index = rects.iter().position(|other| std::ptr::eq(other, rect)).unwrap_or(0);
+                let index = rects
+                    .iter()
+                    .position(|other| std::ptr::eq(other, rect))
+                    .unwrap_or(0);
                 (lands[index], rect.x)
             }
         }))
@@ -135,7 +159,12 @@ impl Engine {
     fn text_rects(&self, rects: &mut Vec<Rect>, lands: &mut Vec<i32>) {
         for (y, line) in self.lines.iter().enumerate() {
             for &(start, end) in &line.spans {
-                rects.push(Rect { x: start, y: y as i32, width: end - start, height: 1 });
+                rects.push(Rect {
+                    x: start,
+                    y: y as i32,
+                    width: end - start,
+                    height: 1,
+                });
                 lands.push(y as i32);
             }
         }
@@ -152,10 +181,33 @@ mod tests {
         let mut engine = Engine::new(20);
         let mut id = 2;
         for row in 0..=*rows.iter().max().unwrap() {
-            engine.apply(Command::Create { id, display: Display::Block }).unwrap();
-            engine.apply(Command::CreateText { id: id + 1, text: "row".to_string(), width: 3 }).unwrap();
-            engine.apply(Command::Insert { parent: id, child: id + 1, before: None }).unwrap();
-            engine.apply(Command::Insert { parent: ROOT, child: id, before: None }).unwrap();
+            engine
+                .apply(Command::Create {
+                    id,
+                    display: Display::Block,
+                })
+                .unwrap();
+            engine
+                .apply(Command::CreateText {
+                    id: id + 1,
+                    text: "row".to_string(),
+                    width: 3,
+                })
+                .unwrap();
+            engine
+                .apply(Command::Insert {
+                    parent: id,
+                    child: id + 1,
+                    before: None,
+                })
+                .unwrap();
+            engine
+                .apply(Command::Insert {
+                    parent: ROOT,
+                    child: id,
+                    before: None,
+                })
+                .unwrap();
             if rows.contains(&row) {
                 let property = StyleProperty::Interactive(true);
                 engine.apply(Command::SetStyle { id, property }).unwrap();
@@ -191,16 +243,55 @@ mod tests {
         let mut id = 2;
         for _ in 0..count {
             let button = id;
-            engine.apply(Command::Create { id: button, display: Display::Block }).unwrap();
-            engine.apply(Command::Insert { parent: ROOT, child: button, before: None }).unwrap();
+            engine
+                .apply(Command::Create {
+                    id: button,
+                    display: Display::Block,
+                })
+                .unwrap();
+            engine
+                .apply(Command::Insert {
+                    parent: ROOT,
+                    child: button,
+                    before: None,
+                })
+                .unwrap();
             let property = StyleProperty::Interactive(true);
-            engine.apply(Command::SetStyle { id: button, property }).unwrap();
+            engine
+                .apply(Command::SetStyle {
+                    id: button,
+                    property,
+                })
+                .unwrap();
 
             for _ in 0..2 {
-                engine.apply(Command::Create { id: id + 1, display: Display::Block }).unwrap();
-                engine.apply(Command::CreateText { id: id + 2, text: "row".to_string(), width: 3 }).unwrap();
-                engine.apply(Command::Insert { parent: id + 1, child: id + 2, before: None }).unwrap();
-                engine.apply(Command::Insert { parent: button, child: id + 1, before: None }).unwrap();
+                engine
+                    .apply(Command::Create {
+                        id: id + 1,
+                        display: Display::Block,
+                    })
+                    .unwrap();
+                engine
+                    .apply(Command::CreateText {
+                        id: id + 2,
+                        text: "row".to_string(),
+                        width: 3,
+                    })
+                    .unwrap();
+                engine
+                    .apply(Command::Insert {
+                        parent: id + 1,
+                        child: id + 2,
+                        before: None,
+                    })
+                    .unwrap();
+                engine
+                    .apply(Command::Insert {
+                        parent: button,
+                        child: id + 1,
+                        before: None,
+                    })
+                    .unwrap();
                 id += 2;
             }
             id += 1;
@@ -228,16 +319,50 @@ mod tests {
     /// Buttons in a row, with a blank column between them.
     fn engine_with_row() -> Engine {
         let mut engine = Engine::new(20);
-        engine.apply(Command::Create { id: 2, display: Display::Flex }).unwrap();
-        engine.apply(Command::Insert { parent: ROOT, child: 2, before: None }).unwrap();
+        engine
+            .apply(Command::Create {
+                id: 2,
+                display: Display::Flex,
+            })
+            .unwrap();
+        engine
+            .apply(Command::Insert {
+                parent: ROOT,
+                child: 2,
+                before: None,
+            })
+            .unwrap();
 
         for (index, text) in ["aaaa", " ", "bbbb", " ", "cccc"].iter().enumerate() {
             let id = 3 + index as u32 * 2;
-            engine.apply(Command::Create { id, display: Display::Block }).unwrap();
+            engine
+                .apply(Command::Create {
+                    id,
+                    display: Display::Block,
+                })
+                .unwrap();
             let width = text.len() as i32;
-            engine.apply(Command::CreateText { id: id + 1, text: text.to_string(), width }).unwrap();
-            engine.apply(Command::Insert { parent: id, child: id + 1, before: None }).unwrap();
-            engine.apply(Command::Insert { parent: 2, child: id, before: None }).unwrap();
+            engine
+                .apply(Command::CreateText {
+                    id: id + 1,
+                    text: text.to_string(),
+                    width,
+                })
+                .unwrap();
+            engine
+                .apply(Command::Insert {
+                    parent: id,
+                    child: id + 1,
+                    before: None,
+                })
+                .unwrap();
+            engine
+                .apply(Command::Insert {
+                    parent: 2,
+                    child: id,
+                    before: None,
+                })
+                .unwrap();
             if !text.trim().is_empty() {
                 let property = StyleProperty::Interactive(true);
                 engine.apply(Command::SetStyle { id, property }).unwrap();
@@ -284,10 +409,33 @@ mod tests {
     fn buttons_are_entered_below_their_border() {
         let mut engine = Engine::new(20);
         for id in [2, 4] {
-            engine.apply(Command::Create { id, display: Display::Block }).unwrap();
-            engine.apply(Command::CreateText { id: id + 1, text: "tile".to_string(), width: 4 }).unwrap();
-            engine.apply(Command::Insert { parent: id, child: id + 1, before: None }).unwrap();
-            engine.apply(Command::Insert { parent: ROOT, child: id, before: None }).unwrap();
+            engine
+                .apply(Command::Create {
+                    id,
+                    display: Display::Block,
+                })
+                .unwrap();
+            engine
+                .apply(Command::CreateText {
+                    id: id + 1,
+                    text: "tile".to_string(),
+                    width: 4,
+                })
+                .unwrap();
+            engine
+                .apply(Command::Insert {
+                    parent: id,
+                    child: id + 1,
+                    before: None,
+                })
+                .unwrap();
+            engine
+                .apply(Command::Insert {
+                    parent: ROOT,
+                    child: id,
+                    before: None,
+                })
+                .unwrap();
             let property = StyleProperty::Interactive(true);
             engine.apply(Command::SetStyle { id, property }).unwrap();
             let property = StyleProperty::Padding(Side::Top, 1);
@@ -305,13 +453,36 @@ mod tests {
         let mut engine = Engine::new(40);
         let mut id = 2;
         for row in rows {
-            engine.apply(Command::Create { id, display: Display::Block }).unwrap();
+            engine
+                .apply(Command::Create {
+                    id,
+                    display: Display::Block,
+                })
+                .unwrap();
             let (indent, text) = row.unwrap_or((0, " "));
             let value = format!("{}{text}", " ".repeat(indent as usize));
             let width = value.len() as i32;
-            engine.apply(Command::CreateText { id: id + 1, text: value, width }).unwrap();
-            engine.apply(Command::Insert { parent: id, child: id + 1, before: None }).unwrap();
-            engine.apply(Command::Insert { parent: ROOT, child: id, before: None }).unwrap();
+            engine
+                .apply(Command::CreateText {
+                    id: id + 1,
+                    text: value,
+                    width,
+                })
+                .unwrap();
+            engine
+                .apply(Command::Insert {
+                    parent: id,
+                    child: id + 1,
+                    before: None,
+                })
+                .unwrap();
+            engine
+                .apply(Command::Insert {
+                    parent: ROOT,
+                    child: id,
+                    before: None,
+                })
+                .unwrap();
             id += 2;
         }
         engine.render(|_, _| ());
@@ -336,7 +507,8 @@ mod tests {
 
     #[test]
     fn the_next_line_wins_over_one_closer_to_the_column() {
-        let engine = engine_with_text(&[Some((10, "long")), None, Some((0, "a")), Some((10, "long"))]);
+        let engine =
+            engine_with_text(&[Some((10, "long")), None, Some((0, "a")), Some((10, "long"))]);
 
         assert_eq!(engine.snap((0, 11), (1, 11), true), Some((2, 0)));
     }
@@ -360,8 +532,20 @@ mod tests {
     fn goes_back_when_nothing_is_ahead() {
         let engine = engine_with_buttons(&[1, 2, 5]);
         let mut engine = engine;
-        engine.apply(Command::CreateText { id: 100, text: "tail".to_string(), width: 4 }).unwrap();
-        engine.apply(Command::Insert { parent: ROOT, child: 100, before: None }).unwrap();
+        engine
+            .apply(Command::CreateText {
+                id: 100,
+                text: "tail".to_string(),
+                width: 4,
+            })
+            .unwrap();
+        engine
+            .apply(Command::Insert {
+                parent: ROOT,
+                child: 100,
+                before: None,
+            })
+            .unwrap();
         engine.render(|_, _| ());
 
         assert_eq!(engine.snap((5, 0), (6, 0), false), Some((5, 0)));

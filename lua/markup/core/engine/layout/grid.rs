@@ -42,7 +42,13 @@ impl Occupancy {
 }
 
 /// Places items: fully explicit ones first, then the rest in flow order.
-fn place_items(tree: &mut Tree, node: Index, columns: usize, rows: usize, flow: Direction) -> (Vec<Placed>, Occupancy) {
+fn place_items(
+    tree: &mut Tree,
+    node: Index,
+    columns: usize,
+    rows: usize,
+    flow: Direction,
+) -> (Vec<Placed>, Occupancy) {
     let mut children = Vec::new();
     tree.for_each_flow_child(node, false, &mut |_, child| children.push(child));
 
@@ -187,7 +193,13 @@ fn size_tracks(
                 fractions
             } else if fill {
                 (0..count)
-                    .map(|position| if track(position) == Track::Auto { 1.0 } else { 0.0 })
+                    .map(|position| {
+                        if track(position) == Track::Auto {
+                            1.0
+                        } else {
+                            0.0
+                        }
+                    })
                     .collect()
             } else {
                 vec![0.0; count]
@@ -218,7 +230,8 @@ fn starts(sizes: &[i32], gap: i32) -> Vec<i32> {
 
 fn area(sizes: &[i32], start: usize, span: usize, gap: i32) -> i32 {
     let end = (start + span).min(sizes.len());
-    sizes[start.min(end)..end].iter().sum::<i32>() + gap * (end.saturating_sub(start) as i32 - 1).max(0)
+    sizes[start.min(end)..end].iter().sum::<i32>()
+        + gap * (end.saturating_sub(start) as i32 - 1).max(0)
 }
 
 fn total(sizes: &[i32], gap: i32) -> i32 {
@@ -237,7 +250,13 @@ impl Strategy for Grid {
         let row_gap = extra.row_gap.max(style.spacing);
         let column_gap = extra.column_gap.max(style.spacing);
 
-        let (items, grid) = place_items(tree, node, column_tracks.len().max(1), row_tracks.len(), flow);
+        let (items, grid) = place_items(
+            tree,
+            node,
+            column_tracks.len().max(1),
+            row_tracks.len(),
+            flow,
+        );
 
         let widths: Vec<Contribution> = items
             .iter()
@@ -274,7 +293,14 @@ impl Strategy for Grid {
             })
             .collect();
 
-        let rows = size_tracks(&row_tracks, grid.rows, row_gap, space.height, true, &heights);
+        let rows = size_tracks(
+            &row_tracks,
+            grid.rows,
+            row_gap,
+            space.height,
+            true,
+            &heights,
+        );
 
         let column_starts = starts(&columns, column_gap);
         let row_starts = starts(&rows, row_gap);
@@ -344,7 +370,12 @@ mod tests {
 
     fn rect(tree: &Tree, index: Index) -> (i32, i32, i32, i32) {
         let geometry = &tree.node(index).geometry;
-        (geometry.x, geometry.y, geometry.outer.width, geometry.outer.height)
+        (
+            geometry.x,
+            geometry.y,
+            geometry.outer.width,
+            geometry.outer.height,
+        )
     }
 
     #[test]
@@ -440,11 +471,19 @@ mod tests {
     #[test]
     fn auto_placement_skips_taken_cells() {
         let mut tree = Tree::default();
-        let (a, b, c) = (cell(&mut tree, 1, "a"), cell(&mut tree, 2, "b"), cell(&mut tree, 3, "c"));
+        let (a, b, c) = (
+            cell(&mut tree, 1, "a"),
+            cell(&mut tree, 2, "b"),
+            cell(&mut tree, 3, "c"),
+        );
         let extra = tree.node_mut(a).style.extra_mut();
         extra.column = Some(1);
         extra.row = Some(1);
-        let root = grid(&mut tree, vec![Track::Cells(2), Track::Cells(2)], &[b, c, a]);
+        let root = grid(
+            &mut tree,
+            vec![Track::Cells(2), Track::Cells(2)],
+            &[b, c, a],
+        );
 
         measure(&mut tree, root, 20);
 

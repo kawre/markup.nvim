@@ -80,18 +80,72 @@ end
 ---@type table<string, { frames: string[], interval: integer }>
 M.loaders = {
 	-- Braille and blocks.
-	dots = { frames = { "⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏" }, interval = 80 },
+	dots = {
+		frames = { "⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏" },
+		interval = 80,
+	},
 	orbit = { frames = { "⣾", "⣽", "⣻", "⢿", "⡿", "⣟", "⣯", "⣷" }, interval = 90 },
 	snake = { frames = snake(3), interval = 80 },
 	bounce = { frames = { "⠁", "⠂", "⠄", "⡀", "⠄", "⠂" }, interval = 110 },
-	pulse = { frames = { "▁", "▂", "▃", "▄", "▅", "▆", "▇", "▆", "▅", "▄", "▃", "▂" }, interval = 80 },
+	pulse = {
+		frames = {
+			"▁",
+			"▂",
+			"▃",
+			"▄",
+			"▅",
+			"▆",
+			"▇",
+			"▆",
+			"▅",
+			"▄",
+			"▃",
+			"▂",
+		},
+		interval = 80,
+	},
 	quadrant = { frames = { "▘", "▝", "▗", "▖" }, interval = 120 },
 	flip = { frames = { "▀", "▐", "▄", "▌" }, interval = 120 },
 	fill = {
-		frames = { "⠀", "⡀", "⡄", "⡆", "⡇", "⣇", "⣧", "⣷", "⣿", "⣷", "⣧", "⣇", "⡇", "⡆", "⡄", "⡀" },
+		frames = {
+			"⠀",
+			"⡀",
+			"⡄",
+			"⡆",
+			"⡇",
+			"⣇",
+			"⣧",
+			"⣷",
+			"⣿",
+			"⣷",
+			"⣧",
+			"⣇",
+			"⡇",
+			"⡆",
+			"⡄",
+			"⡀",
+		},
 		interval = 70,
 	},
-	grow = { frames = { "▏", "▎", "▍", "▌", "▋", "▊", "▉", "█", "▉", "▊", "▋", "▌", "▍", "▎" }, interval = 70 },
+	grow = {
+		frames = {
+			"▏",
+			"▎",
+			"▍",
+			"▌",
+			"▋",
+			"▊",
+			"▉",
+			"█",
+			"▉",
+			"▊",
+			"▋",
+			"▌",
+			"▍",
+			"▎",
+		},
+		interval = 70,
+	},
 	shade = { frames = { "░", "▒", "▓", "█", "▓", "▒" }, interval = 120 },
 
 	-- Nerd Font icons.
@@ -116,7 +170,10 @@ M.loaders = {
 	signal = { frames = glyphs(0xF091F, 0xF0922, 0xF0925, 0xF0928), interval = 150 },
 	-- A battery charging from empty to full.
 	charging = {
-		frames = { vim.fn.nr2char(0xF008E), unpack(vim.list_extend(icons(0xF007A, 0xF0082), glyphs(0xF0079))) },
+		frames = {
+			vim.fn.nr2char(0xF008E),
+			unpack(vim.list_extend(icons(0xF007A, 0xF0082), glyphs(0xF0079))),
+		},
 		interval = 100,
 	},
 }

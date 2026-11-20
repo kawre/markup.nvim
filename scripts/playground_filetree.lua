@@ -63,12 +63,48 @@ local file_types = {
 }
 local ICON_DIR, ICON_DIR_OPEN = "\u{f07b}", "\u{f07c}"
 local dir_names = {
-	"src", "lib", "core", "utils", "components", "services", "models", "views", "tests", "api",
-	"config", "assets", "plugins", "hooks", "store", "layout", "render", "parser", "cache", "docs",
+	"src",
+	"lib",
+	"core",
+	"utils",
+	"components",
+	"services",
+	"models",
+	"views",
+	"tests",
+	"api",
+	"config",
+	"assets",
+	"plugins",
+	"hooks",
+	"store",
+	"layout",
+	"render",
+	"parser",
+	"cache",
+	"docs",
 }
 local file_names = {
-	"index", "init", "main", "types", "config", "helpers", "client", "server", "router", "schema",
-	"state", "theme", "button", "input", "table", "tree", "window", "buffer", "events", "logger",
+	"index",
+	"init",
+	"main",
+	"types",
+	"config",
+	"helpers",
+	"client",
+	"server",
+	"router",
+	"schema",
+	"state",
+	"theme",
+	"button",
+	"input",
+	"table",
+	"tree",
+	"window",
+	"buffer",
+	"events",
+	"logger",
 }
 
 -- Park-Miller keeps the generated tree identical between runs.
@@ -90,7 +126,14 @@ end
 local function generate(target)
 	seed = 20240
 	local count = 0
-	local root = { id = 0, name = "markup-project", dir = true, children = {}, depth = 0, open = m.signal(true) }
+	local root = {
+		id = 0,
+		name = "markup-project",
+		dir = true,
+		children = {},
+		depth = 0,
+		open = m.signal(true),
+	}
 	local queue = { root }
 	local head = 1
 
@@ -124,7 +167,11 @@ local function generate(target)
 
 			used[node.name] = (used[node.name] or 0) + 1
 			if used[node.name] > 1 then
-				node.name = ("%s_%d%s"):format(node.name:match("^[^.]+"), i, node.name:match("%.%w+$") or "")
+				node.name = ("%s_%d%s"):format(
+					node.name:match("^[^.]+"),
+					i,
+					node.name:match("%.%w+$") or ""
+				)
 			end
 			node.date = ("%02d-%02d"):format(rnd(12), rnd(28))
 			dir.children[#dir.children + 1] = node
@@ -152,7 +199,6 @@ local function generate(target)
 
 	return root, count
 end
-
 
 local root, total = generate(NODES)
 for _, child in ipairs(root.children) do
@@ -296,7 +342,8 @@ local function benchmark()
 		open_to_depth(depth)
 		local target = pick_target()
 		local rows = visible_rows()
-		local wall, layout, paint, diff, engine, apply, lines, cursor = {}, {}, {}, {}, {}, {}, {}, {}
+		local wall, layout, paint, diff, engine, apply, lines, cursor =
+			{}, {}, {}, {}, {}, {}, {}, {}
 
 		for i = 1, 31 do
 			target.open(function(value)
@@ -337,7 +384,8 @@ local function benchmark()
 	open_to_depth(1)
 
 	local report = { ("signal file tree benchmark, %d nodes, median ms per toggle"):format(total) }
-	report[#report + 1] = "depth   rows  +/-rows lua     layout  paint   diff    engine  apply   total    cursor  lines"
+	report[#report + 1] =
+		"depth   rows  +/-rows lua     layout  paint   diff    engine  apply   total    cursor  lines"
 	for _, r in ipairs(results) do
 		report[#report + 1] = ("%-5d %6d  %-7d %-7.2f %-7.2f %-7.2f %-7.2f %-7.2f %-7.2f %-8.2f %-7.3f %d"):format(
 			r.depth,

@@ -88,7 +88,8 @@ api.nvim_set_decoration_provider(mark_ns, {
 			local first, last, group = mark[2], mark[3], PARTS[mark[4]]
 			if first < width then
 				local start_byte = math.max(vim.fn.virtcol2col(win, row + 1, first + 1) - 1, 0)
-				local end_byte = last >= width and #line or vim.fn.virtcol2col(win, row + 1, last + 1) - 1
+				local end_byte = last >= width and #line
+					or vim.fn.virtcol2col(win, row + 1, last + 1) - 1
 				if end_byte > start_byte then
 					api.nvim_buf_set_extmark(buf, mark_ns, row, start_byte, {
 						end_col = end_byte,
@@ -141,7 +142,11 @@ local function apply_colors()
 	}
 
 	for name, source in pairs(sources) do
-		api.nvim_set_hl(0, "MarkupInspectorBar" .. name, { fg = get(source[1]).fg, bg = bg, bold = source.bold })
+		api.nvim_set_hl(
+			0,
+			"MarkupInspectorBar" .. name,
+			{ fg = get(source[1]).fg, bg = bg, bold = source.bold }
+		)
 	end
 
 	-- The mark in the view, as browser devtools draw it: content, padding,
@@ -284,17 +289,39 @@ local function details_of(node)
 	end
 
 	return {
-		{ "node", ("#%d %s  parent %s  %d children"):format(node.id, label_of(node), node.parent or "-", node.children) },
+		{
+			"node",
+			("#%d %s  parent %s  %d children"):format(
+				node.id,
+				label_of(node),
+				node.parent or "-",
+				node.children
+			),
+		},
 		{
 			"box",
-			node.x and ("%s  content %d×%d"):format(geometry_of(node), node.content_width, node.content_height)
-				or "none, children flow into the parent",
+			node.x and ("%s  content %d×%d"):format(
+				geometry_of(node),
+				node.content_width,
+				node.content_height
+			) or "none, children flow into the parent",
 		},
 		{ "edges", ("margin %s  padding %s"):format(edges(node.margin), edges(node.padding)) },
-		{ "size", ("%s × %s  spacing %d  %s"):format(node.width, node.height, node.spacing, node.position) },
+		{
+			"size",
+			("%s × %s  spacing %d  %s"):format(
+				node.width,
+				node.height,
+				node.spacing,
+				node.position
+			),
+		},
 		{
 			"style",
-			("%s  %s"):format(node.hl ~= 0 and hl.name(node.hl) or "no highlight", table.concat(flags, " ")),
+			("%s  %s"):format(
+				node.hl ~= 0 and hl.name(node.hl) or "no highlight",
+				table.concat(flags, " ")
+			),
 		},
 		{ "text", node.text and ("%q"):format(short(node.text, 60)) or "-" },
 	}
@@ -319,7 +346,8 @@ local SLIDER = 18
 local function fps_step(steps, fps)
 	local best, distance = 1, math.huge
 	for i, step in ipairs(steps) do
-		local d = step == math.huge and (fps == math.huge and 0 or math.huge) or math.abs(step - fps)
+		local d = step == math.huge and (fps == math.huge and 0 or math.huge)
+			or math.abs(step - fps)
 		if d < distance then
 			best, distance = i, d
 		end
@@ -330,13 +358,51 @@ end
 --- What the options popup lists, in order.
 ---@type { key: string, label: string, desc: string, shortcut?: string, default: boolean }[]
 M.options = {
-	{ key = "follow", label = "Follow cursor", desc = "select the element under the view's cursor", shortcut = "f", default = true },
-	{ key = "show_groups", label = "Show groups", desc = "list the nodes components wrap content in", shortcut = "c", default = false },
-	{ key = "mark", label = "Mark selection", desc = "highlight the selected element in the view", shortcut = "m", default = true },
-	{ key = "geometry", label = "Geometry", desc = "position and size on every row", default = true },
-	{ key = "hl_names", label = "Highlight names", desc = "highlight groups on every row", default = true },
-	{ key = "guides", label = "Indent guides", desc = "lines joining nested elements", default = true },
-	{ key = "live", label = "Live updates", desc = "refresh the tree as the view changes", default = true },
+	{
+		key = "follow",
+		label = "Follow cursor",
+		desc = "select the element under the view's cursor",
+		shortcut = "f",
+		default = true,
+	},
+	{
+		key = "show_groups",
+		label = "Show groups",
+		desc = "list the nodes components wrap content in",
+		shortcut = "c",
+		default = false,
+	},
+	{
+		key = "mark",
+		label = "Mark selection",
+		desc = "highlight the selected element in the view",
+		shortcut = "m",
+		default = true,
+	},
+	{
+		key = "geometry",
+		label = "Geometry",
+		desc = "position and size on every row",
+		default = true,
+	},
+	{
+		key = "hl_names",
+		label = "Highlight names",
+		desc = "highlight groups on every row",
+		default = true,
+	},
+	{
+		key = "guides",
+		label = "Indent guides",
+		desc = "lines joining nested elements",
+		default = true,
+	},
+	{
+		key = "live",
+		label = "Live updates",
+		desc = "refresh the tree as the view changes",
+		default = true,
+	},
 	{
 		key = "vrr",
 		label = "Variable rate",
@@ -422,8 +488,16 @@ function M:new(target)
 	vim.wo[self.win.win].cursorline = true
 	-- Thin rules between the panes rather than the name of their buffers.
 	for _, win in ipairs({ self.stats_win, self.win, self.details_win }) do
-		api.nvim_set_option_value("fillchars", "stl:─,stlnc:─", { scope = "local", win = win.win })
-		api.nvim_set_option_value("statusline", "%#MarkupInspectorRule#", { scope = "local", win = win.win })
+		api.nvim_set_option_value(
+			"fillchars",
+			"stl:─,stlnc:─",
+			{ scope = "local", win = win.win }
+		)
+		api.nvim_set_option_value(
+			"statusline",
+			"%#MarkupInspectorRule#",
+			{ scope = "local", win = win.win }
+		)
 	end
 	vim.wo[self.stats_win.win].winbar = "%#MarkupInspectorBarStrong# \u{f0e4} Performance"
 	vim.wo[self.details_win.win].winbar = "%#MarkupInspectorBarStrong# \u{f1b2} Node"
@@ -583,7 +657,8 @@ end
 
 function M:bind_events()
 	local target = self.target
-	self.group = api.nvim_create_augroup(("MarkupInspector%d"):format(target.win.id), { clear = true })
+	self.group =
+		api.nvim_create_augroup(("MarkupInspector%d"):format(target.win.id), { clear = true })
 
 	api.nvim_create_autocmd("User", {
 		group = self.group,
@@ -742,7 +817,8 @@ local function row_values(row, expanded, width, options)
 	return values
 end
 
-local ROW_FIELDS = { "guide", "marker", "label", "group", "id", "hl_name", "hl_group", "gap", "geometry" }
+local ROW_FIELDS =
+	{ "guide", "marker", "label", "group", "id", "hl_name", "hl_group", "gap", "geometry" }
 
 --- Updates what changed. Rows only rerun when their own text differs.
 function M:refresh()
@@ -823,7 +899,8 @@ function M:show_selection()
 	if not api.nvim_buf_is_valid(target.win.buf) then
 		return
 	end
-	local marks = (self.mark and node and node.x and target.win:valid()) and self:marks_of(node) or {}
+	local marks = (self.mark and node and node.x and target.win:valid()) and self:marks_of(node)
+		or {}
 	if vim.deep_equal(marks, self.marks) then
 		return
 	end
@@ -865,7 +942,10 @@ end
 local function ring(box, inside, part, marks, first_row, last_row)
 	for row = math.max(box.top, first_row), math.min(box.bottom, last_row) - 1 do
 		local left, right = math.max(box.left, 0), box.right
-		local cut = inside and inside.right > inside.left and row >= inside.top and row < inside.bottom
+		local cut = inside
+			and inside.right > inside.left
+			and row >= inside.top
+			and row < inside.bottom
 		if cut then
 			if inside.left > left then
 				marks[#marks + 1] = { row, left, math.max(inside.left, left), part }
@@ -891,7 +971,12 @@ function M:marks_of(node)
 	-- Edges come as `{ top, right, bottom, left }`.
 	local function shrink(outer, edges)
 		edges = edges or { 0, 0, 0, 0 }
-		return box(outer.left + edges[4], outer.top + edges[1], outer.right - edges[2], outer.bottom - edges[3])
+		return box(
+			outer.left + edges[4],
+			outer.top + edges[1],
+			outer.right - edges[2],
+			outer.bottom - edges[3]
+		)
 	end
 
 	local margin = box(node.x, node.y, node.x + node.outer_width, node.y + node.outer_height)
@@ -902,7 +987,8 @@ function M:marks_of(node)
 	-- A node may reach past the edges of the buffer, such as while it slides in,
 	-- so only the part of it that is there is marked.
 	local first_row = math.max(node.y, 0)
-	local last_row = math.min(margin.bottom, node.y + MAX_HIGHLIGHT_ROWS, api.nvim_buf_line_count(buf))
+	local last_row =
+		math.min(margin.bottom, node.y + MAX_HIGHLIGHT_ROWS, api.nvim_buf_line_count(buf))
 
 	local marks = {}
 	ring(margin, border, "margin", marks, first_row, last_row)
@@ -938,7 +1024,8 @@ function M:scroll_to(key)
 			return
 		end
 		local size = last - first + 1
-		local topline = size >= height and first or math.max(first - math.floor((height - size) / 2), 0)
+		local topline = size >= height and first
+			or math.max(first - math.floor((height - size) / 2), 0)
 		-- The cursor has to stay on screen, so it comes along when it would not.
 		local cursor = math.min(math.max(view.lnum - 1, topline), topline + height - 1)
 		vim.fn.winrestview({ topline = topline + 1, lnum = cursor + 1 })
@@ -1139,10 +1226,12 @@ function M:phases()
 
 			local parts, used = {}, 0
 			for i, phase in ipairs(PHASES) do
-				local cells = i == #PHASES and size - used or math.floor(perf[phase] / total * size + 0.5)
+				local cells = i == #PHASES and size - used
+					or math.floor(perf[phase] / total * size + 0.5)
 				cells = math.max(math.min(cells, size - used), 0)
 				used = used + cells
-				parts[i] = { ("▄"):rep(cells), "MarkupInspector" .. phase:gsub("^%l", string.upper) }
+				parts[i] =
+					{ ("▄"):rep(cells), "MarkupInspector" .. phase:gsub("^%l", string.upper) }
 			end
 			return line(parts)
 		end),
@@ -1192,7 +1281,10 @@ end
 local function edge(open, name, amount, close, width)
 	local head = open .. (name ~= "" and (" " .. name .. " ") or "")
 	local middle = " " .. amount .. " "
-	local left = math.max(math.floor((width - vim.fn.strdisplaywidth(middle)) / 2) - vim.fn.strdisplaywidth(head), 0)
+	local left = math.max(
+		math.floor((width - vim.fn.strdisplaywidth(middle)) / 2) - vim.fn.strdisplaywidth(head),
+		0
+	)
 	local right = math.max(width - vim.fn.strdisplaywidth(head .. middle .. close) - left, 0)
 	return head .. ("─"):rep(left), middle, ("─"):rep(right) .. close
 end
@@ -1272,7 +1364,14 @@ end
 
 function M:panel()
 	local hints = { label(" ") }
-	for _, hint in ipairs({ { "<CR>", "open" }, { "s", "options" }, { "f", "follow" }, { "m", "mark" }, { "r", "refresh" }, { "q", "close" } }) do
+	for _, hint in ipairs({
+		{ "<CR>", "open" },
+		{ "s", "options" },
+		{ "f", "follow" },
+		{ "m", "mark" },
+		{ "r", "refresh" },
+		{ "q", "close" },
+	}) do
 		hints[#hints + 1] = { hint[1], "MarkupInspectorKey" }
 		hints[#hints + 1] = label((" %s  "):format(hint[2]))
 	end
@@ -1293,7 +1392,8 @@ function M:panel()
 				title[#title + 1] = { "  " }
 				title[#title + 1] = { " " .. hl.name(node.hl) .. " ", hl.name(node.hl) }
 			end
-			title[#title + 1] = label(("  parent %s · %d children"):format(node.parent or "-", node.children))
+			title[#title + 1] =
+				label(("  parent %s · %d children"):format(node.parent or "-", node.children))
 
 			local body = node.x and m.flex({ gap = 3, box_model(node), facts(node) })
 				or line({ label("no box, its children flow into the parent") })
@@ -1303,8 +1403,10 @@ function M:panel()
 				line(title),
 				m.block(""),
 				body,
-				node.text and line({ label("text    "), value(("%q"):format(short(node.text, 60)), "MarkupInspectorText") })
-					or m.block(""),
+				node.text and line({
+					label("text    "),
+					value(("%q"):format(short(node.text, 60)), "MarkupInspectorText"),
+				}) or m.block(""),
 			})
 		end),
 		line(hints),
@@ -1446,7 +1548,9 @@ function M:open_options()
 				return fps == math.huge and "unlimited" or tostring(fps)
 			end, "MarkupInspectorValue"),
 		}),
-		m.block({ m.inline("  how often animations move, h / l to change", "MarkupInspectorLabel") }),
+		m.block({
+			m.inline("  how often animations move, h / l to change", "MarkupInspectorLabel"),
+		}),
 	})
 
 	self.options_view:render(m.block({ white_space = "nowrap", rows }))

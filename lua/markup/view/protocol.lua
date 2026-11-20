@@ -58,8 +58,12 @@ local function choice(values, name)
 end
 
 local align = choice({ start = 1, ["end"] = 2, center = 3, stretch = 4 }, "align")
-local optional_align = choice({ start = 1, ["end"] = 2, center = 3, stretch = 4, auto = 0 }, "align")
-local distribute = choice({ start = 1, ["end"] = 2, center = 3, between = 4, around = 5, evenly = 6, stretch = 7 }, "justify")
+local optional_align =
+	choice({ start = 1, ["end"] = 2, center = 3, stretch = 4, auto = 0 }, "align")
+local distribute = choice(
+	{ start = 1, ["end"] = 2, center = 3, between = 4, around = 5, evenly = 6, stretch = 7 },
+	"justify"
+)
 local direction = choice({ row = 0, column = 1 }, "direction")
 local position = choice({ static = 0, relative = 1, absolute = 2 }, "position")
 local white_space = choice({ normal = 0, nowrap = 1 }, "white_space")
@@ -283,7 +287,8 @@ end
 function Commands:set_style(id, name, value)
 	local property = M.style[name]
 	local ops, n = self.ops, self.len
-	ops[n + 1], ops[n + 2], ops[n + 3], ops[n + 4] = OP.set_style, id, property[1], property[2](value)
+	ops[n + 1], ops[n + 2], ops[n + 3], ops[n + 4] =
+		OP.set_style, id, property[1], property[2](value)
 	self.len = n + 4
 end
 
@@ -319,7 +324,8 @@ function Commands:set_tracks(id, axis, tracks)
 	end
 
 	local ops, n = self.ops, self.len
-	ops[n + 1], ops[n + 2], ops[n + 3], ops[n + 4] = OP.set_tracks, id, axis == "rows" and 0 or 1, #tracks
+	ops[n + 1], ops[n + 2], ops[n + 3], ops[n + 4] =
+		OP.set_tracks, id, axis == "rows" and 0 or 1, #tracks
 	n = n + 4
 	for _, value in ipairs(tracks) do
 		ops[n + 1], ops[n + 2] = track(value)
@@ -337,7 +343,11 @@ M.borders = {
 	double = { chars = "╔═╗║╝═╚║" },
 	heavy = { chars = "┏━┓┃┛━┗┃" },
 	-- Cells are twice as tall as wide, so a half cell edge matches one column.
-	half = { chars = "▄▄▄ ▀▀▀ ", sides = { "top", "bottom" }, outside_background = true },
+	half = {
+		chars = "▄▄▄ ▀▀▀ ",
+		sides = { "top", "bottom" },
+		outside_background = true,
+	},
 }
 
 ---@param preset string|{ chars: string }

@@ -43,9 +43,11 @@ local WORDS = vim.split(
 	"signal effect memo scope layout paint diff patch flex grid block inline cell span wrap clip frame tick ease slide collapse",
 	" "
 )
-local TEXT = ("Markup lays this paragraph out again on every frame, because the box it lives in keeps "
+local TEXT = (
+	"Markup lays this paragraph out again on every frame, because the box it lives in keeps "
 	.. "changing its width. Every line break moves, so the engine has to measure, wrap, paint and diff the whole "
-	.. "thing, and Neovim gets a fresh set of lines to write. "):rep(2)
+	.. "thing, and Neovim gets a fresh set of lines to write. "
+):rep(2)
 
 --- Every amount the popup can set, in the order it lists them. `values` are
 --- the steps of its slider, and 0 turns the workload off.
@@ -53,15 +55,30 @@ local TEXT = ("Markup lays this paragraph out again on every frame, because the 
 M.settings = {
 	{ key = "wave", label = "Wave", unit = "rows", values = { 0, 2, 4, 6, 12, 18, 24 } },
 	{ key = "meters", label = "Meters", unit = "bars", values = { 0, 6, 12, 24, 48, 96, 160 } },
-	{ key = "churn", label = "Churn", unit = "rows", values = { 0, 20, 40, 80, 160, 320, 640, 1280, 2560 } },
-	{ key = "churn_rate", label = "Churn rate", unit = "ms", values = { 1000, 500, 250, 120, 60, 30, 15 } },
+	{
+		key = "churn",
+		label = "Churn",
+		unit = "rows",
+		values = { 0, 20, 40, 80, 160, 320, 640, 1280, 2560 },
+	},
+	{
+		key = "churn_rate",
+		label = "Churn rate",
+		unit = "ms",
+		values = { 1000, 500, 250, 120, 60, 30, 15 },
+	},
 	{ key = "accordion", label = "Accordion", unit = "panels", values = { 0, 3, 5, 10, 20, 40 } },
 	{ key = "reflow", label = "Reflow", unit = "texts", values = { 0, 1, 2, 4, 8, 16 } },
 	{ key = "cards", label = "Cards", unit = "cards", values = { 0, 4, 8, 16, 32, 64, 128 } },
 	{ key = "carousel", label = "Carousel", unit = "rows", values = { 0, 1, 2, 4, 8 } },
 	{ key = "tree", label = "Tree", unit = "levels", values = { 0, 3, 4, 5, 6, 7, 8 } },
 	{ key = "text", label = "Rich text", unit = "texts", values = { 0, 1, 2, 4, 8, 16 } },
-	{ key = "highlights", label = "Highlights", unit = "groups", values = { 0, 10, 25, 50, 100, 200, 400 } },
+	{
+		key = "highlights",
+		label = "Highlights",
+		unit = "groups",
+		values = { 0, 10, 25, 50, 100, 200, 400 },
+	},
 	{ key = "spinners", label = "Spinners", unit = "", values = { 0, 1, 5, 10, 25, 50, 100 } },
 }
 
@@ -225,7 +242,9 @@ local function Wave(now, rows)
 		for x = 1, 64 do
 			local function level()
 				local t = now() / 400
-				local v = math.sin(x / 5 + t) + math.sin((x + y * 3) / 9 - t * 0.7) + math.cos(y / 2 + t * 0.5)
+				local v = math.sin(x / 5 + t)
+					+ math.sin((x + y * 3) / 9 - t * 0.7)
+					+ math.cos(y / 2 + t * 0.5)
 				return (v + 3) / 6
 			end
 			cells[x] = m.inline({
@@ -251,7 +270,11 @@ local Meter = m.component(function(props)
 	return m.flex({
 		gap = 1,
 		m.inline(("%03d"):format(props.index), "Comment"),
-		m.progress({ value = value, width = props.width or 34, style = PALETTE[props.index % #PALETTE + 1] }),
+		m.progress({
+			value = value,
+			width = props.width or 34,
+			style = PALETTE[props.index % #PALETTE + 1],
+		}),
 		m.inline(function()
 			return ("%3d%%"):format(math.floor(value() * 100))
 		end, "Number"),
@@ -347,7 +370,10 @@ local Accordion = m.component(function(props)
 					lines[line] = m.block({
 						padding = { 0, 2 },
 						m.inline(
-							("%s · %s"):format(WORDS[(i * 4 + line) % #WORDS + 1], WORDS[(i + line) % #WORDS + 1]),
+							("%s · %s"):format(
+								WORDS[(i * 4 + line) % #WORDS + 1],
+								WORDS[(i + line) % #WORDS + 1]
+							),
 							"Comment"
 						),
 					})
@@ -453,7 +479,12 @@ local Carousel = m.component(function(props)
 				border_style = accent,
 				padding = { 0, 2 },
 				m.inline(("carousel %d · page %d"):format(props.index, key), accent),
-				m.block({ m.inline(("%s %s %s"):format(WORDS[key], WORDS[key + 4], WORDS[key + 8]), "Comment") }),
+				m.block({
+					m.inline(
+						("%s %s %s"):format(WORDS[key], WORDS[key + 4], WORDS[key + 8]),
+						"Comment"
+					),
+				}),
 			})
 		end),
 	})
@@ -483,7 +514,10 @@ Branch = m.component(function(props)
 
 	local function children()
 		if props.level >= props.depth then
-			return m.block({ padding = { 0, 2 }, m.inline(("leaf %s"):format(props.path), "String") })
+			return m.block({
+				padding = { 0, 2 },
+				m.inline(("leaf %s"):format(props.path), "String"),
+			})
 		end
 		local kids = {}
 		for i = 1, 2 do
@@ -562,7 +596,11 @@ local Chip = m.component(function(props)
 	every(450 + props.index % 9 * 50, function()
 		glow(reactive.untrack(glow) > 0.5 and 0 or 1)
 	end)
-	local group = Markup.animate.tint({ fg = background(), bg = background() }, { fg = background(), bg = accent }, glow)
+	local group = Markup.animate.tint(
+		{ fg = background(), bg = background() },
+		{ fg = background(), bg = accent },
+		glow
+	)
 	return m.inline((" %03d "):format(props.index), group)
 end)
 
@@ -746,7 +784,8 @@ local function open_settings(view)
 				justify = "between",
 				m.block({
 					m.inline(("%-12s"):format(setting.label), function()
-						return setting.values[step()] == 0 and "MarkupInspectorLabel" or "MarkupInspectorStrong"
+						return setting.values[step()] == 0 and "MarkupInspectorLabel"
+							or "MarkupInspectorStrong"
 					end),
 					m.inline(function()
 						return ("━"):rep(filled())

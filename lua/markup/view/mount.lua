@@ -763,7 +763,10 @@ end
 --- says if the new page comes in from the right, which it does by default
 function M.slide(key, render, opts)
 	opts = opts or {}
-	return element(Slide, { key = key, render = render, forward = opts.forward, duration = opts.duration })
+	return element(
+		Slide,
+		{ key = key, render = render, forward = opts.forward, duration = opts.duration }
+	)
 end
 
 --- Renders `content` while `when()` is truthy, and `fallback` otherwise.

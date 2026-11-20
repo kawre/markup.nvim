@@ -119,9 +119,10 @@ fn content_space(style: &Style, constraints: Constraints) -> Space {
     let height = constraints
         .exact_height
         .map(|exact| exact - edges_y)
-        .or(style.height.resolve(constraints.height.unwrap_or(0)).filter(|_| {
-            constraints.height.is_some() || matches!(style.height, Length::Cells(_))
-        }));
+        .or(style
+            .height
+            .resolve(constraints.height.unwrap_or(0))
+            .filter(|_| constraints.height.is_some() || matches!(style.height, Length::Cells(_))));
 
     let exact = constraints.exact_width.is_some() || style.width.resolve(0).is_some();
 
@@ -172,7 +173,11 @@ pub fn measure(tree: &mut Tree, index: Index, constraints: Constraints) -> Size 
     if constraints.exact_height.is_some() {
         content.height = space.height.unwrap_or(content.height);
     } else if let Some(definite) = space.height {
-        content.height = if clip { definite } else { content.height.max(definite) };
+        content.height = if clip {
+            definite
+        } else {
+            content.height.max(definite)
+        };
     }
     let available_height = constraints.height.unwrap_or(0);
     content.height = limit(content.height, min_height, max_height, available_height);
@@ -316,10 +321,24 @@ mod tests {
         let label = text(&mut tree, 1, "abc");
         let root = element(&mut tree, 2, Display::Inline, &[label]);
         let style = &mut tree.node_mut(root).style;
-        style.margin = Edges { left: 2, ..Edges::default() };
-        style.padding = Edges { top: 1, right: 3, bottom: 1, left: 0 };
+        style.margin = Edges {
+            left: 2,
+            ..Edges::default()
+        };
+        style.padding = Edges {
+            top: 1,
+            right: 3,
+            bottom: 1,
+            left: 0,
+        };
 
-        assert_eq!(measure(&mut tree, root, 40), Size { width: 8, height: 3 });
+        assert_eq!(
+            measure(&mut tree, root, 40),
+            Size {
+                width: 8,
+                height: 3
+            }
+        );
     }
 
     #[test]
@@ -331,7 +350,13 @@ mod tests {
         style.width = Length::Cells(10);
         style.height = Length::Cells(4);
 
-        assert_eq!(measure(&mut tree, root, 40), Size { width: 10, height: 4 });
+        assert_eq!(
+            measure(&mut tree, root, 40),
+            Size {
+                width: 10,
+                height: 4
+            }
+        );
     }
 
     #[test]

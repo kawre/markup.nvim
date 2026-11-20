@@ -155,7 +155,9 @@ impl Engine {
         }
 
         Ok(parent.and_then(|parent| {
-            self.listing(parent, flatten).iter().position(|&child| child == index)
+            self.listing(parent, flatten)
+                .iter()
+                .position(|&child| child == index)
         }))
     }
 }
@@ -168,15 +170,34 @@ mod tests {
     use super::*;
 
     fn block(engine: &mut Engine, id: u32, parent: u32) {
-        engine.apply(Command::Create { id, display: Display::Block }).unwrap();
-        engine.apply(Command::Insert { parent, child: id, before: None }).unwrap();
+        engine
+            .apply(Command::Create {
+                id,
+                display: Display::Block,
+            })
+            .unwrap();
+        engine
+            .apply(Command::Insert {
+                parent,
+                child: id,
+                before: None,
+            })
+            .unwrap();
     }
 
     fn text(engine: &mut Engine, id: u32, parent: u32, value: &str) {
         let text = value.to_string();
         let width = value.len() as i32;
-        engine.apply(Command::CreateText { id, text, width }).unwrap();
-        engine.apply(Command::Insert { parent, child: id, before: None }).unwrap();
+        engine
+            .apply(Command::CreateText { id, text, width })
+            .unwrap();
+        engine
+            .apply(Command::Insert {
+                parent,
+                child: id,
+                before: None,
+            })
+            .unwrap();
     }
 
     #[test]
@@ -186,14 +207,33 @@ mod tests {
         block(&mut engine, 3, ROOT);
         let property = StyleProperty::Margin(super::super::protocol::Side::Left, 4);
         engine.apply(Command::SetStyle { id: 3, property }).unwrap();
-        engine.apply(Command::Create { id: 4, display: Display::Contents }).unwrap();
-        engine.apply(Command::Insert { parent: 3, child: 4, before: None }).unwrap();
+        engine
+            .apply(Command::Create {
+                id: 4,
+                display: Display::Contents,
+            })
+            .unwrap();
+        engine
+            .apply(Command::Insert {
+                parent: 3,
+                child: 4,
+                before: None,
+            })
+            .unwrap();
         text(&mut engine, 5, 4, "inner");
         engine.render(|_, _| ());
 
         let rect = engine.describe(5).unwrap().rect.unwrap();
 
-        assert_eq!(rect, Rect { x: 4, y: 1, width: 5, height: 1 });
+        assert_eq!(
+            rect,
+            Rect {
+                x: 4,
+                y: 1,
+                width: 5,
+                height: 1
+            }
+        );
         assert_eq!(engine.describe(4).unwrap().rect, None);
     }
 
@@ -207,7 +247,10 @@ mod tests {
         let (total, page) = engine.children_of(ROOT, 3, 2, false).unwrap();
 
         assert_eq!(total, 10);
-        assert_eq!(page.iter().map(|info| info.id).collect::<Vec<_>>(), vec![5, 6]);
+        assert_eq!(
+            page.iter().map(|info| info.id).collect::<Vec<_>>(),
+            vec![5, 6]
+        );
         assert_eq!(engine.child_position(5, false).unwrap(), Some(3));
     }
 
@@ -216,8 +259,19 @@ mod tests {
         let mut engine = Engine::new(20);
         let mut parent = ROOT;
         for id in 2..6 {
-            engine.apply(Command::Create { id, display: Display::Contents }).unwrap();
-            engine.apply(Command::Insert { parent, child: id, before: None }).unwrap();
+            engine
+                .apply(Command::Create {
+                    id,
+                    display: Display::Contents,
+                })
+                .unwrap();
+            engine
+                .apply(Command::Insert {
+                    parent,
+                    child: id,
+                    before: None,
+                })
+                .unwrap();
             block(&mut engine, id + 100, id);
             parent = id;
         }
@@ -225,15 +279,29 @@ mod tests {
         let (total, page) = engine.children_of(ROOT, 1, 2, true).unwrap();
 
         assert_eq!(total, 4);
-        assert_eq!(page.iter().map(|info| info.id).collect::<Vec<_>>(), vec![103, 104]);
+        assert_eq!(
+            page.iter().map(|info| info.id).collect::<Vec<_>>(),
+            vec![103, 104]
+        );
         assert_eq!(engine.child_position(105, true).unwrap(), Some(3));
     }
 
     #[test]
     fn path_at_includes_groups_on_the_way_down() {
         let mut engine = Engine::new(20);
-        engine.apply(Command::Create { id: 2, display: Display::Contents }).unwrap();
-        engine.apply(Command::Insert { parent: ROOT, child: 2, before: None }).unwrap();
+        engine
+            .apply(Command::Create {
+                id: 2,
+                display: Display::Contents,
+            })
+            .unwrap();
+        engine
+            .apply(Command::Insert {
+                parent: ROOT,
+                child: 2,
+                before: None,
+            })
+            .unwrap();
         block(&mut engine, 3, 2);
         text(&mut engine, 4, 3, "hello");
         engine.render(|_, _| ());

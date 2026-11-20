@@ -46,7 +46,10 @@ function M.from_image_nvim()
 
 	local function file_for(data)
 		vim.fn.mkdir(dir, "p")
-		local path = ("%s/%s.png"):format(dir, vim.fn.sha256(data):sub(1, 16))
+		-- Before Neovim 0.12 a string with a NUL in it reaches Vimscript as a
+		-- Blob, which `sha256()` refuses, and image data has them.
+		local key = vim.fn.sha256(vim.base64.encode(data)):sub(1, 16)
+		local path = ("%s/%s.png"):format(dir, key)
 		if not vim.uv.fs_stat(path) then
 			local file = assert(io.open(path, "wb"))
 			file:write(data)
@@ -67,9 +70,13 @@ function M.from_image_nvim()
 
 			count = count + 1
 			local where = geometry(opts)
-			local made, image = pcall(api.from_file, file_for(data_or_id), vim.tbl_extend("force", where, {
-				id = ("markup-%d"):format(count),
-			}))
+			local made, image = pcall(
+				api.from_file,
+				file_for(data_or_id),
+				vim.tbl_extend("force", where, {
+					id = ("markup-%d"):format(count),
+				})
+			)
 			if made and image then
 				image:render(where)
 				placed[count] = image
@@ -148,7 +155,8 @@ function M.size(data, width, height)
 
 	local pixels_wide, pixels_tall = M.png_size(data)
 	if pixels_wide and pixels_wide > 0 then
-		return width, math.max(math.floor(width * pixels_tall / pixels_wide * M.cell_ratio + 0.5), 1)
+		return width,
+			math.max(math.floor(width * pixels_tall / pixels_wide * M.cell_ratio + 0.5), 1)
 	end
 	return width, 1
 end

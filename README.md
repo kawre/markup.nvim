@@ -11,7 +11,7 @@ it’s designed to be easy and flexible.
 
 # Requirements
 
-- nvim 0.10
+- Neovim 0.10.0 or newer, checked by `:checkhealth markup`
 
 # Installation
 

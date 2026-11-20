@@ -61,7 +61,11 @@ fn position(tree: &mut Tree, index: Index) {
         },
     );
 
-    let x = inset.left.or(inset.right.map(|right| width - right - outer.width));
-    let y = inset.top.or(inset.bottom.map(|bottom| height - bottom - outer.height));
+    let x = inset
+        .left
+        .or(inset.right.map(|right| width - right - outer.width));
+    let y = inset
+        .top
+        .or(inset.bottom.map(|bottom| height - bottom - outer.height));
     place(tree, index, x.unwrap_or(0), y.unwrap_or(0));
 }
