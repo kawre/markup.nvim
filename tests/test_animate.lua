@@ -39,6 +39,25 @@ local function get(code)
 	return child.lua_get(code)
 end
 
+--- How many times a timer of 1 ms fires in `ms` here. Windows wakes timers
+--- about every 15.6 ms, so no clock ticks much past 64 times a second there.
+local function platform_ticks(ms)
+	return child.lua_get(([[(function()
+		local count, timer = 0, vim.uv.new_timer()
+		timer:start(1, 1, function() count = count + 1 end)
+		vim.wait(%d, function() return false end, 1)
+		timer:stop()
+		timer:close()
+		return count
+	end)()]]):format(ms))
+end
+
+--- `wanted`, or a good share of what the platform can do in `ms` if that is
+--- less, for the tests that a clock ticks faster than 60 times a second.
+local function at_least(wanted, ms)
+	return math.min(wanted, math.floor(platform_ticks(ms) * 0.6))
+end
+
 T["clock"] = new_set()
 
 T["clock"]["runs as fast as the main loop allows when uncapped"] = function()
@@ -50,7 +69,7 @@ T["clock"]["runs as fast as the main loop allows when uncapped"] = function()
 		vim.wait(300, function() return false end, 1)
 	]])
 	-- At the usual 60 fps this would be about 18.
-	eq(get("ticks") > 30, true)
+	eq(get("ticks") > at_least(30, 300), true)
 end
 
 T["clock"]["drops ticks the main loop cannot keep up with"] = function()
@@ -88,7 +107,7 @@ T["clock"]["a new rate takes over a running clock"] = function()
 		vim.wait(200, function() return false end, 1)
 		after = ticks - before
 	]])
-	eq(get("after") > 30, true)
+	eq(get("after") > at_least(30, 200), true)
 end
 
 T["vrr"] = new_set()
@@ -125,7 +144,7 @@ T["vrr"]["without it the clock ticks at its rate"] = function()
 	]],
 		500
 	)
-	eq(ticks > 40, true)
+	eq(ticks > at_least(40, 500), true)
 end
 
 T["vrr"]["a value with a step ticks when it crosses one and still ends on time"] = function()
@@ -155,7 +174,7 @@ T["vrr"]["a value without a step ticks at the rate"] = function()
 	]],
 		400
 	)
-	eq(ticks > 30, true)
+	eq(ticks > at_least(30, 400), true)
 end
 
 T["vrr"]["something new wakes a sleeping clock"] = function()
