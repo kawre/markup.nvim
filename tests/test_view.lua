@@ -1534,10 +1534,15 @@ T["click"]["with double, a double click presses and selects nothing"] = function
 	click_view("double")
 	click(3, 1, 2)
 	eq(child.lua_get("pressed"), "two")
-	-- The selection a double click starts ends on the next turn of the loop,
-	-- which a busy machine reaches later.
-	child.lua([[vim.wait(1000, function() return vim.fn.mode() == "n" end, 5)]])
-	eq(child.fn.mode(), "n")
+	-- The selection ends at the latest once Neovim has handled what was typed
+	-- (SafeState), which a vim.wait inside one call never reaches. Asked from
+	-- here, Neovim gets there between the questions.
+	eq(
+		vim.wait(2000, function()
+			return child.fn.mode() == "n"
+		end, 10),
+		true
+	)
 end
 
 T["click"]["each button says which click it takes"] = function()
@@ -1997,18 +2002,15 @@ end
 
 T["fixed"]["follows the width of the window"] = function()
 	fixed_view()
-	run([[
-		vim.cmd("vsplit")
-		-- Returns as soon as it holds; the time is for a busy machine.
-		vim.wait(2000, function()
-			reactive.flush()
-			return vim.api.nvim_win_get_width(band.win.win) == vim.api.nvim_win_get_width(win.win)
-		end, 10)
-	]])
+	run([[vim.cmd("vsplit")]])
+	-- The band follows WinResized, which Neovim sends from its main loop: a
+	-- vim.wait inside one call never turns it. Asked from here, the loop turns
+	-- between the questions.
+	local same = "vim.api.nvim_win_get_width(band.win.win) == vim.api.nvim_win_get_width(win.win)"
 	eq(
-		child.lua_get(
-			"vim.api.nvim_win_get_width(band.win.win) == vim.api.nvim_win_get_width(win.win)"
-		),
+		vim.wait(2000, function()
+			return child.lua_get(same)
+		end, 10),
 		true
 	)
 end
