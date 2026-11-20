@@ -3,7 +3,11 @@
 --
 --   nvim -l scripts/coverage.lua
 --
--- Writes `.tests/coverage/lua.lcov` with paths relative to the repository.
+-- Writes `.tests/coverage/lua.lcov` with paths relative to the repository,
+-- and fails when the total is below `MARKUP_COVERAGE_MIN` percent.
+--
+-- lua/markup/devkit, the inspector and the stress test, is left out: they are
+-- tools for working on markup.nvim, not part of what it does.
 
 local dir = ".tests/coverage"
 local tree = vim.env.MARKUP_ROCKS or (vim.fn.getcwd() .. "/.tests/rocks")
@@ -14,6 +18,7 @@ local runner = require("luacov.runner")
 local stats = require("luacov.stats")
 
 local root = vim.fn.getcwd() .. "/"
+local EXCLUDED = "^lua/markup/devkit/"
 local merged = {}
 local parts = vim.fn.glob(dir .. "/luacov.stats.*.out", false, true)
 if #parts == 0 then
@@ -27,7 +32,9 @@ for _, part in ipairs(parts) do
 		if name:sub(1, #root) == root then
 			name = name:sub(#root + 1)
 		end
-		if merged[name] then
+		if name:match(EXCLUDED) then
+			-- Left out, see the top of this file.
+		elseif merged[name] then
 			runner.update_stats(merged[name], data)
 		else
 			merged[name] = data
@@ -38,7 +45,12 @@ end
 -- Files no test loads count as not covered, rather than not exist.
 for name, kind in vim.fs.dir("lua/markup", { depth = math.huge }) do
 	local path = "lua/markup/" .. name
-	if kind == "file" and name:match("%.lua$") and not merged[path] then
+	if
+		kind == "file"
+		and name:match("%.lua$")
+		and not merged[path]
+		and not path:match(EXCLUDED)
+	then
 		merged[path] = { max = 0, max_hits = 0 }
 	end
 end
@@ -83,3 +95,9 @@ for _, f in ipairs(files) do
 	print(("%6.1f%%  %5d/%-5d  %s"):format(pct(f.hit, f.found), f.hit, f.found, f.name))
 end
 print(("%6.1f%%  %5d/%-5d  total"):format(pct(hit, found), hit, found))
+
+local min = tonumber(vim.env.MARKUP_COVERAGE_MIN or "")
+if min and pct(hit, found) < min then
+	io.stderr:write(("Lua coverage %.1f%% is below %d%%\n"):format(pct(hit, found), min))
+	os.exit(1)
+end

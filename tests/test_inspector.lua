@@ -1012,7 +1012,19 @@ T["reports live effects"] = function()
 	eq(child.lua_get("reactive.stats().effects == base"), true)
 end
 
-T["stress test"] = new_set()
+-- The stress test runs animations without a frame cap. Under LuaCov on CI it
+-- hangs in its first case, while it passes on every Neovim without coverage,
+-- and locally with coverage too. Coverage does not count the devkit, so it
+-- loses nothing by leaving it out.
+T["stress test"] = new_set({
+	hooks = {
+		pre_case = function()
+			if vim.env.MARKUP_COVERAGE then
+				MiniTest.skip("hangs under coverage on CI")
+			end
+		end,
+	},
+})
 
 T["stress test"]["runs with the inspector open and closes with q"] = function()
 	run([[

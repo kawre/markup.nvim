@@ -15,6 +15,8 @@ if vim.env.MARKUP_COVERAGE then
 	runner.init({
 		statsfile = (".tests/coverage/luacov.stats.%d.out"):format(vim.fn.getpid()),
 		include = { "lua/markup/" },
+		-- Developer tools, not part of what the plugin does: not counted.
+		exclude = { "lua/markup/devkit/" },
 	})
 	vim.api.nvim_create_autocmd("VimLeavePre", {
 		callback = function()
@@ -31,4 +33,31 @@ if #vim.api.nvim_list_uis() == 0 then
 
 	-- Set up 'mini.test'
 	require("mini.test").setup()
+
+	-- With `MARKUP_TEST_TRACE`, name every case as it starts and ends, on stderr
+	-- and at once, so a case that hangs is named even when the output is piped.
+	if vim.env.MARKUP_TEST_TRACE then
+		local stdout = MiniTest.gen_reporter.stdout()
+		local seen = {}
+		MiniTest.config.execute.reporter = {
+			start = stdout.start,
+			finish = stdout.finish,
+			update = function(id)
+				stdout.update(id)
+				local case = MiniTest.current.all_cases[id]
+				local state = case.exec and case.exec.state or "start"
+				if seen[id] ~= state then
+					seen[id] = state
+					io.stderr:write(
+						("[%s] %s: %s\n"):format(
+							os.date("%H:%M:%S"),
+							table.concat(case.desc, " | "),
+							state
+						)
+					)
+					io.stderr:flush()
+				end
+			end,
+		}
+	end
 end

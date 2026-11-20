@@ -95,6 +95,8 @@ jobs:
           test -n "$min" || { echo "::error::min_nvim not found in lua/markup/config.lua"; exit 1; }
           gh api 'repos/neovim/neovim/releases?per_page=100' --paginate \
             --jq '.[] | select(.draft or .prerelease | not) | .tag_name' > tags.txt
+          # The version of today's nightly, shown as "v0.13.0-dev-2148+g2843068c7a nightly".
+          gh api repos/neovim/neovim/releases/tags/nightly --jq .body > nightly.txt
           matrix=$(MIN="$min" python3 -c '
           import json, os, re
           parse = lambda v: tuple(int(x) for x in v.lstrip("v").split("."))
@@ -104,13 +106,17 @@ jobs:
           latest = {}
           for t in tags:
               latest[parse(t)[:2]] = t
-          print(json.dumps({"neovim": list(latest.values()) + ["nightly"]}))
+          nightly = re.search(r"NVIM (v\S+)", open("nightly.txt").read())
+          label = nightly.group(1) + " nightly" if nightly else "nightly"
+          include = [{"neovim": t, "label": t} for t in latest.values()]
+          include.append({"neovim": "nightly", "label": label})
+          print(json.dumps({"include": include}))
           ')
           echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
           echo "Testing on Neovim $min and up: $matrix" >> "$GITHUB_STEP_SUMMARY"
 
   test:
-    name: Tests (Neovim ${{ matrix.neovim }})
+    name: Tests (Neovim ${{ matrix.label }})
     needs: [versions, build]
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -128,12 +134,13 @@ jobs:
         with:
           neovim: true
           version: ${{ matrix.neovim }}
+      - run: nvim --version | head -n 1
       - run: make test_lua
 
   coverage:
     name: Coverage
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -156,6 +163,9 @@ jobs:
 
       - name: Lua coverage
         shell: bash
+        # Names every case as it starts and ends, on stderr and at once.
+        env:
+          MARKUP_TEST_TRACE: "1"
         run: |
           make coverage_lua | tee lua-coverage.txt
           {
