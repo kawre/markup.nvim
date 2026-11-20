@@ -1,13 +1,17 @@
 name: Release assets
 
-# Gives a release what users download: the engine built for each platform,
-# which build.lua fetches, and the skill as a zip for those who add it by
-# hand. Runs when a release is published (release-please publishes it with
-# RELEASE_PLEASE_TOKEN, which starts workflows), or by hand for a tag.
+# Makes a release complete before anyone sees it. release-please saves each
+# release as a draft, which has no tag yet. This builds the engine for each
+# platform and zips the skill, and only once all of it built does it attach
+# the files, with their SHA-256 sums, and publish the release, which is when
+# GitHub creates the tag. A failed build leaves the draft as it is.
+#
+# By hand, for a tag of a release already out, it builds the files again and
+# replaces them.
 
 on:
   release:
-    types: [published]
+    types: [created]
   workflow_dispatch:
     inputs:
       tag:
@@ -19,10 +23,14 @@ permissions:
 
 env:
   TAG: ${{ github.event.release.tag_name || inputs.tag }}
+  # A draft has no tag yet: build the commit it is for.
+  REF: ${{ github.event.release.target_commitish || inputs.tag }}
 
 jobs:
   engine:
     name: Engine (${{ matrix.asset }})
+    # A release published at once, without a draft, is left alone.
+    if: github.event_name == 'workflow_dispatch' || github.event.release.draft
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     strategy:
@@ -34,37 +42,76 @@ jobs:
           - { os: macos-latest, target: aarch64-apple-darwin, asset: macos-arm64, lib: libmarkup_core.dylib }
           - { os: macos-latest, target: x86_64-apple-darwin, asset: macos-x86_64, lib: libmarkup_core.dylib }
           - { os: windows-latest, target: x86_64-pc-windows-msvc, asset: windows-x86_64, lib: markup_core.dll }
+    env:
+      # The oldest macOS the engine runs on, rather than the runner's.
+      MACOSX_DEPLOYMENT_TARGET: "11.0"
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ env.TAG }}
+          ref: ${{ env.REF }}
+      # The commit must be the release's: its Cargo.toml says the version.
+      - name: Check the version
+        shell: bash
+        run: |
+          version=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -n 1)
+          if [ "v$version" != "$TAG" ]; then
+            echo "::error::$REF has version $version, not ${TAG#v}"
+            exit 1
+          fi
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
       - run: cargo build --release --target ${{ matrix.target }}
       # Named for the platform, with the extension the library has there.
-      - name: Attach to the release
+      - name: Name it for the platform
         shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
           lib=target/${{ matrix.target }}/release/${{ matrix.lib }}
-          name=markup_core-${{ matrix.asset }}.${lib##*.}
-          cp "$lib" "$name"
-          gh release upload "$TAG" "$name" --clobber
+          mkdir -p out
+          cp "$lib" "out/markup_core-${{ matrix.asset }}.${lib##*.}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: engine-${{ matrix.asset }}
+          path: out/*
+          if-no-files-found: error
 
   skill:
     name: Skill
+    if: github.event_name == 'workflow_dispatch' || github.event.release.draft
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ env.TAG }}
+          ref: ${{ env.REF }}
       # The skill folder as it is, for agents and apps that take a zip.
-      - name: Attach to the release
+      - run: |
+          mkdir -p out
+          (cd skills && zip -qr ../out/markup-nvim-skill.zip markup-nvim)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: skill
+          path: out/*
+          if-no-files-found: error
+
+  publish:
+    name: Publish
+    needs: [engine, skill]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: out
+          merge-multiple: true
+      # build.lua checks what it downloads against these.
+      - name: Sums
+        working-directory: out
+        run: sha256sum * > SHA256SUMS && cat SHA256SUMS
+      - name: Attach and publish
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          (cd skills && zip -qr ../markup-nvim-skill.zip markup-nvim)
-          gh release upload "$TAG" markup-nvim-skill.zip --clobber
+          gh release upload "$TAG" out/* --clobber --repo "${{ github.repository }}"
+          # Publishing makes the tag, now that every file is there.
+          gh release edit "$TAG" --draft=false --repo "${{ github.repository }}"

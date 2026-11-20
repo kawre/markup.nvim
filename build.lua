@@ -51,6 +51,25 @@ local function platform()
 	return nil, "libmarkup_core.so"
 end
 
+--- The SHA-256 of a file, with whatever the system has for it.
+---@return string?
+local function sha256(path)
+	for _, cmd in ipairs({
+		{ "sha256sum", path },
+		{ "shasum", "-a", "256", path },
+		{ "certutil", "-hashfile", path, "SHA256" },
+	}) do
+		if vim.fn.executable(cmd[1]) == 1 then
+			local ok, out = run(cmd)
+			-- certutil puts its sum on a line of its own, the others first.
+			local sum = ok and (out:match("^(%x+)%s") or out:match("\n(%x+)\r?\n"))
+			if sum and #sum == 64 then
+				return sum:lower()
+			end
+		end
+	end
+end
+
 local function download()
 	local tag = "v" .. version()
 	local on_tag, described = run({ "git", "describe", "--tags", "--exact-match" })
@@ -63,9 +82,25 @@ local function download()
 	end
 	vim.fn.mkdir(root .. "/target/release", "p")
 	say(("Downloading the engine for %s"):format(tag))
-	local url = ("https://github.com/%s/releases/download/%s/%s"):format(REPO, tag, asset)
-	local ok, out = run({ "curl", "-fsSL", "-o", "target/release/" .. library, url })
-	return ok, ok and nil or out
+	local base = ("https://github.com/%s/releases/download/%s/"):format(REPO, tag)
+	local target = "target/release/" .. library
+	local ok, out = run({ "curl", "-fsSL", "-o", target, base .. asset })
+	if not ok then
+		return false, out
+	end
+
+	-- The release lists the SHA-256 of each file; a file that does not match
+	-- is not used.
+	local got_sums, sums = run({ "curl", "-fsSL", base .. "SHA256SUMS" })
+	local want = got_sums and sums:match("(%x+)%s+%*?" .. vim.pesc(asset))
+	local have = sha256(root .. "/" .. target)
+	if want and have and want:lower() ~= have then
+		os.remove(root .. "/" .. target)
+		return false, ("%s does not match its SHA-256 in the release"):format(asset)
+	elseif not (want and have) then
+		say("Could not check the SHA-256 of the engine")
+	end
+	return true
 end
 
 local function build()
