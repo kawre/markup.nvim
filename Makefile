@@ -5,6 +5,8 @@ ROCKS = .tests/rocks
 COVERAGE_TIMEOUT ?= 20m
 # The least coverage, in percent, of the Lua and of the Rust
 COVERAGE_MIN ?= 80
+# How many test files run at once under coverage
+JOBS ?= $(shell nproc 2>/dev/null || echo 2)
 
 # Build the native engine
 build:
@@ -43,15 +45,12 @@ lint:
 coverage: coverage_lua coverage_rust
 
 # Lua coverage of the test suite, as LCOV in .tests/coverage/lua.lcov
-coverage_lua: deps/mini.test build $(ROCKS)
-	rm -f .tests/coverage/luacov.stats.*
-	@# A file at a time, each with a time limit, so one that hangs is named and
-	@# the rest still count.
-	@failed=0; for file in tests/test_*.lua; do \
-		echo "== $$file"; \
-		MARKUP_COVERAGE=1 timeout $(COVERAGE_TIMEOUT) $(NVIM_TEST) -c "lua MiniTest.run_file('$$file')" \
-			|| { echo "!! $$file failed or ran past $(COVERAGE_TIMEOUT)"; failed=1; }; \
-	done; \
+# With SKIP_BUILD=1, on the engine already built, as CI does with a downloaded one
+coverage_lua: deps/mini.test $(if $(SKIP_BUILD),,build) $(ROCKS)
+	rm -rf .tests/coverage/luacov.stats.* .tests/coverage/logs
+	@mkdir -p .tests/coverage/logs
+	@# The files at once on every core, with a progress bar; see the script.
+	@failed=0; scripts/coverage_run.sh $(JOBS) $(COVERAGE_TIMEOUT) $(NVIM_TEST) || failed=1; \
 	MARKUP_COVERAGE_MIN=$(COVERAGE_MIN) nvim -l scripts/coverage.lua || failed=1; \
 	exit $$failed
 
