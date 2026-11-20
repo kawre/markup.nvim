@@ -9,7 +9,7 @@
       "name": "markup-nvim",
       "source": "./",
       "description": "A skill for building reactive user interfaces inside Neovim with markup.nvim.",
-      "version": "0.2.0"
+      "version": "0.3.0"
     }
   ]
 }
