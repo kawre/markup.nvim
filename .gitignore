@@ -4,3 +4,5 @@ deps
 /target/
 /examples/
 doc/tags
+.idea/
+.vscode/
