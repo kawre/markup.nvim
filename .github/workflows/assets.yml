@@ -6,31 +6,42 @@ name: Release assets
 # the files, with their SHA-256 sums, and publish the release, which is when
 # GitHub creates the tag. A failed build leaves the draft as it is.
 #
-# By hand, for a tag of a release already out, it builds the files again and
-# replaces them.
+# The Release workflow calls it right after release-please makes the draft:
+# GitHub starts no workflow for the events of a draft release, so it cannot
+# wait for one. By hand it takes the tag and, for a draft, the commit of the
+# release, since its tag does not exist yet; for a release already out it
+# builds the files again and replaces them.
 
 on:
-  release:
-    types: [created]
+  workflow_call:
+    inputs:
+      tag:
+        description: Tag of the release, such as v0.3.0
+        type: string
+        required: true
+      ref:
+        description: Commit of the release
+        type: string
+        required: true
   workflow_dispatch:
     inputs:
       tag:
-        description: Tag of the release, such as v0.2.0
+        description: Tag of the release, such as v0.3.0
         required: true
+      ref:
+        description: Commit of the release, for a draft whose tag does not exist yet (default the tag)
+        required: false
 
 permissions:
   contents: write
 
 env:
-  TAG: ${{ github.event.release.tag_name || inputs.tag }}
-  # A draft has no tag yet: build the commit it is for.
-  REF: ${{ github.event.release.target_commitish || inputs.tag }}
+  TAG: ${{ inputs.tag }}
+  REF: ${{ inputs.ref || inputs.tag }}
 
 jobs:
   engine:
     name: Engine (${{ matrix.asset }})
-    # A release published at once, without a draft, is left alone.
-    if: github.event_name == 'workflow_dispatch' || github.event.release.draft
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     strategy:
@@ -77,7 +88,6 @@ jobs:
 
   skill:
     name: Skill
-    if: github.event_name == 'workflow_dispatch' || github.event.release.draft
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
