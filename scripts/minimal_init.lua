@@ -15,6 +15,8 @@ if vim.env.MARKUP_COVERAGE then
 	runner.init({
 		statsfile = (".tests/coverage/luacov.stats.%d.out"):format(vim.fn.getpid()),
 		include = { "lua/markup/" },
+		-- Developer tools, not part of what the plugin does: not counted.
+		exclude = { "lua/markup/devkit/" },
 	})
 	vim.api.nvim_create_autocmd("VimLeavePre", {
 		callback = function()

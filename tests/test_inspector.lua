@@ -1014,7 +1014,8 @@ end
 
 -- The stress test runs animations without a frame cap. Under LuaCov on CI it
 -- hangs in its first case, while it passes on every Neovim without coverage,
--- and locally with coverage too. Coverage leaves it out until that is found.
+-- and locally with coverage too. Coverage does not count the devkit, so it
+-- loses nothing by leaving it out.
 T["stress test"] = new_set({
 	hooks = {
 		pre_case = function()

@@ -2,7 +2,9 @@
 
 NVIM_TEST = nvim --headless --noplugin -u ./scripts/minimal_init.lua
 ROCKS = .tests/rocks
-COVERAGE_TIMEOUT ?= 5m
+COVERAGE_TIMEOUT ?= 20m
+# The least coverage, in percent, of the Lua and of the Rust
+COVERAGE_MIN ?= 80
 
 # Build the native engine
 build:
@@ -50,14 +52,14 @@ coverage_lua: deps/mini.test build $(ROCKS)
 		MARKUP_COVERAGE=1 timeout $(COVERAGE_TIMEOUT) $(NVIM_TEST) -c "lua MiniTest.run_file('$$file')" \
 			|| { echo "!! $$file failed or ran past $(COVERAGE_TIMEOUT)"; failed=1; }; \
 	done; \
-	nvim -l scripts/coverage.lua; \
+	MARKUP_COVERAGE_MIN=$(COVERAGE_MIN) nvim -l scripts/coverage.lua || failed=1; \
 	exit $$failed
 
 # Rust coverage of the engine's unit tests, as LCOV in .tests/coverage/rust.lcov
 coverage_rust:
 	@mkdir -p .tests/coverage
 	cargo llvm-cov --lcov --output-path .tests/coverage/rust.lcov
-	cargo llvm-cov report --summary-only
+	cargo llvm-cov report --summary-only --fail-under-lines $(COVERAGE_MIN)
 
 # LuaCov, in a tree of the project's own
 $(ROCKS):

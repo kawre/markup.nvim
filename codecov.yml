@@ -1,7 +1,11 @@
+ignore:
+  - lua/markup/devkit
+
 coverage:
   status:
     project:
       default:
+        target: 80%
         informational: true
     patch:
       default:
