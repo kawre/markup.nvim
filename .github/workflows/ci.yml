@@ -204,6 +204,34 @@ jobs:
           flags: rust
           fail_ci_if_error: false
 
+  windows:
+    name: Windows (Neovim nightly)
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: rhysd/action-setup-vim@v1
+        with:
+          neovim: true
+          version: nightly
+      - name: Where Neovim keeps LuaJIT
+        shell: pwsh
+        run: |
+          $bin = Split-Path (Get-Command nvim).Source
+          "bin: $bin"
+          Get-ChildItem $bin | Select-Object Name, Length | Format-Table -AutoSize
+          nvim --version | Select-Object -First 3
+      - name: Build
+        shell: pwsh
+        run: cargo build --release
+      - name: Tests
+        shell: pwsh
+        run: |
+          git clone --filter=blob:none https://github.com/echasnovski/mini.test deps/mini.test
+          nvim --headless --noplugin -u ./scripts/minimal_init.lua -c "lua MiniTest.run()"
+
   # The one check branch protection requires: every job above passed. Their
   # names change with the Neovim versions, this one does not.
   ci:
