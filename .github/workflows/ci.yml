@@ -44,14 +44,12 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: cargo clippy --all-targets -- -D warnings
 
+  # Linux only: Windows runners cost twice the minutes of Linux ones and
+  # macOS ten times, on a private repository.
   build:
-    name: Build (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
+    name: Build
+    runs-on: ubuntu-latest
     timeout-minutes: 15
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest]
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -60,9 +58,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: markup_core-${{ runner.os }}-${{ runner.arch }}
-          path: |
-            target/release/libmarkup_core.so
-            target/release/libmarkup_core.dylib
+          path: target/release/libmarkup_core.so
           if-no-files-found: error
 
   test-engine:
