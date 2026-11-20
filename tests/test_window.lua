@@ -149,17 +149,11 @@ T["dim"]["gives a float its winhighlight back"] = function()
 		popup = Markup.window({ width = 0.5, height = 0.5, dim = true, enter = true })
 		popup:close()
 		after = vim.api.nvim_get_hl_ns({ winid = float })
-		normal = after > 0 and vim.api.nvim_get_hl(after, { name = "Normal" }) or nil
+		-- Before Neovim 0.12 the group comes with the colors of what it links to.
+		normal_link = vim.api.nvim_get_hl(after, { name = "Normal" }).link
 	]])
-	if child.lua_get("own") > 0 then
-		eq(child.lua_get("after"), child.lua_get("own"))
-		eq(child.lua_get("normal"), { link = "Special" })
-	else
-		-- Before Neovim 0.12 `winhighlight` is not a namespace of the window,
-		-- so it has none to give back, and the option is still there.
-		eq(child.lua_get("after") <= 0, true)
-		eq(child.lua_get("vim.wo[float].winhighlight"), "Normal:Special")
-	end
+	eq(child.lua_get("after"), child.lua_get("own"))
+	eq(child.lua_get("normal_link"), "Special")
 end
 
 T["dim"]["dims a float in the colors its winhighlight gives it"] = function()
