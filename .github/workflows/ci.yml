@@ -78,7 +78,8 @@ jobs:
       matrix: ${{ steps.list.outputs.matrix }}
     steps:
       - uses: actions/checkout@v4
-      # Every release from `min_nvim` in lua/markup/config.lua up, and nightly.
+      # The newest patch of every release line from `min_nvim` in
+      # lua/markup/config.lua up, and nightly.
       - id: list
         env:
           GH_TOKEN: ${{ github.token }}
@@ -93,7 +94,11 @@ jobs:
           parse = lambda v: tuple(int(x) for x in v.lstrip("v").split("."))
           tags = [t.strip() for t in open("tags.txt") if re.fullmatch(r"v\d+\.\d+\.\d+", t.strip())]
           tags = sorted({t for t in tags if parse(t) >= parse(os.environ["MIN"])}, key=parse)
-          print(json.dumps({"neovim": tags + ["nightly"]}))
+          # The newest patch of each release line, such as v0.11.7 for 0.11.
+          latest = {}
+          for t in tags:
+              latest[parse(t)[:2]] = t
+          print(json.dumps({"neovim": list(latest.values()) + ["nightly"]}))
           ')
           echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
           echo "Testing on Neovim $min and up: $matrix" >> "$GITHUB_STEP_SUMMARY"
