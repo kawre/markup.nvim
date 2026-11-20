@@ -921,14 +921,15 @@ function M:drop()
 	backdrop = vim.tbl_extend("force", { bg = "#000000", blend = 60, transparent = true }, backdrop)
 	---@cast backdrop markup.window.Backdrop
 
-	if
-		(Markup.util.is_transparent() and backdrop.transparent)
-		or not vim.o.termguicolors
-		or backdrop.blend == 100
-		or not self:is_floating()
-	then
+	if not vim.o.termguicolors or backdrop.blend == 100 or not self:is_floating() then
 		return
 	end
+
+	-- A float only blends with the colors under it, which a transparent
+	-- background does not have: what the terminal shows there is unknown. The
+	-- windows under the popup dim through their highlights instead, the way
+	-- floats always do, every window of the tab rather than only the floats.
+	local see_through = Markup.util.is_transparent() and backdrop.transparent
 
 	local bg, winblend = backdrop.bg or "#000000", backdrop.blend
 	if not backdrop.transparent then
@@ -940,21 +941,20 @@ function M:drop()
 		winblend = 0
 	end
 
-	local group = ("MarkupBackdrop_%s"):format(bg and bg:sub(2) or "T")
-	vim.api.nvim_set_hl(0, group, { bg = bg })
-
 	-- A blended float only blends with the windows of the grid, so laid over
 	-- other floats it would hide them rather than dim them. It goes under every
 	-- float instead, and the floats already open dim through a highlight
 	-- namespace of their own. This one goes above all of them.
 	local top, bottom = 0, math.huge
-	local floats = {}
+	local beneath = {} ---@type integer[] windows the popup dims
 	for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
 		local config = vim.api.nvim_win_get_config(win)
 		if win ~= self.win and config.relative ~= "" and config.zindex then
 			top = math.max(top, config.zindex)
 			bottom = math.min(bottom, config.zindex)
-			floats[#floats + 1] = win
+			beneath[#beneath + 1] = win
+		elseif win ~= self.win and see_through then
+			beneath[#beneath + 1] = win
 		end
 	end
 	if self.opts.zindex <= top then
@@ -971,7 +971,7 @@ function M:drop()
 	self.dimmed, self.dim_ns = {}, M.dim_namespace(brightness)
 	dimmers[#dimmers + 1] = self
 	local made = {} ---@type table<integer, integer>
-	for _, win in ipairs(floats) do
+	for _, win in ipairs(beneath) do
 		local own = own_namespaces[win]
 		if own == nil then
 			own = vim.api.nvim_get_hl_ns({ winid = win })
@@ -981,6 +981,13 @@ function M:drop()
 		self.dimmed[win] = made[own]
 		vim.api.nvim_win_set_hl_ns(win, made[own])
 	end
+
+	if see_through then
+		return
+	end
+
+	local group = ("MarkupBackdrop_%s"):format(bg and bg:sub(2) or "T")
+	vim.api.nvim_set_hl(0, group, { bg = bg })
 
 	self.backdrop = Markup.window(M.resolve({
 		enter = false,
