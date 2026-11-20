@@ -573,10 +573,20 @@ end
 
 --- One skill for every agent: they read the same format, and publishing puts
 --- it where each one looks.
+--- The version of markup.nvim, as lua/markup/config.lua has it. release-please
+--- keeps it there, in Cargo.toml and in the lines of the output marked
+--- `x-release-please-version`, so a release has the right one everywhere.
+local function version()
+	local found = read(root .. "/lua/markup/config.lua"):match("version = \"([^\"]+)\"")
+	assert(found, "no version in lua/markup/config.lua")
+	return found
+end
+
 local function skills(api)
 	local dir = root .. "/skills/markup-nvim"
 	vim.fn.delete(dir, "rf")
-	write(dir .. "/SKILL.md", read(root .. "/scripts/skill.md"))
+	local template = read(root .. "/scripts/skill.md")
+	write(dir .. "/SKILL.md", (template:gsub("{{version}}", version())))
 	for name, text in pairs(api) do
 		write(dir .. "/reference/" .. name, text)
 	end
@@ -588,6 +598,8 @@ local LLMS = [[
 > A Neovim plugin for building reactive user interfaces: elements with
 > CSS-like props, laid out by an engine in Rust and drawn into a buffer, and
 > signals that update only what changed. Lua API, Neovim 0.10+.
+
+Version {{version}} <!-- x-release-please-version -->
 
 Start with the skill, then the topic of the API you need.
 
@@ -612,7 +624,7 @@ local function llms(api)
 			table.insert(lines, ("- [docs/api/%s](docs/api/%s): %s"):format(file, file, about))
 		end
 	end
-	return LLMS:format(table.concat(lines, "\n"))
+	return (LLMS:format(table.concat(lines, "\n")):gsub("{{version}}", version()))
 end
 
 ---------------------------------------------------------------------------

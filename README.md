@@ -20,9 +20,9 @@ them into a buffer. Signals update only the parts that change.
 ## Requirements
 
 - Neovim 0.10 or newer
-- Rust 1.85 or newer, to build the engine
+- `curl`, to download the engine of a release; or Rust 1.85 or newer, to build it
 
-Run `:checkhealth markup` to check both.
+Run `:checkhealth markup` to check them, and that the engine matches the plugin.
 
 ## Installation
 
@@ -31,11 +31,16 @@ With [lazy.nvim](https://github.com/folke/lazy.nvim):
 ```lua
 {
   "kawre/markup.nvim",
-  build = "cargo build --release",
+  version = "*", -- releases, which come with a built engine
 }
 ```
 
-With any other plugin manager, run `cargo build --release` in the plugin's
+lazy.nvim runs `build.lua` on install and update. On a release it downloads
+the engine for your platform (Linux and macOS on x86_64 and arm64, Windows on
+x86_64); anywhere else, such as on `master` without `version`,
+it builds the engine with `cargo build --release`.
+
+With any other plugin manager, run `nvim -l build.lua` in the plugin's
 directory after installing or updating it.
 
 ## Example
