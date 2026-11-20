@@ -6,9 +6,9 @@
 --   docs/api/*.md         the Lua API by topic, from the LuaCATS annotations
 --   doc/markup.txt        the same as Vim help, for `:help markup`
 --   docs/engine.md        the engine, from the `//!` and `///` comments in Rust
---   skills/<agent>/markup-nvim/
---                         a skill for Claude and one for Codex: SKILL.md from
---                         scripts/skill.md, and docs/api/*.md as reference/
+--   skills/markup-nvim/   an Agent Skill, the format Claude, Codex and others
+--                         read: SKILL.md from scripts/skill.md, and
+--                         docs/api/*.md as reference/
 --
 --   nvim -l scripts/docs.lua
 --
@@ -38,8 +38,11 @@ local function trim(text)
 end
 
 --- Lines without the space LuaCATS leaves after `---`, as one paragraph block.
+--- `@see` comes as a link to a file on the machine that wrote it, with a line
+--- number: only the name stays, the same everywhere and as code moves.
 local function clean(text)
-	local lines = vim.split(text or "", "\n", { plain = true })
+	text = (text or ""):gsub("%[([^%]]+)%]%(file://[^)]*%)", "`%1`")
+	local lines = vim.split(text, "\n", { plain = true })
 	for i, line in ipairs(lines) do
 		lines[i] = line:gsub("^ ", "")
 	end
@@ -568,17 +571,14 @@ end
 ---------------------------------------------------------------------------
 -- Skills
 
-local AGENTS = { "claude", "codex" }
-
+--- One skill for every agent: they read the same format, and publishing puts
+--- it where each one looks.
 local function skills(api)
-	local template = read(root .. "/scripts/skill.md")
-	for _, agent in ipairs(AGENTS) do
-		local dir = ("%s/skills/%s/markup-nvim"):format(root, agent)
-		vim.fn.delete(dir, "rf")
-		write(dir .. "/SKILL.md", template)
-		for name, text in pairs(api) do
-			write(dir .. "/reference/" .. name, text)
-		end
+	local dir = root .. "/skills/markup-nvim"
+	vim.fn.delete(dir, "rf")
+	write(dir .. "/SKILL.md", read(root .. "/scripts/skill.md"))
+	for name, text in pairs(api) do
+		write(dir .. "/reference/" .. name, text)
 	end
 end
 
@@ -593,7 +593,7 @@ Start with the skill, then the topic of the API you need.
 
 ## Guide
 
-- [skills/claude/markup-nvim/SKILL.md](skills/claude/markup-nvim/SKILL.md): how to build UIs with markup.nvim, with examples and pitfalls
+- [skills/markup-nvim/SKILL.md](skills/markup-nvim/SKILL.md): how to build UIs with markup.nvim, with examples and pitfalls
 
 ## API
 
@@ -627,4 +627,4 @@ write(root .. "/doc/markup.txt", vimdoc(classes))
 write(root .. "/docs/engine.md", rust_markdown())
 write(root .. "/llms.txt", llms(api))
 skills(api)
-print(("docs: %d Lua classes, skills for %s"):format(#classes, table.concat(AGENTS, " and ")))
+print(("docs: %d Lua classes"):format(#classes))
