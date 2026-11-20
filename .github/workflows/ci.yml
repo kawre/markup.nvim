@@ -19,6 +19,7 @@ jobs:
   format:
     name: Format
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: JohnnyMorganz/stylua-action@v4
@@ -34,6 +35,7 @@ jobs:
   lint:
     name: Clippy
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -45,6 +47,7 @@ jobs:
   build:
     name: Build (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
@@ -65,6 +68,7 @@ jobs:
   test-engine:
     name: Engine tests
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -109,6 +113,7 @@ jobs:
     name: Tests (Neovim ${{ matrix.neovim }})
     needs: [versions, build]
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     # Every version at once, each on the engine the build job made.
     strategy:
       fail-fast: false
@@ -128,6 +133,7 @@ jobs:
   coverage:
     name: Coverage
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
@@ -187,3 +193,19 @@ jobs:
           files: .tests/coverage/rust.lcov
           flags: rust
           fail_ci_if_error: false
+
+  # The one check branch protection requires: every job above passed. Their
+  # names change with the Neovim versions, this one does not.
+  ci:
+    name: All checks
+    if: always()
+    needs: [format, lint, build, versions, test-engine, test, coverage]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Every job passed
+        env:
+          RESULTS: ${{ toJSON(needs.*.result) }}
+        run: |
+          echo "$RESULTS"
+          echo "$RESULTS" | jq -e 'all(. == "success")'
