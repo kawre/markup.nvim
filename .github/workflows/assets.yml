@@ -1,0 +1,70 @@
+name: Release assets
+
+# Gives a release what users download: the engine built for each platform,
+# which build.lua fetches, and the skill as a zip for those who add it by
+# hand. Runs when a release is published (release-please publishes it with
+# RELEASE_PLEASE_TOKEN, which starts workflows), or by hand for a tag.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Tag of the release, such as v0.2.0
+        required: true
+
+permissions:
+  contents: write
+
+env:
+  TAG: ${{ github.event.release.tag_name || inputs.tag }}
+
+jobs:
+  engine:
+    name: Engine (${{ matrix.asset }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, target: x86_64-unknown-linux-gnu, asset: linux-x86_64, lib: libmarkup_core.so }
+          - { os: ubuntu-24.04-arm, target: aarch64-unknown-linux-gnu, asset: linux-arm64, lib: libmarkup_core.so }
+          - { os: macos-latest, target: aarch64-apple-darwin, asset: macos-arm64, lib: libmarkup_core.dylib }
+          - { os: macos-latest, target: x86_64-apple-darwin, asset: macos-x86_64, lib: libmarkup_core.dylib }
+          - { os: windows-latest, target: x86_64-pc-windows-msvc, asset: windows-x86_64, lib: markup_core.dll }
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - run: cargo build --release --target ${{ matrix.target }}
+      # Named for the platform, with the extension the library has there.
+      - name: Attach to the release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          lib=target/${{ matrix.target }}/release/${{ matrix.lib }}
+          name=markup_core-${{ matrix.asset }}.${lib##*.}
+          cp "$lib" "$name"
+          gh release upload "$TAG" "$name" --clobber
+
+  skill:
+    name: Skill
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
+      # The skill folder as it is, for agents and apps that take a zip.
+      - name: Attach to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          (cd skills && zip -qr ../markup-nvim-skill.zip markup-nvim)
+          gh release upload "$TAG" markup-nvim-skill.zip --clobber
