@@ -922,6 +922,55 @@ T["loader"]["runs for as long as it is shown"] = function()
 	eq(get("animate.running()"), false)
 end
 
+T["loader"]["pick keeps to the loaders asked for"] = function()
+	run([[
+		components = require("markup.view.components")
+		nerd = components.loader_names({ nerd_font = true, width = 1 })
+		plain = components.loader_names({ nerd_font = false })
+		named = components.loader_names({ names = { "moon", "bloom", "dots" }, nerd_font = true })
+		none = components.loader_names({ width = 5 })
+	]])
+	eq(
+		get("nerd"),
+		{ "bloom", "hourglass", "moon", "moon_alt", "poppy", "ripple", "sand", "sprout", "twinkle" }
+	)
+	eq(get("vim.tbl_contains(plain, 'dots') and not vim.tbl_contains(plain, 'bloom')"), true)
+	eq(get("#plain + #nerd == #components.loader_names()"), true)
+	eq(get("named"), { "bloom", "moon" })
+	eq(get("none"), {})
+end
+
+T["loader"]["draws at random only from what pick allows"] = function()
+	run([[
+		nerd = {}
+		for _, name in ipairs(require("markup.view.components").loader_names({ nerd_font = true })) do
+			for _, frame in ipairs(require("markup.view.components").loaders[name].frames) do
+				nerd[frame] = true
+			end
+		end
+		stray = {}
+		for _ = 1, 40 do
+			view:render(m.loader({ pick = { nerd_font = true } }))
+			reactive.flush()
+			local frame = lines()[1]
+			if not nerd[frame] then stray[#stray + 1] = frame end
+		end
+	]])
+	eq(get("stray"), {})
+end
+
+T["loader"]["says when nothing matches pick"] = function()
+	local ok, err = pcall(
+		run,
+		[[
+		view:render(m.loader({ pick = { width = 5 } }))
+		reactive.flush()
+	]]
+	)
+	eq(ok, false)
+	eq(tostring(err):find("no loader matches", 1, true) ~= nil, true)
+end
+
 T["loader"]["picks one at random"] = function()
 	run([[
 		seen = {}
