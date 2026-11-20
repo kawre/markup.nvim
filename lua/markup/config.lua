@@ -25,7 +25,7 @@ local M = {
 	name = "markup.nvim",
 	--- The version of markup.nvim. release-please sets it with the one in
 	--- Cargo.toml, which the engine reports as `require("markup.core").version`.
-	version = "0.1.0", -- x-release-please-version
+	version = "0.2.0", -- x-release-please-version
 	--- The oldest Neovim markup.nvim supports. CI tests every release from it up.
 	min_nvim = "0.10.0",
 	debug = false,
