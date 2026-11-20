@@ -72,6 +72,24 @@ vim.keymap.set("n", "<CR>", function()
 end, { buffer = win.buf })
 ```
 
+## For AI agents
+
+markup.nvim comes with an [Agent Skill](https://agentskills.io) that teaches
+coding agents its API, in `skills/markup-nvim`, and `llms.txt` points to the
+rest of the docs. Both are generated from the code and carry its version.
+
+- Claude Code, as a plugin:
+
+  ```
+  /plugin marketplace add kawre/markup.nvim
+  /plugin install markup-nvim@markup-nvim
+  ```
+
+- Codex, Cursor, Gemini CLI, GitHub Copilot and other agents that read the
+  same format: `npx skills add kawre/markup.nvim`
+- By hand: `markup-nvim-skill.zip` from a release, or copy `skills/markup-nvim`
+  where your agent looks for skills.
+
 ## Development
 
 ```sh

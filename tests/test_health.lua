@@ -46,10 +46,16 @@ T["warns of an engine from another version"] = function()
 	eq(#warned, 1)
 end
 
-T["the plugin and Cargo.toml have the same version"] = function()
+T["the plugin, Cargo.toml and the Claude Code plugin have the same version"] = function()
+	local version = child.lua_get("require('markup.config').version")
 	local cargo =
 		table.concat(vim.fn.readfile("Cargo.toml"), "\n"):match("\nversion = \"([^\"]+)\"")
-	eq(child.lua_get("require('markup.config').version"), cargo)
+	eq(cargo, version)
+	local function json(path)
+		return vim.json.decode(table.concat(vim.fn.readfile(path), "\n"))
+	end
+	eq(json(".claude-plugin/plugin.json").version, version)
+	eq(json(".claude-plugin/marketplace.json").plugins[1].version, version)
 end
 
 return T

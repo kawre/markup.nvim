@@ -1,0 +1,15 @@
+{
+  "name": "markup-nvim",
+  "owner": {
+    "name": "kawre"
+  },
+  "description": "markup.nvim's skill for AI agents: building reactive user interfaces inside Neovim.",
+  "plugins": [
+    {
+      "name": "markup-nvim",
+      "source": "./",
+      "description": "A skill for building reactive user interfaces inside Neovim with markup.nvim.",
+      "version": "0.1.0"
+    }
+  ]
+}

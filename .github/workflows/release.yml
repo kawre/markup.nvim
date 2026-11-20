@@ -5,7 +5,9 @@ name: Release
 # lua/markup/config.lua and the lines of the docs marked
 # `x-release-please-version`, and CHANGELOG.md. Merging it tags the commit and
 # makes the GitHub release, and the engine is then built for each platform and
-# attached to it, for build.lua to download.
+# attached to it, for build.lua to download, with the skill as a zip for those
+# who add it by hand. The Claude Code plugin in .claude-plugin carries the same
+# version.
 #
 # Its pull request needs CI to pass like any other. A pull request opened with
 # the default GITHUB_TOKEN starts no workflow, so set RELEASE_PLEASE_TOKEN: a
@@ -74,3 +76,21 @@ jobs:
           name=markup_core-${{ matrix.asset }}.${lib##*.}
           cp "$lib" "$name"
           gh release upload "${{ needs.release-please.outputs.tag }}" "$name" --clobber
+
+  skill:
+    name: Skill
+    needs: release-please
+    if: needs.release-please.outputs.created == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.release-please.outputs.tag }}
+      # The skill folder as it is, for agents and apps that take a zip.
+      - name: Attach to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          (cd skills && zip -qr ../markup-nvim-skill.zip markup-nvim)
+          gh release upload "${{ needs.release-please.outputs.tag }}" markup-nvim-skill.zip --clobber

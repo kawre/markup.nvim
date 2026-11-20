@@ -12,7 +12,17 @@
       "extra-files": [
         "lua/markup/config.lua",
         "skills/markup-nvim/SKILL.md",
-        "llms.txt"
+        "llms.txt",
+        {
+          "type": "json",
+          "path": ".claude-plugin/plugin.json",
+          "jsonpath": "$.version"
+        },
+        {
+          "type": "json",
+          "path": ".claude-plugin/marketplace.json",
+          "jsonpath": "$.plugins[0].version"
+        }
       ]
     }
   }
