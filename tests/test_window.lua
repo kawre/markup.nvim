@@ -73,6 +73,24 @@ end
 
 T["dim"] = new_set()
 
+T["dim"]["dims the windows under it on a transparent background"] = function()
+	child.lua([[
+		vim.api.nvim_set_hl(0, "Normal", { fg = "#cdd6f4" })
+		vim.cmd("doautocmd ColorScheme")
+		editor = vim.api.nvim_get_current_win()
+		popup = Markup.window({ width = 0.5, height = 0.5, dim = true, enter = true, text = { "hi" } })
+		local ns = vim.api.nvim_get_hl_ns({ winid = editor })
+		dimmed_fg = ns > 0 and vim.api.nvim_get_hl(ns, { name = "Normal" }).fg or false
+	]])
+	-- No float to blend with a background that is not there.
+	eq(child.lua_get("backdrop()"), vim.NIL)
+	-- The text under it at 60% of its brightness.
+	eq(child.lua_get("dimmed_fg"), child.lua_get("math.floor(0xcd * 0.6) * 65536 + math.floor(0xd6 * 0.6) * 256 + math.floor(0xf4 * 0.6)"))
+
+	child.lua("popup:close()")
+	eq(child.lua_get("math.max(vim.api.nvim_get_hl_ns({ winid = editor }), 0)"), 0)
+end
+
 T["dim"]["lays a backdrop under the popup"] = function()
 	child.lua([[popup = Markup.window({ width = 0.5, height = 0.5, dim = true, enter = true, text = { "hi" } })]])
 	eq(child.lua_get("backdrop() ~= nil"), true)
