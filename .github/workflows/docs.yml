@@ -1,0 +1,66 @@
+name: Docs
+
+# Writes docs/, doc/markup.txt, llms.txt and skills/ from the comments in the
+# code (scripts/docs.lua). On a pull request, when they changed, it commits
+# them to its branch.
+#
+# A commit pushed with the default GITHUB_TOKEN starts no workflow, so CI would
+# not run on it. With a DOCS_TOKEN secret (a fine-grained token that can write
+# the contents of this repository) it does.
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  docs:
+    name: Docs from comments
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The branch itself rather than a merge commit, to push to it.
+          ref: ${{ github.head_ref || github.ref }}
+          token: ${{ secrets.DOCS_TOKEN || github.token }}
+      - uses: rhysd/action-setup-vim@v1
+        with:
+          neovim: true
+          version: stable
+      - name: lua-language-server
+        run: make luals
+      - name: Write the docs
+        run: make docs
+      - name: What changed
+        id: diff
+        run: |
+          git add --all docs doc llms.txt skills
+          if git diff --cached --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "Docs match the comments." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            { echo '### Docs changed'; echo '```'; git diff --cached --stat; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Commit them to the pull request
+        if: steps.diff.outputs.changed == 'true' && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "docs: update from the comments in the code"
+          git push
+      - name: Out of date
+        # A fork cannot be pushed to, and master only takes pull requests.
+        if: steps.diff.outputs.changed == 'true' && !(github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)
+        run: |
+          echo "::error::The docs do not match the comments. Run 'make docs' and commit the result."
+          exit 1
