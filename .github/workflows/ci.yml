@@ -192,10 +192,11 @@ jobs:
               latest[parse(t)[:2]] = t
           nightly = re.search(r"NVIM (v\S+)", open("nightly.txt").read())
           label = nightly.group(1) + " nightly" if nightly else "nightly"
-          # One key, so GitHub names each job after it: "Tests (v0.11.7)". A
-          # name with ${{ matrix.* }} shows unexpanded on a skipped job.
-          include = [{"neovim": t} for t in latest.values()]
-          include.append({"neovim": label})
+          # One key, so GitHub names each job after it: "Tests (Neovim
+          # v0.11.7)". A name with ${{ matrix.* }} shows unexpanded on a
+          # skipped job.
+          include = [{"neovim": "Neovim " + t} for t in latest.values()]
+          include.append({"neovim": "Neovim " + label})
           print(json.dumps({"include": include}))
           ')
           echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
@@ -216,11 +217,19 @@ jobs:
         with:
           name: markup_core-Linux-X64
           path: target/release
+      # The version to install from the label: "Neovim v0.11.7" is v0.11.7,
+      # "Neovim v0.13.0-dev-... nightly" is nightly.
+      - id: version
+        shell: bash
+        run: |
+          v="${{ matrix.neovim }}"
+          v="${v#Neovim }"
+          [[ $v == *" nightly" ]] && v=nightly
+          echo "neovim=$v" >> "$GITHUB_OUTPUT"
       - uses: rhysd/action-setup-vim@v1
         with:
           neovim: true
-          # "v0.13.0-dev-... nightly" is installed as nightly.
-          version: ${{ endsWith(matrix.neovim, ' nightly') && 'nightly' || matrix.neovim }}
+          version: ${{ steps.version.outputs.neovim }}
       - run: nvim --version | head -n 1
       - run: make test_lua
 
