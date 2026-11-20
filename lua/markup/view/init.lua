@@ -739,8 +739,18 @@ local function on_click(kind)
 	for view in pairs(Markup.views) do
 		if view.win.win == mouse.winid and view:click(mouse, kind) then
 			-- Neovim selects the word on a double click, which a press leaves out.
-			if kind == "double" and selecting then
-				api.nvim_feedkeys(vim.keycode("<Esc>"), "nx", false)
+			-- This runs once the click was seen, which can be before or after
+			-- Neovim has made the selection, so it is ended now if it is there,
+			-- and again once Neovim has handled what was typed. Once, so a
+			-- selection made on purpose later stays.
+			if kind == "double" then
+				local function deselect()
+					if vim.fn.mode():match("^[vV\22]") then
+						api.nvim_feedkeys(vim.keycode("<Esc>"), "nx", false)
+					end
+				end
+				deselect()
+				api.nvim_create_autocmd("SafeState", { once = true, callback = deselect })
 			end
 			return
 		end
