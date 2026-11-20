@@ -1997,18 +1997,15 @@ end
 
 T["fixed"]["follows the width of the window"] = function()
 	fixed_view()
-	run([[
-		vim.cmd("vsplit")
-		-- Returns as soon as it holds; the time is for a busy machine.
-		vim.wait(2000, function()
-			reactive.flush()
-			return vim.api.nvim_win_get_width(band.win.win) == vim.api.nvim_win_get_width(win.win)
-		end, 10)
-	]])
+	run([[vim.cmd("vsplit")]])
+	-- The band follows WinResized, which Neovim sends from its main loop: a
+	-- vim.wait inside one call never turns it. Asked from here, the loop turns
+	-- between the questions.
+	local same = "vim.api.nvim_win_get_width(band.win.win) == vim.api.nvim_win_get_width(win.win)"
 	eq(
-		child.lua_get(
-			"vim.api.nvim_win_get_width(band.win.win) == vim.api.nvim_win_get_width(win.win)"
-		),
+		vim.wait(2000, function()
+			return child.lua_get(same)
+		end, 10),
 		true
 	)
 end
