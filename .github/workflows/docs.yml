@@ -29,16 +29,29 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          fetch-depth: 0
           ssh-key: ${{ secrets.DOCS_DEPLOY_KEY }}
+      - name: Check release metadata
+        id: release
+        if: github.event_name == 'push'
+        env:
+          BASE: ${{ github.event.before }}
+        run: |
+          only=$(python3 scripts/release_only.py "$BASE" "$GITHUB_SHA")
+          echo "only=$only" >> "$GITHUB_OUTPUT"
       - uses: rhysd/action-setup-vim@v1
+        if: steps.release.outputs.only != 'true'
         with:
           neovim: true
           version: stable
       - name: lua-language-server
+        if: steps.release.outputs.only != 'true'
         run: make luals
       - name: Write the docs
+        if: steps.release.outputs.only != 'true'
         run: make docs
       - name: Commit what changed
+        if: steps.release.outputs.only != 'true'
         run: |
           git add --all docs doc llms.txt skills
           if git diff --cached --quiet; then

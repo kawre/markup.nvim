@@ -54,6 +54,16 @@ jobs:
             sleep 15
           done
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Check release metadata
+        id: release
+        if: github.event_name != 'workflow_dispatch'
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          only=$(python3 scripts/release_only.py "$BASE" "$GITHUB_SHA")
+          echo "only=$only" >> "$GITHUB_OUTPUT"
       - uses: dorny/paths-filter@v3
         id: filter
         with:
@@ -73,14 +83,17 @@ jobs:
             ci:
               - ".github/workflows/ci.yml"
               - "codecov.yml"
+              - "scripts/release_only.py"
       - id: all
         env:
           EVERYTHING: ${{ github.event_name == 'workflow_dispatch' || steps.filter.outputs.ci == 'true' }}
-          RUST: ${{ steps.filter.outputs.rust }}
-          LUA: ${{ steps.filter.outputs.lua }}
+          RELEASE_ONLY: ${{ steps.release.outputs.only }}
+          RUST_CHANGED: ${{ steps.filter.outputs.rust }}
+          LUA_CHANGED: ${{ steps.filter.outputs.lua }}
         run: |
-          rust=$([ "$EVERYTHING" = true ] || [ "$RUST" = true ] && echo true || echo false)
-          lua=$([ "$EVERYTHING" = true ] || [ "$LUA" = true ] && echo true || echo false)
+          rust=$([ "$EVERYTHING" = true ] || [ "$RUST_CHANGED" = true ] && echo true || echo false)
+          lua=$([ "$EVERYTHING" = true ] || [ "$LUA_CHANGED" = true ] && echo true || echo false)
+          if [ "$RELEASE_ONLY" = true ]; then rust=false; lua=false; fi
           code=$([ "$rust" = true ] || [ "$lua" = true ] && echo true || echo false)
           { echo "rust=$rust"; echo "lua=$lua"; echo "code=$code"; } >> "$GITHUB_OUTPUT"
           echo "Rust changed: $rust, Lua changed: $lua" >> "$GITHUB_STEP_SUMMARY"
@@ -193,7 +206,7 @@ jobs:
           nightly = re.search(r"NVIM (v\S+)", open("nightly.txt").read())
           label = nightly.group(1) + " nightly" if nightly else "nightly"
           # One key, so GitHub names each job after it: "Tests (Neovim
-          # v0.11.7)". A name with ${{ matrix.* }} shows unexpanded on a
+          # v0.11.7)". A name using matrix variables shows unexpanded on a
           # skipped job.
           include = [{"neovim": "Neovim " + t} for t in latest.values()]
           include.append({"neovim": "Neovim " + label})

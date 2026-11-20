@@ -80,6 +80,20 @@ jobs:
           lib=target/${{ matrix.target }}/release/${{ matrix.lib }}
           mkdir -p out
           cp "$lib" "out/markup_core-${{ matrix.asset }}.${lib##*.}"
+      - uses: rhysd/action-setup-vim@v1
+        if: matrix.asset == 'linux-x86_64'
+        with:
+          neovim: true
+          version: stable
+      - name: Load the packaged Linux engine in Neovim
+        if: matrix.asset == 'linux-x86_64'
+        run: |
+          nvim --clean --headless -l /dev/stdin <<'LUA'
+          vim.opt.runtimepath:prepend(vim.fn.getcwd())
+          local load_engine = assert(package.loadlib("out/markup_core-linux-x86_64.so", "luaopen_markup_core"))
+          local version = require("markup.config").version
+          assert(load_engine().version == version and "v" .. version == vim.env.TAG)
+          LUA
       - uses: actions/upload-artifact@v4
         with:
           name: engine-${{ matrix.asset }}
@@ -117,7 +131,7 @@ jobs:
       # build.lua checks what it downloads against these.
       - name: Sums
         working-directory: out
-        run: sha256sum * > SHA256SUMS && cat SHA256SUMS
+        run: sha256sum -- * > SHA256SUMS && cat SHA256SUMS
       - name: Attach and publish
         env:
           GH_TOKEN: ${{ github.token }}
