@@ -43,9 +43,15 @@ impl Axis {
 
     fn size(self, main: i32, cross: i32) -> Size {
         if self.column {
-            Size { width: cross, height: main }
+            Size {
+                width: cross,
+                height: main,
+            }
         } else {
-            Size { width: main, height: cross }
+            Size {
+                width: main,
+                height: cross,
+            }
         }
     }
 
@@ -86,14 +92,24 @@ impl Axis {
     }
 }
 
-fn collect_items(tree: &mut Tree, node: Index, space: Space, axis: Axis, align: Align) -> Vec<Item> {
+fn collect_items(
+    tree: &mut Tree,
+    node: Index,
+    space: Space,
+    axis: Axis,
+    align: Align,
+) -> Vec<Item> {
     let mut ordered = Vec::new();
     tree.for_each_flow_child(node, false, &mut |tree, child| {
         ordered.push((tree.node(child).style.extra().order, child));
     });
     ordered.sort_by_key(|&(order, _)| order);
 
-    let reference = if axis.column { space.height.unwrap_or(0) } else { space.width };
+    let reference = if axis.column {
+        space.height.unwrap_or(0)
+    } else {
+        space.width
+    };
 
     ordered
         .into_iter()
@@ -124,7 +140,11 @@ fn collect_items(tree: &mut Tree, node: Index, space: Space, axis: Axis, align: 
                 basis => basis.resolve(reference).unwrap_or(axis.main(natural)),
             };
 
-            let cross_length = if axis.column { style.width } else { style.height };
+            let cross_length = if axis.column {
+                style.width
+            } else {
+                style.height
+            };
             let item_align = extra.align_self.unwrap_or(align);
 
             Item {
@@ -151,7 +171,10 @@ fn break_lines(items: &[Item], limit: Option<i32>, gap: i32) -> Vec<Line> {
     for (position, item) in items.iter().enumerate() {
         let needed = item.main + if position > start { gap } else { 0 };
         if limit.is_some_and(|limit| position > start && used + needed > limit) {
-            lines.push(Line { items: start..position, cross: 0 });
+            lines.push(Line {
+                items: start..position,
+                cross: 0,
+            });
             start = position;
             used = item.main;
         } else {
@@ -160,7 +183,10 @@ fn break_lines(items: &[Item], limit: Option<i32>, gap: i32) -> Vec<Line> {
     }
 
     if start < items.len() {
-        lines.push(Line { items: start..items.len(), cross: 0 });
+        lines.push(Line {
+            items: start..items.len(),
+            cross: 0,
+        });
     }
     lines
 }
@@ -194,7 +220,13 @@ fn resolve_flexible(items: &mut [Item], available: i32) {
         let taken: i32 = items
             .iter()
             .enumerate()
-            .map(|(position, item)| if frozen[position] { item.main } else { item.base })
+            .map(|(position, item)| {
+                if frozen[position] {
+                    item.main
+                } else {
+                    item.base
+                }
+            })
             .sum();
 
         let shares = share(available - taken, &weights);
@@ -255,13 +287,22 @@ impl Strategy for Flex {
     fn arrange(&self, tree: &mut Tree, node: Index, space: Space) -> Size {
         let style = &tree.node(node).style;
         let extra = style.extra();
-        let axis = Axis { column: extra.direction == Direction::Column };
+        let axis = Axis {
+            column: extra.direction == Direction::Column,
+        };
         let reverse = style.reverse;
         let wrap = extra.wrap;
         let (justify, align, align_content) = (extra.justify, extra.align, extra.align_content);
 
-        let (row_gap, column_gap) = (extra.row_gap.max(style.spacing), extra.column_gap.max(style.spacing));
-        let (main_gap, cross_gap) = if axis.column { (row_gap, column_gap) } else { (column_gap, row_gap) };
+        let (row_gap, column_gap) = (
+            extra.row_gap.max(style.spacing),
+            extra.column_gap.max(style.spacing),
+        );
+        let (main_gap, cross_gap) = if axis.column {
+            (row_gap, column_gap)
+        } else {
+            (column_gap, row_gap)
+        };
 
         let definite_main = if axis.column {
             space.height
@@ -406,7 +447,13 @@ mod tests {
         let (a, b) = (item(&mut tree, 1, "aa"), item(&mut tree, 2, "bbb"));
         let root = row(&mut tree, &[a, b]);
 
-        assert_eq!(measure(&mut tree, root, 20), Size { width: 20, height: 1 });
+        assert_eq!(
+            measure(&mut tree, root, 20),
+            Size {
+                width: 20,
+                height: 1
+            }
+        );
         assert_eq!((x(&tree, a), width(&tree, a)), (0, 2));
         assert_eq!((x(&tree, b), width(&tree, b)), (2, 3));
     }
@@ -457,7 +504,10 @@ mod tests {
     #[test]
     fn shrink_is_weighted_by_size() {
         let mut tree = Tree::default();
-        let (a, b) = (item(&mut tree, 1, "aaaaaaaaaa"), item(&mut tree, 2, "bbbbbbbbbbbbbbbbbbbb"));
+        let (a, b) = (
+            item(&mut tree, 1, "aaaaaaaaaa"),
+            item(&mut tree, 2, "bbbbbbbbbbbbbbbbbbbb"),
+        );
         let root = row(&mut tree, &[a, b]);
 
         measure(&mut tree, root, 15);
@@ -468,7 +518,10 @@ mod tests {
     #[test]
     fn shrink_zero_keeps_an_item_whole() {
         let mut tree = Tree::default();
-        let (a, b) = (item(&mut tree, 1, "aaaaaaaaaa"), item(&mut tree, 2, "bbbbbbbbbb"));
+        let (a, b) = (
+            item(&mut tree, 1, "aaaaaaaaaa"),
+            item(&mut tree, 2, "bbbbbbbbbb"),
+        );
         tree.node_mut(a).style.extra_mut().shrink = 0.0;
         let root = row(&mut tree, &[a, b]);
 
@@ -515,7 +568,12 @@ mod tests {
 
     #[test]
     fn offsets_never_spend_more_than_is_free() {
-        for mode in [Distribute::Between, Distribute::Around, Distribute::Evenly, Distribute::End] {
+        for mode in [
+            Distribute::Between,
+            Distribute::Around,
+            Distribute::Evenly,
+            Distribute::End,
+        ] {
             for free in 0..40 {
                 for count in 1..7 {
                     let total: i32 = offsets(free, count, mode).iter().sum();
@@ -609,7 +667,13 @@ mod tests {
 
         assert_eq!(measure(&mut tree, root, 9).height, 2);
         assert_eq!(tree.node(items[1]).geometry.x, 4);
-        assert_eq!((tree.node(items[2]).geometry.x, tree.node(items[2]).geometry.y), (0, 1));
+        assert_eq!(
+            (
+                tree.node(items[2]).geometry.x,
+                tree.node(items[2]).geometry.y
+            ),
+            (0, 1)
+        );
     }
 
     #[test]
@@ -688,7 +752,10 @@ mod tests {
     #[test]
     fn columns_count_the_rows_of_wrapped_text() {
         let mut tree = Tree::default();
-        let (a, b) = (item(&mut tree, 1, "aaaa bbbb cccc"), item(&mut tree, 2, "end"));
+        let (a, b) = (
+            item(&mut tree, 1, "aaaa bbbb cccc"),
+            item(&mut tree, 2, "end"),
+        );
         let root = row(&mut tree, &[a, b]);
         tree.node_mut(root).style.extra_mut().direction = Direction::Column;
 

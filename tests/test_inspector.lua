@@ -169,7 +169,12 @@ T["layout"]["takes its share of the screen and fits the winbar"] = function()
 	-- `equalize` runs after the event loop turns.
 	run([[vim.wait(50)]])
 	eq(child.lua_get("vim.api.nvim_win_get_width(inspector.win.win)"), 48)
-	eq(child.lua_get("vim.api.nvim_eval_statusline(vim.wo[inspector.win.win].winbar, { maxwidth = 48, winid = inspector.win.win }).str:find('groups', 1, true) ~= nil"), true)
+	eq(
+		child.lua_get(
+			"vim.api.nvim_eval_statusline(vim.wo[inspector.win.win].winbar, { maxwidth = 48, winid = inspector.win.win }).str:find('groups', 1, true) ~= nil"
+		),
+		true
+	)
 end
 
 T["layout"]["keeps its width next to other bottom splits"] = function()
@@ -248,7 +253,19 @@ T["stats"]["shows the phases of a frame and what the view is made of"] = functio
 		open()
 	]])
 	local text = child.lua_get("stats_text()")
-	for _, word in ipairs({ "layout", "paint", "diff", "write", "nodes", "effects", "scopes", "anim", "MB", "lines", "ticks" }) do
+	for _, word in ipairs({
+		"layout",
+		"paint",
+		"diff",
+		"write",
+		"nodes",
+		"effects",
+		"scopes",
+		"anim",
+		"MB",
+		"lines",
+		"ticks",
+	}) do
 		eq(text:find(word, 1, true) ~= nil, true)
 	end
 end
@@ -296,9 +313,9 @@ T["layout"]["details have their own pane"] = function()
 	]])
 	local lines = child.lua_get("panel_lines()")
 	eq(#lines, 9)
-	eq(lines[1]:find('"one"', 1, true) ~= nil, true)
+	eq(lines[1]:find("\"one\"", 1, true) ~= nil, true)
 	eq(table.concat(lines, "\n"):find("margin", 1, true) ~= nil, true)
-	eq(lines[8]:find('"one"', 1, true) ~= nil, true)
+	eq(lines[8]:find("\"one\"", 1, true) ~= nil, true)
 	eq(lines[9]:find("<CR> open", 1, true) ~= nil, true)
 end
 
@@ -337,9 +354,11 @@ T["layout"]["draws highlight names in their own highlight"] = function()
 		reactive.flush()
 	]])
 	eq(contains(" Label"), true)
-	local groups = child.lua_get([[vim.tbl_map(function(mark)
+	local groups = child.lua_get(
+		[[vim.tbl_map(function(mark)
 		return mark[4].hl_group
-	end, vim.api.nvim_buf_get_extmarks(inspector.win.buf, inspector.view.ns, 0, -1, { details = true }))]])
+	end, vim.api.nvim_buf_get_extmarks(inspector.win.buf, inspector.view.ns, 0, -1, { details = true }))]]
+	)
 	eq(vim.tbl_contains(groups, "Label"), true)
 end
 
@@ -350,7 +369,10 @@ T["layout"]["recolors after a colorscheme change"] = function()
 		vim.api.nvim_set_hl(0, "MarkupInspectorBarGood", {})
 		vim.api.nvim_exec_autocmds("ColorScheme", {})
 	]])
-	eq(child.lua_get("next(vim.api.nvim_get_hl(0, { name = 'MarkupInspectorBarGood' })) ~= nil"), true)
+	eq(
+		child.lua_get("next(vim.api.nvim_get_hl(0, { name = 'MarkupInspectorBarGood' })) ~= nil"),
+		true
+	)
 end
 
 T["collapses and expands rows with the keyboard"] = function()
@@ -363,15 +385,15 @@ T["collapses and expands rows with the keyboard"] = function()
 		vim.api.nvim_set_current_win(inspector.win.win)
 		vim.api.nvim_win_set_cursor(inspector.win.win, { 2, 0 })
 	]])
-	eq(contains('"hello"'), true)
+	eq(contains("\"hello\""), true)
 
 	child.type_keys("<CR>")
 	run("reactive.flush()")
-	eq(contains('"hello"'), false)
+	eq(contains("\"hello\""), false)
 
 	child.type_keys("<CR>")
 	run("reactive.flush()")
-	eq(contains('"hello"'), true)
+	eq(contains("\"hello\""), true)
 end
 
 --- Selects the first node `describe` says matches, in the inspector. Not
@@ -469,7 +491,10 @@ T["follows a real window resize"] = function()
 			return view.engine:describe(1).outer_width ~= width
 		end, 10)
 	]])
-	eq(child.lua_get("view.engine:describe(1).outer_width == vim.api.nvim_win_get_width(win.win)"), true)
+	eq(
+		child.lua_get("view.engine:describe(1).outer_width == vim.api.nvim_win_get_width(win.win)"),
+		true
+	)
 end
 
 T["keeps up with the target"] = function()
@@ -481,14 +506,14 @@ T["keeps up with the target"] = function()
 		vim.api.nvim_win_set_cursor(win.win, { 1, 0 })
 		inspector:follow_cursor()
 	]])
-	eq(contains('"before"'), true)
+	eq(contains("\"before\""), true)
 
 	run([[
 		name("after")
 		reactive.flush()
 		vim.wait(300, function() return contains('"after"') end, 10)
 	]])
-	eq(contains('"after"'), true)
+	eq(contains("\"after\""), true)
 end
 
 T["follow selects the node under the cursor"] = function()
@@ -499,7 +524,7 @@ T["follow selects the node under the cursor"] = function()
 		vim.api.nvim_win_set_cursor(win.win, { 2, 5 })
 		inspector:follow_cursor()
 	]])
-	eq(child.lua_get("detail('text')"), '"three"')
+	eq(child.lua_get("detail('text')"), "\"three\"")
 end
 
 T["marks the selected node in the target"] = function()
@@ -701,7 +726,17 @@ end
 T["options"]["opens a popup listing every option"] = function()
 	open_options()
 	eq(child.lua_get("vim.api.nvim_get_current_win() == inspector.options_win.win"), true)
-	for _, label in ipairs({ "Follow cursor", "Show groups", "Mark selection", "Geometry", "Highlight names", "Indent guides", "Live updates", "Variable rate", "Max fps" }) do
+	for _, label in ipairs({
+		"Follow cursor",
+		"Show groups",
+		"Mark selection",
+		"Geometry",
+		"Highlight names",
+		"Indent guides",
+		"Live updates",
+		"Variable rate",
+		"Max fps",
+	}) do
 		eq(child.lua_get(("option_row(%q) ~= nil"):format(label)), true)
 	end
 end
@@ -729,7 +764,7 @@ T["options"]["live updates can be paused"] = function()
 		reactive.flush()
 		vim.wait(250, function() return false end, 10)
 	]])
-	eq(contains('"later"'), false)
+	eq(contains("\"later\""), false)
 end
 
 T["options"]["a slider sets the frame rate"] = function()
@@ -867,8 +902,8 @@ T["pages lists spread over nested groups"] = function()
 		inspector:follow_cursor()
 	]])
 	eq(child.lua_get("#inspector.rows() < 150"), true)
-	eq(child.lua_get("detail('text')"), '"row 34 20"')
-	eq(contains('"row 34 20"'), true)
+	eq(child.lua_get("detail('text')"), "\"row 34 20\"")
+	eq(contains("\"row 34 20\""), true)
 end
 
 T["follow reaches rows beyond the first page"] = function()
@@ -883,8 +918,8 @@ T["follow reaches rows beyond the first page"] = function()
 		vim.api.nvim_win_set_cursor(win.win, { 4000, 0 })
 		inspector:follow_cursor()
 	]])
-	eq(child.lua_get("detail('text')"), '"row 4000"')
-	eq(contains('"row 4000"'), true)
+	eq(child.lua_get("detail('text')"), "\"row 4000\"")
+	eq(contains("\"row 4000\""), true)
 	eq(contains("earlier"), true)
 end
 
@@ -1048,7 +1083,20 @@ T["stress test"]["settings"]["a popup lists every workload and preset"] = functi
 		in_popup = vim.api.nvim_get_current_win() == stress_module.settings_win.win
 	]])
 	eq(child.lua_get("in_popup"), true)
-	for _, label in ipairs({ "Wave", "Meters", "Churn rate", "Cards", "Carousel", "Tree", "Rich text", "Highlights", "Spinners", "idle", "insane", "Paused" }) do
+	for _, label in ipairs({
+		"Wave",
+		"Meters",
+		"Churn rate",
+		"Cards",
+		"Carousel",
+		"Tree",
+		"Rich text",
+		"Highlights",
+		"Spinners",
+		"idle",
+		"insane",
+		"Paused",
+	}) do
 		eq(child.lua_get(("popup_row(%q) ~= nil"):format(label)), true)
 	end
 end

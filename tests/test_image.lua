@@ -84,14 +84,18 @@ T["size"]["follows the proportions of the image"] = function()
 end
 
 T["takes its size in the layout"] = function()
-	run([[view:render(m.block({ m.block("above"), m.image({ data = png(200, 100), width = 20 }), m.block("below") }))]])
+	run(
+		[[view:render(m.block({ m.block("above"), m.image({ data = png(200, 100), width = 20 }), m.block("below") }))]]
+	)
 	local lines = get("vim.api.nvim_buf_get_lines(0, 0, -1, false)")
 	eq(lines[1], "above")
 	eq(lines[7], "below")
 end
 
 T["is drawn over its box"] = function()
-	run([[view:render(m.block({ m.block("above"), m.block({ padding_left = 3, m.image({ data = png(200, 100), width = 20 }) }) }))]])
+	run(
+		[[view:render(m.block({ m.block("above"), m.block({ padding_left = 3, m.image({ data = png(200, 100), width = 20 }) }) }))]]
+	)
 	eq(get("count()"), 1)
 	local top = get("vim.fn.getwininfo(win.win)[1].winrow")
 	local left = get("vim.fn.getwininfo(win.win)[1].wincol")
@@ -355,7 +359,9 @@ T["frames"]["play in a loop, each for its delay"] = function()
 end
 
 T["frames"]["a single frame is a still image"] = function()
-	run([[view:render(m.block({ m.image({ data = { { data = png(200, 100), delay = 100 } }, width = 20 }) }))]])
+	run(
+		[[view:render(m.block({ m.image({ data = { { data = png(200, 100), delay = 100 } }, width = 20 }) }))]]
+	)
 	eq(get("count()"), 1)
 	eq(get("Markup.animate.count()"), 0)
 end

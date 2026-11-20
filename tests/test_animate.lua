@@ -106,29 +106,38 @@ local function count_ticks(code, ms)
 end
 
 T["vrr"]["a loader ticks once per frame of its own"] = function()
-	local ticks = count_ticks([[
+	local ticks = count_ticks(
+		[[
 		_, owner = reactive.scope(function() frames = animate.frames({ "a", "b", "c" }, { interval = 100 }) end)
-	]], 500)
+	]],
+		500
+	)
 	-- About one a frame, five here. At 240 fps it would be about 120.
 	eq(ticks >= 3, true)
 	eq(ticks <= 15, true)
 end
 
 T["vrr"]["without it the clock ticks at its rate"] = function()
-	local ticks = count_ticks([[
+	local ticks = count_ticks(
+		[[
 		animate.vrr = false
 		_, owner = reactive.scope(function() frames = animate.frames({ "a", "b", "c" }, { interval = 100 }) end)
-	]], 500)
+	]],
+		500
+	)
 	eq(ticks > 40, true)
 end
 
 T["vrr"]["a value with a step ticks when it crosses one and still ends on time"] = function()
-	local ticks = count_ticks([[
+	local ticks = count_ticks(
+		[[
 		value = animate.value(0, { duration = 400, step = 1, easing = "linear" })
 		ended_at = nil
 		local started = vim.uv.hrtime()
 		value(4, { done = function() ended_at = (vim.uv.hrtime() - started) / 1e6 end })
-	]], 600)
+	]],
+		600
+	)
 	-- Four cells in 400 ms: a tick per half cell, not 96.
 	eq(ticks <= 12, true)
 	eq(get("value()"), 4)
@@ -139,10 +148,13 @@ T["vrr"]["a value with a step ticks when it crosses one and still ends on time"]
 end
 
 T["vrr"]["a value without a step ticks at the rate"] = function()
-	local ticks = count_ticks([[
+	local ticks = count_ticks(
+		[[
 		value = animate.value(0, { duration = 300 })
 		value(4)
-	]], 400)
+	]],
+		400
+	)
 	eq(ticks > 30, true)
 end
 
@@ -970,7 +982,10 @@ T["loader"]["blooms from a dot to a flower and back"] = function()
 			reactive.flush()
 		end
 	]])
-	eq(get("seen"), { 0xF09DF, 0xF09DE, 0xF0765, 0xF09F0, 0xF024A, 0xF09F0, 0xF0765, 0xF09DE, 0xF09DF })
+	eq(
+		get("seen"),
+		{ 0xF09DF, 0xF09DE, 0xF0765, 0xF09F0, 0xF024A, 0xF09F0, 0xF0765, 0xF09DE, 0xF09DF }
+	)
 end
 
 T["loader"]["spinner is still a name for it"] = function()

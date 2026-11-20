@@ -11,7 +11,12 @@ fn intersect(a: Rect, b: Rect) -> Option<Rect> {
     let top = a.y.max(b.y);
     let right = (a.x + a.width).min(b.x + b.width);
     let bottom = (a.y + a.height).min(b.y + b.height);
-    (right > left && bottom > top).then(|| Rect { x: left, y: top, width: right - left, height: bottom - top })
+    (right > left && bottom > top).then(|| Rect {
+        x: left,
+        y: top,
+        width: right - left,
+        height: bottom - top,
+    })
 }
 
 impl Engine {
@@ -72,16 +77,63 @@ mod tests {
     /// A block three rows tall inside one that clips at `height`.
     fn engine_with_clip(height: i32) -> Engine {
         let mut engine = Engine::new(20);
-        engine.apply(Command::Create { id: 2, display: Display::Block }).unwrap();
-        engine.apply(Command::Insert { parent: ROOT, child: 2, before: None }).unwrap();
-        engine.apply(Command::SetStyle { id: 2, property: StyleProperty::Clip(true) }).unwrap();
-        engine.apply(Command::SetStyle { id: 2, property: StyleProperty::Height(Length::Cells(height)) }).unwrap();
+        engine
+            .apply(Command::Create {
+                id: 2,
+                display: Display::Block,
+            })
+            .unwrap();
+        engine
+            .apply(Command::Insert {
+                parent: ROOT,
+                child: 2,
+                before: None,
+            })
+            .unwrap();
+        engine
+            .apply(Command::SetStyle {
+                id: 2,
+                property: StyleProperty::Clip(true),
+            })
+            .unwrap();
+        engine
+            .apply(Command::SetStyle {
+                id: 2,
+                property: StyleProperty::Height(Length::Cells(height)),
+            })
+            .unwrap();
 
-        engine.apply(Command::Create { id: 3, display: Display::Block }).unwrap();
-        engine.apply(Command::Insert { parent: 2, child: 3, before: None }).unwrap();
-        engine.apply(Command::SetStyle { id: 3, property: StyleProperty::Height(Length::Cells(3)) }).unwrap();
-        engine.apply(Command::SetStyle { id: 3, property: StyleProperty::Width(Length::Cells(4)) }).unwrap();
-        engine.apply(Command::SetStyle { id: 3, property: StyleProperty::Margin(Side::Left, 2) }).unwrap();
+        engine
+            .apply(Command::Create {
+                id: 3,
+                display: Display::Block,
+            })
+            .unwrap();
+        engine
+            .apply(Command::Insert {
+                parent: 2,
+                child: 3,
+                before: None,
+            })
+            .unwrap();
+        engine
+            .apply(Command::SetStyle {
+                id: 3,
+                property: StyleProperty::Height(Length::Cells(3)),
+            })
+            .unwrap();
+        engine
+            .apply(Command::SetStyle {
+                id: 3,
+                property: StyleProperty::Width(Length::Cells(4)),
+            })
+            .unwrap();
+        engine
+            .apply(Command::SetStyle {
+                id: 3,
+                property: StyleProperty::Margin(Side::Left, 2),
+            })
+            .unwrap();
         engine.render(|_, _| ());
         engine
     }

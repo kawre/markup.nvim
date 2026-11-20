@@ -120,7 +120,9 @@ impl<'a> Row<'a> {
     }
 
     fn clipped(&self, from: i32, to: i32) -> (i32, i32) {
-        self.clip.as_ref().map_or((from, to), |clip| (from.max(clip.start), to.min(clip.end)))
+        self.clip
+            .as_ref()
+            .map_or((from, to), |clip| (from.max(clip.start), to.min(clip.end)))
     }
 
     fn add_range(&mut self, from: i32, to: i32, hl: u32) {
@@ -131,7 +133,12 @@ impl<'a> Row<'a> {
     }
 
     fn write(&mut self, cell: i32, text: Cow<'a, str>, width: i32, cells: Cow<'a, [u8]>) {
-        let mut segment = Segment { cell, width, text, cells };
+        let mut segment = Segment {
+            cell,
+            width,
+            text,
+            cells,
+        };
 
         let (from, to) = self.clipped(cell, cell + width);
         if from >= to {
@@ -193,7 +200,11 @@ impl<'a> Row<'a> {
     fn finish(self) -> Line {
         let right = self.ranges.iter().map(|range| range.1).max().unwrap_or(0);
 
-        let capacity = self.segments.iter().map(|segment| segment.text.len()).sum::<usize>();
+        let capacity = self
+            .segments
+            .iter()
+            .map(|segment| segment.text.len())
+            .sum::<usize>();
         let mut text = String::with_capacity(capacity + 8);
         let mut cells = 0;
         // Where each segment landed, to turn cells into bytes.
@@ -202,7 +213,10 @@ impl<'a> Row<'a> {
         let mut plain = true;
 
         for segment in &self.segments {
-            text.extend(std::iter::repeat_n(' ', (segment.cell - cells).max(0) as usize));
+            text.extend(std::iter::repeat_n(
+                ' ',
+                (segment.cell - cells).max(0) as usize,
+            ));
             starts.push(text.len());
             text.push_str(&segment.text);
             cells = segment.end();
@@ -215,7 +229,9 @@ impl<'a> Row<'a> {
                 return cell as usize;
             }
 
-            let index = self.segments.partition_point(|segment| segment.cell <= cell);
+            let index = self
+                .segments
+                .partition_point(|segment| segment.cell <= cell);
             let Some(index) = index.checked_sub(1) else {
                 return cell as usize;
             };
@@ -242,7 +258,11 @@ impl<'a> Row<'a> {
             })
             .collect();
 
-        Line { text, marks, spans: self.spans }
+        Line {
+            text,
+            marks,
+            spans: self.spans,
+        }
     }
 }
 
@@ -338,7 +358,11 @@ impl<'a> Painter<'a> {
         }
 
         let (shift_x, shift_y) = node.style.relative_offset();
-        self.paint_box(index, x + node.geometry.x + shift_x, y + node.geometry.y + shift_y);
+        self.paint_box(
+            index,
+            x + node.geometry.x + shift_x,
+            y + node.geometry.y + shift_y,
+        );
     }
 
     /// Paints a node whose margin box starts at `x`, `y`.
@@ -360,14 +384,24 @@ impl<'a> Painter<'a> {
                             let last = (first + wide(&node.text[start..end])).min(all.len());
 
                             let text = Cow::Borrowed(&node.text[start..end]);
-                            row.write_text(x + fragment.x, text, fragment.width, Cow::Borrowed(&all[first..last]));
+                            row.write_text(
+                                x + fragment.x,
+                                text,
+                                fragment.width,
+                                Cow::Borrowed(&all[first..last]),
+                            );
                         }
                     }
                 }
                 None => {
                     if let Some(row) = self.row(y) {
                         let cells = node.cells.as_deref().unwrap_or(&[]);
-                        row.write_text(x, Cow::Borrowed(&node.text), node.text_width, Cow::Borrowed(cells));
+                        row.write_text(
+                            x,
+                            Cow::Borrowed(&node.text),
+                            node.text_width,
+                            Cow::Borrowed(cells),
+                        );
                     }
                 }
             }
@@ -395,7 +429,10 @@ impl<'a> Painter<'a> {
             let right = left + padding.horizontal() + geometry.content.width;
             let mut top = y + margin.top;
             let mut bottom = top + padding.vertical() + geometry.content.height;
-            if style.border().is_some_and(|border| border.outside_background) {
+            if style
+                .border()
+                .is_some_and(|border| border.outside_background)
+            {
                 let edges = style.border_edges();
                 top += edges.top;
                 bottom -= edges.bottom;
@@ -586,10 +623,21 @@ mod tests {
         let lines = render(&mut tree, root);
 
         assert_eq!(lines[0].text, "abcd");
-        assert_eq!(lines[0].marks, vec![
-            Mark { start: 0, end: 2, hl: 7 },
-            Mark { start: 2, end: 4, hl: 8 },
-        ]);
+        assert_eq!(
+            lines[0].marks,
+            vec![
+                Mark {
+                    start: 0,
+                    end: 2,
+                    hl: 7
+                },
+                Mark {
+                    start: 2,
+                    end: 4,
+                    hl: 8
+                },
+            ]
+        );
     }
 
     #[test]
@@ -605,10 +653,21 @@ mod tests {
 
         let lines = render(&mut tree, root);
 
-        assert_eq!(lines[0].marks, vec![
-            Mark { start: 0, end: 3, hl: 7 },
-            Mark { start: 3, end: 5, hl: 8 },
-        ]);
+        assert_eq!(
+            lines[0].marks,
+            vec![
+                Mark {
+                    start: 0,
+                    end: 3,
+                    hl: 7
+                },
+                Mark {
+                    start: 3,
+                    end: 5,
+                    hl: 8
+                },
+            ]
+        );
     }
 
     fn overlay(tree: &mut Tree, id: u32, value: &str, left: i32, hl: u32) -> Index {
@@ -652,11 +711,26 @@ mod tests {
 
         let marks = render_with_absolutes(&mut tree, root).remove(0).marks;
 
-        assert_eq!(marks, vec![
-            Mark { start: 0, end: 2, hl: 7 },
-            Mark { start: 4, end: 8, hl: 7 },
-            Mark { start: 2, end: 4, hl: 8 },
-        ]);
+        assert_eq!(
+            marks,
+            vec![
+                Mark {
+                    start: 0,
+                    end: 2,
+                    hl: 7
+                },
+                Mark {
+                    start: 4,
+                    end: 8,
+                    hl: 7
+                },
+                Mark {
+                    start: 2,
+                    end: 4,
+                    hl: 8
+                },
+            ]
+        );
     }
 
     #[test]
@@ -800,7 +874,14 @@ mod tests {
         row.write(0, Cow::Borrowed("a你b"), 4, Cow::Borrowed(&[2]));
         row.ranges.push((1, 3, 7));
 
-        assert_eq!(row.finish().marks, vec![Mark { start: 1, end: 4, hl: 7 }]);
+        assert_eq!(
+            row.finish().marks,
+            vec![Mark {
+                start: 1,
+                end: 4,
+                hl: 7
+            }]
+        );
     }
 
     #[test]
@@ -847,7 +928,10 @@ mod tests {
 
     #[test]
     fn clipping_columns_cuts_text_marks_and_spans() {
-        let mut row = Row { clip: Some(2..5), ..Row::default() };
+        let mut row = Row {
+            clip: Some(2..5),
+            ..Row::default()
+        };
         row.write_text(0, Cow::Borrowed("abcdefgh"), 8, Cow::Borrowed(&[]));
         row.add_range(0, 8, 3);
         row.write_text(6, Cow::Borrowed("zz"), 2, Cow::Borrowed(&[]));
@@ -861,7 +945,10 @@ mod tests {
 
     #[test]
     fn clipping_columns_blanks_half_of_a_wide_character() {
-        let mut row = Row { clip: Some(1..3), ..Row::default() };
+        let mut row = Row {
+            clip: Some(1..3),
+            ..Row::default()
+        };
         row.write(0, Cow::Borrowed("你好"), 4, Cow::Borrowed(&[2, 2]));
 
         // The column before the clip, and a blank for each half that remains.

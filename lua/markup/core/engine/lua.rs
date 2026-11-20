@@ -29,11 +29,14 @@ impl LuaUserData for LuaEngine {
                 }
                 Ok(())
             })?;
-            this.0.render(|patches, timings| protocol::encode(lua, patches, timings, &errors))
+            this.0
+                .render(|patches, timings| protocol::encode(lua, patches, timings, &errors))
         });
 
         // Zero indexed cell to the innermost interactive node, if any.
-        methods.add_method("node_at", |_, this, (row, col): (i32, i32)| Ok(this.0.node_at(row, col)));
+        methods.add_method("node_at", |_, this, (row, col): (i32, i32)| {
+            Ok(this.0.node_at(row, col))
+        });
 
         methods.add_method("node_count", |_, this, ()| Ok(this.0.tree().len()));
 
@@ -46,7 +49,9 @@ impl LuaUserData for LuaEngine {
         methods.add_method(
             "snap",
             |_, this, (from_row, from_col, row, col, text): (i32, i32, i32, i32, Option<bool>)| {
-                let target = this.0.snap((from_row, from_col), (row, col), text.unwrap_or(false));
+                let target = this
+                    .0
+                    .snap((from_row, from_col), (row, col), text.unwrap_or(false));
                 Ok(target.unzip())
             },
         );
@@ -54,7 +59,13 @@ impl LuaUserData for LuaEngine {
         // Where a node is visible, as `x, y, width, height, whole`, or nothing.
         methods.add_method("visible_rect", |_, this, id: ClientId| {
             Ok(match this.0.visible_rect(id).map_err(to_lua_error)? {
-                Some((rect, whole)) => (Some(rect.x), Some(rect.y), Some(rect.width), Some(rect.height), Some(whole)),
+                Some((rect, whole)) => (
+                    Some(rect.x),
+                    Some(rect.y),
+                    Some(rect.width),
+                    Some(rect.height),
+                    Some(whole),
+                ),
                 None => (None, None, None, None, None),
             })
         });
@@ -85,8 +96,11 @@ impl LuaUserData for LuaEngine {
             },
         );
 
-        methods.add_method("child_position", |_, this, (id, flatten): (ClientId, bool)| {
-            this.0.child_position(id, flatten).map_err(to_lua_error)
-        });
+        methods.add_method(
+            "child_position",
+            |_, this, (id, flatten): (ClientId, bool)| {
+                this.0.child_position(id, flatten).map_err(to_lua_error)
+            },
+        );
     }
 }

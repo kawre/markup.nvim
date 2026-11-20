@@ -25,6 +25,9 @@ use mlua::prelude::*;
 #[mlua::lua_module(skip_memory_check)]
 fn markup_core(lua: &Lua) -> LuaResult<LuaTable> {
     let exports = lua.create_table()?;
-    exports.set("create_engine", lua.create_function(engine::lua::create_engine)?)?;
+    exports.set(
+        "create_engine",
+        lua.create_function(engine::lua::create_engine)?,
+    )?;
     Ok(exports)
 }

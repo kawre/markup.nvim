@@ -41,7 +41,13 @@ mod tests {
         let b = text(&mut tree, 2, "cde");
         let root = element(&mut tree, 3, Display::Inline, &[a, b]);
 
-        assert_eq!(measure(&mut tree, root, 40), Size { width: 5, height: 1 });
+        assert_eq!(
+            measure(&mut tree, root, 40),
+            Size {
+                width: 5,
+                height: 1
+            }
+        );
         assert_eq!(tree.node(b).geometry.x, 2);
     }
 

@@ -361,7 +361,10 @@ pub fn flow(tree: &mut Tree, run: &[Index], limit: i32, available: i32) -> Size 
     let breaker = break_lines(tree, &tokens.pieces, limit);
     let size = Size {
         width: breaker.widest,
-        height: breaker.y + breaker.line_height.max(if breaker.placed.is_empty() { 0 } else { 1 }),
+        height: breaker.y
+            + breaker
+                .line_height
+                .max(if breaker.placed.is_empty() { 0 } else { 1 }),
     };
 
     // Text fragments, merging what stayed together on a line.
@@ -370,7 +373,12 @@ pub fn flow(tree: &mut Tree, run: &[Index], limit: i32, available: i32) -> Size 
         let piece = &tokens.pieces[placed.source];
         match piece.kind {
             Kind::Atomic => {
-                place(tree, piece.node, placed.x - piece.base.0, placed.y - piece.base.1);
+                place(
+                    tree,
+                    piece.node,
+                    placed.x - piece.base.0,
+                    placed.y - piece.base.1,
+                );
                 continue;
             }
             Kind::Gap => continue,
@@ -414,7 +422,10 @@ pub fn flow(tree: &mut Tree, run: &[Index], limit: i32, available: i32) -> Size 
     }
 
     for (node, fragment) in fragments {
-        tree.node_mut(node).fragments.get_or_insert_default().push(fragment);
+        tree.node_mut(node)
+            .fragments
+            .get_or_insert_default()
+            .push(fragment);
     }
 
     // What each inline element covers on each line, for its highlight.
@@ -459,7 +470,13 @@ mod tests {
             .fragments
             .iter()
             .flatten()
-            .map(|f| (f.x, f.y, entry.text[f.start as usize..f.end as usize].to_string()))
+            .map(|f| {
+                (
+                    f.x,
+                    f.y,
+                    entry.text[f.start as usize..f.end as usize].to_string(),
+                )
+            })
             .collect()
     }
 
@@ -478,10 +495,13 @@ mod tests {
         let (root, label) = paragraph(&mut tree, "the quick brown fox");
 
         assert_eq!(measure(&mut tree, root, 10).height, 2);
-        assert_eq!(pieces(&tree, label), vec![
-            (0, 0, "the quick".to_string()),
-            (0, 1, "brown fox".to_string()),
-        ]);
+        assert_eq!(
+            pieces(&tree, label),
+            vec![
+                (0, 0, "the quick".to_string()),
+                (0, 1, "brown fox".to_string()),
+            ]
+        );
     }
 
     #[test]
@@ -491,10 +511,10 @@ mod tests {
 
         measure(&mut tree, root, 4);
 
-        assert_eq!(pieces(&tree, label), vec![
-            (0, 0, "aaaa".to_string()),
-            (0, 1, "bbbb".to_string()),
-        ]);
+        assert_eq!(
+            pieces(&tree, label),
+            vec![(0, 0, "aaaa".to_string()), (0, 1, "bbbb".to_string()),]
+        );
     }
 
     #[test]
@@ -503,11 +523,14 @@ mod tests {
         let (root, label) = paragraph(&mut tree, "abcdefghij");
 
         assert_eq!(measure(&mut tree, root, 4).height, 3);
-        assert_eq!(pieces(&tree, label), vec![
-            (0, 0, "abcd".to_string()),
-            (0, 1, "efgh".to_string()),
-            (0, 2, "ij".to_string()),
-        ]);
+        assert_eq!(
+            pieces(&tree, label),
+            vec![
+                (0, 0, "abcd".to_string()),
+                (0, 1, "efgh".to_string()),
+                (0, 2, "ij".to_string()),
+            ]
+        );
     }
 
     #[test]
@@ -516,10 +539,10 @@ mod tests {
         let (root, label) = paragraph(&mut tree, "one\ntwo");
 
         assert_eq!(measure(&mut tree, root, 20).height, 2);
-        assert_eq!(pieces(&tree, label), vec![
-            (0, 0, "one".to_string()),
-            (0, 1, "two".to_string()),
-        ]);
+        assert_eq!(
+            pieces(&tree, label),
+            vec![(0, 0, "one".to_string()), (0, 1, "two".to_string()),]
+        );
     }
 
     #[test]
@@ -561,12 +584,18 @@ mod tests {
         let root = element(&mut tree, 5, Display::Block, &[a_span, b_span]);
 
         assert_eq!(measure(&mut tree, root, 8).height, 2);
-        assert_eq!(pieces(&tree, b), vec![
-            (4, 0, "bbb".to_string()),
-            (0, 1, "ccc".to_string()),
-        ]);
+        assert_eq!(
+            pieces(&tree, b),
+            vec![(4, 0, "bbb".to_string()), (0, 1, "ccc".to_string()),]
+        );
 
-        let rows: Vec<_> = tree.node(b_span).fragments.iter().flatten().map(|f| (f.x, f.y, f.width)).collect();
+        let rows: Vec<_> = tree
+            .node(b_span)
+            .fragments
+            .iter()
+            .flatten()
+            .map(|f| (f.x, f.y, f.width))
+            .collect();
         assert_eq!(rows, vec![(4, 0, 3), (0, 1, 3)]);
     }
 
@@ -579,7 +608,10 @@ mod tests {
 
         measure(&mut tree, root, 7);
 
-        assert_eq!(pieces(&tree, a), vec![(0, 0, "xx".to_string()), (0, 1, "foo".to_string())]);
+        assert_eq!(
+            pieces(&tree, a),
+            vec![(0, 0, "xx".to_string()), (0, 1, "foo".to_string())]
+        );
         assert_eq!(pieces(&tree, b), vec![(3, 1, "bar".to_string())]);
     }
 
@@ -593,10 +625,10 @@ mod tests {
         let root = element(&mut tree, 2, Display::Block, &[label]);
 
         assert_eq!(measure(&mut tree, root, 4).height, 2);
-        assert_eq!(pieces(&tree, label), vec![
-            (0, 0, "你好".to_string()),
-            (0, 1, "世界".to_string()),
-        ]);
+        assert_eq!(
+            pieces(&tree, label),
+            vec![(0, 0, "你好".to_string()), (0, 1, "世界".to_string()),]
+        );
     }
 
     #[test]

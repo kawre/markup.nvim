@@ -6,7 +6,13 @@ use crate::engine::tree::{Index, Size, Tree};
 pub struct Block;
 
 /// Places a finished run of inline children.
-fn flush_run(tree: &mut Tree, run: &mut Vec<Index>, cursor: &mut Cursor, space: Space, wraps: bool) {
+fn flush_run(
+    tree: &mut Tree,
+    run: &mut Vec<Index>,
+    cursor: &mut Cursor,
+    space: Space,
+    wraps: bool,
+) {
     if run.is_empty() {
         return;
     }
@@ -45,7 +51,10 @@ impl Strategy for Block {
         let (reverse, spacing) = (style.reverse, style.spacing);
         let wraps = tree.text_wraps(node);
 
-        let mut cursor = Cursor { spacing, ..Cursor::default() };
+        let mut cursor = Cursor {
+            spacing,
+            ..Cursor::default()
+        };
         let mut run = Vec::new();
 
         tree.for_each_flow_child(node, reverse, &mut |tree, child| {
@@ -121,7 +130,13 @@ mod tests {
         let c = text(&mut tree, 5, "cc");
         let root = element(&mut tree, 6, Display::Block, &[a, b, inner, c]);
 
-        assert_eq!(measure(&mut tree, root, 10), Size { width: 10, height: 3 });
+        assert_eq!(
+            measure(&mut tree, root, 10),
+            Size {
+                width: 10,
+                height: 3
+            }
+        );
         assert_eq!(tree.node(b).geometry.x, 2);
         assert_eq!(tree.node(inner).geometry.y, 1);
         assert_eq!(tree.node(c).geometry.y, 2);

@@ -61,7 +61,8 @@ function M:new(parent, spacer, content, style)
 		self:sync()
 	end)
 
-	self.group = api.nvim_create_augroup(("markup_fixed_[%s]"):format(self.win.id), { clear = true })
+	self.group =
+		api.nvim_create_augroup(("markup_fixed_[%s]"):format(self.win.id), { clear = true })
 
 	api.nvim_create_autocmd("WinResized", {
 		group = self.group,

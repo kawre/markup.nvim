@@ -67,9 +67,13 @@ function M.from_image_nvim()
 
 			count = count + 1
 			local where = geometry(opts)
-			local made, image = pcall(api.from_file, file_for(data_or_id), vim.tbl_extend("force", where, {
-				id = ("markup-%d"):format(count),
-			}))
+			local made, image = pcall(
+				api.from_file,
+				file_for(data_or_id),
+				vim.tbl_extend("force", where, {
+					id = ("markup-%d"):format(count),
+				})
+			)
 			if made and image then
 				image:render(where)
 				placed[count] = image
@@ -148,7 +152,8 @@ function M.size(data, width, height)
 
 	local pixels_wide, pixels_tall = M.png_size(data)
 	if pixels_wide and pixels_wide > 0 then
-		return width, math.max(math.floor(width * pixels_tall / pixels_wide * M.cell_ratio + 0.5), 1)
+		return width,
+			math.max(math.floor(width * pixels_tall / pixels_wide * M.cell_ratio + 0.5), 1)
 	end
 	return width, 1
 end

@@ -147,7 +147,9 @@ T["white_space"]["wraps text in a block by default"] = function()
 end
 
 T["white_space"]["nowrap keeps one line"] = function()
-	run([[view:render(m.block({ width = 5, white_space = "nowrap", m.inline("the quick brown fox") }))]])
+	run(
+		[[view:render(m.block({ width = 5, white_space = "nowrap", m.inline("the quick brown fox") }))]]
+	)
 	eq(lines(), { "the quick brown fox" })
 end
 
@@ -232,7 +234,9 @@ T["white_space"]["rewraps when the window resizes"] = function()
 end
 
 T["white_space"]["honours newlines"] = function()
-	run([[view:render(m.block({ m.block("one\ntwo"), m.block({ white_space = "nowrap", "three\nfour" }) }))]])
+	run(
+		[[view:render(m.block({ m.block("one\ntwo"), m.block({ white_space = "nowrap", "three\nfour" }) }))]]
+	)
 	eq(lines(), { "one", "two", "three", "four" })
 end
 
@@ -330,7 +334,9 @@ T["flex"]["vertical can follow a signal"] = function()
 end
 
 T["flex"]["pushes items apart"] = function()
-	run([[view:render(m.flex({ width = 20, justify = "between", m.block("left"), m.block("right") }))]])
+	run(
+		[[view:render(m.flex({ width = 20, justify = "between", m.block("left"), m.block("right") }))]]
+	)
 	eq(lines(), { "left           right" })
 end
 
@@ -340,7 +346,9 @@ T["flex"]["grows an item into free space"] = function()
 end
 
 T["flex"]["stacks with vflex and vertical"] = function()
-	run([[view:render(m.block({ m.vflex({ m.block("a"), m.block("b") }), m.flex({ vertical = true, m.block("c") }) }))]])
+	run(
+		[[view:render(m.block({ m.vflex({ m.block("a"), m.block("b") }), m.flex({ vertical = true, m.block("c") }) }))]]
+	)
 	eq(lines(), { "a", "b", "c" })
 end
 
@@ -419,7 +427,9 @@ T["grid"]["mixes fixed, auto and fractional tracks"] = function()
 end
 
 T["grid"]["makes equal tracks from a number"] = function()
-	run([[view:render(m.grid({ width = 9, columns = 3, m.block("a"), m.block("b"), m.block("c") }))]])
+	run(
+		[[view:render(m.grid({ width = 9, columns = 3, m.block("a"), m.block("b"), m.block("c") }))]]
+	)
 	eq(lines(), { "a  b  c" })
 end
 
@@ -442,7 +452,9 @@ end
 
 T["grid"]["is as wide as the view when full, inside an inline"] = function()
 	-- A tall element among inline ones once laid out at a width of i32::MAX.
-	run([[view:render(m.inline({ m.grid({ columns = 2, width = "full", m.inline("a"), "b", "c" }) }))]])
+	run(
+		[[view:render(m.inline({ m.grid({ columns = 2, width = "full", m.inline("a"), "b", "c" }) }))]]
+	)
 	eq(lines(), { "a" .. (" "):rep(29) .. "b", "c" })
 end
 
@@ -1043,7 +1055,10 @@ T["hidden windows"]["fill when they open"] = function()
 		hidden:show()
 		reactive.flush()
 	]])
-	eq(child.lua_get("vim.api.nvim_buf_get_lines(hidden.buf, 0, -1, false)")[1]:gsub("%s+$", ""), "second")
+	eq(
+		child.lua_get("vim.api.nvim_buf_get_lines(hidden.buf, 0, -1, false)")[1]:gsub("%s+$", ""),
+		"second"
+	)
 end
 
 T["hidden windows"]["lay out at the real width once open"] = function()
@@ -1068,7 +1083,10 @@ T["hidden windows"]["fill again when reopened"] = function()
 		hidden:show()
 		reactive.flush()
 	]])
-	eq(child.lua_get("vim.api.nvim_buf_get_lines(hidden.buf, 0, -1, false)")[1]:gsub("%s+$", ""), "content")
+	eq(
+		child.lua_get("vim.api.nvim_buf_get_lines(hidden.buf, 0, -1, false)")[1]:gsub("%s+$", ""),
+		"content"
+	)
 end
 
 T["hooks"] = new_set()
@@ -1238,7 +1256,12 @@ T["snap"]["leaves the global scrolloff alone"] = function()
 	tall_view()
 	-- `vim.o` reads the value in effect here, so the global one comes from `vim.go`.
 	eq(child.lua_get("vim.go.scrolloff"), 8)
-	eq(child.lua_get("vim.api.nvim_get_option_value('scrolloff', { scope = 'local', win = win.win })"), 0)
+	eq(
+		child.lua_get(
+			"vim.api.nvim_get_option_value('scrolloff', { scope = 'local', win = win.win })"
+		),
+		0
+	)
 
 	-- Another window still has the global value.
 	child.cmd("vnew")
@@ -1698,7 +1721,9 @@ T["border"]["draws the presets"] = function()
 end
 
 T["border"]["draws chosen sides"] = function()
-	run([[view:render(m.block({ m.block({ "ab", width = 2, border = "single", border_sides = { "top" } }) }))]])
+	run(
+		[[view:render(m.block({ m.block({ "ab", width = 2, border = "single", border_sides = { "top" } }) }))]]
+	)
 	eq(lines(), { "──", "ab" })
 end
 
@@ -1708,7 +1733,9 @@ T["border"]["takes custom characters"] = function()
 end
 
 T["border"]["uses border_style"] = function()
-	run([[view:render(m.block({ m.block({ "a", width = 1, border = "single", border_style = "Label" }) }))]])
+	run(
+		[[view:render(m.block({ m.block({ "a", width = 1, border = "single", border_style = "Label" }) }))]]
+	)
 	eq(marks()[1][4], "Label")
 end
 
@@ -1718,7 +1745,12 @@ T["border"]["works in flex and wraps inside"] = function()
 		m.block({ "aaaa bbbb", border = "single", grow = 1 }),
 		m.block({ "x", border = "single", shrink = 0 }),
 	}))]])
-	eq(lines(), { "┌──────┐ ┌─┐", "│aaaa  │ │x│", "│bbbb  │ │ │", "└──────┘ └─┘" })
+	eq(lines(), {
+		"┌──────┐ ┌─┐",
+		"│aaaa  │ │x│",
+		"│bbbb  │ │ │",
+		"└──────┘ └─┘",
+	})
 end
 
 T["border"]["presses stay inside"] = function()
@@ -1787,7 +1819,12 @@ T["border"]["fixed elements keep their border"] = function()
 		reactive.flush()
 		band = view.fixed[1]
 	]])
-	eq(child.lua_get("vim.trim(vim.api.nvim_buf_get_lines(band.win.buf, 0, 1, false)[1]):sub(1, 3)"), "▄")
+	eq(
+		child.lua_get(
+			"vim.trim(vim.api.nvim_buf_get_lines(band.win.buf, 0, 1, false)[1]):sub(1, 3)"
+		),
+		"▄"
+	)
 	eq(child.lua_get("vim.api.nvim_win_get_height(band.win.win)"), 3)
 	eq(lines(), { "", "", "", "body" })
 end
@@ -1811,7 +1848,9 @@ local function fixed_view()
 end
 
 local function band_lines()
-	return child.lua_get("vim.tbl_map(vim.trim, vim.api.nvim_buf_get_lines(band.win.buf, 0, -1, false))")
+	return child.lua_get(
+		"vim.tbl_map(vim.trim, vim.api.nvim_buf_get_lines(band.win.buf, 0, -1, false))"
+	)
 end
 
 local function overlay_view()
@@ -1850,7 +1889,9 @@ T["fixed"]["an empty overlay stays out of sight"] = function()
 	overlay_view()
 	eq(child.lua_get("vim.api.nvim_win_get_config(note.win.win).hide"), true)
 
-	child.lua("visible(true); reactive.flush(); reactive.flush(); visible(false); reactive.flush(); reactive.flush()")
+	child.lua(
+		"visible(true); reactive.flush(); reactive.flush(); visible(false); reactive.flush(); reactive.flush()"
+	)
 	eq(child.lua_get("vim.api.nvim_win_get_config(note.win.win).hide"), true)
 end
 
@@ -1960,7 +2001,12 @@ T["fixed"]["follows the width of the window"] = function()
 			return vim.api.nvim_win_get_width(band.win.win) == vim.api.nvim_win_get_width(win.win)
 		end, 10)
 	]])
-	eq(child.lua_get("vim.api.nvim_win_get_width(band.win.win) == vim.api.nvim_win_get_width(win.win)"), true)
+	eq(
+		child.lua_get(
+			"vim.api.nvim_win_get_width(band.win.win) == vim.api.nvim_win_get_width(win.win)"
+		),
+		true
+	)
 end
 
 T["fixed"]["closes and reopens with its window"] = function()

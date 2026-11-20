@@ -182,7 +182,9 @@ function M.open(opts)
 	--- Neovim holds back TextChangedI while keys are still queued, as when typing
 	--- fast or pasting, so whatever acts on the query reads it first.
 	local function sync()
-		local text = api.nvim_buf_is_valid(prompt_buf) and api.nvim_buf_get_lines(prompt_buf, 0, 1, false)[1] or ""
+		local text = api.nvim_buf_is_valid(prompt_buf)
+				and api.nvim_buf_get_lines(prompt_buf, 0, 1, false)[1]
+			or ""
 		if text ~= reactive.untrack(query) then
 			query(text)
 			selected(1)
@@ -258,7 +260,10 @@ function M.open(opts)
 	view:render(m.block(function()
 		local entries = filtered()
 		if #entries == 0 then
-			return m.block({ padding = { 0, 2 }, m.inline(opts.empty or "No matches", "MarkupPickerEmpty") })
+			return m.block({
+				padding = { 0, 2 },
+				m.inline(opts.empty or "No matches", "MarkupPickerEmpty"),
+			})
 		end
 
 		local rows = {}
@@ -305,7 +310,11 @@ function M.open(opts)
 				if closed then
 					return
 				end
-				if list:win_valid() and api.nvim_get_current_win() == list.win and api.nvim_win_is_valid(prompt_win) then
+				if
+					list:win_valid()
+					and api.nvim_get_current_win() == list.win
+					and api.nvim_win_is_valid(prompt_win)
+				then
 					api.nvim_set_current_win(prompt_win)
 					vim.cmd.startinsert({ bang = true })
 					return

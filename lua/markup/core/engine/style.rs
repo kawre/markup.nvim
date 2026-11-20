@@ -276,7 +276,9 @@ impl Style {
     }
 
     pub fn border(&self) -> Option<&Border> {
-        self.extra.as_deref().and_then(|extra| extra.border.as_ref())
+        self.extra
+            .as_deref()
+            .and_then(|extra| extra.border.as_ref())
     }
 
     /// Cells the border takes on each side.
@@ -302,7 +304,9 @@ impl Style {
 
     /// Hot paths read this for every node, and most have no extra style.
     pub fn position(&self) -> Position {
-        self.extra.as_deref().map_or(Position::Static, |extra| extra.position)
+        self.extra
+            .as_deref()
+            .map_or(Position::Static, |extra| extra.position)
     }
 
     /// How far `position: relative` moves a node from where flow put it.
@@ -313,7 +317,10 @@ impl Style {
         let inset = self.extra().inset;
         (
             inset.left.or(inset.right.map(|right| -right)).unwrap_or(0),
-            inset.top.or(inset.bottom.map(|bottom| -bottom)).unwrap_or(0),
+            inset
+                .top
+                .or(inset.bottom.map(|bottom| -bottom))
+                .unwrap_or(0),
         )
     }
 }

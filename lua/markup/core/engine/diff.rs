@@ -103,7 +103,14 @@ mod tests {
 
         let patches = diff(&old, &new);
 
-        assert_eq!(patches, vec![Patch { first: 1, last: 1, lines: &new[1..3] }]);
+        assert_eq!(
+            patches,
+            vec![Patch {
+                first: 1,
+                last: 1,
+                lines: &new[1..3]
+            }]
+        );
     }
 
     #[test]
@@ -113,7 +120,14 @@ mod tests {
 
         let patches = diff(&old, &new);
 
-        assert_eq!(patches, vec![Patch { first: 1, last: 3, lines: &[] }]);
+        assert_eq!(
+            patches,
+            vec![Patch {
+                first: 1,
+                last: 3,
+                lines: &[]
+            }]
+        );
     }
 
     #[test]
