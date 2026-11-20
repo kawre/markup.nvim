@@ -3,10 +3,11 @@ name: Release
 # release-please keeps a pull request "chore(master): release x.y.z" up to date
 # from the conventional commits on master: the version in Cargo.toml,
 # lua/markup/config.lua and the lines of the docs marked
-# `x-release-please-version`, and CHANGELOG.md. Merging it tags the commit and
-# makes the GitHub release, which assets.yml then gives the engine for each
-# platform and the skill as a zip. The Claude Code plugin in .claude-plugin
-# carries the same version.
+# `x-release-please-version`, and CHANGELOG.md. Merging it saves the GitHub
+# release as a draft, without a tag; the assets job then builds the engine for
+# each platform and the skill as a zip, attaches them and publishes it, which
+# makes the tag. The Claude Code plugin in .claude-plugin carries the same
+# version.
 #
 # Its pull request needs CI to pass like any other. A pull request opened with
 # the default GITHUB_TOKEN starts no workflow, so set RELEASE_PLEASE_TOKEN: a
@@ -31,6 +32,10 @@ jobs:
     name: Release PR
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    outputs:
+      created: ${{ steps.release.outputs.release_created }}
+      tag: ${{ steps.release.outputs.tag_name }}
+      sha: ${{ steps.release.outputs.sha }}
     steps:
       - uses: googleapis/release-please-action@v4
         id: release
@@ -38,3 +43,16 @@ jobs:
           token: ${{ secrets.RELEASE_PLEASE_TOKEN || github.token }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
+
+  # The draft release-please just made, built, completed and published, in
+  # this run: GitHub starts no workflow for the events of a draft. The next
+  # run of this workflow waits for this one, so release-please sees the tag
+  # before it looks again.
+  assets:
+    name: Assets
+    needs: release-please
+    if: needs.release-please.outputs.created == 'true'
+    uses: ./.github/workflows/assets.yml
+    with:
+      tag: ${{ needs.release-please.outputs.tag }}
+      ref: ${{ needs.release-please.outputs.sha }}
