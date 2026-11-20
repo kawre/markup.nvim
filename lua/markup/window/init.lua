@@ -883,8 +883,13 @@ function M.dim_namespace(brightness, source)
 	end
 
 	for group in pairs(vim.api.nvim_get_hl(0, {})) do
-		if not own[group] then
-			set(group, vim.api.nvim_get_hl(0, { name = group, link = false }))
+		local definition = vim.api.nvim_get_hl(0, { name = group, link = false })
+		-- An empty group stays out: in a namespace it would be a group with no
+		-- colors, while the global one means the colors of another. An empty
+		-- `NormalNC` would draw every window but the current one in the
+		-- default colors, rather than in those of its `Normal`, dimmed.
+		if not own[group] and next(definition) then
+			set(group, definition)
 		end
 	end
 	for group, definition in pairs(own) do
