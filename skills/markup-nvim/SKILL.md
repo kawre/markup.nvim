@@ -2,12 +2,12 @@
 name: markup-nvim
 description: Build reactive user interfaces inside Neovim with markup.nvim - elements with CSS-like props (block, inline, button, flex, grid), signals, views, floating windows and popups, animations, pickers and images. Use when writing, changing or debugging Lua code that calls require("markup"), Markup.view, Markup.window, Markup.picker or Markup.animate, or when asked to build a UI, menu, dashboard, popup or picker in Neovim with markup.nvim.
 metadata:
-  version: "0.4.0" # x-release-please-version
+  version: "0.5.0" # x-release-please-version
 ---
 
 # markup.nvim
 
-For markup.nvim 0.4.0. <!-- x-release-please-version -->
+For markup.nvim 0.5.0. <!-- x-release-please-version -->
 
 A Neovim plugin for building reactive UIs. You describe the UI as elements
 with CSS-like props. A layout engine in Rust lays them out and draws them into

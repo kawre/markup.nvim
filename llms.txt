@@ -4,7 +4,7 @@
 > CSS-like props, laid out by an engine in Rust and drawn into a buffer, and
 > signals that update only what changed. Lua API, Neovim 0.10+.
 
-Version 0.4.0 <!-- x-release-please-version -->
+Version 0.5.0 <!-- x-release-please-version -->
 
 Start with the skill, then the topic of the API you need.
 
