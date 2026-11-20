@@ -13,6 +13,8 @@ local dir = ".tests/coverage"
 local tree = vim.env.MARKUP_ROCKS or (vim.fn.getcwd() .. "/.tests/rocks")
 package.path = ("%s/share/lua/5.1/?.lua;%s/share/lua/5.1/?/init.lua;"):format(tree, tree)
 	.. package.path
+-- cluacov, LuaCov's hook in C, when it is there: several times faster.
+package.cpath = ("%s/lib/lua/5.1/?.so;"):format(tree) .. package.cpath
 
 local runner = require("luacov.runner")
 local stats = require("luacov.stats")

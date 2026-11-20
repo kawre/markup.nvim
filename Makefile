@@ -6,6 +6,8 @@ ROCKS = .tests/rocks
 # with it are the ones CI would write.
 LUALS_VERSION = 3.19.2
 LUALS = .tests/luals/bin/lua-language-server
+# The headers of LuaJIT, to build cluacov for it
+LUAJIT_INCDIR ?= /usr/include/luajit-2.1
 COVERAGE_TIMEOUT ?= 20m
 # The least coverage, in percent, of the Lua and of the Rust
 COVERAGE_MIN ?= 80
@@ -68,6 +70,9 @@ coverage_rust:
 $(ROCKS):
 	luarocks --lua-version 5.1 --tree $(ROCKS) install luacov
 	luarocks --lua-version 5.1 --tree $(ROCKS) install luacov-reporter-lcov
+	@# LuaCov's hook in C, built for the LuaJIT of Neovim: coverage runs
+	@# several times faster with it.
+	luarocks --lua-version 5.1 --tree $(ROCKS) install cluacov LUA_INCDIR=$(LUAJIT_INCDIR)
 
 # Download 'mini.nvim' to use its 'mini.test' testing module
 deps/mini.test:

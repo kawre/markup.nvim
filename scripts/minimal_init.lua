@@ -8,6 +8,8 @@ if vim.env.MARKUP_COVERAGE then
 	local tree = vim.env.MARKUP_ROCKS or (vim.fn.getcwd() .. "/.tests/rocks")
 	package.path = ("%s/share/lua/5.1/?.lua;%s/share/lua/5.1/?/init.lua;"):format(tree, tree)
 		.. package.path
+	-- cluacov, LuaCov's hook in C, when it is there: several times faster.
+	package.cpath = ("%s/lib/lua/5.1/?.so;"):format(tree) .. package.cpath
 	-- Line hooks only run in the interpreter, compiled traces would skip them.
 	jit.off(true, true)
 	local runner = require("luacov.runner")

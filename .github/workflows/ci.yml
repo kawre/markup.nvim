@@ -231,6 +231,9 @@ jobs:
           luaVersion: "5.1.5"
       - if: steps.rocks.outputs.cache-hit != 'true'
         uses: leafo/gh-actions-luarocks@v5
+      # The headers cluacov builds against.
+      - if: steps.rocks.outputs.cache-hit != 'true'
+        run: sudo apt-get update && sudo apt-get install -y libluajit-5.1-dev
 
       - name: Lua coverage
         shell: bash
