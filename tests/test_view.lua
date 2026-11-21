@@ -1713,6 +1713,30 @@ T["click"]["a single click presses by default"] = function()
 	eq(child.lua_get("pressed"), "one")
 end
 
+T["click"]["the margin is not part of what is pressed"] = function()
+	child.lua([[
+		pressed = nil
+		view:render(m.block({
+			m.block("title"),
+			m.block({
+				"go",
+				width = "fit",
+				margin = { 1, 0, 0, 4 },
+				padding = { 0, 1 },
+				on_press = function() pressed = true end,
+			}),
+		}))
+		reactive.flush()
+	]])
+	-- The row above it and the cells to its left are margin.
+	click(1, 5, 1)
+	click(2, 2, 1)
+	eq(child.lua_get("pressed"), vim.NIL)
+	-- Its padding is part of it.
+	click(2, 4, 1)
+	eq(child.lua_get("pressed"), true)
+end
+
 T["click"]["anything else stays a click"] = function()
 	click_view()
 	click(0, 2, 1)
