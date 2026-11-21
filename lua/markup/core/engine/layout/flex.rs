@@ -10,6 +10,8 @@ pub struct Flex;
 struct Item {
     index: Index,
     base: i32,
+    /// Margin, border and padding along the main axis, which never shrink.
+    edges: i32,
     min: i32,
     max: i32,
     grow: f32,
@@ -129,10 +131,7 @@ fn collect_items(
             } else {
                 (extra.min_width, extra.max_width)
             };
-            // Like CSS `min-height: auto`: text cannot reflow vertically, so
-            // shrinking a column item below its content would just delete rows.
-            let automatic = if axis.column { axis.main(natural) } else { 0 };
-            let min = min.resolve(reference).map_or(automatic, |min| min + edges);
+            let min = min.resolve(reference).map(|min| min + edges);
             let max = max.resolve(reference).map_or(i32::MAX, |max| max + edges);
 
             let base = match extra.basis {
@@ -146,14 +145,33 @@ fn collect_items(
                 style.height
             };
             let item_align = extra.align_self.unwrap_or(align);
+            let (grow, shrink) = (extra.grow, extra.shrink);
+            let clips = extra.clip || extra.clip_x;
+            let specified = style.width.resolve(reference).map(|width| width + edges);
+
+            // Like CSS `min-width: auto` and `min-height: auto`. Text cannot
+            // reflow vertically, so a column item keeps its rows. A row item
+            // may wrap, but not below its longest word: past that, its text
+            // would run out of it. What clips its overflow may shrink freely.
+            let min = min.unwrap_or_else(|| {
+                if axis.column {
+                    axis.main(natural)
+                } else if clips {
+                    0
+                } else {
+                    let narrowest = measure(tree, index, Constraints::fit_content(0)).width;
+                    specified.map_or(narrowest, |specified| narrowest.min(specified))
+                }
+            });
 
             Item {
                 index,
                 base,
+                edges,
                 min,
                 max,
-                grow: extra.grow,
-                shrink: extra.shrink,
+                grow,
+                shrink,
                 main: base.clamp(min, max.max(min)),
                 cross: 0,
                 align: item_align,
@@ -208,7 +226,8 @@ fn resolve_flexible(items: &mut [Item], available: i32) {
                 } else if growing {
                     item.grow
                 } else {
-                    item.shrink * item.base as f32
+                    // As in CSS, by the item's own size: its margin does not shrink.
+                    item.shrink * (item.base - item.edges).max(0) as f32
                 }
             })
             .collect();
@@ -421,7 +440,7 @@ impl Strategy for Flex {
 mod tests {
     use super::super::testing::*;
     use super::offsets;
-    use crate::engine::style::{Align, Direction, Display, Distribute, Length};
+    use crate::engine::style::{Align, Direction, Display, Distribute, Length, WhiteSpace};
     use crate::engine::tree::{Index, Size, Tree};
 
     fn item(tree: &mut Tree, id: u32, value: &str) -> Index {
@@ -866,6 +885,59 @@ mod tests {
                 .all(|f| f.x + f.width <= width(&tree, inline))
         );
         assert!(size.height > 1);
+    }
+
+    #[test]
+    fn a_margin_does_not_shrink_and_does_not_weigh_in() {
+        let mut tree = Tree::default();
+        let (a, b) = (
+            item(&mut tree, 1, "aaaaaaaaaa"),
+            item(&mut tree, 2, "bbbbbbbbbb"),
+        );
+        tree.node_mut(a).style.margin.left = 20;
+        let root = row(&mut tree, &[a, b]);
+
+        // 30 + 10 in 30: the 10 cells come off the two texts evenly, and the
+        // margin stays whole.
+        measure(&mut tree, root, 30);
+
+        assert_eq!(width(&tree, a), 25);
+        assert_eq!(width(&tree, b), 5);
+        assert_eq!(x(&tree, b), 25);
+    }
+
+    #[test]
+    fn an_item_that_cannot_wrap_does_not_shrink_below_its_text() {
+        let mut tree = Tree::default();
+        let (a, b) = (
+            item(&mut tree, 1, "aaaaaaaaaa"),
+            item(&mut tree, 2, "bbbbbbbbbb"),
+        );
+        tree.node_mut(a).style.extra_mut().white_space = Some(WhiteSpace::Nowrap);
+        let root = row(&mut tree, &[a, b]);
+
+        measure(&mut tree, root, 14);
+
+        assert_eq!(width(&tree, a), 10);
+        assert_eq!(width(&tree, b), 4);
+    }
+
+    #[test]
+    fn an_item_that_clips_may_shrink_below_its_text() {
+        let mut tree = Tree::default();
+        let (a, b) = (
+            item(&mut tree, 1, "aaaaaaaaaa"),
+            item(&mut tree, 2, "bbbbbbbbbb"),
+        );
+        let extra = tree.node_mut(a).style.extra_mut();
+        extra.white_space = Some(WhiteSpace::Nowrap);
+        extra.clip = true;
+        let root = row(&mut tree, &[a, b]);
+
+        measure(&mut tree, root, 14);
+
+        assert_eq!(width(&tree, a), 7);
+        assert_eq!(width(&tree, b), 7);
     }
 
     #[test]
