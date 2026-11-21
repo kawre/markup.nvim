@@ -210,26 +210,34 @@ Sizes the child must take, such as a stretched flex item.
 0
 
 ```rust
-pub intrinsic: bool, /// With `intrinsic`, still wrap at `width`, like CSS `fit-content`. pub fit: bool, /// Keep each word whole, even past `width`. A word longer than its line /// still breaks when drawn, as with CSS `overflow-wrap: break-word`, but /// the narrowest a node can be is its longest word, as CSS `min-content`. pub whole_words: bool, }
+pub intrinsic: bool, /// With `intrinsic`, still wrap at `width`, like CSS `fit-content`. pub fit: bool, /// Keep each word whole, even past `width`. A word longer than its line /// still breaks when drawn, as with CSS `overflow-wrap: break-word`, but /// the narrowest a node can be is its longest word, as CSS `min-content`. pub whole_words: bool, /// Measured for what a grid track needs, which its size depends on: as /// CSS, a share of it, such as `width = "full"`, is `auto` until then.
 ```
 
 Ask for the natural size, so blocks do not fill the width.
 0
 
 ```rust
-pub fit: bool, /// Keep each word whole, even past `width`. A word longer than its line /// still breaks when drawn, as with CSS `overflow-wrap: break-word`, but /// the narrowest a node can be is its longest word, as CSS `min-content`. pub whole_words: bool, }  impl Constraints
+pub fit: bool, /// Keep each word whole, even past `width`. A word longer than its line /// still breaks when drawn, as with CSS `overflow-wrap: break-word`, but /// the narrowest a node can be is its longest word, as CSS `min-content`. pub whole_words: bool, /// Measured for what a grid track needs, which its size depends on: as /// CSS, a share of it, such as `width = "full"`, is `auto` until then. pub shares_as_auto: bool, }
 ```
 
 With `intrinsic`, still wrap at `width`, like CSS `fit-content`.
 0
 
 ```rust
-pub whole_words: bool, }  impl Constraints
+pub whole_words: bool, /// Measured for what a grid track needs, which its size depends on: as /// CSS, a share of it, such as `width = "full"`, is `auto` until then. pub shares_as_auto: bool, }  impl Constraints
 ```
 
 Keep each word whole, even past `width`. A word longer than its line
 still breaks when drawn, as with CSS `overflow-wrap: break-word`, but
 the narrowest a node can be is its longest word, as CSS `min-content`.
+0
+
+```rust
+pub shares_as_auto: bool, }  impl Constraints
+```
+
+Measured for what a grid track needs, which its size depends on: as
+CSS, a share of it, such as `width = "full"`, is `auto` until then.
 0
 
 ```rust

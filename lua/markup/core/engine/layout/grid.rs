@@ -337,12 +337,22 @@ impl Strategy for Grid {
                 span: item.column_span,
                 size: item
                     .unit
-                    .measure(tree, Constraints::intrinsic(space.width))
+                    .measure(
+                        tree,
+                        Constraints {
+                            shares_as_auto: true,
+                            ..Constraints::intrinsic(space.width)
+                        },
+                    )
                     .width,
                 min: if item.unit.style(tree).extra().scrolls {
                     0
                 } else {
-                    item.unit.measure(tree, Constraints::min_content()).width
+                    let constraints = Constraints {
+                        shares_as_auto: true,
+                        ..Constraints::min_content()
+                    };
+                    item.unit.measure(tree, constraints).width
                 },
             })
             .collect();
@@ -387,6 +397,7 @@ impl Strategy for Grid {
                 let width = area(&columns, item.column, item.column_span, column_gap);
                 let constraints = Constraints {
                     exact_width: Some(width),
+                    shares_as_auto: space.shares_as_auto,
                     ..Constraints::available(width)
                 };
                 let height = item.unit.measure(tree, constraints).height;
@@ -433,6 +444,7 @@ impl Strategy for Grid {
                     intrinsic: !stretch_x,
                     fit: !stretch_x,
                     whole_words: false,
+                    shares_as_auto: space.shares_as_auto,
                 },
             );
 

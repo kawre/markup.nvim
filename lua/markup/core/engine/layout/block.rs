@@ -180,6 +180,10 @@ fn flush_run(
         place(tree, child, x, top);
         x += outer.width;
         height = height.max(outer.height);
+        // As CSS: an inline-block holds its line open, empty as it may be.
+        if is_inline_block(&tree.node(child).style) {
+            height = height.max(1);
+        }
     }
 
     let overflows = wraps && space.can_wrap() && x > space.width;
@@ -302,6 +306,12 @@ impl Strategy for Block {
             let entry = tree.node(child);
             let geometry = entry.geometry;
             let margin = entry.style.margin;
+            if spacing > 0 && cursor.rows > 0 {
+                // `spacing` is a row of its own between rows, which the
+                // margins on either side of it do not meet across.
+                cursor.height += pending.value();
+                pending = Collapse::default();
+            }
             let before = pending;
             pending = pending.with(geometry.margin_top);
 
@@ -415,8 +425,10 @@ impl Through {
             }
         }
         // As CSS: `overflow: hidden` starts a formatting context, `clip` does
-        // not. A flex or grid item is in one of its parent's.
-        let open = in_flow && !extra.scrolls;
+        // not, and so does an absolute box. A flex or grid item is in one of
+        // its parent's.
+        let absolute = style.position() == crate::engine::style::Position::Absolute;
+        let open = in_flow && !extra.scrolls && !absolute;
         let block = open && entry.display == Display::Block;
         let inner = style.inner();
         let auto_height = style.height == Length::Auto && space.height.is_none();

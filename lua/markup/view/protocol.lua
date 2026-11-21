@@ -176,7 +176,9 @@ local function cell_digits(text)
 	for character in text:gmatch("[\194-\244][\128-\191]*") do
 		local width = char_widths[character]
 		if not width then
-			width = vim_fn.strdisplaywidth(character)
+			-- After another character, as text has it: alone, an accent that
+			-- joins the character before it would take a cell of its own.
+			width = vim_fn.strdisplaywidth("a" .. character) - 1
 			char_widths[character] = width
 		end
 		n = n + 1
@@ -248,6 +250,10 @@ local function valid_utf8(text)
 	parts[n + 1] = text:sub(start)
 	return table.concat(parts)
 end
+
+--- Text with every byte that is not part of a UTF-8 character replaced, as
+--- what is drawn holds it.
+M.valid_utf8 = valid_utf8
 
 ---@param opcode integer
 local function write_text(self, opcode, id, text)

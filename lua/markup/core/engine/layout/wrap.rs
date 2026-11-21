@@ -18,6 +18,9 @@ enum Kind {
     Gap,
     /// An element that is not text, such as a block inside an inline.
     Atomic,
+    /// A wide character, such as a CJK ideograph: as CSS breaks lines, a
+    /// line can break before and after each one.
+    Ideograph,
 }
 
 #[derive(Clone, Copy)]
@@ -33,6 +36,9 @@ struct Piece {
     baseline: i32,
     /// Offset of the node's origin from the run's origin.
     base: (i32, i32),
+    /// Whether a line may break right after it, as after the hyphen of
+    /// "x-y", where CSS breaks a word.
+    breaks_after: bool,
 }
 
 /// An inline element and the pieces inside it.
@@ -78,19 +84,22 @@ fn tokenize_text(tree: &Tree, node: Index, base: (i32, i32), pieces: &mut Vec<Pi
         height: 1,
         baseline: 1,
         base,
+        breaks_after: false,
     };
 
     let mut current: Option<Piece> = None;
-    for (byte, character, width) in char_widths(tree, node) {
+    let mut characters = char_widths(tree, node).peekable();
+    while let Some((byte, character, width)) = characters.next() {
         let end = byte + character.len_utf8();
         let kind = match character {
             '\n' => Kind::Newline,
             ' ' | '\t' => Kind::Space,
+            _ if width > 1 => Kind::Ideograph,
             _ => Kind::Word,
         };
 
         match &mut current {
-            Some(open) if open.kind == kind && kind != Kind::Newline => {
+            Some(open) if open.kind == kind && !matches!(kind, Kind::Newline | Kind::Ideograph) => {
                 open.end = end;
                 open.width += width;
             }
@@ -99,6 +108,23 @@ fn tokenize_text(tree: &Tree, node: Index, base: (i32, i32), pieces: &mut Vec<Pi
                 let width = if kind == Kind::Newline { 0 } else { width };
                 current = Some(piece(kind, byte, end, width));
             }
+        }
+
+        // As CSS breaks lines: after a hyphen inside a word, unless a digit
+        // or another hyphen follows.
+        let hyphen = matches!(character, '-' | '\u{2010}' | '\u{2013}');
+        let next = characters.peek().map(|&(_, next, _)| next);
+        let word_follows = next.is_some_and(|next| {
+            !next.is_ascii_digit()
+                && !matches!(next, ' ' | '\t' | '\n' | '-' | '\u{2010}' | '\u{2013}')
+        });
+        if hyphen
+            && kind == Kind::Word
+            && word_follows
+            && let Some(mut open) = current.take()
+        {
+            open.breaks_after = true;
+            pieces.push(open);
         }
     }
     pieces.extend(current);
@@ -154,6 +180,7 @@ fn tokenize(tree: &mut Tree, node: Index, base: (i32, i32), width: i32, tokens: 
             height: outer.height,
             baseline,
             base,
+            breaks_after: false,
         });
         return;
     }
@@ -171,6 +198,7 @@ fn tokenize(tree: &mut Tree, node: Index, base: (i32, i32), width: i32, tokens: 
         height: 1,
         baseline: 1,
         base,
+        breaks_after: false,
     };
 
     if margin.left > 0 {
@@ -316,6 +344,25 @@ impl Breaker {
     }
 }
 
+/// Where what cannot be broken, starting at `from`, ends: at a space or a line
+/// break, after a piece a line may break after, and around an ideograph,
+/// which stands on its own.
+fn unbreakable_end(pieces: &[Piece], from: usize) -> usize {
+    let mut end = from;
+    while end < pieces.len() {
+        let piece = &pieces[end];
+        let alone = piece.kind == Kind::Ideograph;
+        if matches!(piece.kind, Kind::Space | Kind::Newline) || (alone && end > from) {
+            break;
+        }
+        end += 1;
+        if alone || piece.breaks_after {
+            break;
+        }
+    }
+    end
+}
+
 fn break_lines(tree: &Tree, pieces: &[Piece], limit: i32, split_words: bool) -> Breaker {
     let mut breaker = Breaker {
         limit,
@@ -353,9 +400,10 @@ fn break_lines(tree: &Tree, pieces: &[Piece], limit: i32, split_words: bool) -> 
                     .iter()
                     .position(|piece| piece.kind != Kind::Space)
                     .map_or(pieces.len(), |offset| position + 1 + offset);
-                let unbroken: i32 = pieces[next..]
+                // What follows up to where a line could break next: an
+                // ideograph stands alone.
+                let unbroken: i32 = pieces[next..unbreakable_end(pieces, next)]
                     .iter()
-                    .take_while(|piece| !matches!(piece.kind, Kind::Space | Kind::Newline))
                     .map(|piece| piece.width)
                     .sum();
                 let spaces: i32 = pieces[position..next].iter().map(|piece| piece.width).sum();
@@ -376,11 +424,8 @@ fn break_lines(tree: &Tree, pieces: &[Piece], limit: i32, split_words: bool) -> 
                 }
                 position = next;
             }
-            Kind::Word | Kind::Gap | Kind::Atomic => {
-                let end = pieces[position..]
-                    .iter()
-                    .position(|piece| matches!(piece.kind, Kind::Space | Kind::Newline))
-                    .map_or(pieces.len(), |offset| position + offset);
+            Kind::Word | Kind::Gap | Kind::Atomic | Kind::Ideograph => {
+                let end = unbreakable_end(pieces, position);
                 let width: i32 = pieces[position..end].iter().map(|piece| piece.width).sum();
 
                 if breaker.x > 0 && breaker.x + width > limit {
@@ -433,6 +478,7 @@ fn gap_piece(node: Index, base: (i32, i32), width: i32) -> Piece {
         height: 1,
         baseline: 1,
         base,
+        breaks_after: false,
     }
 }
 
@@ -533,7 +579,7 @@ pub fn flow_items(
                 continue;
             }
             Kind::Gap => continue,
-            Kind::Word | Kind::Space | Kind::Newline => {}
+            Kind::Word | Kind::Space | Kind::Newline | Kind::Ideograph => {}
         }
         if placed.width == 0 {
             continue;

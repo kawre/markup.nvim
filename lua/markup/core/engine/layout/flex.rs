@@ -64,10 +64,14 @@ impl Axis {
             // Height depends on wrapping, which depends on the width here.
             Constraints {
                 height: space.height,
+                shares_as_auto: space.shares_as_auto,
                 ..Constraints::fit_content(space.width)
             }
         } else {
-            Constraints::intrinsic(space.width)
+            Constraints {
+                shares_as_auto: space.shares_as_auto,
+                ..Constraints::intrinsic(space.width)
+            }
         }
     }
 
@@ -82,6 +86,7 @@ impl Axis {
                 intrinsic: cross.is_none(),
                 fit: cross.is_none(),
                 whole_words: false,
+                shares_as_auto: space.shares_as_auto,
             }
         } else {
             Constraints {
@@ -92,6 +97,7 @@ impl Axis {
                 intrinsic: false,
                 fit: false,
                 whole_words: false,
+                shares_as_auto: space.shares_as_auto,
             }
         }
     }
@@ -166,7 +172,11 @@ fn collect_items(
                 } else if clips {
                     0
                 } else {
-                    let narrowest = unit.measure(tree, Constraints::min_content()).width;
+                    let constraints = Constraints {
+                        shares_as_auto: space.shares_as_auto,
+                        ..Constraints::min_content()
+                    };
+                    let narrowest = unit.measure(tree, constraints).width;
                     specified.map_or(narrowest, |specified| narrowest.min(specified))
                 }
             });

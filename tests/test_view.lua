@@ -459,8 +459,10 @@ T["css"]["a fraction track is no narrower than its content"] = function()
 		m.block("c"),
 	}))]])
 	-- 23 cells for the first track, and the other two share what is left.
-	eq(boxes(), { { 0, 0, 60, 1 }, { 0, 0, 23, 1 }, { 23, 0, 19, 1 }, { 42, 0, 18, 1 } })
-	eq(lines(), { "one two three four fiveb                  c" })
+	-- The other two share 37 cells: the edge between them, at 41.5 in a
+	-- browser, goes back to 41.
+	eq(boxes(), { { 0, 0, 60, 1 }, { 0, 0, 23, 1 }, { 23, 0, 18, 1 }, { 41, 0, 19, 1 } })
+	eq(lines(), { "one two three four fiveb                 c" })
 end
 
 T["css"]["an inline with a width wraps inside it, as an inline-block"] = function()
@@ -2118,6 +2120,13 @@ T["snap"]["presses land on the snapped node"] = function()
 end
 
 T["wide text"] = new_set()
+
+T["wide text"]["a combining accent takes no cell of its own"] = function()
+	-- "e" with U+0301 is one cell, as Neovim draws it: what follows is next
+	-- to it, not a cell further on.
+	run([[view:render(m.flex({ m.inline("e\u{301}te\u{301}"), m.inline("|") }))]])
+	eq(lines(), { "e\u{301}te\u{301}|" })
+end
 
 --- Display width of every row, which must all reach the same column in a card.
 local function row_widths()

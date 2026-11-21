@@ -34,6 +34,9 @@ pub struct Constraints {
     /// still breaks when drawn, as with CSS `overflow-wrap: break-word`, but
     /// the narrowest a node can be is its longest word, as CSS `min-content`.
     pub whole_words: bool,
+    /// Measured for what a grid track needs, which its size depends on: as
+    /// CSS, a share of it, such as `width = "full"`, is `auto` until then.
+    pub shares_as_auto: bool,
 }
 
 impl Constraints {
@@ -46,6 +49,7 @@ impl Constraints {
             intrinsic: false,
             fit: false,
             whole_words: false,
+            shares_as_auto: false,
         }
     }
 
@@ -81,6 +85,7 @@ pub struct Space {
     pub intrinsic: bool,
     pub fit: bool,
     pub whole_words: bool,
+    pub shares_as_auto: bool,
 }
 
 impl Space {
@@ -95,6 +100,7 @@ impl Space {
             intrinsic: self.intrinsic,
             fit: self.fit,
             whole_words: self.whole_words,
+            shares_as_auto: self.shares_as_auto,
             ..Constraints::available(width)
         }
     }
@@ -139,14 +145,27 @@ fn limit(value: i32, min: Length, max: Length, available: i32) -> i32 {
 }
 
 /// Space a node's own style leaves for its content.
+/// The width a node is laid out with. As CSS: measured for what a grid track
+/// needs, a share of its container is `auto`, since the track's size is what
+/// is being found; the share applies once it is known.
+fn used_width(style: &Style, constraints: Constraints) -> Length {
+    let share = matches!(style.width, Length::Full | Length::Fraction(_));
+    if share && constraints.shares_as_auto && constraints.exact_width.is_none() {
+        Length::Auto
+    } else {
+        style.width
+    }
+}
+
 fn content_space(style: &Style, constraints: Constraints) -> Space {
+    let used = used_width(style, constraints);
     let edges_x = style.margin.horizontal() + style.inner().horizontal();
     let edges_y = style.margin.vertical() + style.inner().vertical();
 
     let width = constraints
         .exact_width
         .map(|exact| exact - edges_x)
-        .or(style.width.resolve(constraints.width))
+        .or(used.resolve(constraints.width))
         .unwrap_or(constraints.width - edges_x);
     // Children are laid out in the width the node will end up with, so a
     // `max_width` narrows what they get rather than cutting them off after.
@@ -161,14 +180,15 @@ fn content_space(style: &Style, constraints: Constraints) -> Space {
             .resolve(constraints.height.unwrap_or(0))
             .filter(|_| constraints.height.is_some() || matches!(style.height, Length::Cells(_))));
 
-    let exact = constraints.exact_width.is_some() || style.width.resolve(0).is_some();
+    let exact = constraints.exact_width.is_some() || used.resolve(0).is_some();
 
     Space {
         width: width.max(0),
         height: height.map(|height| height.max(0)),
-        intrinsic: (constraints.intrinsic || style.width == Length::Fit) && !exact,
-        fit: constraints.fit || style.width == Length::Fit,
+        intrinsic: (constraints.intrinsic || used == Length::Fit) && !exact,
+        fit: constraints.fit || used == Length::Fit,
         whole_words: constraints.whole_words,
+        shares_as_auto: constraints.shares_as_auto,
     }
 }
 
@@ -187,7 +207,7 @@ pub fn measure(tree: &mut Tree, index: Index, constraints: Constraints) -> Size 
 
     let edges_x = style.margin.horizontal() + style.inner().horizontal();
     let edges_y = style.margin.vertical() + style.inner().vertical();
-    let width = style.width;
+    let width = used_width(style, constraints);
     let (min_width, max_width) = (extra.min_width, extra.max_width);
     let (min_height, max_height) = (extra.min_height, extra.max_height);
 
@@ -238,30 +258,24 @@ pub fn measure(tree: &mut Tree, index: Index, constraints: Constraints) -> Size 
     outer
 }
 
-/// Splits `total` by `weights` in whole cells. The cells lost to rounding go to
-/// the largest remainders, so the shares always add up to `total`.
+/// Splits `total` by `weights` in whole cells, as a browser would snap the
+/// edges of fractional shares to a grid of cells: each edge goes to the
+/// nearest cell, back one at exactly half, as centering does. The shares
+/// always add up to `total`.
 pub(super) fn share(total: i32, weights: &[f32]) -> Vec<i32> {
-    let sum: f32 = weights.iter().sum();
+    let sum: f64 = weights.iter().map(|&weight| weight as f64).sum();
     if sum <= 0.0 {
         return vec![0; weights.len()];
     }
 
-    let exact: Vec<f64> = weights
-        .iter()
-        .map(|&weight| total as f64 * weight as f64 / sum as f64)
-        .collect();
-    let mut shares: Vec<i32> = exact.iter().map(|share| share.trunc() as i32).collect();
-
-    let mut order: Vec<usize> = (0..weights.len()).filter(|&i| weights[i] > 0.0).collect();
-    order.sort_by(|&a, &b| {
-        let remainder = |i: usize| (exact[i] - shares[i] as f64).abs();
-        remainder(b).total_cmp(&remainder(a))
-    });
-
-    let step = total.signum();
-    let left = total - shares.iter().sum::<i32>();
-    for &position in order.iter().cycle().take(left.unsigned_abs() as usize) {
-        shares[position] += step;
+    let mut shares = Vec::with_capacity(weights.len());
+    let (mut weight_so_far, mut edge) = (0.0, 0);
+    for &weight in weights {
+        weight_so_far += weight as f64;
+        let exact = total as f64 * weight_so_far / sum;
+        let next = (exact - 0.5).ceil() as i32;
+        shares.push(next - edge);
+        edge = next;
     }
     shares
 }
