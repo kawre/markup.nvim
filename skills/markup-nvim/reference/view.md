@@ -107,6 +107,28 @@ function markup.view.find(win?: integer)
 
 The view shown in a window, or the first one in the current tab.
 
+### markup.view:height()
+
+```lua
+markup.view:height()
+  -> integer
+```
+
+Height to lay out for, which hidden windows can only estimate.
+
+### markup.view:hold_cursor()
+
+```lua
+markup.view:hold_cursor(at?: integer[])
+  -> release: fun()
+```
+
+Keeps the cursor where it is while what is under it moves, such as during
+a transition: rows added above it do not carry it along, nothing snaps it
+onto what passes by, and nothing is hovered. `at` is where it waits, its
+`{ row, col }` as `nvim_win_get_cursor` gives it, where it is by default.
+Returns a function that lets it go, which snaps it to the nearest node.
+
 ### markup.view:new()
 
 ```lua
@@ -136,6 +158,14 @@ markup.view:on_commit(listener: function)
 ```
 
 Calls `listener` after every commit.
+
+### markup.view:place_held()
+
+```lua
+markup.view:place_held()
+```
+
+Puts a held cursor back where it waits, after lines moved it.
 
 ### markup.view:place_images()
 
@@ -178,6 +208,15 @@ until the next call or until `unmount`.
 ```lua
 markup.view:request_commit()
 ```
+
+### markup.view:rows()
+
+```lua
+markup.view:rows()
+  -> integer
+```
+
+Height of the window. Reading it tracks resizes.
 
 ### markup.view:scroll()
 
