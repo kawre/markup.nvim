@@ -32,7 +32,7 @@ fn flush_run(
 
     if overflows || height > 1 {
         let limit = if overflows { space.width } else { i32::MAX };
-        let size = wrap::flow(tree, run, limit, space.width);
+        let size = wrap::flow(tree, run, limit, space.width, !space.whole_words);
         for &child in run.iter() {
             place(tree, child, 0, top);
         }

@@ -265,7 +265,7 @@ impl Breaker {
     }
 }
 
-fn break_lines(tree: &Tree, pieces: &[Piece], limit: i32) -> Breaker {
+fn break_lines(tree: &Tree, pieces: &[Piece], limit: i32, split_words: bool) -> Breaker {
     let mut breaker = Breaker {
         limit,
         x: 0,
@@ -333,7 +333,7 @@ fn break_lines(tree: &Tree, pieces: &[Piece], limit: i32) -> Breaker {
                 }
 
                 for (offset, piece) in pieces[position..end].iter().enumerate() {
-                    if piece.kind == Kind::Word && width > limit {
+                    if piece.kind == Kind::Word && width > limit && split_words {
                         breaker.put_split(tree, position + offset, piece);
                     } else {
                         breaker.put(position + offset, piece);
@@ -351,14 +351,15 @@ fn break_lines(tree: &Tree, pieces: &[Piece], limit: i32) -> Breaker {
 /// Flows a run of inline nodes, breaking lines past `limit`. Whatever cannot
 /// flow, such as a block among them, is laid out for `available`, which a run
 /// that never breaks still needs: `limit` is then unbounded, and a child as
-/// wide as its parent would be that wide too.
-pub fn flow(tree: &mut Tree, run: &[Index], limit: i32, available: i32) -> Size {
+/// wide as its parent would be that wide too. Without `split_words`, a word
+/// longer than a line runs past it whole.
+pub fn flow(tree: &mut Tree, run: &[Index], limit: i32, available: i32, split_words: bool) -> Size {
     let mut tokens = Tokens::default();
     for &node in run {
         tokenize(tree, node, (0, 0), available, &mut tokens);
     }
 
-    let breaker = break_lines(tree, &tokens.pieces, limit);
+    let breaker = break_lines(tree, &tokens.pieces, limit, split_words);
     let size = Size {
         width: breaker.widest,
         height: breaker.y

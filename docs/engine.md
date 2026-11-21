@@ -175,31 +175,48 @@ Width to fill or fit into.
 0
 
 ```rust
-pub height: Option<i32>, /// Sizes the child must take, such as a stretched flex item. pub exact_width: Option<i32>, pub exact_height: Option<i32>, /// Ask for the natural size, so blocks do not fill the width. pub intrinsic: bool, /// With `intrinsic`, still wrap at `width`, like CSS `fit-content`. pub fit: bool, }
+pub height: Option<i32>, /// Sizes the child must take, such as a stretched flex item. pub exact_width: Option<i32>, pub exact_height: Option<i32>, /// Ask for the natural size, so blocks do not fill the width. pub intrinsic: bool, /// With `intrinsic`, still wrap at `width`, like CSS `fit-content`. pub fit: bool, /// Keep each word whole, even past `width`. A word longer than its line
 ```
 
 Height, when the parent has a definite one.
 0
 
 ```rust
-pub exact_width: Option<i32>, pub exact_height: Option<i32>, /// Ask for the natural size, so blocks do not fill the width. pub intrinsic: bool, /// With `intrinsic`, still wrap at `width`, like CSS `fit-content`. pub fit: bool, }  impl Constraints
+pub exact_width: Option<i32>, pub exact_height: Option<i32>, /// Ask for the natural size, so blocks do not fill the width. pub intrinsic: bool, /// With `intrinsic`, still wrap at `width`, like CSS `fit-content`. pub fit: bool, /// Keep each word whole, even past `width`. A word longer than its line /// still breaks when drawn, as with CSS `overflow-wrap: break-word`, but /// the narrowest a node can be is its longest word, as CSS `min-content`.
 ```
 
 Sizes the child must take, such as a stretched flex item.
 0
 
 ```rust
-pub intrinsic: bool, /// With `intrinsic`, still wrap at `width`, like CSS `fit-content`. pub fit: bool, }  impl Constraints
+pub intrinsic: bool, /// With `intrinsic`, still wrap at `width`, like CSS `fit-content`. pub fit: bool, /// Keep each word whole, even past `width`. A word longer than its line /// still breaks when drawn, as with CSS `overflow-wrap: break-word`, but /// the narrowest a node can be is its longest word, as CSS `min-content`. pub whole_words: bool, }
 ```
 
 Ask for the natural size, so blocks do not fill the width.
 0
 
 ```rust
-pub fit: bool, }  impl Constraints
+pub fit: bool, /// Keep each word whole, even past `width`. A word longer than its line /// still breaks when drawn, as with CSS `overflow-wrap: break-word`, but /// the narrowest a node can be is its longest word, as CSS `min-content`. pub whole_words: bool, }  impl Constraints
 ```
 
 With `intrinsic`, still wrap at `width`, like CSS `fit-content`.
+0
+
+```rust
+pub whole_words: bool, }  impl Constraints
+```
+
+Keep each word whole, even past `width`. A word longer than its line
+still breaks when drawn, as with CSS `overflow-wrap: break-word`, but
+the narrowest a node can be is its longest word, as CSS `min-content`.
+0
+
+```rust
+pub fn min_content() -> Self
+```
+
+The narrowest a node can be: as narrow as wrapping allows, with each
+word whole.
 0
 
 ```rust
@@ -250,14 +267,15 @@ the fragments it was cut into, and each inline element the area it covers
 on every line, which is what paint draws highlights over.
 
 ```rust
-pub fn flow(tree: &mut Tree, run: &[Index], limit: i32, available: i32) -> Size
+pub fn flow(tree: &mut Tree, run: &[Index], limit: i32, available: i32, split_words: bool) -> Size
 ```
 
 Lays out a run of inline nodes in `limit` cells at the origin of the run.
 Flows a run of inline nodes, breaking lines past `limit`. Whatever cannot
 flow, such as a block among them, is laid out for `available`, which a run
 that never breaks still needs: `limit` is then unbounded, and a child as
-wide as its parent would be that wide too.
+wide as its parent would be that wide too. Without `split_words`, a word
+longer than a line runs past it whole.
 0
 
 ## `engine/lua.rs`

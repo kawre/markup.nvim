@@ -416,34 +416,41 @@ T["flex"]["wraps"] = function()
 	eq(lines(), { "aaa  bbb", "", "ccc" })
 end
 
+-- The cases below render the same, cell for cell, as their HTML and CSS do in
+-- a browser, with `overflow-wrap: break-word` and `box-sizing: content-box`.
 T["flex"]["a shrunk inline item wraps its text inside itself"] = function()
-	run([[view:render(m.flex({ width = 14, m.inline("aaaa bbbb cccc"), m.block("dddddddddd") }))]])
+	run([[view:render(m.flex({ width = 14, m.inline("aaaa bbbb cccc"), m.block("ddddd ddddd") }))]])
 	-- The inline gets 8 cells and its text breaks inside them, rather than
 	-- running on under the block next to it.
-	eq(lines(), { "aaaa    dddddd", "bbbb    dddd", "cccc" })
+	eq(lines(), { "aaaa    ddddd", "bbbb    ddddd", "cccc" })
 end
 
 T["flex"]["a margin does not shrink and does not weigh in"] = function()
 	run([[view:render(m.flex({
-		width = 30, m.block({ "aaaaaaaaaa", margin_left = 20 }), m.block("bbbbbbbbbb"),
+		width = 30, m.block({ "aaaa aaaaa", margin_left = 20 }), m.block("bbbb bbbbb"),
 	}))]])
-	eq(lines(), { "                    aaaaabbbbb", "                    aaaaabbbbb" })
+	eq(lines(), { "                    aaaa bbbb", "                    aaaaabbbbb" })
 end
 
 T["flex"]["an item that cannot wrap does not shrink below its text"] = function()
 	run([[view:render(m.flex({
-		width = 14, m.block({ "aaaaaaaaaa", white_space = "nowrap" }), m.block("bbbbbbbbbb"),
+		width = 14, m.block({ "aaaaaaaaaa", white_space = "nowrap" }), m.block("bb bb bb b"),
 	}))]])
-	eq(lines(), { "aaaaaaaaaabbbb", "          bbbb", "          bb" })
+	eq(lines(), { "aaaaaaaaaabb", "          bb", "          bb b" })
+end
+
+T["flex"]["an item does not shrink below its longest word"] = function()
+	run([[view:render(m.flex({ width = 12, m.block("aaaaaaaa a"), m.block("bb bb bb b") }))]])
+	eq(lines(), { "aaaaaaaabb", "a       bb", "        bb b" })
 end
 
 T["flex"]["an item that clips may shrink below its text"] = function()
 	run([[view:render(m.flex({
 		width = 14,
 		m.block({ "aaaaaaaaaa", white_space = "nowrap", overflow = "hidden" }),
-		m.block("bbbbbbbbbb"),
+		m.block("bbbb bbbbb"),
 	}))]])
-	eq(lines(), { "aaaaaaabbbbbbb", "       bbb" })
+	eq(lines(), { "aaaaaaabbbb", "       bbbbb" })
 end
 
 T["flex"]["max_width narrows what the items get"] = function()
