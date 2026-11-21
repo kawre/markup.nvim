@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.5.0](https://github.com/kawre/markup.nvim/compare/v0.4.0...v0.5.0) (2026-11-21)
+
+
+### ⚠ BREAKING CHANGES
+
+* update keyed rows reactively and correct layout and cleanup ([#33](https://github.com/kawre/markup.nvim/issues/33))
+
+### Features
+
+* inert elements, a held cursor, the view's height, and half borders that follow their style ([#32](https://github.com/kawre/markup.nvim/issues/32)) ([389693b](https://github.com/kawre/markup.nvim/commit/389693b58b6f61a726ae23f0b358f2def2fb309e))
+
+
+### Bug Fixes
+
+* update keyed rows reactively and correct layout and cleanup ([#33](https://github.com/kawre/markup.nvim/issues/33)) ([85b0064](https://github.com/kawre/markup.nvim/commit/85b00646a5d87abb7ecbeca788ae9118467ab60e))
+* what manual testing turns up: &lt;CR&gt; presses, margins, flex sizing, max_width and overflow ([#34](https://github.com/kawre/markup.nvim/issues/34)) ([92637ac](https://github.com/kawre/markup.nvim/commit/92637ac36ca352ce3da4a3196b139f970e2c8542))
+
 ## [0.4.0](https://github.com/kawre/markup.nvim/compare/v0.3.0...v0.4.0) (2026-11-20)
 
 
