@@ -97,6 +97,7 @@ impl Space {
     /// Constraints for a child that flows in this space.
     pub fn child(self, width: i32) -> Constraints {
         Constraints {
+            height: self.height,
             intrinsic: self.intrinsic,
             fit: self.fit,
             whole_words: self.whole_words,
@@ -186,7 +187,9 @@ fn content_space(style: &Style, constraints: Constraints) -> Space {
         width: width.max(0),
         height: height.map(|height| height.max(0)),
         intrinsic: (constraints.intrinsic || used == Length::Fit) && !exact,
-        fit: constraints.fit || used == Length::Fit,
+        fit: constraints.fit
+            || used == Length::Fit
+            || style.extra().max_width.resolve(constraints.width).is_some(),
         whole_words: constraints.whole_words,
         shares_as_auto: constraints.shares_as_auto,
     }

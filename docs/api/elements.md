@@ -58,8 +58,12 @@ function markup.factory.element.component(fn: fun(props?: <T>):any)
 ### markup.each()
 
 ```lua
-function markup.each(...any)
+function markup.each(list: fun():<T>[], render: fun(item: fun():<T>, index: fun():integer):any, opts?: { key: (fun(item: <T>):any)? })
+  -> markup.element
 ```
+
+Mounts a row per key. Read item() and index() in dynamic children or props
+to follow replacements and reorders while keeping row-local state.
 
 ### markup.flex()
 

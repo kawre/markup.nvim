@@ -92,7 +92,12 @@ function M:new(win, opts)
 		self:commit()
 	end
 
-	win:on("WinResized", function()
+	self.subscriptions = {}
+	local function on(event, callback, options)
+		table.insert(self.subscriptions, win:on(event, callback, options))
+	end
+
+	on("WinResized", function()
 		if win:valid() and vim.tbl_contains(vim.v.event.windows, win.win) then
 			self.height_cells(self:height())
 			-- Laid out again whatever changed, which also keeps the scroll where
@@ -103,12 +108,12 @@ function M:new(win, opts)
 	end, { pattern = "*" })
 
 	if opts.hide_cursor then
-		win:on("WinEnter", function()
+		on("WinEnter", function()
 			self:sync_cursor()
 		end, { pattern = "*" })
 	end
 
-	win:on("WinScrolled", function()
+	on("WinScrolled", function()
 		self:update_scroll()
 		self:place_images()
 	end, { pattern = "*" })
@@ -116,7 +121,7 @@ function M:new(win, opts)
 	-- Images are drawn on the screen, so anything that moves the window moves
 	-- them, and a window out of sight takes them away.
 	for _, event in ipairs({ "VimResized", "TabEnter", "WinClosed", "WinNew", "WinResized" }) do
-		win:on(event, function()
+		on(event, function()
 			vim.schedule(function()
 				self:place_images()
 			end)
@@ -124,13 +129,13 @@ function M:new(win, opts)
 	end
 
 	if opts.snap == "text" then
-		win:on("WinEnter", function()
+		on("WinEnter", function()
 			self:snap_cursor()
 			self:update_hover()
 		end, { buf = true })
 	end
 
-	win:on("CursorMoved", function()
+	on("CursorMoved", function()
 		-- Held still, see `hold_cursor`: what moves under it is not the user.
 		if self.held then
 			return
@@ -155,10 +160,13 @@ function M:new(win, opts)
 	release_scrolloff()
 
 	-- A hidden window has no buffer yet, so the first frame waits for it.
-	win:on_show(function()
-		release_scrolloff()
-		self:attach()
-	end)
+	table.insert(
+		self.subscriptions,
+		win:on_show(function()
+			release_scrolloff()
+			self:attach()
+		end)
+	)
 	if win:valid() then
 		self:attach()
 	end
@@ -564,6 +572,13 @@ end
 
 --- Stops everything and forgets the view. The window is left to its owner.
 function M:destroy()
+	if self.destroyed then
+		return
+	end
+	for _, unsubscribe in ipairs(self.subscriptions) do
+		unsubscribe()
+	end
+	self.subscriptions = {}
 	for id in pairs(self.images) do
 		self:set_image(id, nil)
 	end

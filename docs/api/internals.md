@@ -220,12 +220,12 @@ Like `show`, but the height animates and hidden content unmounts afterwards.
 ### markup.view.mount.each()
 
 ```lua
-function markup.view.mount.each(list: fun():<T>[], render: fun(item: <T>, index: integer):any, opts?: { key: fun(item: <T>):any })
+function markup.view.mount.each(list: fun():<T>[], render: fun(item: fun():<T>, index: fun():integer):any, opts?: { key: fun(item: <T>):any })
   -> markup.element
 ```
 
-Renders `render(item, index)` for each item of `list()`, keeping the UI of
-items that stay. Items are their own key unless `opts.key` says otherwise.
+Mounts each key once. The render callback receives accessors for its current
+item and one-based index. Items are their own key unless `opts.key` says otherwise.
 
 ### markup.view.mount.image()
 

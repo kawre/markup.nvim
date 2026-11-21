@@ -241,7 +241,8 @@ function F.world(r, opts)
 			return m.block({
 				m.each(function()
 					return read(spec.knob)
-				end, function(key)
+				end, function(item_key)
+					local key = item_key()
 					return m.block({ "item " .. key .. " ", build(spec.item, key) })
 				end),
 			})

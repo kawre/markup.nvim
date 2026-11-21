@@ -116,7 +116,10 @@ markup.component()                                        *markup.component()*
       -> fun(props?: <T>):any
 
 markup.each()                                                  *markup.each()*
-    function markup.each(...any)
+    function markup.each(list: fun():<T>[], render: fun(item: fun():<T>, index: fun():integer):any, opts?: { key: (fun(item: <T>):any)? })
+      -> markup.element
+    Mounts a row per key. Read item() and index() in dynamic children or props
+    to follow replacements and reorders while keeping row-local state.
 
 markup.flex()                                                  *markup.flex()*
     function markup.factory.element.flex(props: markup.factory.element.props, style: markup.factory.element.style)
@@ -1924,7 +1927,7 @@ markup.reactive.computation.stale          *markup.reactive.computation.stale*
     boolean?
 
 markup.reactive.computation.subs            *markup.reactive.computation.subs*
-    table<markup.reactive.computation, boolean>?
+    table<markup.reactive.computation, integer>?
 
 markup.reactive.computation.value          *markup.reactive.computation.value*
     any
@@ -2295,7 +2298,7 @@ markup.view.fixed:hide()                            *markup.view.fixed:hide()*
     markup.view.fixed:hide()
 
 markup.view.fixed:new()                              *markup.view.fixed:new()*
-    markup.view.fixed:new(parent: markup.view, spacer?: integer, content: any, style?: string|false)
+    markup.view.fixed:new(parent: markup.view, spacer?: integer, content: any, style?: fun():(markup.factory.element.style)?|markup.factory.element.style|false)
 >lua
     style:
        | false
@@ -2317,7 +2320,7 @@ markup.view.fixed:sync()                            *markup.view.fixed:sync()*
     Keeps the float and the reserved rows as tall as the content.
 
 markup.view.fixed.winhighlight()            *markup.view.fixed.winhighlight()*
-    function markup.view.fixed.winhighlight(parent: markup.view, style?: string|false)
+    function markup.view.fixed.winhighlight(parent: markup.view, style?: markup.factory.element.style|false)
       -> string
 >lua
     style:
@@ -2411,10 +2414,10 @@ markup.view.mount.collapse()                    *markup.view.mount.collapse()*
     Like `show`, but the height animates and hidden content unmounts afterwards.
 
 markup.view.mount.each()                            *markup.view.mount.each()*
-    function markup.view.mount.each(list: fun():<T>[], render: fun(item: <T>, index: integer):any, opts?: { key: fun(item: <T>):any })
+    function markup.view.mount.each(list: fun():<T>[], render: fun(item: fun():<T>, index: fun():integer):any, opts?: { key: fun(item: <T>):any })
       -> markup.element
-    Renders `render(item, index)` for each item of `list()`, keeping the UI of
-    items that stay. Items are their own key unless `opts.key` says otherwise.
+    Mounts each key once. The render callback receives accessors for its current
+    item and one-based index. Items are their own key unless `opts.key` says otherwise.
 
 markup.view.mount.image()                          *markup.view.mount.image()*
     function markup.view.mount.image(props: { data: (string|fun():string|markup.image.frame[]|markup.image.frame[])?, width: integer|fun():integer, height? })
@@ -2609,6 +2612,7 @@ markup.window:new()                                      *markup.window:new()*
 
 markup.window:on()                                        *markup.window:on()*
     markup.window:on(event: string|string[], cb: fun(self: markup.window, ev: vim.api.keyset.create_autocmd.callback_args):boolean?, opts?: markup.window.Event)
+      -> unsubscribe: function
 
 markup.window:on_current_tab()                *markup.window:on_current_tab()*
     markup.window:on_current_tab()
@@ -2619,6 +2623,7 @@ markup.window:on_resize()                          *markup.window:on_resize()*
 
 markup.window:on_show()                              *markup.window:on_show()*
     markup.window:on_show(listener: fun(self: markup.window))
+      -> unsubscribe: function
     Calls `listener` every time the window opens.
 
 markup.window:parent_size()                      *markup.window:parent_size()*
