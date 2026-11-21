@@ -1406,6 +1406,17 @@ T["press"]["a component can take <CR> over, and give it back"] = function()
 	)
 end
 
+T["press"]["a destroyed view lets go of <CR>"] = function()
+	run([[
+		pressed = false
+		view:render(m.button({ "press me", on_press = function() pressed = true end }))
+		view:destroy()
+	]])
+	-- The window outlives the view, and the key must not keep the view alive.
+	eq(child.lua_get([[vim.fn.maparg("<CR>", "n")]]), "")
+	eq(child.lua_get("view.key_stacks['n <CR>'] == nil"), true)
+end
+
 T["press"]["forgets handlers of unmounted nodes"] = function()
 	run([[
 		open = m.signal(true)
