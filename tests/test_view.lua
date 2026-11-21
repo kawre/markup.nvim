@@ -315,19 +315,48 @@ T["overflow"]["hidden cuts off what is too tall"] = function()
 	eq(lines(), { "a", "c" })
 end
 
-T["overflow"]["overflow_y keeps what is too wide"] = function()
+T["overflow"]["overflow_y hidden cuts off what is too wide, as in CSS"] = function()
 	run([[view:render(m.block({
 		width = 4, overflow_y = "hidden", m.block({ white_space = "nowrap", "abcdefghij" }),
 	}))]])
-	eq(lines(), { "abcdefghij" })
+	eq(lines(), { "abcd" })
 end
 
-T["overflow"]["overflow_x keeps what is too tall"] = function()
+T["overflow"]["overflow_x hidden cuts off what is too tall, as in CSS"] = function()
 	run([[view:render(m.block({
 		m.block({ height = 1, overflow_x = "hidden", m.block("a"), m.block("b") }),
 		m.block("c"),
 	}))]])
-	eq(lines(), { "a", "b", "c" })
+	eq(lines(), { "a", "c" })
+end
+
+T["overflow"]["clip cuts off its own axis alone"] = function()
+	run([[view:render(m.block({
+		m.block({ width = 4, overflow_y = "clip", m.block({ white_space = "nowrap", "abcdefghij" }) }),
+		-- Nothing after it, so the rows that run past it show as in a browser.
+		m.block({ height = 1, overflow_x = "clip", m.block("a"), m.block("b") }),
+	}))]])
+	eq(lines(), { "abcdefghij", "a", "b" })
+end
+
+T["overflow"]["beside hidden, clip cuts off both axes"] = function()
+	run([[view:render(m.block({
+		m.block({
+			width = 4, height = 1, overflow_x = "clip", overflow_y = "hidden",
+			m.block({ white_space = "nowrap", "abcdefghij" }), m.block("b"),
+		}),
+		m.block("c"),
+	}))]])
+	eq(lines(), { "abcd", "c" })
+end
+
+T["overflow"]["the axis given on its own wins over the shorthand"] = function()
+	run([[view:render(m.block({
+		width = 4, overflow = "hidden", overflow_x = "visible",
+		m.block({ white_space = "nowrap", "abcdefghij" }),
+	}))]])
+	-- `overflow_y` stays hidden, so `visible` along the row computes to cut off.
+	eq(lines(), { "abcd" })
 end
 
 T["max_width"] = new_set()
@@ -502,6 +531,19 @@ T["flex"]["what stretches stops at max_height"] = function()
 			m.inline({ "a", style = "Item" }),
 			m.inline({ "b\nb\nb\nb\nb", padding_left = 20 }),
 			m.block({ "c", style = "Other" }),
+		}),
+		m.block("after"),
+	}))]])
+end
+
+T["flex"]["overflow_x hidden cuts off what is too tall and its highlights"] = function()
+	-- As in CSS: `hidden` along the row makes `visible` along the column cut
+	-- off as well, so the rows of `b` past max_height do not show.
+	expect_screen([[view:render(m.block({
+		m.flex({
+			max_height = 2, width = 8, style = "Box", overflow_x = "hidden",
+			m.block({ "a", style = "Item" }),
+			m.block({ "b\nb\nb\nb", style = "Other" }),
 		}),
 		m.block("after"),
 	}))]])

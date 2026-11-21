@@ -400,8 +400,8 @@ function Collapse.mount(view, parent, before, props)
 	-- The outer block is what animates, the inner one measures the content.
 	local outer = view:next_id()
 	view.commands:create(outer, DISPLAY.block)
-	-- Only the rows: what is wider than the collapse stays readable.
-	view.commands:set_style(outer, "overflow_y", "hidden")
+	-- Only the rows, as CSS `clip`: what is wider than the collapse stays readable.
+	view.commands:set_style(outer, "overflow_y", "clip")
 	view.commands:insert(parent, outer, before)
 
 	local inner, inner_owner
@@ -613,7 +613,8 @@ function Slide.mount(view, parent, before, props)
 	-- The track holds the pages side by side, and moves behind the outer block.
 	local outer = view:next_id()
 	view.commands:create(outer, DISPLAY.block)
-	view.commands:set_style(outer, "overflow_x", "hidden")
+	-- Only the columns, as CSS `clip`: a page taller than the slide still shows.
+	view.commands:set_style(outer, "overflow_x", "clip")
 	view.commands:insert(parent, outer, before)
 
 	local track = view:next_id()

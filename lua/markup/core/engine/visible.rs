@@ -71,7 +71,7 @@ impl Engine {
 #[cfg(test)]
 mod tests {
     use super::super::protocol::{Command, Side, StyleProperty};
-    use super::super::style::{Display, Length};
+    use super::super::style::{Display, Length, Overflow};
     use super::super::{Engine, ROOT};
 
     /// A block three rows tall inside one that clips at `height`.
@@ -93,7 +93,7 @@ mod tests {
         engine
             .apply(Command::SetStyle {
                 id: 2,
-                property: StyleProperty::Clip(true),
+                property: StyleProperty::OverflowY(Overflow::Clip),
             })
             .unwrap();
         engine
