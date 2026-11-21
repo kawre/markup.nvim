@@ -118,21 +118,21 @@ F.settle()
 local function val(knob)
 	return world.knobs[knob].signal()
 end
-local function freeze(spec)
+local function freeze(spec, item)
 	local k = spec.kind
 	if k == "text" then
-		return spec
+		return { kind = "text", value = spec.value .. (item and ("#" .. item) or "") }
 	elseif k == "dyntext" then
-		return { kind = "text", value = val(spec.knob) }
+		return { kind = "text", value = val(spec.knob) .. (item and ("#" .. item) or "") }
 	elseif k == "dynchild" then
-		return val(spec.knob) and freeze(spec.child) or { kind = "text", value = spec.text }
+		return val(spec.knob) and freeze(spec.child, item) or { kind = "text", value = spec.text }
 	elseif k == "show" then
 		if val(spec.knob) then
-			return freeze(spec.child)
+			return freeze(spec.child, item)
 		end
-		return spec.fallback and freeze(spec.fallback) or { kind = "none" }
+		return spec.fallback and freeze(spec.fallback, item) or { kind = "none" }
 	elseif k == "collapse" then
-		return { kind = "collapse", open = val(spec.knob), child = freeze(spec.child) }
+		return { kind = "collapse", open = val(spec.knob), child = freeze(spec.child, item) }
 	elseif k == "each" then
 		local items = {}
 		for _, key in ipairs(val(spec.knob)) do
@@ -140,8 +140,10 @@ local function freeze(spec)
 				kind = "box",
 				tag = "block",
 				props = {},
-				children = { { kind = "text", value = "item " .. key .. " " }, freeze(spec.item) },
-				item = key,
+				children = {
+					{ kind = "text", value = "item " .. key .. " " },
+					freeze(spec.item, key),
+				},
 			}
 		end
 		return { kind = "box", tag = "block", props = {}, children = items }
@@ -154,11 +156,14 @@ local function freeze(spec)
 				kind = "box",
 				tag = "block",
 				props = {},
-				children = { { kind = "text", value = "page " .. page }, freeze(spec.pages[page]) },
+				children = {
+					{ kind = "text", value = "page " .. page },
+					freeze(spec.pages[page], item),
+				},
 			},
 		}
 	elseif k == "component" then
-		return freeze(spec.child)
+		return freeze(spec.child, item)
 	end
 	local props = vim.deepcopy(spec.props)
 	for name, index in pairs(spec.dynamic) do
@@ -166,34 +171,33 @@ local function freeze(spec)
 	end
 	local children = {}
 	for _, c in ipairs(spec.children) do
-		children[#children + 1] = freeze(c)
+		children[#children + 1] = freeze(c, item)
 	end
 	return { kind = "box", tag = spec.tag, props = props, children = children }
 end
--- each items append "#key" to texts; keep it simple: drop the suffix (approximation, checked below).
-local function build(spec, item)
+local function build(spec)
 	local k = spec.kind
 	if k == "none" then
 		return nil
 	elseif k == "text" then
-		return item and (spec.value .. "#" .. item) or spec.value
+		return spec.value
 	elseif k == "collapse" then
 		return m.collapse(function()
 			return spec.open
 		end, function()
-			return m.block({ build(spec.child, item) })
+			return m.block({ build(spec.child) })
 		end)
 	elseif k == "slide" then
 		return m.slide(function()
 			return 1
 		end, function()
-			return build(spec.child, item)
+			return build(spec.child)
 		end)
 	end
 	local props = vim.deepcopy(spec.props)
 	local children = {}
 	for _, c in ipairs(spec.children) do
-		local b = build(c, spec.item or item)
+		local b = build(c)
 		if b ~= nil then
 			children[#children + 1] = b
 		end

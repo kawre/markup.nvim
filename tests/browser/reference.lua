@@ -129,12 +129,21 @@ end
 -- What the translation adds is marked `data-line`: it takes no place in paths.
 local STRUT = "<span data-line style=\"display:inline-block\"></span>"
 
+local function sized_inline(props)
+	return (
+		(props.width or "auto") ~= "auto"
+		or (props.height or "auto") ~= "auto"
+		or (props.min_width or "auto") ~= "auto"
+		or (props.max_width or "auto") ~= "auto"
+	)
+end
+
 --- Text that is empty, or an inline holding only such text.
 local function is_blank(child)
 	if child == "" then
 		return true
 	end
-	if type(child) ~= "table" or child.type ~= "inline" then
+	if type(child) ~= "table" or child.type ~= "inline" or sized_inline(child.props) then
 		return false
 	end
 	local inner = child.props.children
@@ -230,15 +239,7 @@ local function html(node, profile)
 	local tag = assert(tags[node.type], "unsupported element: " .. tostring(node.type))
 	local props = node.props
 	local display = node.type
-	if
-		display == "inline"
-		and (
-			(props.width or "auto") ~= "auto"
-			or (props.height or "auto") ~= "auto"
-			or (props.min_width or "auto") ~= "auto"
-			or (props.max_width or "auto") ~= "auto"
-		)
-	then
+	if display == "inline" and sized_inline(props) then
 		-- markup.nvim sizes an inline that has a width; CSS sizes only an
 		-- inline-block.
 		display = "inline-block"

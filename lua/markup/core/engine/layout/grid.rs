@@ -154,7 +154,7 @@ fn size_tracks(
 ) -> Vec<i32> {
     let track = |position: usize| tracks.get(position).copied().unwrap_or(Track::Auto);
     let fraction = |position: usize| match track(position) {
-        Track::Fr(fraction) if available.is_some() => fraction,
+        Track::Fr(fraction) => fraction,
         _ => 0.0,
     };
     let sized_by_content = |position: usize| !matches!(track(position), Track::Cells(_));
@@ -201,7 +201,14 @@ fn size_tracks(
     }
 
     let Some(available) = available else {
-        // A natural size: every track as its items would like it.
+        // All flexible tracks use the same fraction at max-content size.
+        let per = (0..count)
+            .filter(|&p| fraction(p) > 0.0)
+            .map(|p| limit[p] as f32 / fraction(p).max(1.0))
+            .fold(0.0, f32::max);
+        for (p, size) in limit.iter_mut().enumerate() {
+            *size = (*size).max((per * fraction(p)).round() as i32);
+        }
         return limit;
     };
     let gaps = gap * (count as i32 - 1).max(0);
@@ -455,6 +462,7 @@ impl Strategy for Grid {
                     exact_height: stretch_y.then_some(height),
                     intrinsic: !stretch_x,
                     fit: !stretch_x,
+                    ignore_own_width: false,
                     whole_words: false,
                     shares_as_auto: space.shares_as_auto,
                 },

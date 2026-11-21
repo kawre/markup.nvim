@@ -129,7 +129,7 @@ fn flush_parts(
         } else {
             i32::MAX
         };
-        let size = wrap::flow_items(tree, run, limit, space.width, !space.whole_words);
+        let (size, baseline) = wrap::flow_items(tree, run, limit, space, !space.whole_words);
         // What sits outside the split inlines is placed from the run's origin,
         // as in any run; what is inside them, the flow placed.
         let mut depth = 0;
@@ -149,6 +149,7 @@ fn flush_parts(
                 RunItem::Node(_) => {}
             }
         }
+        cursor.baseline = Some(top + baseline);
         cursor.extend_line(size);
         cursor.end_line();
     }
@@ -175,6 +176,7 @@ fn flush_run(
     let top = cursor.y();
     let mut x = 0;
     let mut height = 0;
+    let mut has_atomic = false;
     for &child in run.iter() {
         let outer = measure(tree, child, space.child((space.width - x).max(0)));
         place(tree, child, x, top);
@@ -182,15 +184,20 @@ fn flush_run(
         height = height.max(outer.height);
         // As CSS: an inline-block holds its line open, empty as it may be.
         if is_inline_block(&tree.node(child).style) {
+            has_atomic = true;
             height = height.max(1);
         }
     }
 
     let overflows = wraps && space.can_wrap() && x > space.width;
 
-    if overflows || height > 1 {
-        let limit = if overflows { space.width } else { i32::MAX };
-        let size = wrap::flow(tree, run, limit, space.width, !space.whole_words);
+    if overflows || height > 1 || has_atomic {
+        let limit = if wraps && space.can_wrap() {
+            space.width
+        } else {
+            i32::MAX
+        };
+        let (size, baseline) = wrap::flow(tree, run, limit, space, !space.whole_words);
         for &child in run.iter() {
             // Pieces of a wrapped inline are placed from the run's origin; an
             // inline-block is one piece, placed where the flow put it.
@@ -202,12 +209,16 @@ fn flush_run(
                 place(tree, child, 0, top);
             }
         }
+        cursor.baseline = Some(top + baseline);
         cursor.extend_line(size);
     } else {
         // Laid out plainly: what an earlier wrap left on them no longer holds,
         // even where they kept their layout.
         for &child in run.iter() {
             tree.node_mut(child).fragments = None;
+        }
+        if height > 0 {
+            cursor.baseline = Some(top + height);
         }
         cursor.extend_line(Size { width: x, height });
     }
@@ -301,16 +312,20 @@ impl Strategy for Block {
                 flush_run(tree, &mut run, &mut cursor, space, wraps);
             }
             let sits_in = inside.last().copied();
+            // A split inline still belongs to one run of authored children.
+            // Only direct block children begin a new spacing interval.
+            if sits_in.is_none() {
+                cursor.group += 1;
+            }
 
             let outer = measure(tree, child, space.child(space.width));
             let entry = tree.node(child);
             let geometry = entry.geometry;
             let margin = entry.style.margin;
-            if spacing > 0 && cursor.rows > 0 {
+            if cursor.gap() > 0 {
                 // `spacing` is a row of its own between rows, which the
                 // margins on either side of it do not meet across.
-                cursor.height += pending.value();
-                pending = Collapse::default();
+                open(&mut cursor, &mut pending, &mut started);
             }
             let before = pending;
             pending = pending.with(geometry.margin_top);
@@ -328,16 +343,31 @@ impl Strategy for Block {
                 };
                 split.place(tree, sits_in, child, 0, cursor.y() + past - margin.top);
                 pending = pending.with(geometry.margin_bottom);
+                cursor.width = cursor.width.max(outer.width);
+                if spacing > 0 {
+                    cursor.height = cursor.y();
+                    cursor.last_group = Some(cursor.group);
+                }
             } else {
                 open(&mut cursor, &mut pending, &mut started);
                 let top = cursor.y();
                 split.place(tree, sits_in, child, 0, top - margin.top);
+                if let Some(mut baseline) = geometry.baseline {
+                    if tree.node(child).style.extra().scrolls {
+                        baseline = baseline.min(geometry.content.height);
+                    }
+                    cursor.baseline = Some(top + tree.node(child).style.inner().top + baseline);
+                }
                 cursor.extend_line(Size {
                     width: outer.width,
                     height: outer.height - margin.top - margin.bottom,
                 });
                 cursor.end_line();
                 pending = geometry.margin_bottom;
+            }
+
+            if sits_in.is_none() {
+                cursor.group += 1;
             }
 
             // The inlines go on after it, on a line of their own.
@@ -374,6 +404,7 @@ impl Strategy for Block {
 
         let own = tree.node(node).style.margin;
         let geometry = &mut tree.node_mut(node).geometry;
+        geometry.baseline = cursor.baseline;
         if !started && through.empty {
             // Nothing holds the margins apart: all of them are one.
             let all = Collapse::of(own.top)
@@ -451,19 +482,29 @@ impl Through {
 /// Tracks the current line while children are placed.
 #[derive(Default)]
 struct Cursor {
+    baseline: Option<i32>,
     spacing: i32,
     x: i32,
     line_height: i32,
     line_open: bool,
     width: i32,
     height: i32,
-    rows: i32,
+    group: usize,
+    last_group: Option<usize>,
 }
 
 impl Cursor {
+    fn gap(&self) -> i32 {
+        if self.last_group.is_some_and(|last| last != self.group) {
+            self.spacing
+        } else {
+            0
+        }
+    }
+
     /// Top of the current line, leaving room for spacing after earlier lines.
     fn y(&self) -> i32 {
-        self.height + if self.rows > 0 { self.spacing } else { 0 }
+        self.height + self.gap()
     }
 
     fn extend_line(&mut self, outer: Size) {
@@ -476,7 +517,7 @@ impl Cursor {
     fn end_line(&mut self) {
         if self.line_open {
             self.height = self.y() + self.line_height;
-            self.rows += 1;
+            self.last_group = Some(self.group);
             self.x = 0;
             self.line_height = 0;
             self.line_open = false;

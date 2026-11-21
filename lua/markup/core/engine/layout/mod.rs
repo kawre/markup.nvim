@@ -19,6 +19,8 @@ use super::tree::{Collapse, Index, Size, Tree};
 /// What a parent asks of a child. Sizes are of the margin box.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Constraints {
+    /// Measure this item's content for its automatic flex minimum.
+    pub ignore_own_width: bool,
     /// Width to fill or fit into.
     pub width: i32,
     /// Height, when the parent has a definite one.
@@ -34,14 +36,14 @@ pub struct Constraints {
     /// still breaks when drawn, as with CSS `overflow-wrap: break-word`, but
     /// the narrowest a node can be is its longest word, as CSS `min-content`.
     pub whole_words: bool,
-    /// Measured for what a grid track needs, which its size depends on: as
-    /// CSS, a share of it, such as `width = "full"`, is `auto` until then.
+    /// Percentage widths depending on this intrinsic measurement resolve as auto.
     pub shares_as_auto: bool,
 }
 
 impl Constraints {
     pub fn available(width: i32) -> Self {
         Constraints {
+            ignore_own_width: false,
             width,
             height: None,
             exact_width: None,
@@ -145,13 +147,10 @@ fn limit(value: i32, min: Length, max: Length, available: i32) -> i32 {
     min.resolve(available).map_or(value, |min| value.max(min))
 }
 
-/// Space a node's own style leaves for its content.
-/// The width a node is laid out with. As CSS: measured for what a grid track
-/// needs, a share of its container is `auto`, since the track's size is what
-/// is being found; the share applies once it is known.
+/// The preferred width for this pass through layout.
 fn used_width(style: &Style, constraints: Constraints) -> Length {
     let share = matches!(style.width, Length::Full | Length::Fraction(_));
-    if share && constraints.shares_as_auto && constraints.exact_width.is_none() {
+    if constraints.ignore_own_width || (share && constraints.shares_as_auto) {
         Length::Auto
     } else {
         style.width
@@ -188,10 +187,11 @@ fn content_space(style: &Style, constraints: Constraints) -> Space {
         height: height.map(|height| height.max(0)),
         intrinsic: (constraints.intrinsic || used == Length::Fit) && !exact,
         fit: constraints.fit
-            || used == Length::Fit
+            || (used == Length::Fit && !constraints.intrinsic)
             || style.extra().max_width.resolve(constraints.width).is_some(),
         whole_words: constraints.whole_words,
-        shares_as_auto: constraints.shares_as_auto,
+        shares_as_auto: !exact
+            && (constraints.shares_as_auto || constraints.intrinsic || used == Length::Fit),
     }
 }
 
@@ -218,21 +218,41 @@ pub fn measure(tree: &mut Tree, index: Index, constraints: Constraints) -> Size 
     // only a block lets the margins of its children through.
     let margin = style.margin;
 
-    // As CSS `fit-content`: a box sized to its content is no narrower than its
-    // longest word, even where less room is left, unless its `max_width` says
-    // otherwise. Measured with each word whole, which asks nothing of this.
-    if space.intrinsic && space.fit && !space.whole_words && constraints.exact_width.is_none() {
-        let narrowest = Constraints {
-            height: constraints.height,
-            shares_as_auto: constraints.shares_as_auto,
-            ..Constraints::min_content()
-        };
-        let narrowest = measure(tree, index, narrowest).width - edges_x;
-        if narrowest > space.width {
-            space.width = limit(narrowest, min_width, max_width, constraints.width);
+    // A fit-content box chooses its width before laying out its children.
+    // Percentages that depend on this width are auto during intrinsic sizing.
+    let strategy = strategy(tree, index);
+    let fit_box = space.intrinsic
+        && space.fit
+        && !space.whole_words
+        && (display.fills_width() || lays_out_as_block(tree, index));
+    if fit_box {
+        let preferred = strategy
+            .arrange(
+                tree,
+                index,
+                Space {
+                    fit: false,
+                    shares_as_auto: true,
+                    ..space
+                },
+            )
+            .width;
+        let mut width = preferred;
+        if preferred > space.width {
+            let minimum = Constraints {
+                height: constraints.height,
+                ignore_own_width: constraints.ignore_own_width,
+                shares_as_auto: true,
+                ..Constraints::min_content()
+            };
+            let minimum = measure(tree, index, minimum).width - edges_x;
+            width = space.width.max(minimum);
         }
+        space.width = limit(width, min_width, max_width, constraints.width);
+        space.intrinsic = false;
+        space.fit = false;
+        space.shares_as_auto = false;
     }
-
     // Laid out anew: pieces of an earlier wrap would paint it where it no
     // longer is. A run that flows it again sets them after this.
     tree.node_mut(index).fragments = None;
@@ -240,12 +260,12 @@ pub fn measure(tree: &mut Tree, index: Index, constraints: Constraints) -> Size 
     geometry.margin_top = Collapse::of(margin.top);
     geometry.margin_bottom = Collapse::of(margin.bottom);
     geometry.collapses_through = false;
+    geometry.baseline = None;
 
-    let strategy = strategy(tree, index);
     let mut content = strategy.arrange(tree, index, space);
 
     let fills = display.fills_width() && width != Length::Fit && !constraints.intrinsic;
-    if constraints.exact_width.is_some() {
+    if fit_box || constraints.exact_width.is_some() {
         content.width = space.width;
     } else if width.resolve(constraints.width).is_some() || fills {
         // As CSS: a box with a width, or one that fills it, keeps it. What

@@ -5,7 +5,7 @@
 //! the fragments it was cut into, and each inline element the area it covers
 //! on every line, which is what paint draws highlights over.
 
-use super::{Constraints, measure, place};
+use super::{Constraints, Space, measure, place};
 use crate::engine::style::Display;
 use crate::engine::tree::{Fragment, Index, Size, Tree};
 
@@ -138,7 +138,7 @@ fn has_only_inline_children(tree: &mut Tree, node: Index) -> bool {
     inline
 }
 
-fn tokenize(tree: &mut Tree, node: Index, base: (i32, i32), width: i32, tokens: &mut Tokens) {
+fn tokenize(tree: &mut Tree, node: Index, base: (i32, i32), space: Space, tokens: &mut Tokens) {
     tokens.nodes.push(node);
 
     if tree.node(node).display == Display::Text {
@@ -150,10 +150,10 @@ fn tokenize(tree: &mut Tree, node: Index, base: (i32, i32), width: i32, tokens: 
     // up to the line, and never split across lines.
     let inline_block = super::is_inline_block(&tree.node(node).style);
     if inline_block || !has_only_inline_children(tree, node) {
-        let constraints = if inline_block {
-            Constraints::fit_content(width)
-        } else {
-            Constraints::intrinsic(width)
+        let constraints = Constraints {
+            intrinsic: true,
+            fit: inline_block && space.can_wrap(),
+            ..space.child(space.width)
         };
         let outer = measure(tree, node, constraints);
         let entry = tree.node(node);
@@ -161,11 +161,11 @@ fn tokenize(tree: &mut Tree, node: Index, base: (i32, i32), width: i32, tokens: 
             // As CSS: the line of its last row, or the bottom of its margin when
             // it has none or cuts off what does not fit.
             let style = &entry.style;
-            if entry.geometry.content.height > 0 && !style.extra().scrolls {
-                style.margin.top + style.inner().top + entry.geometry.content.height
-            } else {
-                outer.height
-            }
+            entry
+                .geometry
+                .baseline
+                .filter(|_| !style.extra().scrolls)
+                .map_or(outer.height, |b| style.margin.top + style.inner().top + b)
         } else {
             // Aligned with the top of the line, as before.
             1
@@ -218,7 +218,7 @@ fn tokenize(tree: &mut Tree, node: Index, base: (i32, i32), width: i32, tokens: 
     let mut children = Vec::new();
     tree.for_each_flow_child(node, reverse, &mut |_, child| children.push(child));
     for child in children {
-        tokenize(tree, child, inner, width, tokens);
+        tokenize(tree, child, inner, space, tokens);
     }
 
     if padding.right > 0 {
@@ -438,6 +438,16 @@ fn break_lines(tree: &Tree, pieces: &[Piece], limit: i32, split_words: bool) -> 
                     if piece.kind == Kind::Word && width > limit && split_words {
                         breaker.put_split(tree, position + offset, piece);
                     } else {
+                        // Horizontal edges take space even on an otherwise
+                        // empty inline fragment. At an emergency wrap, move
+                        // the edge to the next line if the word filled this one.
+                        if split_words
+                            && piece.kind == Kind::Gap
+                            && breaker.x > 0
+                            && breaker.x + piece.width > limit
+                        {
+                            breaker.new_line();
+                        }
                         breaker.put(position + offset, piece);
                     }
                 }
@@ -485,14 +495,20 @@ fn gap_piece(node: Index, base: (i32, i32), width: i32) -> Piece {
 }
 
 /// Flows a run of nodes, breaking lines past `limit`; see `flow_items`.
-pub fn flow(tree: &mut Tree, run: &[Index], limit: i32, available: i32, split_words: bool) -> Size {
+pub fn flow(
+    tree: &mut Tree,
+    run: &[Index],
+    limit: i32,
+    space: Space,
+    split_words: bool,
+) -> (Size, i32) {
     let items: Vec<RunItem> = run.iter().map(|&node| RunItem::Node(node)).collect();
-    flow_items(tree, &items, limit, available, split_words)
+    flow_items(tree, &items, limit, space, split_words)
 }
 
 /// Lays out a run of inline nodes in `limit` cells at the origin of the run.
 /// Flows a run of inline nodes, breaking lines past `limit`. Whatever cannot
-/// flow, such as a block among them, is laid out for `available`, which a run
+/// flow, such as a block among them, is laid out in its containing space, which a run
 /// that never breaks still needs: `limit` is then unbounded, and a child as
 /// wide as its parent would be that wide too. Without `split_words`, a word
 /// longer than a line runs past it whole.
@@ -500,9 +516,9 @@ pub fn flow_items(
     tree: &mut Tree,
     items: &[RunItem],
     limit: i32,
-    available: i32,
+    space: Space,
     split_words: bool,
-) -> Size {
+) -> (Size, i32) {
     let mut tokens = Tokens::default();
     // The split inlines open at this point.
     struct Part {
@@ -517,7 +533,7 @@ pub fn flow_items(
         match item {
             RunItem::Node(node) => {
                 let base = open.last().map_or((0, 0), |part| part.inner);
-                tokenize(tree, node, base, available, &mut tokens);
+                tokenize(tree, node, base, space, &mut tokens);
             }
             RunItem::Open { node, first, base } => {
                 let style = &tree.node(node).style;
@@ -656,7 +672,7 @@ pub fn flow_items(
         }
     }
 
-    size
+    (size, breaker.y + breaker.ascent.max(1))
 }
 
 #[cfg(test)]

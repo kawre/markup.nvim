@@ -54,6 +54,8 @@ pub struct Geometry {
     pub y: i32,
     pub content: Size,
     pub outer: Size,
+    /// Last in-flow line baseline, relative to the content origin.
+    pub baseline: Option<i32>,
     /// The top and bottom margins as a block parent sees them, with those of
     /// first and last children that collapse through this node.
     pub margin_top: Collapse,

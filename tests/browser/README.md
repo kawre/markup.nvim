@@ -20,7 +20,7 @@ A mismatch is a difference from CSS, which markup.nvim fixes. A few things are t
 - An inline given a size (`width`, `height`, `min_width` or `max_width`) is an inline-block.
 - `center` and `end` never push content past the start of its box: a terminal has no column before the first. That is CSS `safe` alignment.
 - A tab is four spaces, wherever it lands.
-- `spacing` in a block is a row of its own between rows, which margins do not meet across: a spacer.
+- A block inserts `spacing` between direct block children and runs of inline children. An empty block counts. A block nested in a split inline stays in the same run. The HTML spacer keeps the adjoining margins apart.
 
 What the translation adds for these is marked `data-line` and takes no place in element paths.
 

@@ -32,6 +32,20 @@ impl Unit {
         }
     }
 
+    /// Baseline relative to the top of the margin box.
+    pub fn baseline(&self, tree: &Tree, height: i32) -> i32 {
+        match self {
+            Unit::Node(index) => {
+                let node = tree.node(*index);
+                let margin = node.style.margin;
+                node.geometry.baseline.map_or(height - margin.bottom, |b| {
+                    margin.top + node.style.inner().top + b
+                })
+            }
+            Unit::Texts(_) => height,
+        }
+    }
+
     pub fn place(&self, tree: &mut Tree, x: i32, y: i32) {
         match self {
             Unit::Node(index) => place(tree, *index, x, y),
@@ -97,12 +111,12 @@ fn measure_texts(tree: &mut Tree, texts: &[Index], constraints: Constraints) -> 
     // As CSS `fit-content`, and `measure` does for any box: no narrower than
     // its longest word.
     if space.intrinsic && space.fit && !space.whole_words && constraints.exact_width.is_none() {
-        let longest = wrap::flow(tree, texts, 0, space.width, false).width;
+        let longest = wrap::flow(tree, texts, 0, space, false).0.width;
         space.width = space.width.max(longest);
     }
     let wraps = space.can_wrap() && tree.text_wraps(texts[0]);
     let limit = if wraps { space.width } else { i32::MAX };
-    let flowed = wrap::flow(tree, texts, limit, space.width, !space.whole_words);
+    let (flowed, _) = wrap::flow(tree, texts, limit, space, !space.whole_words);
 
     // A block fills the width it is given, and takes the height it is given.
     let width = if constraints.exact_width.is_some() || !constraints.intrinsic {

@@ -608,6 +608,53 @@ T["css"]["a flex item with a share does not shrink below its longest word"] = fu
 	eq(lines(), { "abcdefghabcdefgh" })
 end
 
+T["css"]["fraction tracks share a fraction size in a fit grid"] = function()
+	run([[view:render(m.grid({ width = "fit", columns = 3, "xx" }))]])
+	eq(boxes(), { { 0, 0, 6, 1 } })
+end
+
+T["css"]["an absolute auto width fits between its inset and the far edge"] = function()
+	run(
+		[[view:render(m.block({ position = "absolute", left = 9, m.grid({ columns = 2, string.rep("x", 30) }) }))]]
+	)
+	eq(boxes(), { { 9, 0, 51, 1 }, { 9, 0, 51, 1 } })
+end
+
+T["css"]["a percentage child fills the resolved fit width"] = function()
+	run([[view:render(m.block({ width = "fit", m.block({ width = "full" }), "abc" }))]])
+	eq(boxes(), { { 0, 0, 3, 1 }, { 0, 0, 3, 0 } })
+end
+
+T["css"]["an empty flex item can shrink below its specified width"] = function()
+	run([[view:render(m.flex({ width = 5, m.block({ width = 3 }), "abcde" }))]])
+	eq(boxes(), { { 0, 0, 5, 1 }, { 0, 0, 0, 1 } })
+end
+
+T["css"]["a wrapped column fits centered items to their flex line"] = function()
+	run([[view:render(m.flex({ width = 3, vertical = true, wrap = true, align = "center",
+		m.block("aa bb"), "abcdefghij" }))]])
+	eq(boxes(), { { 0, 0, 3, 3 }, { 2, 0, 5, 2 } })
+end
+
+T["css"]["anonymous flex text wraps before fractional edges snap to cells"] = function()
+	run([[view:render(m.flex({ width = 7, m.block({ width = 6 }), "日本語" }))]])
+	eq(lines(), { "   日", "   本", "   語" })
+end
+
+T["css"]["an inline-block inherits its last overflowing line baseline"] = function()
+	run(
+		[[view:render(m.block({ m.inline({ width = 3, m.block({ height = 1, "ipsum dolor" }) }) }))]]
+	)
+	eq(boxes()[1], { 0, 0, 60, 4 })
+end
+
+T["css"]["spacing separates an empty block from the following inline run"] = function()
+	run(
+		[[view:render(m.block({ spacing = 1, m.block({}), "a", m.inline({ m.block("b"), "c" }) }))]]
+	)
+	eq(lines(), { "", "a", "b", "c" })
+end
+
 T["flex"] = new_set()
 
 T["flex"]["lays items out in a row"] = function()
