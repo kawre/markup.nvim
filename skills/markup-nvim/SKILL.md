@@ -78,7 +78,7 @@ Props (all of them are in `reference/elements.md` under `markup.node.props`):
 - Box: `width`, `height`, `min_*`, `max_*` (cells, `"auto"`, `"fit"`, `"full"`),
   `margin`, `padding` (one number, or CSS order such as `{ y, x }`),
   `border` (`"single"`, `"rounded"`, `"double"`, `"heavy"`, `"half"`),
-  `border_style`, `border_sides`, `overflow`, `overflow_x`, `white_space`.
+  `border_style`, `border_sides`, `overflow`, `overflow_x`, `overflow_y`, `white_space`.
 - Flex and grid: `direction`, `vertical`, `reverse`, `wrap`, `justify`,
   `align`, `align_self`, `gap`, `grow`, `shrink`, `basis`, `columns`, `rows`,
   `column`, `row`, `column_span`, `row_span`.

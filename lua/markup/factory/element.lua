@@ -39,8 +39,9 @@ local Element = require("markup.element")
 ---@field border? markup.border drawn inside the box, around the padding
 ---@field border_style? string highlight of the border
 ---@field border_sides? ("top"|"right"|"bottom"|"left")[] the sides to draw, all by default
----@field overflow? "visible"|"hidden"|fun(): "visible"|"hidden" cuts off what does not fit
+---@field overflow? "visible"|"hidden"|fun(): "visible"|"hidden" cuts off what does not fit, either way
 ---@field overflow_x? "visible"|"hidden"|fun(): "visible"|"hidden" cuts off only what is too wide
+---@field overflow_y? "visible"|"hidden"|fun(): "visible"|"hidden" cuts off only what is too tall
 ---@field white_space? "normal"|"nowrap"|fun(): "normal"|"nowrap" whether text wraps, inherited
 --- Flex and grid
 ---@field direction? "row"|"column"|fun(): "row"|"column"

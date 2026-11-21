@@ -146,7 +146,8 @@ fn collect_items(
             };
             let item_align = extra.align_self.unwrap_or(align);
             let (grow, shrink) = (extra.grow, extra.shrink);
-            let clips = extra.clip || extra.clip_x;
+            // Only what clips along the row may shrink past its content.
+            let clips = extra.clip_x;
             let specified = style.width.resolve(reference).map(|width| width + edges);
 
             // Like CSS `min-width: auto` and `min-height: auto`. Text cannot
@@ -931,7 +932,7 @@ mod tests {
         );
         let extra = tree.node_mut(a).style.extra_mut();
         extra.white_space = Some(WhiteSpace::Nowrap);
-        extra.clip = true;
+        extra.clip_x = true;
         let root = row(&mut tree, &[a, b]);
 
         measure(&mut tree, root, 14);
