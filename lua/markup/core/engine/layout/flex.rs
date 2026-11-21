@@ -846,6 +846,29 @@ mod tests {
     }
 
     #[test]
+    fn a_shrunk_inline_item_wraps_its_text_inside_itself() {
+        let mut tree = Tree::default();
+        let first = text(&mut tree, 1, "aaaa bbbb cccc");
+        let inline = element(&mut tree, 2, Display::Inline, &[first]);
+        let other = item(&mut tree, 3, "dddddddddd");
+        let root = row(&mut tree, &[inline, other]);
+
+        let size = measure(&mut tree, root, 20);
+
+        // Both shrink to fit 20; the inline's text breaks inside its own box
+        // rather than running past it.
+        assert_eq!(width(&tree, inline) + width(&tree, other), 20);
+        let text = tree.node(first);
+        let fragments = text.fragments.as_ref().expect("the text wraps");
+        assert!(
+            fragments
+                .iter()
+                .all(|f| f.x + f.width <= width(&tree, inline))
+        );
+        assert!(size.height > 1);
+    }
+
+    #[test]
     fn flex_nests_inside_flex() {
         let mut tree = Tree::default();
         let (a, b) = (item(&mut tree, 1, "a"), item(&mut tree, 2, "b"));
