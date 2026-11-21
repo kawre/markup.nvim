@@ -130,6 +130,13 @@ An item of a flex or grid container.
 0
 
 ```rust
+pub fn baseline(&self, tree: &Tree, height: i32) -> i32
+```
+
+Baseline relative to the top of the margin box.
+0
+
+```rust
 pub fn items(tree: &mut Tree, node: Index) -> Vec<Unit>
 ```
 
@@ -189,6 +196,13 @@ What a parent asks of a child. Sizes are of the margin box.
 0
 
 ```rust
+pub ignore_own_width: bool, /// Width to fill or fit into. pub width: i32, /// Height, when the parent has a definite one. pub height: Option<i32>, /// Sizes the child must take, such as a stretched flex item. pub exact_width: Option<i32>, pub exact_height: Option<i32>, /// Ask for the natural size, so blocks do not fill the width.
+```
+
+Measure this item's content for its automatic flex minimum.
+0
+
+```rust
 pub width: i32, /// Height, when the parent has a definite one. pub height: Option<i32>, /// Sizes the child must take, such as a stretched flex item. pub exact_width: Option<i32>, pub exact_height: Option<i32>, /// Ask for the natural size, so blocks do not fill the width. pub intrinsic: bool, /// With `intrinsic`, still wrap at `width`, like CSS `fit-content`.
 ```
 
@@ -210,21 +224,21 @@ Sizes the child must take, such as a stretched flex item.
 0
 
 ```rust
-pub intrinsic: bool, /// With `intrinsic`, still wrap at `width`, like CSS `fit-content`. pub fit: bool, /// Keep each word whole, even past `width`. A word longer than its line /// still breaks when drawn, as with CSS `overflow-wrap: break-word`, but /// the narrowest a node can be is its longest word, as CSS `min-content`. pub whole_words: bool, /// Measured for what a grid track needs, which its size depends on: as /// CSS, a share of it, such as `width = "full"`, is `auto` until then.
+pub intrinsic: bool, /// With `intrinsic`, still wrap at `width`, like CSS `fit-content`. pub fit: bool, /// Keep each word whole, even past `width`. A word longer than its line /// still breaks when drawn, as with CSS `overflow-wrap: break-word`, but /// the narrowest a node can be is its longest word, as CSS `min-content`. pub whole_words: bool, /// Percentage widths depending on this intrinsic measurement resolve as auto. pub shares_as_auto: bool,
 ```
 
 Ask for the natural size, so blocks do not fill the width.
 0
 
 ```rust
-pub fit: bool, /// Keep each word whole, even past `width`. A word longer than its line /// still breaks when drawn, as with CSS `overflow-wrap: break-word`, but /// the narrowest a node can be is its longest word, as CSS `min-content`. pub whole_words: bool, /// Measured for what a grid track needs, which its size depends on: as /// CSS, a share of it, such as `width = "full"`, is `auto` until then. pub shares_as_auto: bool, }
+pub fit: bool, /// Keep each word whole, even past `width`. A word longer than its line /// still breaks when drawn, as with CSS `overflow-wrap: break-word`, but /// the narrowest a node can be is its longest word, as CSS `min-content`. pub whole_words: bool, /// Percentage widths depending on this intrinsic measurement resolve as auto. pub shares_as_auto: bool, }
 ```
 
 With `intrinsic`, still wrap at `width`, like CSS `fit-content`.
 0
 
 ```rust
-pub whole_words: bool, /// Measured for what a grid track needs, which its size depends on: as /// CSS, a share of it, such as `width = "full"`, is `auto` until then. pub shares_as_auto: bool, }  impl Constraints
+pub whole_words: bool, /// Percentage widths depending on this intrinsic measurement resolve as auto. pub shares_as_auto: bool, }  impl Constraints
 ```
 
 Keep each word whole, even past `width`. A word longer than its line
@@ -236,8 +250,7 @@ the narrowest a node can be is its longest word, as CSS `min-content`.
 pub shares_as_auto: bool, }  impl Constraints
 ```
 
-Measured for what a grid track needs, which its size depends on: as
-CSS, a share of it, such as `width = "full"`, is `auto` until then.
+Percentage widths depending on this intrinsic measurement resolve as auto.
 0
 
 ```rust
@@ -304,19 +317,19 @@ is split around the blocks inside it, as CSS splits one.
 0
 
 ```rust
-pub fn flow(tree: &mut Tree, run: &[Index], limit: i32, available: i32, split_words: bool) -> Size
+pub fn flow( tree: &mut Tree, run: &[Index], limit: i32, space: Space, split_words: bool, ) -> (Size, i32)
 ```
 
 Flows a run of nodes, breaking lines past `limit`; see `flow_items`.
 0
 
 ```rust
-pub fn flow_items( tree: &mut Tree, items: &[RunItem], limit: i32, available: i32, split_words: bool, ) -> Size
+pub fn flow_items( tree: &mut Tree, items: &[RunItem], limit: i32, space: Space, split_words: bool, ) -> (Size, i32)
 ```
 
 Lays out a run of inline nodes in `limit` cells at the origin of the run.
 Flows a run of inline nodes, breaking lines past `limit`. Whatever cannot
-flow, such as a block among them, is laid out for `available`, which a run
+flow, such as a block among them, is laid out in its containing space, which a run
 that never breaks still needs: `limit` is then unbounded, and a child as
 wide as its parent would be that wide too. Without `split_words`, a word
 longer than a line runs past it whole.
@@ -722,6 +735,13 @@ pub struct Geometry
 ```
 
 Layout results. Offsets are relative to the parent's content box.
+0
+
+```rust
+pub baseline: Option<i32>, /// The top and bottom margins as a block parent sees them, with those of /// first and last children that collapse through this node. pub margin_top: Collapse, pub margin_bottom: Collapse, /// Whether this node is empty, so its top and bottom margins collapse /// into one, which `margin_top` and `margin_bottom` then both hold. pub collapses_through: bool, /// Constraints of the last layout, for cache checks.
+```
+
+Last in-flow line baseline, relative to the content origin.
 0
 
 ```rust
