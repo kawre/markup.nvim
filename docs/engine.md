@@ -643,10 +643,48 @@ no answer from the engine. Inside the tree nodes link by slab index, which
 is what layout and paint use.
 
 ```rust
+pub struct Collapse
+```
+
+Margins that collapse into one, as CSS vertical margins between blocks:
+the largest positive one plus the most negative one.
+0
+
+```rust
+pub fn with(self, other: Collapse) -> Self
+```
+
+This margin collapsed with another.
+0
+
+```rust
+pub fn value(self) -> i32
+```
+
+The space the margins leave between what they separate.
+0
+
+```rust
 pub struct Geometry
 ```
 
 Layout results. Offsets are relative to the parent's content box.
+0
+
+```rust
+pub margin_top: Collapse, pub margin_bottom: Collapse, /// Whether this node is empty, so its top and bottom margins collapse /// into one, which `margin_top` and `margin_bottom` then both hold. pub collapses_through: bool, /// Constraints of the last layout, for cache checks. pub constraints: Option<Constraints>, }
+```
+
+The top and bottom margins as a block parent sees them, with those of
+first and last children that collapse through this node.
+0
+
+```rust
+pub collapses_through: bool, /// Constraints of the last layout, for cache checks. pub constraints: Option<Constraints>, }  /// A piece of a wrapped node on one line. Offsets are from the node's origin. /// Text uses `start` and `end` as a byte range of its text. #[derive(Debug, Clone, Copy, PartialEq, Eq)] pub struct Fragment
+```
+
+Whether this node is empty, so its top and bottom margins collapse
+into one, which `margin_top` and `margin_bottom` then both hold.
 0
 
 ```rust

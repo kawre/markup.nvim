@@ -13,7 +13,7 @@ mod text;
 mod wrap;
 
 use super::style::{Display, Length, Style};
-use super::tree::{Index, Size, Tree};
+use super::tree::{Collapse, Index, Size, Tree};
 
 /// What a parent asks of a child. Sizes are of the margin box.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -105,8 +105,11 @@ pub trait Strategy {
     fn arrange(&self, tree: &mut Tree, node: Index, space: Space) -> Size;
 }
 
-fn strategy(display: Display) -> &'static dyn Strategy {
+fn strategy(display: Display, style: &Style) -> &'static dyn Strategy {
     match display {
+        // An inline given a size is a box, as CSS `inline-block`: what it holds
+        // lays out as in a block, its text wrapping inside it.
+        Display::Inline if is_inline_block(style) => &block::Block,
         Display::Block => &block::Block,
         Display::Inline => &inline::Inline,
         Display::Flex => &flex::Flex,
@@ -114,6 +117,15 @@ fn strategy(display: Display) -> &'static dyn Strategy {
         Display::Text => &text::Text,
         Display::Contents => unreachable!("contents nodes are skipped by flow iteration"),
     }
+}
+
+/// Whether an inline is sized, so it lays out as CSS `inline-block` does.
+pub(super) fn is_inline_block(style: &Style) -> bool {
+    let extra = style.extra();
+    style.width != Length::Auto
+        || style.height != Length::Auto
+        || extra.min_width != Length::Auto
+        || extra.max_width != Length::Auto
 }
 
 fn limit(value: i32, min: Length, max: Length, available: i32) -> i32 {
@@ -171,34 +183,39 @@ pub fn measure(tree: &mut Tree, index: Index, constraints: Constraints) -> Size 
     let edges_x = style.margin.horizontal() + style.inner().horizontal();
     let edges_y = style.margin.vertical() + style.inner().vertical();
     let width = style.width;
-    let clip = extra.clip;
-    let clip_x = extra.clip_x;
     let (min_width, max_width) = (extra.min_width, extra.max_width);
     let (min_height, max_height) = (extra.min_height, extra.max_height);
 
-    let mut content = strategy(display).arrange(tree, index, space);
+    // What collapses through this node, if anything, is up to its strategy:
+    // only a block lets the margins of its children through.
+    let margin = style.margin;
+    // Laid out anew: pieces of an earlier wrap would paint it where it no
+    // longer is. A run that flows it again sets them after this.
+    tree.node_mut(index).fragments = None;
+    let geometry = &mut tree.node_mut(index).geometry;
+    geometry.margin_top = Collapse::of(margin.top);
+    geometry.margin_bottom = Collapse::of(margin.bottom);
+    geometry.collapses_through = false;
 
-    // As with CSS, what overflows a clipping box does not widen what holds it.
-    if clip || clip_x {
-        content.width = content.width.min(space.width);
-    }
+    let strategy = strategy(display, &tree.node(index).style);
+    let mut content = strategy.arrange(tree, index, space);
 
     let fills = display.fills_width() && width != Length::Fit && !constraints.intrinsic;
     if constraints.exact_width.is_some() {
         content.width = space.width;
     } else if width.resolve(constraints.width).is_some() || fills {
-        content.width = content.width.max(space.width);
+        // As CSS: a box with a width, or one that fills it, keeps it. What
+        // is wider than it runs past it rather than widening it.
+        content.width = space.width;
     }
     content.width = limit(content.width, min_width, max_width, constraints.width);
 
     if constraints.exact_height.is_some() {
         content.height = space.height.unwrap_or(content.height);
     } else if let Some(definite) = space.height {
-        content.height = if clip {
-            definite
-        } else {
-            content.height.max(definite)
-        };
+        // As CSS: a box keeps its height, and what is taller runs past it.
+        // `min_height` is what grows with the content.
+        content.height = definite;
     }
     let available_height = constraints.height.unwrap_or(0);
     content.height = limit(content.height, min_height, max_height, available_height);

@@ -390,14 +390,14 @@ Fields:
 - `direction`: `("column"|"row"|fun():"column"|"row")?` - Flex and grid
 - `gap`: `(integer|fun():integer|integer[]|integer[])?` - between children, or `{ rows, columns }`
 - `grow`: `(number|fun():number)?`
-- `height`: `(fun():markup.length|markup.length)?`
+- `height`: `(fun():markup.length|markup.length)?` - as in CSS, the box keeps it, and what is taller shows below it; `min_height` grows with the content
 - `inset`: `(fun():markup.edges|markup.edges)?` - shorthand for `top`, `right`, `bottom` and `left`
 - `interactive`: `(boolean|fun():boolean)?` - a place the cursor can land, without `on_press`
 - `justify`: `(fun():markup.justify|markup.justify)?`
 - `justify_items`: `(fun():markup.align|markup.align)?`
 - `justify_self`: `("auto"|fun():"auto"|markup.align|markup.align)?`
 - `left`: `(integer|fun():integer)?`
-- `margin`: `(fun():markup.edges|markup.edges)?`
+- `margin`: `(fun():markup.edges|markup.edges)?` - vertical margins between blocks collapse, as in CSS: siblings share the larger, and a first or last child's passes through a parent with no padding or border there
 - `margin_bottom`: `(integer|fun():integer)?`
 - `margin_left`: `(integer|fun():integer)?`
 - `margin_right`: `(integer|fun():integer)?`

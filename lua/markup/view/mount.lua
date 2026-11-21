@@ -489,7 +489,11 @@ function Collapse.mount(view, parent, before, props)
 		elseif not first then
 			if settled then
 				settled = false
-				height(natural_height(), { duration = 0 })
+				local natural = natural_height()
+				height(natural, { duration = 0 })
+				-- The signal may hold this already, and then nothing writes it
+				-- over "auto": empty content would stay as tall as its row.
+				set_height(natural)
 			end
 			height(0, { done = unmount_content })
 		else

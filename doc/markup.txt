@@ -1528,6 +1528,7 @@ markup.node.props.grow                                *markup.node.props.grow*
 
 markup.node.props.height                            *markup.node.props.height*
     (fun():markup.length|markup.length)?
+    as in CSS, the box keeps it, and what is taller shows below it; `min_height` grows with the content
 
 markup.node.props.inset                              *markup.node.props.inset*
     (fun():markup.edges|markup.edges)?
@@ -1551,6 +1552,7 @@ markup.node.props.left                                *markup.node.props.left*
 
 markup.node.props.margin                            *markup.node.props.margin*
     (fun():markup.edges|markup.edges)?
+    vertical margins between blocks collapse, as in CSS: siblings share the larger, and a first or last child's passes through a parent with no padding or border there
 
 markup.node.props.margin_bottom              *markup.node.props.margin_bottom*
     (integer|fun():integer)?

@@ -17,6 +17,36 @@ pub struct Size {
     pub height: i32,
 }
 
+/// Margins that collapse into one, as CSS vertical margins between blocks:
+/// the largest positive one plus the most negative one.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct Collapse {
+    positive: i32,
+    negative: i32,
+}
+
+impl Collapse {
+    pub fn of(margin: i32) -> Self {
+        Collapse {
+            positive: margin.max(0),
+            negative: margin.min(0),
+        }
+    }
+
+    /// This margin collapsed with another.
+    pub fn with(self, other: Collapse) -> Self {
+        Collapse {
+            positive: self.positive.max(other.positive),
+            negative: self.negative.min(other.negative),
+        }
+    }
+
+    /// The space the margins leave between what they separate.
+    pub fn value(self) -> i32 {
+        self.positive + self.negative
+    }
+}
+
 /// Layout results. Offsets are relative to the parent's content box.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Geometry {
@@ -24,6 +54,13 @@ pub struct Geometry {
     pub y: i32,
     pub content: Size,
     pub outer: Size,
+    /// The top and bottom margins as a block parent sees them, with those of
+    /// first and last children that collapse through this node.
+    pub margin_top: Collapse,
+    pub margin_bottom: Collapse,
+    /// Whether this node is empty, so its top and bottom margins collapse
+    /// into one, which `margin_top` and `margin_bottom` then both hold.
+    pub collapses_through: bool,
     /// Constraints of the last layout, for cache checks.
     pub constraints: Option<Constraints>,
 }

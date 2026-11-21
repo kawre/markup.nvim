@@ -27,6 +27,13 @@ impl Strategy for Inline {
             size.height = size.height.max(outer.height);
         });
 
+        // As CSS: an inline with something across it, such as a margin, holds
+        // a line open even when empty.
+        let style = &tree.node(node).style;
+        if size.height == 0 && style.margin.horizontal() + style.inner().horizontal() != 0 {
+            size.height = 1;
+        }
+
         // A flex or grid item is sized like a box, as in CSS, so when it is made
         // narrower than its content, the content wraps inside it as in a block.
         let overflows = size.width > space.width && space.can_wrap() && tree.text_wraps(node);

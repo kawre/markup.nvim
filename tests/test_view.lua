@@ -371,6 +371,137 @@ T["max_width"]["a narrower window still wins"] = function()
 	eq(lines(), { ("a"):rep(60), ("a"):rep(10) })
 end
 
+--- Every box under the root, in tree order, as `{ x, y, width, height }` of
+--- the border box: what a browser would report for the same HTML and CSS.
+local function boxes()
+	return child.lua_get([[(function()
+		local result, engine = {}, view.engine
+		local function visit(id)
+			for _, node in ipairs(engine:children(id, 0, 1000, true)) do
+				if node.display ~= "text" then
+					local top, right, bottom, left = unpack(node.margin)
+					result[#result + 1] = {
+						node.x + left,
+						node.y + top,
+						node.outer_width - left - right,
+						node.outer_height - top - bottom,
+					}
+					if node.children > 0 then
+						visit(node.id)
+					end
+				end
+			end
+		end
+		visit(require("markup.view.protocol").ROOT)
+		return result
+	end)()]])
+end
+
+-- Layout as CSS lays it out. Each case renders the same as its HTML and CSS
+-- in Chromium, which `make test BROWSER=1` checks.
+T["css"] = new_set()
+
+T["css"]["a box keeps its width, and what is wider runs past it"] = function()
+	run([[view:render(m.block({ width = 5, white_space = "nowrap", "the quick brown" }))]])
+	eq(boxes(), { { 0, 0, 5, 1 } })
+	eq(lines(), { "the quick brown" })
+end
+
+T["css"]["a box keeps its height, and what is taller shows below it"] = function()
+	run([[view:render(m.block({ m.block({ height = 1, m.block("a"), m.block("b") }) }))]])
+	eq(boxes(), { { 0, 0, 60, 1 }, { 0, 0, 60, 1 }, { 0, 0, 60, 1 }, { 0, 1, 60, 1 } })
+	eq(lines(), { "a", "b" })
+end
+
+T["css"]["margins of siblings collapse into the larger"] = function()
+	run([[view:render(m.block({
+		m.block({ "a", margin_bottom = 2 }),
+		m.block({ "b", margin_top = 1 }),
+	}))]])
+	eq(boxes(), { { 0, 0, 60, 4 }, { 0, 0, 60, 1 }, { 0, 3, 60, 1 } })
+end
+
+T["css"]["a first child's margin passes through its parent"] = function()
+	run([[view:render(m.block({ m.block({ m.block({ "a", margin_top = 2 }) }), m.block("b") }))]])
+	-- The parent moves down with it, rather than growing.
+	eq(boxes(), { { 0, 2, 60, 2 }, { 0, 2, 60, 1 }, { 0, 2, 60, 1 }, { 0, 3, 60, 1 } })
+end
+
+T["css"]["padding keeps a child's margin inside"] = function()
+	run(
+		[[view:render(m.block({ m.block({ padding_top = 1, m.block({ "a", margin_top = 2 }) }) }))]]
+	)
+	eq(boxes(), { { 0, 0, 60, 4 }, { 0, 0, 60, 4 }, { 0, 3, 60, 1 } })
+end
+
+T["css"]["an empty block lets its margins meet"] = function()
+	run([[view:render(m.block({
+		m.block("a"),
+		m.block({ margin_top = 1, margin_bottom = 2 }),
+		m.block("b"),
+	}))]])
+	-- It sits past its own top margin; its bottom one meets the next.
+	eq(boxes(), { { 0, 0, 60, 4 }, { 0, 0, 60, 1 }, { 0, 2, 60, 0 }, { 0, 3, 60, 1 } })
+end
+
+T["css"]["an empty flex keeps its margins apart"] = function()
+	run([[view:render(m.block({ m.flex({ margin_top = 1, margin_bottom = 1 }), "x" }))]])
+	-- Its top margin passes through the block, its bottom one stays inside.
+	eq(boxes(), { { 0, 1, 60, 2 }, { 0, 1, 60, 0 } })
+	eq(lines(), { "", "", "x" })
+end
+
+T["css"]["a fraction track is no narrower than its content"] = function()
+	run([[view:render(m.grid({
+		columns = 3, m.block({ white_space = "nowrap", "one two three four five" }), "b", "c",
+	}))]])
+	-- 23 cells for the first track, and the other two share what is left.
+	eq(boxes(), { { 0, 0, 60, 1 }, { 0, 0, 23, 1 } })
+	eq(lines(), { "one two three four fiveb                  c" })
+end
+
+T["css"]["an inline with a width wraps inside it, as an inline-block"] = function()
+	run([[view:render(m.block({ "x", m.inline({ width = 5, "aaa bbb" }) }))]])
+	-- As CSS aligns it: "x" sits on the line of its last row.
+	eq(lines(), { " aaa", "xbbb" })
+end
+
+T["css"]["an empty inline with a margin holds a line open"] = function()
+	run([[view:render(m.block({ m.inline({ margin_left = 2 }), m.block("b") }))]])
+	eq(boxes(), { { 0, 0, 60, 2 }, { 2, 0, 0, 1 }, { 0, 1, 60, 1 } })
+end
+
+T["css"]["a closing collapse in a grid is as short as a fresh one"] = function()
+	-- Found by tests/test_fuzz.lua once it compared boxes: closing kept the
+	-- collapse's height "auto", so the grid stretched it to its row.
+	run([[
+		Markup.animate.enabled = false
+		open = m.signal(true)
+		view:render(m.block({ m.grid({ columns = 2, m.collapse(open, function() return m.block({}) end), "x" }) }))
+		open(false)
+		reactive.flush()
+	]])
+	eq(boxes(), { { 0, 0, 60, 1 }, { 0, 0, 60, 1 }, { 0, 0, 30, 0 } })
+end
+
+T["css"]["no longer wrapping paints a box where it is"] = function()
+	-- Found by tests/test_fuzz.lua: a block kept the pieces of an earlier wrap.
+	run([=[
+		white_space = m.signal("normal")
+		view:render(m.flex({ m.inline({ white_space = white_space, m.block({ padding = 1, style = "Search" }) }) }))
+		white_space("nowrap")
+		reactive.flush()
+		ids = vim.api.nvim_buf_get_extmarks(win.buf, view.ns, 0, -1, { details = true })
+		rows = {}
+		for _, mark in ipairs(ids) do
+			if mark[4].hl_group == "Search" then rows[#rows + 1] = mark[2] end
+		end
+		table.sort(rows)
+	]=])
+	-- The whole box, both rows, as a fresh render paints it.
+	eq(child.lua_get("rows"), { 0, 1 })
+end
+
 T["flex"] = new_set()
 
 T["flex"]["lays items out in a row"] = function()

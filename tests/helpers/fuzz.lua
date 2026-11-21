@@ -356,10 +356,32 @@ function F.snapshot(view)
 		end
 		return a[4] < b[4]
 	end)
+	-- Every box, in tree order: what lays out after updates must be where a
+	-- fresh render puts it, even where nothing on screen shows it.
+	local boxes = {}
+	local engine, limit = view.engine, view.engine:node_count()
+	local function visit(id, path)
+		for i, node in ipairs(engine:children(id, 0, limit, false)) do
+			local at = path .. "/" .. i
+			boxes[#boxes + 1] = ("%s %s %d,%d %dx%d"):format(
+				at,
+				node.display,
+				node.x or 0,
+				node.y or 0,
+				node.outer_width or 0,
+				node.outer_height or 0
+			)
+			if node.children > 0 then
+				visit(node.id, at)
+			end
+		end
+	end
+	visit(require("markup.view.protocol").ROOT, "")
 	return {
 		lines = vim.api.nvim_buf_get_lines(view.win.buf, 0, -1, false),
 		marks = marks,
 		nodes = view.engine:node_count(),
+		boxes = boxes,
 	}
 end
 
@@ -414,6 +436,14 @@ function F.difference(a, b)
 				i,
 				vim.inspect(a.lines[i]),
 				vim.inspect(b.lines[i])
+			)
+		end
+	end
+	for i = 1, math.max(#a.boxes, #b.boxes) do
+		if a.boxes[i] ~= b.boxes[i] then
+			return ("box %s, a fresh render has %s"):format(
+				vim.inspect(a.boxes[i]),
+				vim.inspect(b.boxes[i])
 			)
 		end
 	end

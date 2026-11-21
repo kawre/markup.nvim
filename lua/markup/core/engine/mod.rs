@@ -158,7 +158,8 @@ impl Engine {
             layout::Constraints::available(self.width),
         );
         layout::absolute::layout(&mut self.tree);
-        let height = self.height_with_absolutes(size.height);
+        let height =
+            self.height_with_absolutes(size.height.max(self.overflow_bottom(self.root, 0)));
         timings.layout = elapsed_ms(started);
 
         let started = Instant::now();
@@ -174,6 +175,34 @@ impl Engine {
         drop(patches);
         self.lines = lines;
         result
+    }
+
+    /// The lowest row anything in flow reaches, as the scrollable overflow of a
+    /// CSS document: a box keeps its height, and what is taller than it still
+    /// shows below it, unless a box around it cuts its rows off.
+    fn overflow_bottom(&self, index: Index, y: i32) -> i32 {
+        let node = self.tree.node(index);
+        let style = &node.style;
+        let mut bottom = y + node.geometry.outer.height;
+        if style.extra().clip {
+            return bottom;
+        }
+        let content_y = y + style.margin.top + style.inner().top;
+        let mut stack: Vec<Index> = node.children.iter().rev().copied().collect();
+        while let Some(child) = stack.pop() {
+            let entry = self.tree.node(child);
+            if entry.display == Display::Contents {
+                stack.extend(entry.children.iter().rev());
+                continue;
+            }
+            if entry.style.position() == Position::Absolute {
+                continue;
+            }
+            let (_, shift_y) = entry.style.relative_offset();
+            let child_y = content_y + entry.geometry.y + shift_y;
+            bottom = bottom.max(self.overflow_bottom(child, child_y));
+        }
+        bottom
     }
 
     /// Absolute boxes can reach past everything in flow.

@@ -129,6 +129,9 @@ struct Contribution {
     start: usize,
     span: usize,
     size: i32,
+    /// The narrowest the item can be, which a fraction track does not go
+    /// below, as CSS `1fr` is `minmax(auto, 1fr)`.
+    min: i32,
 }
 
 fn size_tracks(
@@ -180,18 +183,78 @@ fn size_tracks(
         let gaps = gap * (count as i32 - 1).max(0);
         let free = available - gaps - sizes.iter().sum::<i32>();
 
-        if free > 0 {
-            let fractions: Vec<f32> = (0..count)
-                .map(|position| match track(position) {
-                    Track::Fr(fraction) => fraction,
-                    _ => 0.0,
-                })
-                .collect();
+        let fractions: Vec<f32> = (0..count)
+            .map(|position| match track(position) {
+                Track::Fr(fraction) => fraction,
+                _ => 0.0,
+            })
+            .collect();
 
+        if fractions.iter().sum::<f32>() > 0.0 {
+            // As CSS sizes fractions: a track whose content would not fit its
+            // share keeps the content's size, and the rest share what is left.
+            let mut floors = vec![0; count];
+            for item in contributions.iter().filter(|item| item.span == 1) {
+                if item.start < count && fractions[item.start] > 0.0 {
+                    floors[item.start] = floors[item.start].max(item.min);
+                }
+            }
+            let mut frozen: Vec<bool> = fractions.iter().map(|&f| f <= 0.0).collect();
+            loop {
+                let left = available
+                    - gaps
+                    - (0..count)
+                        .map(|p| {
+                            if fractions[p] > 0.0 && frozen[p] {
+                                floors[p]
+                            } else {
+                                0
+                            }
+                        })
+                        .sum::<i32>()
+                    - (0..count)
+                        .filter(|&p| fractions[p] <= 0.0)
+                        .map(|p| sizes[p])
+                        .sum::<i32>();
+                let weight: f32 = (0..count)
+                    .filter(|&p| !frozen[p])
+                    .map(|p| fractions[p])
+                    .sum();
+                if weight <= 0.0 {
+                    for position in 0..count {
+                        if fractions[position] > 0.0 {
+                            sizes[position] = floors[position];
+                        }
+                    }
+                    break;
+                }
+                let per = left.max(0) as f32 / weight;
+                let mut changed = false;
+                for position in 0..count {
+                    if !frozen[position] && (floors[position] as f32) > fractions[position] * per {
+                        frozen[position] = true;
+                        changed = true;
+                    }
+                }
+                if !changed {
+                    let weights: Vec<f32> = (0..count)
+                        .map(|p| if frozen[p] { 0.0 } else { fractions[p] })
+                        .collect();
+                    for (position, extra) in share(left.max(0), &weights).into_iter().enumerate() {
+                        if fractions[position] > 0.0 {
+                            sizes[position] = if frozen[position] {
+                                floors[position]
+                            } else {
+                                extra
+                            };
+                        }
+                    }
+                    break;
+                }
+            }
+        } else if free > 0 {
             // Without fractions, spare room goes to auto tracks.
-            let weights = if fractions.iter().sum::<f32>() > 0.0 {
-                fractions
-            } else if fill {
+            let weights = if fill {
                 (0..count)
                     .map(|position| {
                         if track(position) == Track::Auto {
@@ -264,6 +327,11 @@ impl Strategy for Grid {
                 start: item.column,
                 span: item.column_span,
                 size: measure(tree, item.index, Constraints::intrinsic(space.width)).width,
+                min: if tree.node(item.index).style.extra().scrolls {
+                    0
+                } else {
+                    measure(tree, item.index, Constraints::min_content()).width
+                },
             })
             .collect();
 
@@ -285,10 +353,12 @@ impl Strategy for Grid {
                     exact_width: Some(width),
                     ..Constraints::available(width)
                 };
+                let height = measure(tree, item.index, constraints).height;
                 Contribution {
                     start: item.row,
                     span: item.row_span,
-                    size: measure(tree, item.index, constraints).height,
+                    size: height,
+                    min: height,
                 }
             })
             .collect();

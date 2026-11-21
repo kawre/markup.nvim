@@ -28,6 +28,9 @@ struct Piece {
     end: usize,
     width: i32,
     height: i32,
+    /// Rows from its top to the line it sits on, as CSS aligns inline boxes to
+    /// a baseline: the bottom of a row of text.
+    baseline: i32,
     /// Offset of the node's origin from the run's origin.
     base: (i32, i32),
 }
@@ -70,6 +73,7 @@ fn tokenize_text(tree: &Tree, node: Index, base: (i32, i32), pieces: &mut Vec<Pi
         end,
         width,
         height: 1,
+        baseline: 1,
         base,
     };
 
@@ -113,8 +117,30 @@ fn tokenize(tree: &mut Tree, node: Index, base: (i32, i32), width: i32, tokens: 
         return;
     }
 
-    if !has_only_inline_children(tree, node) {
-        let outer = measure(tree, node, Constraints::intrinsic(width));
+    // As CSS: an inline-block is one piece on the line, as wide as its content
+    // up to the line, and never split across lines.
+    let inline_block = super::is_inline_block(&tree.node(node).style);
+    if inline_block || !has_only_inline_children(tree, node) {
+        let constraints = if inline_block {
+            Constraints::fit_content(width)
+        } else {
+            Constraints::intrinsic(width)
+        };
+        let outer = measure(tree, node, constraints);
+        let entry = tree.node(node);
+        let baseline = if inline_block {
+            // As CSS: the line of its last row, or the bottom of its margin when
+            // it has none or cuts off what does not fit.
+            let style = &entry.style;
+            if entry.geometry.content.height > 0 && !style.extra().scrolls {
+                style.margin.top + style.inner().top + entry.geometry.content.height
+            } else {
+                outer.height
+            }
+        } else {
+            // Aligned with the top of the line, as before.
+            1
+        };
         tokens.nodes.pop();
         tokens.pieces.push(Piece {
             kind: Kind::Atomic,
@@ -123,6 +149,7 @@ fn tokenize(tree: &mut Tree, node: Index, base: (i32, i32), width: i32, tokens: 
             end: 0,
             width: outer.width,
             height: outer.height,
+            baseline,
             base,
         });
         return;
@@ -139,6 +166,7 @@ fn tokenize(tree: &mut Tree, node: Index, base: (i32, i32), width: i32, tokens: 
         end: 0,
         width,
         height: 1,
+        baseline: 1,
         base,
     };
 
@@ -187,6 +215,7 @@ struct Placed {
     x: i32,
     y: i32,
     width: i32,
+    baseline: i32,
 }
 
 struct Breaker {
@@ -196,13 +225,29 @@ struct Breaker {
     line_height: i32,
     widest: i32,
     placed: Vec<Placed>,
+    /// The first piece of the current line, and how far it reaches above and
+    /// below its baseline.
+    line_start: usize,
+    ascent: i32,
+    descent: i32,
 }
 
 impl Breaker {
+    /// Puts each piece of the line on its baseline.
+    fn finish_line(&mut self) {
+        for placed in &mut self.placed[self.line_start..] {
+            placed.y = self.y + (self.ascent - placed.baseline).max(0);
+        }
+        self.line_start = self.placed.len();
+    }
+
     fn new_line(&mut self) {
+        self.finish_line();
         self.y += self.line_height.max(1);
         self.x = 0;
         self.line_height = 0;
+        self.ascent = 0;
+        self.descent = 0;
     }
 
     fn put(&mut self, source: usize, piece: &Piece) {
@@ -213,10 +258,13 @@ impl Breaker {
             x: self.x,
             y: self.y,
             width: piece.width,
+            baseline: piece.baseline,
         });
         self.x += piece.width;
         self.widest = self.widest.max(self.x);
-        self.line_height = self.line_height.max(piece.height);
+        self.ascent = self.ascent.max(piece.baseline);
+        self.descent = self.descent.max(piece.height - piece.baseline);
+        self.line_height = self.line_height.max(self.ascent + self.descent);
     }
 
     fn put_all(&mut self, pieces: &[Piece], from: usize, to: usize) {
@@ -273,6 +321,9 @@ fn break_lines(tree: &Tree, pieces: &[Piece], limit: i32, split_words: bool) -> 
         line_height: 0,
         widest: 0,
         placed: Vec::with_capacity(pieces.len()),
+        line_start: 0,
+        ascent: 0,
+        descent: 0,
     };
 
     let mut position = 0;
@@ -288,6 +339,7 @@ fn break_lines(tree: &Tree, pieces: &[Piece], limit: i32, split_words: bool) -> 
                     x: breaker.x,
                     y: breaker.y,
                     width: 0,
+                    baseline: 1,
                 });
                 breaker.new_line();
                 position += 1;
@@ -344,6 +396,7 @@ fn break_lines(tree: &Tree, pieces: &[Piece], limit: i32, split_words: bool) -> 
         }
     }
 
+    breaker.finish_line();
     breaker
 }
 
