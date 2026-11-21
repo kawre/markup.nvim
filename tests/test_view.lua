@@ -293,6 +293,23 @@ T["white_space"]["changing it back inside a component wraps again"] = function()
 	eq(lines(), { "one two three four", "five six seven" })
 end
 
+--- Six words of four letters, 29 cells: text that can wrap at every word.
+local function words(letter)
+	return ("%q"):format(vim.fn.join(vim.fn["repeat"]({ letter:rep(4) }, 6), " "))
+end
+
+T["max_width"] = new_set()
+
+T["max_width"]["text wraps inside it"] = function()
+	run([[view:render(m.block({ max_width = 10, "aaaa bbbb cccc" }))]])
+	eq(lines(), { "aaaa bbbb", "cccc" })
+end
+
+T["max_width"]["a narrower window still wins"] = function()
+	run([[view:render(m.block({ max_width = 100, ("a"):rep(70) }))]])
+	eq(lines(), { ("a"):rep(60), ("a"):rep(10) })
+end
+
 T["flex"] = new_set()
 
 T["flex"]["lays items out in a row"] = function()
@@ -395,6 +412,27 @@ T["flex"]["an item that clips may shrink below its text"] = function()
 		m.block("bbbbbbbbbb"),
 	}))]])
 	eq(lines(), { "aaaaaaabbbbbbb", "       bbb" })
+end
+
+T["flex"]["max_width narrows what the items get"] = function()
+	run(
+		([[view:render(m.flex({ max_width = 40, m.block(%s), m.block(%s) }))]]):format(
+			words("a"),
+			words("b")
+		)
+	)
+	eq(lines(), {
+		"aaaa aaaa aaaa aaaa bbbb bbbb bbbb bbbb",
+		"aaaa aaaa           bbbb bbbb",
+	})
+end
+
+T["flex"]["min_width widens what the items get"] = function()
+	run([[view:render(m.block({
+		width = 6,
+		m.flex({ min_width = 10, justify = "between", m.block("a"), m.block("b") }),
+	}))]])
+	eq(lines(), { "a        b" })
 end
 
 T["flex"]["updates when a child changes size"] = function()

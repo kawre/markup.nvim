@@ -941,6 +941,22 @@ mod tests {
     }
 
     #[test]
+    fn max_width_narrows_what_the_items_get() {
+        let mut tree = Tree::default();
+        let (a, b) = (
+            item(&mut tree, 1, &["aaaa"; 6].join(" ")),
+            item(&mut tree, 2, &["bbbb"; 6].join(" ")),
+        );
+        let root = row(&mut tree, &[a, b]);
+        tree.node_mut(root).style.extra_mut().max_width = Length::Cells(40);
+
+        let size = measure(&mut tree, root, 100);
+
+        assert_eq!(size.width, 40);
+        assert_eq!(width(&tree, a) + width(&tree, b), 40);
+    }
+
+    #[test]
     fn flex_nests_inside_flex() {
         let mut tree = Tree::default();
         let (a, b) = (item(&mut tree, 1, "a"), item(&mut tree, 2, "b"));
