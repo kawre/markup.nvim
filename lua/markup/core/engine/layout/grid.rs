@@ -1,13 +1,14 @@
 //! CSS grid: fixed, auto and fractional tracks, spans and auto placement.
 
-use super::{Constraints, Space, Strategy, measure, place, share};
+use super::anonymous::{self, Unit};
+use super::{Constraints, Space, Strategy, share};
 use crate::engine::style::{Align, Direction, Length, Track};
 use crate::engine::tree::{Index, Size, Tree};
 
 pub struct Grid;
 
 struct Placed {
-    index: Index,
+    unit: Unit,
     column: usize,
     row: usize,
     column_span: usize,
@@ -49,8 +50,7 @@ fn place_items(
     rows: usize,
     flow: Direction,
 ) -> (Vec<Placed>, Occupancy) {
-    let mut children = Vec::new();
-    tree.for_each_flow_child(node, false, &mut |_, child| children.push(child));
+    let children = anonymous::items(tree, node);
 
     let mut grid = Occupancy {
         columns,
@@ -61,15 +61,16 @@ fn place_items(
     let mut placed = Vec::with_capacity(children.len());
     let mut automatic = Vec::new();
 
-    for index in children {
-        let extra = tree.node(index).style.extra();
+    for unit in children {
+        let extra = unit.style(tree).extra();
         let (column, row) = (extra.column, extra.row);
+        let (column_span, row_span) = (extra.column_span, extra.row_span);
         let item = Placed {
-            index,
+            unit,
             column: column.map_or(0, |column| (column - 1).max(0) as usize),
             row: row.map_or(0, |row| (row - 1).max(0) as usize),
-            column_span: extra.column_span.max(1) as usize,
-            row_span: extra.row_span.max(1) as usize,
+            column_span: column_span.max(1) as usize,
+            row_span: row_span.max(1) as usize,
         };
 
         if column.is_some() && row.is_some() {
@@ -129,8 +130,20 @@ struct Contribution {
     start: usize,
     span: usize,
     size: i32,
+    /// The narrowest the item can be, which a fraction track does not go
+    /// below, as CSS `1fr` is `minmax(auto, 1fr)`.
+    min: i32,
 }
 
+/// Sizes tracks as CSS grid does, for one axis.
+///
+/// Each track starts at the narrowest its items can be, and may grow up to
+/// what they would like: `auto` up to their natural size, a fixed track not at
+/// all. With room to spare, `auto` tracks grow towards that, then fractions
+/// share what is left, never narrower than their content. `fill` lets `auto`
+/// tracks take what is still left, as CSS stretches them. Without `available`,
+/// as when measuring a grid's own natural size, every track takes what its
+/// items would like.
 fn size_tracks(
     tracks: &[Track],
     count: usize,
@@ -140,80 +153,154 @@ fn size_tracks(
     contributions: &[Contribution],
 ) -> Vec<i32> {
     let track = |position: usize| tracks.get(position).copied().unwrap_or(Track::Auto);
-    let flexible = available.is_some();
-
-    // Fractions only share space that exists, without it they act like auto.
-    let content_sized = |position: usize| match track(position) {
-        Track::Cells(_) => false,
-        Track::Auto => true,
-        Track::Fr(_) => !flexible,
+    let fraction = |position: usize| match track(position) {
+        Track::Fr(fraction) => fraction,
+        _ => 0.0,
     };
+    let sized_by_content = |position: usize| !matches!(track(position), Track::Cells(_));
 
-    let mut sizes: Vec<i32> = (0..count)
+    // The least and the most each track wants.
+    let mut base: Vec<i32> = (0..count)
         .map(|position| match track(position) {
             Track::Cells(cells) => cells,
             _ => 0,
         })
         .collect();
+    let mut limit = base.clone();
 
     for item in contributions.iter().filter(|item| item.span == 1) {
-        if item.start < count && content_sized(item.start) {
-            sizes[item.start] = sizes[item.start].max(item.size);
+        if item.start < count && sized_by_content(item.start) {
+            base[item.start] = base[item.start].max(item.min);
+            limit[item.start] = limit[item.start].max(item.size);
         }
     }
 
     // Spanning items only add what the tracks they cover are missing.
     for item in contributions.iter().filter(|item| item.span > 1) {
         let range = item.start..(item.start + item.span).min(count);
-        let current: i32 = sizes[range.clone()].iter().sum::<i32>() + gap * (item.span as i32 - 1);
-        let missing = item.size - current;
-        let growable: Vec<usize> = range.filter(|&position| content_sized(position)).collect();
-        if missing > 0 && !growable.is_empty() {
-            let shares = share(missing, &vec![1.0; growable.len()]);
-            for (position, extra) in growable.into_iter().zip(shares) {
-                sizes[position] += extra;
+        let growable: Vec<usize> = range
+            .clone()
+            .filter(|&position| sized_by_content(position))
+            .collect();
+        if growable.is_empty() {
+            continue;
+        }
+        let gaps = gap * (item.span as i32 - 1);
+        for (sizes, wanted) in [(&mut base, item.min), (&mut limit, item.size)] {
+            let missing = wanted - sizes[range.clone()].iter().sum::<i32>() - gaps;
+            if missing > 0 {
+                let shares = share(missing, &vec![1.0; growable.len()]);
+                for (&position, extra) in growable.iter().zip(shares) {
+                    sizes[position] += extra;
+                }
             }
         }
     }
+    for position in 0..count {
+        limit[position] = limit[position].max(base[position]);
+    }
 
-    if let Some(available) = available {
-        let gaps = gap * (count as i32 - 1).max(0);
-        let free = available - gaps - sizes.iter().sum::<i32>();
+    let Some(available) = available else {
+        // All flexible tracks use the same fraction at max-content size.
+        let per = (0..count)
+            .filter(|&p| fraction(p) > 0.0)
+            .map(|p| limit[p] as f32 / fraction(p).max(1.0))
+            .fold(0.0, f32::max);
+        for (p, size) in limit.iter_mut().enumerate() {
+            *size = (*size).max((per * fraction(p)).round() as i32);
+        }
+        return limit;
+    };
+    let gaps = gap * (count as i32 - 1).max(0);
 
-        if free > 0 {
-            let fractions: Vec<f32> = (0..count)
-                .map(|position| match track(position) {
-                    Track::Fr(fraction) => fraction,
-                    _ => 0.0,
-                })
-                .collect();
+    // Room to spare goes to the tracks that would like more, up to that.
+    let mut sizes = base.clone();
+    let mut free = available - gaps - sizes.iter().sum::<i32>();
+    loop {
+        let growing: Vec<usize> = (0..count)
+            .filter(|&p| fraction(p) <= 0.0 && sizes[p] < limit[p])
+            .collect();
+        if free <= 0 || growing.is_empty() {
+            break;
+        }
+        let shares = share(free, &vec![1.0; growing.len()]);
+        let mut spent = 0;
+        for (&position, extra) in growing.iter().zip(shares) {
+            let grown = extra.min(limit[position] - sizes[position]);
+            sizes[position] += grown;
+            spent += grown;
+        }
+        if spent == 0 {
+            break;
+        }
+        free -= spent;
+    }
 
-            // Without fractions, spare room goes to auto tracks.
-            let weights = if fractions.iter().sum::<f32>() > 0.0 {
-                fractions
-            } else if fill {
-                (0..count)
-                    .map(|position| {
-                        if track(position) == Track::Auto {
-                            1.0
-                        } else {
-                            0.0
-                        }
-                    })
-                    .collect()
-            } else {
-                vec![0.0; count]
-            };
-
-            if weights.iter().sum::<f32>() > 0.0 {
-                for (size, extra) in sizes.iter_mut().zip(share(free, &weights)) {
-                    *size += extra;
+    let fractions: Vec<f32> = (0..count).map(fraction).collect();
+    if fractions.iter().sum::<f32>() > 0.0 {
+        // As CSS finds the size of a fraction: a track whose content would not
+        // fit its share keeps the content's size, and the rest share the rest.
+        let rigid: i32 = (0..count)
+            .filter(|&p| fractions[p] <= 0.0)
+            .map(|p| sizes[p])
+            .sum();
+        let mut frozen: Vec<bool> = fractions.iter().map(|&f| f <= 0.0).collect();
+        loop {
+            let left = available
+                - gaps
+                - rigid
+                - (0..count)
+                    .filter(|&p| fractions[p] > 0.0 && frozen[p])
+                    .map(|p| base[p])
+                    .sum::<i32>();
+            let weight: f32 = (0..count)
+                .filter(|&p| !frozen[p])
+                .map(|p| fractions[p])
+                .sum();
+            if weight <= 0.0 {
+                break;
+            }
+            let per = left.max(0) as f32 / weight;
+            let mut changed = false;
+            for position in 0..count {
+                if !frozen[position] && (base[position] as f32) > fractions[position] * per {
+                    frozen[position] = true;
+                    changed = true;
                 }
+            }
+            if !changed {
+                let weights: Vec<f32> = (0..count)
+                    .map(|p| if frozen[p] { 0.0 } else { fractions[p] })
+                    .collect();
+                for (position, extra) in share(left.max(0), &weights).into_iter().enumerate() {
+                    if !frozen[position] {
+                        sizes[position] = extra;
+                    }
+                }
+                break;
+            }
+        }
+    } else if fill && free > 0 {
+        // Without fractions, what is still left stretches `auto` tracks.
+        let weights: Vec<f32> = (0..count)
+            .map(|p| if track(p) == Track::Auto { 1.0 } else { 0.0 })
+            .collect();
+        if weights.iter().sum::<f32>() > 0.0 {
+            for (size, extra) in sizes.iter_mut().zip(share(free, &weights)) {
+                *size += extra;
             }
         }
     }
 
     sizes
+}
+
+/// Whether an item fills the width of its area: stretched, with no width of
+/// its own. Otherwise it is as wide as its content, up to the area.
+fn stretches_x(tree: &Tree, item: &Placed, justify_items: Align) -> bool {
+    let style = item.unit.style(tree);
+    let justify = style.extra().justify_self.unwrap_or(justify_items);
+    justify == Align::Stretch && style.width == Length::Auto
 }
 
 fn starts(sizes: &[i32], gap: i32) -> Vec<i32> {
@@ -263,32 +350,81 @@ impl Strategy for Grid {
             .map(|item| Contribution {
                 start: item.column,
                 span: item.column_span,
-                size: measure(tree, item.index, Constraints::intrinsic(space.width)).width,
+                size: item
+                    .unit
+                    .measure(
+                        tree,
+                        Constraints {
+                            shares_as_auto: true,
+                            ..Constraints::intrinsic(space.width)
+                        },
+                    )
+                    .width,
+                min: if item.unit.style(tree).extra().scrolls {
+                    0
+                } else {
+                    let constraints = Constraints {
+                        shares_as_auto: true,
+                        ..Constraints::min_content()
+                    };
+                    item.unit.measure(tree, constraints).width
+                },
             })
             .collect();
 
         let available_width = space.can_wrap().then_some(space.width);
-        let columns = size_tracks(
-            &column_tracks,
-            grid.columns,
-            column_gap,
-            available_width,
-            !space.intrinsic,
-            &widths,
-        );
+        let columns = if space.intrinsic {
+            // As CSS sizes a grid by its content: fractions take what their
+            // items need, and only share space past that when it is short.
+            let natural = size_tracks(
+                &column_tracks,
+                grid.columns,
+                column_gap,
+                None,
+                false,
+                &widths,
+            );
+            match available_width {
+                Some(width) if total(&natural, column_gap) > width => size_tracks(
+                    &column_tracks,
+                    grid.columns,
+                    column_gap,
+                    Some(width),
+                    false,
+                    &widths,
+                ),
+                _ => natural,
+            }
+        } else {
+            size_tracks(
+                &column_tracks,
+                grid.columns,
+                column_gap,
+                available_width,
+                true,
+                &widths,
+            )
+        };
 
         let heights: Vec<Contribution> = items
             .iter()
             .map(|item| {
                 let width = area(&columns, item.column, item.column_span, column_gap);
+                // As wide as it is laid out below, so its row holds it.
+                let stretch_x = stretches_x(tree, item, justify_items);
                 let constraints = Constraints {
-                    exact_width: Some(width),
+                    exact_width: stretch_x.then_some(width),
+                    intrinsic: !stretch_x,
+                    fit: !stretch_x,
+                    shares_as_auto: space.shares_as_auto,
                     ..Constraints::available(width)
                 };
+                let height = item.unit.measure(tree, constraints).height;
                 Contribution {
                     start: item.row,
                     span: item.row_span,
-                    size: measure(tree, item.index, constraints).height,
+                    size: height,
+                    min: height,
                 }
             })
             .collect();
@@ -309,17 +445,16 @@ impl Strategy for Grid {
             let width = area(&columns, item.column, item.column_span, column_gap);
             let height = area(&rows, item.row, item.row_span, row_gap);
 
-            let style = &tree.node(item.index).style;
+            let style = item.unit.style(tree);
             let extra = style.extra();
             let justify = extra.justify_self.unwrap_or(justify_items);
             let align = extra.align_self.unwrap_or(align_items);
 
-            let stretch_x = justify == Align::Stretch && style.width == Length::Auto;
+            let stretch_x = stretches_x(tree, item, justify_items);
             let stretch_y = align == Align::Stretch && style.height == Length::Auto;
 
-            let outer = measure(
+            let outer = item.unit.measure(
                 tree,
-                item.index,
                 Constraints {
                     width,
                     height: Some(height),
@@ -327,7 +462,9 @@ impl Strategy for Grid {
                     exact_height: stretch_y.then_some(height),
                     intrinsic: !stretch_x,
                     fit: !stretch_x,
+                    ignore_own_width: false,
                     whole_words: false,
+                    shares_as_auto: space.shares_as_auto,
                 },
             );
 
@@ -337,9 +474,8 @@ impl Strategy for Grid {
                 Align::Center => free.max(0) / 2,
             };
 
-            place(
+            item.unit.place(
                 tree,
-                item.index,
                 column_starts[item.column] + inside(justify, width - outer.width),
                 row_starts[item.row] + inside(align, height - outer.height),
             );

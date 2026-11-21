@@ -115,6 +115,27 @@ pub fn layout(tree: &mut Tree)
 Outer boxes come first, because inner ones may be placed against them.
 0
 
+## `engine/layout/anonymous.rs`
+
+*lua/markup/core/engine/layout/anonymous.rs*
+
+Anonymous boxes, as CSS makes them: neighbouring text in a flex or grid
+container is one item, a block that holds it.
+
+```rust
+pub enum Unit
+```
+
+An item of a flex or grid container.
+0
+
+```rust
+pub fn items(tree: &mut Tree, node: Index) -> Vec<Unit>
+```
+
+The items of a flex or grid container, in tree order.
+0
+
 ## `engine/layout/block.rs`
 
 *lua/markup/core/engine/layout/block.rs*
@@ -189,26 +210,34 @@ Sizes the child must take, such as a stretched flex item.
 0
 
 ```rust
-pub intrinsic: bool, /// With `intrinsic`, still wrap at `width`, like CSS `fit-content`. pub fit: bool, /// Keep each word whole, even past `width`. A word longer than its line /// still breaks when drawn, as with CSS `overflow-wrap: break-word`, but /// the narrowest a node can be is its longest word, as CSS `min-content`. pub whole_words: bool, }
+pub intrinsic: bool, /// With `intrinsic`, still wrap at `width`, like CSS `fit-content`. pub fit: bool, /// Keep each word whole, even past `width`. A word longer than its line /// still breaks when drawn, as with CSS `overflow-wrap: break-word`, but /// the narrowest a node can be is its longest word, as CSS `min-content`. pub whole_words: bool, /// Measured for what a grid track needs, which its size depends on: as /// CSS, a share of it, such as `width = "full"`, is `auto` until then.
 ```
 
 Ask for the natural size, so blocks do not fill the width.
 0
 
 ```rust
-pub fit: bool, /// Keep each word whole, even past `width`. A word longer than its line /// still breaks when drawn, as with CSS `overflow-wrap: break-word`, but /// the narrowest a node can be is its longest word, as CSS `min-content`. pub whole_words: bool, }  impl Constraints
+pub fit: bool, /// Keep each word whole, even past `width`. A word longer than its line /// still breaks when drawn, as with CSS `overflow-wrap: break-word`, but /// the narrowest a node can be is its longest word, as CSS `min-content`. pub whole_words: bool, /// Measured for what a grid track needs, which its size depends on: as /// CSS, a share of it, such as `width = "full"`, is `auto` until then. pub shares_as_auto: bool, }
 ```
 
 With `intrinsic`, still wrap at `width`, like CSS `fit-content`.
 0
 
 ```rust
-pub whole_words: bool, }  impl Constraints
+pub whole_words: bool, /// Measured for what a grid track needs, which its size depends on: as /// CSS, a share of it, such as `width = "full"`, is `auto` until then. pub shares_as_auto: bool, }  impl Constraints
 ```
 
 Keep each word whole, even past `width`. A word longer than its line
 still breaks when drawn, as with CSS `overflow-wrap: break-word`, but
 the narrowest a node can be is its longest word, as CSS `min-content`.
+0
+
+```rust
+pub shares_as_auto: bool, }  impl Constraints
+```
+
+Measured for what a grid track needs, which its size depends on: as
+CSS, a share of it, such as `width = "full"`, is `auto` until then.
 0
 
 ```rust
@@ -267,7 +296,22 @@ the fragments it was cut into, and each inline element the area it covers
 on every line, which is what paint draws highlights over.
 
 ```rust
+pub enum RunItem
+```
+
+What a run of inline content holds: nodes, and the edges of an inline that
+is split around the blocks inside it, as CSS splits one.
+0
+
+```rust
 pub fn flow(tree: &mut Tree, run: &[Index], limit: i32, available: i32, split_words: bool) -> Size
+```
+
+Flows a run of nodes, breaking lines past `limit`; see `flow_items`.
+0
+
+```rust
+pub fn flow_items( tree: &mut Tree, items: &[RunItem], limit: i32, available: i32, split_words: bool, ) -> Size
 ```
 
 Lays out a run of inline nodes in `limit` cells at the origin of the run.
@@ -652,10 +696,48 @@ no answer from the engine. Inside the tree nodes link by slab index, which
 is what layout and paint use.
 
 ```rust
+pub struct Collapse
+```
+
+Margins that collapse into one, as CSS vertical margins between blocks:
+the largest positive one plus the most negative one.
+0
+
+```rust
+pub fn with(self, other: Collapse) -> Self
+```
+
+This margin collapsed with another.
+0
+
+```rust
+pub fn value(self) -> i32
+```
+
+The space the margins leave between what they separate.
+0
+
+```rust
 pub struct Geometry
 ```
 
 Layout results. Offsets are relative to the parent's content box.
+0
+
+```rust
+pub margin_top: Collapse, pub margin_bottom: Collapse, /// Whether this node is empty, so its top and bottom margins collapse /// into one, which `margin_top` and `margin_bottom` then both hold. pub collapses_through: bool, /// Constraints of the last layout, for cache checks. pub constraints: Option<Constraints>, }
+```
+
+The top and bottom margins as a block parent sees them, with those of
+first and last children that collapse through this node.
+0
+
+```rust
+pub collapses_through: bool, /// Constraints of the last layout, for cache checks. pub constraints: Option<Constraints>, }  /// A piece of a wrapped node on one line. Offsets are from the node's origin. /// Text uses `start` and `end` as a byte range of its text. #[derive(Debug, Clone, Copy, PartialEq, Eq)] pub struct Fragment
+```
+
+Whether this node is empty, so its top and bottom margins collapse
+into one, which `margin_top` and `margin_bottom` then both hold.
 0
 
 ```rust

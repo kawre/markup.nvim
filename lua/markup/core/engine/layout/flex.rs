@@ -1,6 +1,7 @@
 //! Flexbox, with integer cells instead of fractional pixels.
 
-use super::{Constraints, Space, Strategy, measure, place, share};
+use super::anonymous::{self, Unit};
+use super::{Constraints, Space, Strategy, share};
 use crate::engine::style::{Align, Direction, Distribute, Length};
 use crate::engine::tree::{Index, Size, Tree};
 use std::ops::Range;
@@ -8,7 +9,7 @@ use std::ops::Range;
 pub struct Flex;
 
 struct Item {
-    index: Index,
+    unit: Unit,
     base: i32,
     /// Margin, border and padding along the main axis, which never shrink.
     edges: i32,
@@ -17,6 +18,8 @@ struct Item {
     grow: f32,
     shrink: f32,
     main: i32,
+    /// Whole cells available to wrap anonymous text before its edges are snapped.
+    text_main: i32,
     cross: i32,
     align: Align,
     /// Whether the item may take its line's cross size.
@@ -32,6 +35,16 @@ struct Line {
 #[derive(Clone, Copy)]
 struct Axis {
     column: bool,
+}
+
+impl Item {
+    fn measured_main(&self, axis: Axis) -> i32 {
+        if !axis.column && matches!(self.unit, Unit::Texts(_)) {
+            self.text_main
+        } else {
+            self.main
+        }
+    }
 }
 
 impl Axis {
@@ -63,10 +76,14 @@ impl Axis {
             // Height depends on wrapping, which depends on the width here.
             Constraints {
                 height: space.height,
+                shares_as_auto: space.shares_as_auto,
                 ..Constraints::fit_content(space.width)
             }
         } else {
-            Constraints::intrinsic(space.width)
+            Constraints {
+                shares_as_auto: space.shares_as_auto,
+                ..Constraints::intrinsic(space.width)
+            }
         }
     }
 
@@ -80,7 +97,9 @@ impl Axis {
                 exact_height: Some(main),
                 intrinsic: cross.is_none(),
                 fit: cross.is_none(),
+                ignore_own_width: false,
                 whole_words: false,
+                shares_as_auto: space.shares_as_auto,
             }
         } else {
             Constraints {
@@ -90,7 +109,9 @@ impl Axis {
                 exact_height: cross,
                 intrinsic: false,
                 fit: false,
+                ignore_own_width: false,
                 whole_words: false,
+                shares_as_auto: space.shares_as_auto,
             }
         }
     }
@@ -103,11 +124,11 @@ fn collect_items(
     axis: Axis,
     align: Align,
 ) -> Vec<Item> {
-    let mut ordered = Vec::new();
-    tree.for_each_flow_child(node, false, &mut |tree, child| {
-        ordered.push((tree.node(child).style.extra().order, child));
-    });
-    ordered.sort_by_key(|&(order, _)| order);
+    let mut ordered: Vec<(i32, Unit)> = anonymous::items(tree, node)
+        .into_iter()
+        .map(|unit| (unit.style(tree).extra().order, unit))
+        .collect();
+    ordered.sort_by_key(|(order, _)| *order);
 
     let reference = if axis.column {
         space.height.unwrap_or(0)
@@ -117,10 +138,10 @@ fn collect_items(
 
     ordered
         .into_iter()
-        .map(|(_, index)| {
-            let natural = measure(tree, index, axis.natural(space));
+        .map(|(_, unit)| {
+            let natural = unit.measure(tree, axis.natural(space));
 
-            let style = &tree.node(index).style;
+            let style = unit.style(tree);
             let extra = style.extra();
             let edges = if axis.column {
                 style.margin.vertical() + style.inner().vertical()
@@ -149,9 +170,14 @@ fn collect_items(
             let item_align = extra.align_self.unwrap_or(align);
             let (grow, shrink) = (extra.grow, extra.shrink);
             // As CSS: a scroll container, cut off with `hidden`, may shrink
-            // past its content; one cut off with `clip` alone may not.
-            let clips = extra.scrolls;
-            let specified = style.width.resolve(reference).map(|width| width + edges);
+            // past its content; one cut off with `clip` alone may not. What
+            // the container itself needs at its narrowest still counts the
+            // content, so that measure keeps it.
+            let clips = extra.scrolls && !space.whole_words;
+            let specified = match style.width {
+                Length::Full | Length::Fraction(_) if space.shares_as_auto => None,
+                width => width.resolve(reference).map(|width| width + edges),
+            };
 
             // Like CSS `min-width: auto` and `min-height: auto`. Text cannot
             // reflow vertically, so a column item keeps its rows. A row item
@@ -163,13 +189,20 @@ fn collect_items(
                 } else if clips {
                     0
                 } else {
-                    let narrowest = measure(tree, index, Constraints::min_content()).width;
+                    // What its content needs: a share of the container, such
+                    // as `width = "full"`, is `auto` here, as in CSS.
+                    let constraints = Constraints {
+                        ignore_own_width: !space.whole_words,
+                        shares_as_auto: true,
+                        ..Constraints::min_content()
+                    };
+                    let narrowest = unit.measure(tree, constraints).width;
                     specified.map_or(narrowest, |specified| narrowest.min(specified))
                 }
             });
 
             Item {
-                index,
+                unit,
                 base,
                 edges,
                 min,
@@ -177,6 +210,7 @@ fn collect_items(
                 grow,
                 shrink,
                 main: base.clamp(min, max.max(min)),
+                text_main: base.clamp(min, max.max(min)),
                 cross: 0,
                 align: item_align,
                 stretches: item_align == Align::Stretch && cross_length == Length::Auto,
@@ -236,7 +270,8 @@ fn resolve_flexible(items: &mut [Item], available: i32) {
             })
             .collect();
 
-        if weights.iter().sum::<f32>() <= 0.0 {
+        let total_weight: f64 = weights.iter().map(|&w| f64::from(w)).sum();
+        if total_weight <= 0.0 {
             return;
         }
 
@@ -262,6 +297,10 @@ fn resolve_flexible(items: &mut [Item], available: i32) {
             let target = item.base + shares[position];
             let limited = target.clamp(item.min, item.max.max(item.min));
             item.main = limited;
+            let portion =
+                f64::from(available - taken) * f64::from(weights[position]) / total_weight;
+            item.text_main =
+                (item.base + portion.floor() as i32).clamp(item.min, item.max.max(item.min));
             if limited != target {
                 frozen[position] = true;
                 clamped = true;
@@ -368,7 +407,9 @@ impl Strategy for Flex {
         // Cross sizes follow from the main size each item ended up with.
         for line in &mut lines {
             for item in &mut items[line.items.clone()] {
-                let outer = measure(tree, item.index, axis.exact(space, item.main, None));
+                let outer = item
+                    .unit
+                    .measure(tree, axis.exact(space, item.measured_main(axis), None));
                 item.cross = axis.cross(outer);
                 line.cross = line.cross.max(item.cross);
             }
@@ -413,6 +454,7 @@ impl Strategy for Flex {
             }
         }
 
+        let mut baseline = None;
         let mut main_used = 0;
         let mut cross_position = 0;
 
@@ -432,7 +474,18 @@ impl Strategy for Flex {
                 main_position += spaces[position];
 
                 let stretch = item.stretches.then_some(line.cross);
-                let outer = measure(tree, item.index, axis.exact(space, item.main, stretch));
+                let item_space = if axis.column {
+                    Space {
+                        width: line.cross,
+                        ..space
+                    }
+                } else {
+                    space
+                };
+                let outer = item.unit.measure(
+                    tree,
+                    axis.exact(item_space, item.measured_main(axis), stretch),
+                );
 
                 let free_cross = line.cross - axis.cross(outer);
                 let inside = match item.align {
@@ -449,7 +502,10 @@ impl Strategy for Flex {
                 };
 
                 let at = axis.size(main_at, cross_position + inside);
-                place(tree, item.index, at.width, at.height);
+                item.unit.place(tree, at.width, at.height);
+                if axis.column || position == 0 {
+                    baseline = Some(at.height + item.unit.baseline(tree, outer.height));
+                }
 
                 main_position += item.main + main_gap;
             }
@@ -457,6 +513,7 @@ impl Strategy for Flex {
             cross_position += line.cross + cross_gap;
         }
 
+        tree.node_mut(node).geometry.baseline = baseline;
         let cross_used = (cross_position - cross_gap).max(0);
         axis.size(main_used, cross_used)
     }

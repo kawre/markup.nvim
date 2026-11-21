@@ -5,6 +5,7 @@
 //! layout mode is one new file plus one arm in [`strategy`].
 
 pub mod absolute;
+mod anonymous;
 mod block;
 mod flex;
 mod grid;
@@ -13,11 +14,13 @@ mod text;
 mod wrap;
 
 use super::style::{Display, Length, Style};
-use super::tree::{Index, Size, Tree};
+use super::tree::{Collapse, Index, Size, Tree};
 
 /// What a parent asks of a child. Sizes are of the margin box.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Constraints {
+    /// Measure this item's content for its automatic flex minimum.
+    pub ignore_own_width: bool,
     /// Width to fill or fit into.
     pub width: i32,
     /// Height, when the parent has a definite one.
@@ -33,11 +36,14 @@ pub struct Constraints {
     /// still breaks when drawn, as with CSS `overflow-wrap: break-word`, but
     /// the narrowest a node can be is its longest word, as CSS `min-content`.
     pub whole_words: bool,
+    /// Percentage widths depending on this intrinsic measurement resolve as auto.
+    pub shares_as_auto: bool,
 }
 
 impl Constraints {
     pub fn available(width: i32) -> Self {
         Constraints {
+            ignore_own_width: false,
             width,
             height: None,
             exact_width: None,
@@ -45,6 +51,7 @@ impl Constraints {
             intrinsic: false,
             fit: false,
             whole_words: false,
+            shares_as_auto: false,
         }
     }
 
@@ -80,6 +87,7 @@ pub struct Space {
     pub intrinsic: bool,
     pub fit: bool,
     pub whole_words: bool,
+    pub shares_as_auto: bool,
 }
 
 impl Space {
@@ -95,6 +103,7 @@ impl Space {
             intrinsic: self.intrinsic,
             fit: self.fit,
             whole_words: self.whole_words,
+            shares_as_auto: self.shares_as_auto,
             ..Constraints::available(width)
         }
     }
@@ -106,8 +115,15 @@ pub trait Strategy {
     fn arrange(&self, tree: &mut Tree, node: Index, space: Space) -> Size;
 }
 
-fn strategy(display: Display) -> &'static dyn Strategy {
-    match display {
+fn strategy(tree: &Tree, index: Index) -> &'static dyn Strategy {
+    let node = tree.node(index);
+    match node.display {
+        // An inline given a size is a box, as CSS `inline-block`, and so is a
+        // flex or grid item, which CSS makes a block: what it holds lays out
+        // as in a block, its text wrapping inside it.
+        Display::Inline if is_inline_block(&node.style) || inline::is_item(tree, index) => {
+            &block::Block
+        }
         Display::Block => &block::Block,
         Display::Inline => &inline::Inline,
         Display::Flex => &flex::Flex,
@@ -117,20 +133,39 @@ fn strategy(display: Display) -> &'static dyn Strategy {
     }
 }
 
+/// Whether an inline is sized, so it lays out as CSS `inline-block` does.
+pub(super) fn is_inline_block(style: &Style) -> bool {
+    let extra = style.extra();
+    style.width != Length::Auto
+        || style.height != Length::Auto
+        || extra.min_width != Length::Auto
+        || extra.max_width != Length::Auto
+}
+
 fn limit(value: i32, min: Length, max: Length, available: i32) -> i32 {
     let value = max.resolve(available).map_or(value, |max| value.min(max));
     min.resolve(available).map_or(value, |min| value.max(min))
 }
 
-/// Space a node's own style leaves for its content.
+/// The preferred width for this pass through layout.
+fn used_width(style: &Style, constraints: Constraints) -> Length {
+    let share = matches!(style.width, Length::Full | Length::Fraction(_));
+    if constraints.ignore_own_width || (share && constraints.shares_as_auto) {
+        Length::Auto
+    } else {
+        style.width
+    }
+}
+
 fn content_space(style: &Style, constraints: Constraints) -> Space {
+    let used = used_width(style, constraints);
     let edges_x = style.margin.horizontal() + style.inner().horizontal();
     let edges_y = style.margin.vertical() + style.inner().vertical();
 
     let width = constraints
         .exact_width
         .map(|exact| exact - edges_x)
-        .or(style.width.resolve(constraints.width))
+        .or(used.resolve(constraints.width))
         .unwrap_or(constraints.width - edges_x);
     // Children are laid out in the width the node will end up with, so a
     // `max_width` narrows what they get rather than cutting them off after.
@@ -145,16 +180,18 @@ fn content_space(style: &Style, constraints: Constraints) -> Space {
             .resolve(constraints.height.unwrap_or(0))
             .filter(|_| constraints.height.is_some() || matches!(style.height, Length::Cells(_))));
 
-    let exact = constraints.exact_width.is_some() || style.width.resolve(0).is_some();
+    let exact = constraints.exact_width.is_some() || used.resolve(0).is_some();
 
     Space {
         width: width.max(0),
         height: height.map(|height| height.max(0)),
-        intrinsic: (constraints.intrinsic || style.width == Length::Fit) && !exact,
+        intrinsic: (constraints.intrinsic || used == Length::Fit) && !exact,
         fit: constraints.fit
-            || style.width == Length::Fit
+            || (used == Length::Fit && !constraints.intrinsic)
             || style.extra().max_width.resolve(constraints.width).is_some(),
         whole_words: constraints.whole_words,
+        shares_as_auto: !exact
+            && (constraints.shares_as_auto || constraints.intrinsic || used == Length::Fit),
     }
 }
 
@@ -169,39 +206,101 @@ pub fn measure(tree: &mut Tree, index: Index, constraints: Constraints) -> Size 
     let display = node.display;
     let style = &node.style;
     let extra = style.extra();
-    let space = content_space(style, constraints);
+    let mut space = content_space(style, constraints);
 
     let edges_x = style.margin.horizontal() + style.inner().horizontal();
     let edges_y = style.margin.vertical() + style.inner().vertical();
-    let width = style.width;
-    let clip = extra.clip;
-    let clip_x = extra.clip_x;
+    let width = used_width(style, constraints);
     let (min_width, max_width) = (extra.min_width, extra.max_width);
     let (min_height, max_height) = (extra.min_height, extra.max_height);
 
-    let mut content = strategy(display).arrange(tree, index, space);
+    // What collapses through this node, if anything, is up to its strategy:
+    // only a block lets the margins of its children through.
+    let margin = style.margin;
 
-    // As with CSS, what overflows a clipping box does not widen what holds it.
-    if clip || clip_x {
-        content.width = content.width.min(space.width);
+    // A fit-content box chooses its width before laying out its children.
+    // Percentages that depend on this width are auto during intrinsic sizing.
+    let strategy = strategy(tree, index);
+    let fit_box = space.intrinsic
+        && space.fit
+        && !space.whole_words
+        && (display.fills_width() || lays_out_as_block(tree, index));
+    if fit_box {
+        let preferred = strategy
+            .arrange(
+                tree,
+                index,
+                Space {
+                    fit: false,
+                    shares_as_auto: true,
+                    ..space
+                },
+            )
+            .width;
+        let mut width = preferred;
+        if preferred > space.width {
+            let minimum = Constraints {
+                height: constraints.height,
+                ignore_own_width: constraints.ignore_own_width,
+                shares_as_auto: true,
+                ..Constraints::min_content()
+            };
+            let minimum = measure(tree, index, minimum).width - edges_x;
+            width = space.width.max(minimum);
+        }
+        space.width = limit(width, min_width, max_width, constraints.width);
+        space.intrinsic = false;
+        space.fit = false;
+        space.shares_as_auto = false;
     }
+    // Laid out anew: pieces of an earlier wrap would paint it where it no
+    // longer is. A run that flows it again sets them after this.
+    tree.node_mut(index).fragments = None;
+    let geometry = &mut tree.node_mut(index).geometry;
+    geometry.margin_top = Collapse::of(margin.top);
+    geometry.margin_bottom = Collapse::of(margin.bottom);
+    geometry.collapses_through = false;
+    geometry.baseline = None;
+
+    let mut content = strategy.arrange(tree, index, space);
 
     let fills = display.fills_width() && width != Length::Fit && !constraints.intrinsic;
-    if constraints.exact_width.is_some() {
+    if fit_box || constraints.exact_width.is_some() {
         content.width = space.width;
     } else if width.resolve(constraints.width).is_some() || fills {
-        content.width = content.width.max(space.width);
+        // As CSS: a box with a width, or one that fills it, keeps it. What
+        // is wider than it runs past it rather than widening it.
+        content.width = space.width;
     }
     content.width = limit(content.width, min_width, max_width, constraints.width);
+
+    // As CSS: a box sized to its content, such as `width = "fit"`, lays out
+    // what it holds in the width that was found, so a block in it fills it.
+    // Only done when such a block came out narrower, which is all it changes.
+    if space.intrinsic
+        && lays_out_as_block(tree, index)
+        && narrower_block(tree, index, content.width)
+    {
+        let width = content.width;
+        content = strategy.arrange(
+            tree,
+            index,
+            Space {
+                width,
+                intrinsic: false,
+                fit: false,
+                ..space
+            },
+        );
+        content.width = width;
+    }
 
     if constraints.exact_height.is_some() {
         content.height = space.height.unwrap_or(content.height);
     } else if let Some(definite) = space.height {
-        content.height = if clip {
-            definite
-        } else {
-            content.height.max(definite)
-        };
+        // As CSS: a box keeps its height, and what is taller runs past it.
+        // `min_height` is what grows with the content.
+        content.height = definite;
     }
     let available_height = constraints.height.unwrap_or(0);
     content.height = limit(content.height, min_height, max_height, available_height);
@@ -219,30 +318,46 @@ pub fn measure(tree: &mut Tree, index: Index, constraints: Constraints) -> Size 
     outer
 }
 
-/// Splits `total` by `weights` in whole cells. The cells lost to rounding go to
-/// the largest remainders, so the shares always add up to `total`.
+/// Whether a node arranges what it holds as a block does: see [`strategy`].
+fn lays_out_as_block(tree: &Tree, index: Index) -> bool {
+    let node = tree.node(index);
+    match node.display {
+        Display::Block => true,
+        Display::Inline => is_inline_block(&node.style) || inline::is_item(tree, index),
+        _ => false,
+    }
+}
+
+/// Whether a block in the flow of `index` that fills its width with an `auto`
+/// one is narrower than `width`.
+fn narrower_block(tree: &mut Tree, index: Index, width: i32) -> bool {
+    let mut found = false;
+    tree.for_each_flow_child(index, false, &mut |tree, child| {
+        let node = tree.node(child);
+        let fills = node.display.fills_width() && node.style.width == Length::Auto;
+        found = found || (fills && node.geometry.outer.width < width);
+    });
+    found
+}
+
+/// Splits `total` by `weights` in whole cells, as a browser would snap the
+/// edges of fractional shares to a grid of cells: each edge goes to the
+/// nearest cell, back one at exactly half, as centering does. The shares
+/// always add up to `total`.
 pub(super) fn share(total: i32, weights: &[f32]) -> Vec<i32> {
-    let sum: f32 = weights.iter().sum();
+    let sum: f64 = weights.iter().map(|&weight| weight as f64).sum();
     if sum <= 0.0 {
         return vec![0; weights.len()];
     }
 
-    let exact: Vec<f64> = weights
-        .iter()
-        .map(|&weight| total as f64 * weight as f64 / sum as f64)
-        .collect();
-    let mut shares: Vec<i32> = exact.iter().map(|share| share.trunc() as i32).collect();
-
-    let mut order: Vec<usize> = (0..weights.len()).filter(|&i| weights[i] > 0.0).collect();
-    order.sort_by(|&a, &b| {
-        let remainder = |i: usize| (exact[i] - shares[i] as f64).abs();
-        remainder(b).total_cmp(&remainder(a))
-    });
-
-    let step = total.signum();
-    let left = total - shares.iter().sum::<i32>();
-    for &position in order.iter().cycle().take(left.unsigned_abs() as usize) {
-        shares[position] += step;
+    let mut shares = Vec::with_capacity(weights.len());
+    let (mut weight_so_far, mut edge) = (0.0, 0);
+    for &weight in weights {
+        weight_so_far += weight as f64;
+        let exact = total as f64 * weight_so_far / sum;
+        let next = (exact - 0.5).ceil() as i32;
+        shares.push(next - edge);
+        edge = next;
     }
     shares
 }

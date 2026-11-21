@@ -158,7 +158,8 @@ impl Engine {
             layout::Constraints::available(self.width),
         );
         layout::absolute::layout(&mut self.tree);
-        let height = self.height_with_absolutes(size.height);
+        let height =
+            self.height_with_absolutes(size.height.max(self.overflow_bottom(self.root, 0)));
         timings.layout = elapsed_ms(started);
 
         let started = Instant::now();
@@ -174,6 +175,34 @@ impl Engine {
         drop(patches);
         self.lines = lines;
         result
+    }
+
+    /// The lowest row anything in flow reaches, as the scrollable overflow of a
+    /// CSS document: a box keeps its height, and what is taller than it still
+    /// shows below it, unless a box around it cuts its rows off.
+    fn overflow_bottom(&self, index: Index, y: i32) -> i32 {
+        let node = self.tree.node(index);
+        let style = &node.style;
+        let mut bottom = y + node.geometry.outer.height;
+        if style.extra().clip {
+            return bottom;
+        }
+        let content_y = y + style.margin.top + style.inner().top;
+        let mut stack: Vec<Index> = node.children.iter().rev().copied().collect();
+        while let Some(child) = stack.pop() {
+            let entry = self.tree.node(child);
+            if entry.display == Display::Contents {
+                stack.extend(entry.children.iter().rev());
+                continue;
+            }
+            if entry.style.position() == Position::Absolute {
+                continue;
+            }
+            let (_, shift_y) = entry.style.relative_offset();
+            let child_y = content_y + entry.geometry.y + shift_y;
+            bottom = bottom.max(self.overflow_bottom(child, child_y));
+        }
+        bottom
     }
 
     /// Absolute boxes can reach past everything in flow.
@@ -300,14 +329,29 @@ impl Engine {
                 row >= top && row < top + height && col >= left && col < left + width.max(1)
             }
         };
-        if !inside {
-            return false;
-        }
-
-        path.push(node.client);
         let style = &node.style;
         let content_x = x + style.margin.left + style.inner().left;
         let content_y = y + style.margin.top + style.inner().top;
+
+        if !inside {
+            // An inline split around a block holds it outside its own pieces:
+            // the cell can still be on what it holds.
+            if node.fragments.is_none() {
+                return false;
+            }
+            let at = path.len();
+            path.push(node.client);
+            let found = node
+                .children
+                .iter()
+                .any(|&child| self.descend_child(child, content_x, content_y, row, col, path));
+            if !found {
+                path.truncate(at);
+            }
+            return found;
+        }
+
+        path.push(node.client);
         node.children
             .iter()
             .any(|&child| self.descend_child(child, content_x, content_y, row, col, path));
@@ -450,22 +494,6 @@ mod tests {
     }
 
     #[test]
-    fn node_at_finds_nothing_under_an_inert_node() {
-        let mut engine = Engine::new(20);
-        block(&mut engine, 2, ROOT, "outer");
-        block(&mut engine, 3, 2, "inner");
-        let property = StyleProperty::Interactive(true);
-        engine.apply(Command::SetStyle { id: 3, property }).unwrap();
-        engine.render(|_, _| ());
-        assert_eq!(engine.node_at(1, 0), Some(3));
-
-        let property = StyleProperty::Inert(true);
-        engine.apply(Command::SetStyle { id: 2, property }).unwrap();
-        engine.render(|_, _| ());
-        assert_eq!(engine.node_at(1, 0), None);
-    }
-
-    #[test]
     fn node_at_leaves_out_the_margin() {
         let mut engine = Engine::new(20);
         block(&mut engine, 2, ROOT, "one");
@@ -490,6 +518,22 @@ mod tests {
         // Padding and content are the node.
         assert_eq!(engine.node_at(1, 2), Some(2));
         assert_eq!(engine.node_at(1, 6), Some(2));
+    }
+
+    #[test]
+    fn node_at_finds_nothing_under_an_inert_node() {
+        let mut engine = Engine::new(20);
+        block(&mut engine, 2, ROOT, "outer");
+        block(&mut engine, 3, 2, "inner");
+        let property = StyleProperty::Interactive(true);
+        engine.apply(Command::SetStyle { id: 3, property }).unwrap();
+        engine.render(|_, _| ());
+        assert_eq!(engine.node_at(1, 0), Some(3));
+
+        let property = StyleProperty::Inert(true);
+        engine.apply(Command::SetStyle { id: 2, property }).unwrap();
+        engine.render(|_, _| ());
+        assert_eq!(engine.node_at(1, 0), None);
     }
 
     #[test]

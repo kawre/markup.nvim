@@ -5,7 +5,7 @@
 //! the fragments it was cut into, and each inline element the area it covers
 //! on every line, which is what paint draws highlights over.
 
-use super::{Constraints, measure, place};
+use super::{Constraints, Space, measure, place};
 use crate::engine::style::Display;
 use crate::engine::tree::{Fragment, Index, Size, Tree};
 
@@ -18,6 +18,9 @@ enum Kind {
     Gap,
     /// An element that is not text, such as a block inside an inline.
     Atomic,
+    /// A wide character, such as a CJK ideograph: as CSS breaks lines, a
+    /// line can break before and after each one.
+    Ideograph,
 }
 
 #[derive(Clone, Copy)]
@@ -28,8 +31,14 @@ struct Piece {
     end: usize,
     width: i32,
     height: i32,
+    /// Rows from its top to the line it sits on, as CSS aligns inline boxes to
+    /// a baseline: the bottom of a row of text.
+    baseline: i32,
     /// Offset of the node's origin from the run's origin.
     base: (i32, i32),
+    /// Whether a line may break right after it, as after the hyphen of
+    /// "x-y", where CSS breaks a word.
+    breaks_after: bool,
 }
 
 /// An inline element and the pieces inside it.
@@ -44,6 +53,9 @@ struct Span {
 struct Tokens {
     pieces: Vec<Piece>,
     spans: Vec<Span>,
+    /// Parts of inlines split around blocks: added to what earlier parts
+    /// cover, rather than replacing it.
+    parts: Vec<Span>,
     /// Every node visited, so all of them end up clean.
     nodes: Vec<Index>,
 }
@@ -70,20 +82,24 @@ fn tokenize_text(tree: &Tree, node: Index, base: (i32, i32), pieces: &mut Vec<Pi
         end,
         width,
         height: 1,
+        baseline: 1,
         base,
+        breaks_after: false,
     };
 
     let mut current: Option<Piece> = None;
-    for (byte, character, width) in char_widths(tree, node) {
+    let mut characters = char_widths(tree, node).peekable();
+    while let Some((byte, character, width)) = characters.next() {
         let end = byte + character.len_utf8();
         let kind = match character {
             '\n' => Kind::Newline,
             ' ' | '\t' => Kind::Space,
+            _ if width > 1 => Kind::Ideograph,
             _ => Kind::Word,
         };
 
         match &mut current {
-            Some(open) if open.kind == kind && kind != Kind::Newline => {
+            Some(open) if open.kind == kind && !matches!(kind, Kind::Newline | Kind::Ideograph) => {
                 open.end = end;
                 open.width += width;
             }
@@ -92,6 +108,23 @@ fn tokenize_text(tree: &Tree, node: Index, base: (i32, i32), pieces: &mut Vec<Pi
                 let width = if kind == Kind::Newline { 0 } else { width };
                 current = Some(piece(kind, byte, end, width));
             }
+        }
+
+        // As CSS breaks lines: after a hyphen inside a word, unless a digit
+        // or another hyphen follows.
+        let hyphen = matches!(character, '-' | '\u{2010}' | '\u{2013}');
+        let next = characters.peek().map(|&(_, next, _)| next);
+        let word_follows = next.is_some_and(|next| {
+            !next.is_ascii_digit()
+                && !matches!(next, ' ' | '\t' | '\n' | '-' | '\u{2010}' | '\u{2013}')
+        });
+        if hyphen
+            && kind == Kind::Word
+            && word_follows
+            && let Some(mut open) = current.take()
+        {
+            open.breaks_after = true;
+            pieces.push(open);
         }
     }
     pieces.extend(current);
@@ -105,7 +138,7 @@ fn has_only_inline_children(tree: &mut Tree, node: Index) -> bool {
     inline
 }
 
-fn tokenize(tree: &mut Tree, node: Index, base: (i32, i32), width: i32, tokens: &mut Tokens) {
+fn tokenize(tree: &mut Tree, node: Index, base: (i32, i32), space: Space, tokens: &mut Tokens) {
     tokens.nodes.push(node);
 
     if tree.node(node).display == Display::Text {
@@ -113,8 +146,30 @@ fn tokenize(tree: &mut Tree, node: Index, base: (i32, i32), width: i32, tokens: 
         return;
     }
 
-    if !has_only_inline_children(tree, node) {
-        let outer = measure(tree, node, Constraints::intrinsic(width));
+    // As CSS: an inline-block is one piece on the line, as wide as its content
+    // up to the line, and never split across lines.
+    let inline_block = super::is_inline_block(&tree.node(node).style);
+    if inline_block || !has_only_inline_children(tree, node) {
+        let constraints = Constraints {
+            intrinsic: true,
+            fit: inline_block && space.can_wrap(),
+            ..space.child(space.width)
+        };
+        let outer = measure(tree, node, constraints);
+        let entry = tree.node(node);
+        let baseline = if inline_block {
+            // As CSS: the line of its last row, or the bottom of its margin when
+            // it has none or cuts off what does not fit.
+            let style = &entry.style;
+            entry
+                .geometry
+                .baseline
+                .filter(|_| !style.extra().scrolls)
+                .map_or(outer.height, |b| style.margin.top + style.inner().top + b)
+        } else {
+            // Aligned with the top of the line, as before.
+            1
+        };
         tokens.nodes.pop();
         tokens.pieces.push(Piece {
             kind: Kind::Atomic,
@@ -123,7 +178,9 @@ fn tokenize(tree: &mut Tree, node: Index, base: (i32, i32), width: i32, tokens: 
             end: 0,
             width: outer.width,
             height: outer.height,
+            baseline,
             base,
+            breaks_after: false,
         });
         return;
     }
@@ -139,7 +196,9 @@ fn tokenize(tree: &mut Tree, node: Index, base: (i32, i32), width: i32, tokens: 
         end: 0,
         width,
         height: 1,
+        baseline: 1,
         base,
+        breaks_after: false,
     };
 
     if margin.left > 0 {
@@ -159,7 +218,7 @@ fn tokenize(tree: &mut Tree, node: Index, base: (i32, i32), width: i32, tokens: 
     let mut children = Vec::new();
     tree.for_each_flow_child(node, reverse, &mut |_, child| children.push(child));
     for child in children {
-        tokenize(tree, child, inner, width, tokens);
+        tokenize(tree, child, inner, space, tokens);
     }
 
     if padding.right > 0 {
@@ -187,6 +246,7 @@ struct Placed {
     x: i32,
     y: i32,
     width: i32,
+    baseline: i32,
 }
 
 struct Breaker {
@@ -196,13 +256,29 @@ struct Breaker {
     line_height: i32,
     widest: i32,
     placed: Vec<Placed>,
+    /// The first piece of the current line, and how far it reaches above and
+    /// below its baseline.
+    line_start: usize,
+    ascent: i32,
+    descent: i32,
 }
 
 impl Breaker {
+    /// Puts each piece of the line on its baseline.
+    fn finish_line(&mut self) {
+        for placed in &mut self.placed[self.line_start..] {
+            placed.y = self.y + (self.ascent - placed.baseline).max(0);
+        }
+        self.line_start = self.placed.len();
+    }
+
     fn new_line(&mut self) {
+        self.finish_line();
         self.y += self.line_height.max(1);
         self.x = 0;
         self.line_height = 0;
+        self.ascent = 0;
+        self.descent = 0;
     }
 
     fn put(&mut self, source: usize, piece: &Piece) {
@@ -213,10 +289,13 @@ impl Breaker {
             x: self.x,
             y: self.y,
             width: piece.width,
+            baseline: piece.baseline,
         });
         self.x += piece.width;
         self.widest = self.widest.max(self.x);
-        self.line_height = self.line_height.max(piece.height);
+        self.ascent = self.ascent.max(piece.baseline);
+        self.descent = self.descent.max(piece.height - piece.baseline);
+        self.line_height = self.line_height.max(self.ascent + self.descent);
     }
 
     fn put_all(&mut self, pieces: &[Piece], from: usize, to: usize) {
@@ -265,6 +344,27 @@ impl Breaker {
     }
 }
 
+/// Where what cannot be broken, starting at `from`, ends: at a space or a line
+/// break, after a piece a line may break after, and around an ideograph,
+/// which stands on its own.
+fn unbreakable_end(pieces: &[Piece], from: usize) -> usize {
+    let mut end = from;
+    while end < pieces.len() {
+        let piece = &pieces[end];
+        // As CSS: a line can break on either side of an ideograph or an
+        // inline-block, with no space between them and the words next to them.
+        let alone = matches!(piece.kind, Kind::Ideograph | Kind::Atomic);
+        if matches!(piece.kind, Kind::Space | Kind::Newline) || (alone && end > from) {
+            break;
+        }
+        end += 1;
+        if alone || piece.breaks_after {
+            break;
+        }
+    }
+    end
+}
+
 fn break_lines(tree: &Tree, pieces: &[Piece], limit: i32, split_words: bool) -> Breaker {
     let mut breaker = Breaker {
         limit,
@@ -273,6 +373,9 @@ fn break_lines(tree: &Tree, pieces: &[Piece], limit: i32, split_words: bool) -> 
         line_height: 0,
         widest: 0,
         placed: Vec::with_capacity(pieces.len()),
+        line_start: 0,
+        ascent: 0,
+        descent: 0,
     };
 
     let mut position = 0;
@@ -288,6 +391,7 @@ fn break_lines(tree: &Tree, pieces: &[Piece], limit: i32, split_words: bool) -> 
                     x: breaker.x,
                     y: breaker.y,
                     width: 0,
+                    baseline: 1,
                 });
                 breaker.new_line();
                 position += 1;
@@ -298,9 +402,10 @@ fn break_lines(tree: &Tree, pieces: &[Piece], limit: i32, split_words: bool) -> 
                     .iter()
                     .position(|piece| piece.kind != Kind::Space)
                     .map_or(pieces.len(), |offset| position + 1 + offset);
-                let unbroken: i32 = pieces[next..]
+                // What follows up to where a line could break next: an
+                // ideograph stands alone.
+                let unbroken: i32 = pieces[next..unbreakable_end(pieces, next)]
                     .iter()
-                    .take_while(|piece| !matches!(piece.kind, Kind::Space | Kind::Newline))
                     .map(|piece| piece.width)
                     .sum();
                 let spaces: i32 = pieces[position..next].iter().map(|piece| piece.width).sum();
@@ -321,11 +426,8 @@ fn break_lines(tree: &Tree, pieces: &[Piece], limit: i32, split_words: bool) -> 
                 }
                 position = next;
             }
-            Kind::Word | Kind::Gap | Kind::Atomic => {
-                let end = pieces[position..]
-                    .iter()
-                    .position(|piece| matches!(piece.kind, Kind::Space | Kind::Newline))
-                    .map_or(pieces.len(), |offset| position + offset);
+            Kind::Word | Kind::Gap | Kind::Atomic | Kind::Ideograph => {
+                let end = unbreakable_end(pieces, position);
                 let width: i32 = pieces[position..end].iter().map(|piece| piece.width).sum();
 
                 if breaker.x > 0 && breaker.x + width > limit {
@@ -336,6 +438,16 @@ fn break_lines(tree: &Tree, pieces: &[Piece], limit: i32, split_words: bool) -> 
                     if piece.kind == Kind::Word && width > limit && split_words {
                         breaker.put_split(tree, position + offset, piece);
                     } else {
+                        // Horizontal edges take space even on an otherwise
+                        // empty inline fragment. At an emergency wrap, move
+                        // the edge to the next line if the word filled this one.
+                        if split_words
+                            && piece.kind == Kind::Gap
+                            && breaker.x > 0
+                            && breaker.x + piece.width > limit
+                        {
+                            breaker.new_line();
+                        }
                         breaker.put(position + offset, piece);
                     }
                 }
@@ -344,19 +456,121 @@ fn break_lines(tree: &Tree, pieces: &[Piece], limit: i32, split_words: bool) -> 
         }
     }
 
+    breaker.finish_line();
     breaker
+}
+
+/// What a run of inline content holds: nodes, and the edges of an inline that
+/// is split around the blocks inside it, as CSS splits one.
+#[derive(Debug, Clone, Copy)]
+pub enum RunItem {
+    Node(Index),
+    /// Where a part of a split inline starts. Only the first part has its
+    /// left margin, border and padding. `base` is the inline's origin from
+    /// the run's origin.
+    Open {
+        node: Index,
+        first: bool,
+        base: (i32, i32),
+    },
+    /// Where a part ends. Only the last part has its right edges.
+    Close {
+        node: Index,
+        last: bool,
+    },
+}
+
+fn gap_piece(node: Index, base: (i32, i32), width: i32) -> Piece {
+    Piece {
+        kind: Kind::Gap,
+        node,
+        start: 0,
+        end: 0,
+        width,
+        height: 1,
+        baseline: 1,
+        base,
+        breaks_after: false,
+    }
+}
+
+/// Flows a run of nodes, breaking lines past `limit`; see `flow_items`.
+pub fn flow(
+    tree: &mut Tree,
+    run: &[Index],
+    limit: i32,
+    space: Space,
+    split_words: bool,
+) -> (Size, i32) {
+    let items: Vec<RunItem> = run.iter().map(|&node| RunItem::Node(node)).collect();
+    flow_items(tree, &items, limit, space, split_words)
 }
 
 /// Lays out a run of inline nodes in `limit` cells at the origin of the run.
 /// Flows a run of inline nodes, breaking lines past `limit`. Whatever cannot
-/// flow, such as a block among them, is laid out for `available`, which a run
+/// flow, such as a block among them, is laid out in its containing space, which a run
 /// that never breaks still needs: `limit` is then unbounded, and a child as
 /// wide as its parent would be that wide too. Without `split_words`, a word
 /// longer than a line runs past it whole.
-pub fn flow(tree: &mut Tree, run: &[Index], limit: i32, available: i32, split_words: bool) -> Size {
+pub fn flow_items(
+    tree: &mut Tree,
+    items: &[RunItem],
+    limit: i32,
+    space: Space,
+    split_words: bool,
+) -> (Size, i32) {
     let mut tokens = Tokens::default();
-    for &node in run {
-        tokenize(tree, node, (0, 0), available, &mut tokens);
+    // The split inlines open at this point.
+    struct Part {
+        /// Where its pieces start.
+        start: usize,
+        /// Its content's origin, and its own, from the run's origin.
+        inner: (i32, i32),
+        base: (i32, i32),
+    }
+    let mut open: Vec<Part> = Vec::new();
+    for &item in items {
+        match item {
+            RunItem::Node(node) => {
+                let base = open.last().map_or((0, 0), |part| part.inner);
+                tokenize(tree, node, base, space, &mut tokens);
+            }
+            RunItem::Open { node, first, base } => {
+                let style = &tree.node(node).style;
+                let (margin, padding) = (style.margin, style.inner());
+                if first && margin.left > 0 {
+                    tokens.pieces.push(gap_piece(node, base, margin.left));
+                }
+                let start = tokens.pieces.len();
+                if first && padding.left > 0 {
+                    tokens.pieces.push(gap_piece(node, base, padding.left));
+                }
+                let inner = (
+                    base.0 + margin.left + padding.left,
+                    base.1 + margin.top + padding.top,
+                );
+                open.push(Part { start, inner, base });
+            }
+            RunItem::Close { node, last } => {
+                let Some(Part { start, base, .. }) = open.pop() else {
+                    continue;
+                };
+                let style = &tree.node(node).style;
+                let (margin, padding) = (style.margin, style.inner());
+                if last && padding.right > 0 {
+                    tokens.pieces.push(gap_piece(node, base, padding.right));
+                }
+                tokens.parts.push(Span {
+                    node,
+                    first: start,
+                    last: tokens.pieces.len(),
+                    base,
+                });
+                if last && margin.right > 0 {
+                    tokens.pieces.push(gap_piece(node, base, margin.right));
+                }
+            }
+        }
     }
 
     let breaker = break_lines(tree, &tokens.pieces, limit, split_words);
@@ -383,7 +597,7 @@ pub fn flow(tree: &mut Tree, run: &[Index], limit: i32, available: i32, split_wo
                 continue;
             }
             Kind::Gap => continue,
-            Kind::Word | Kind::Space | Kind::Newline => {}
+            Kind::Word | Kind::Space | Kind::Newline | Kind::Ideograph => {}
         }
         if placed.width == 0 {
             continue;
@@ -429,8 +643,10 @@ pub fn flow(tree: &mut Tree, run: &[Index], limit: i32, available: i32, split_wo
             .push(fragment);
     }
 
-    // What each inline element covers on each line, for its highlight.
-    for span in &tokens.spans {
+    // What each inline element covers on each line, for its highlight. A
+    // part of a split inline adds to what its earlier parts cover.
+    let spans = tokens.spans.iter().map(|span| (span, false));
+    for (span, part) in spans.chain(tokens.parts.iter().map(|span| (span, true))) {
         let mut rows: Vec<Fragment> = Vec::new();
         for placed in &breaker.placed {
             if placed.source < span.first || placed.source >= span.last || placed.width == 0 {
@@ -448,10 +664,15 @@ pub fn flow(tree: &mut Tree, run: &[Index], limit: i32, available: i32, split_wo
                 }),
             }
         }
-        tree.node_mut(span.node).fragments = Some(rows);
+        let entry = tree.node_mut(span.node);
+        if part {
+            entry.fragments.get_or_insert_default().extend(rows);
+        } else {
+            entry.fragments = Some(rows);
+        }
     }
 
-    size
+    (size, breaker.y + breaker.ascent.max(1))
 }
 
 #[cfg(test)]

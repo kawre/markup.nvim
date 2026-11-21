@@ -26,7 +26,7 @@ test: build test_lua
 # Run all test files on the engine already built, as CI does with a downloaded
 # one: at once on every core, with a progress bar
 test_lua: deps/mini.test
-	@scripts/run_tests.sh $(JOBS) $(TEST_TIMEOUT) $(NVIM_TEST)
+	@$(if $(filter 1,$(BROWSER)),scripts/run_browser_suite.sh,scripts/run_tests.sh) $(JOBS) $(TEST_TIMEOUT) $(NVIM_TEST)
 
 # Run the engine's unit tests
 test_engine:
@@ -91,3 +91,11 @@ $(LUALS):
 	@mkdir -p .tests/luals
 	curl -fsSL https://github.com/LuaLS/lua-language-server/releases/download/$(LUALS_VERSION)/lua-language-server-$(LUALS_VERSION)-linux-x64.tar.gz \
 		| tar xz -C .tests/luals
+
+# Compare static layout fixtures against headless Chromium. With SHOW=1, open a
+# page of what differs in a browser, or of everything with SHOW=all; this also
+# works with `make test BROWSER=1`.
+export SHOW
+.PHONY: test_browser
+test_browser: build
+	nvim -u NONE -l tests/browser/compare.lua $(FILE)

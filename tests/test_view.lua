@@ -384,6 +384,309 @@ T["max_width"]["a narrower window still wins"] = function()
 	eq(lines(), { ("a"):rep(60), ("a"):rep(10) })
 end
 
+--- Every box under the root, in tree order, as `{ x, y, width, height }` of
+--- the border box: what a browser would report for the same HTML and CSS.
+local function boxes()
+	return child.lua_get([[(function()
+		local result, engine = {}, view.engine
+		local function visit(id)
+			for _, node in ipairs(engine:children(id, 0, 1000, true)) do
+				if node.display ~= "text" then
+					local top, right, bottom, left = unpack(node.margin)
+					result[#result + 1] = {
+						node.x + left,
+						node.y + top,
+						node.outer_width - left - right,
+						node.outer_height - top - bottom,
+					}
+					if node.children > 0 then
+						visit(node.id)
+					end
+				end
+			end
+		end
+		visit(require("markup.view.protocol").ROOT)
+		return result
+	end)()]])
+end
+
+-- Layout as CSS lays it out. Each case renders the same as its HTML and CSS
+-- in Chromium, which `make test BROWSER=1` checks.
+T["css"] = new_set()
+
+T["css"]["a box keeps its width, and what is wider runs past it"] = function()
+	run([[view:render(m.block({ width = 5, white_space = "nowrap", "the quick brown" }))]])
+	eq(boxes(), { { 0, 0, 5, 1 } })
+	eq(lines(), { "the quick brown" })
+end
+
+T["css"]["a box keeps its height, and what is taller shows below it"] = function()
+	run([[view:render(m.block({ m.block({ height = 1, m.block("a"), m.block("b") }) }))]])
+	eq(boxes(), { { 0, 0, 60, 1 }, { 0, 0, 60, 1 }, { 0, 0, 60, 1 }, { 0, 1, 60, 1 } })
+	eq(lines(), { "a", "b" })
+end
+
+T["css"]["margins of siblings collapse into the larger"] = function()
+	run([[view:render(m.block({
+		m.block({ "a", margin_bottom = 2 }),
+		m.block({ "b", margin_top = 1 }),
+	}))]])
+	eq(boxes(), { { 0, 0, 60, 4 }, { 0, 0, 60, 1 }, { 0, 3, 60, 1 } })
+end
+
+T["css"]["a first child's margin passes through its parent"] = function()
+	run([[view:render(m.block({ m.block({ m.block({ "a", margin_top = 2 }) }), m.block("b") }))]])
+	-- The parent moves down with it, rather than growing.
+	eq(boxes(), { { 0, 2, 60, 2 }, { 0, 2, 60, 1 }, { 0, 2, 60, 1 }, { 0, 3, 60, 1 } })
+end
+
+T["css"]["padding keeps a child's margin inside"] = function()
+	run(
+		[[view:render(m.block({ m.block({ padding_top = 1, m.block({ "a", margin_top = 2 }) }) }))]]
+	)
+	eq(boxes(), { { 0, 0, 60, 4 }, { 0, 0, 60, 4 }, { 0, 3, 60, 1 } })
+end
+
+T["css"]["an empty block lets its margins meet"] = function()
+	run([[view:render(m.block({
+		m.block("a"),
+		m.block({ margin_top = 1, margin_bottom = 2 }),
+		m.block("b"),
+	}))]])
+	-- It sits past its own top margin; its bottom one meets the next.
+	eq(boxes(), { { 0, 0, 60, 4 }, { 0, 0, 60, 1 }, { 0, 2, 60, 0 }, { 0, 3, 60, 1 } })
+end
+
+T["css"]["an empty flex keeps its margins apart"] = function()
+	run([[view:render(m.block({ m.flex({ margin_top = 1, margin_bottom = 1 }), "x" }))]])
+	-- Its top margin passes through the block, its bottom one stays inside.
+	eq(boxes(), { { 0, 1, 60, 2 }, { 0, 1, 60, 0 } })
+	eq(lines(), { "", "", "x" })
+end
+
+T["css"]["a fraction track is no narrower than its content"] = function()
+	run([[view:render(m.grid({
+		columns = 3,
+		m.block({ white_space = "nowrap", "one two three four five" }),
+		m.block("b"),
+		m.block("c"),
+	}))]])
+	-- 23 cells for the first track, and the other two share what is left.
+	-- The other two share 37 cells: the edge between them, at 41.5 in a
+	-- browser, goes back to 41.
+	eq(boxes(), { { 0, 0, 60, 1 }, { 0, 0, 23, 1 }, { 23, 0, 18, 1 }, { 41, 0, 19, 1 } })
+	eq(lines(), { "one two three four fiveb                 c" })
+end
+
+T["css"]["an inline with a width wraps inside it, as an inline-block"] = function()
+	run([[view:render(m.block({ "x", m.inline({ width = 5, "aaa bbb" }) }))]])
+	-- As CSS aligns it: "x" sits on the line of its last row.
+	eq(lines(), { " aaa", "xbbb" })
+end
+
+T["css"]["an empty inline with a margin holds a line open"] = function()
+	run([[view:render(m.block({ m.inline({ margin_left = 2 }), m.block("b") }))]])
+	eq(boxes(), { { 0, 0, 60, 2 }, { 2, 0, 0, 1 }, { 0, 1, 60, 1 } })
+end
+
+T["css"]["neighbouring text in a flex is one item"] = function()
+	run([[view:render(m.flex({ width = 10, justify = "between", "ab", "cd", m.block("x") }))]])
+	-- One item "abcd", then "x": not three items spread apart.
+	eq(lines(), { "abcd     x" })
+end
+
+T["css"]["text in a flex that is only white space is not drawn"] = function()
+	run([[view:render(m.flex({ m.inline("a"), "   ", m.inline("b") }))]])
+	eq(lines(), { "ab" })
+end
+
+T["css"]["a block in an inline breaks it in two around itself"] = function()
+	run([[view:render(m.block({
+		"x",
+		m.inline({ padding_left = 1, padding_right = 1, "a", m.block("BLOCK"), "b" }),
+		"y",
+	}))]])
+	-- The inline's left padding opens its first part, its right one closes
+	-- its last; the block takes a row of its own, from the left edge.
+	eq(lines(), { "x a", "BLOCK", "b y" })
+end
+
+T["css"]["an inline in a grid is a block"] = function()
+	run([[view:render(m.grid({ columns = 1, m.inline({ "a", m.block("b") }) }))]])
+	eq(lines(), { "a", "b" })
+end
+
+T["css"]["an auto track grows only with room left after the others"] = function()
+	run([[view:render(m.block({ width = 20, m.grid({
+		columns = { "auto", "1fr" },
+		m.block("one two three four"),
+		"averyverylongword",
+	}) }))]])
+	-- The word needs 17 cells and "three" 5: no room is left, so the auto
+	-- track stays at its narrowest, and the two run past the 20.
+	eq(lines(), { "one  averyverylongword", "two", "three", "four" })
+end
+
+T["css"]["a grid that fits its content takes what its tracks need"] = function()
+	run(
+		[[view:render(m.block({ m.inline({ width = "fit", m.grid({ columns = { "auto", "1fr" }, "ab", m.block("cd") }) }), "|" }))]]
+	)
+	eq(lines(), { "abcd|" })
+end
+
+T["css"]["a closing collapse in a grid is as short as a fresh one"] = function()
+	-- Found by tests/test_fuzz.lua once it compared boxes: closing kept the
+	-- collapse's height "auto", so the grid stretched it to its row.
+	run([[
+		Markup.animate.enabled = false
+		open = m.signal(true)
+		view:render(m.block({ m.grid({ columns = 2, m.collapse(open, function() return m.block({}) end), "x" }) }))
+		open(false)
+		reactive.flush()
+	]])
+	eq(boxes(), { { 0, 0, 60, 1 }, { 0, 0, 60, 1 }, { 0, 0, 30, 0 } })
+end
+
+T["css"]["no longer wrapping paints a box where it is"] = function()
+	-- Found by tests/test_fuzz.lua: a block kept the pieces of an earlier wrap.
+	run([=[
+		white_space = m.signal("normal")
+		view:render(m.flex({ m.inline({ white_space = white_space, m.block({ padding = 1, style = "Search" }) }) }))
+		white_space("nowrap")
+		reactive.flush()
+		ids = vim.api.nvim_buf_get_extmarks(win.buf, view.ns, 0, -1, { details = true })
+		rows = {}
+		for _, mark in ipairs(ids) do
+			if mark[4].hl_group == "Search" then rows[#rows + 1] = mark[2] end
+		end
+		table.sort(rows)
+	]=])
+	-- The whole box, both rows, as a fresh render paints it.
+	eq(child.lua_get("rows"), { 0, 1 })
+end
+
+T["css"]["a block fills a box sized to its content"] = function()
+	-- Found by comparing tests/test_fuzz.lua with Chromium, seed 1004: an empty
+	-- block in a `fit` box took no width.
+	run([[view:render(m.block({ width = "fit", m.block({ height = 1 }), "xyz" }))]])
+	eq(boxes(), { { 0, 0, 3, 2 }, { 0, 0, 3, 1 } })
+end
+
+T["css"]["a line breaks before an inline-block that does not fit"] = function()
+	-- Found by comparing tests/test_fuzz.lua with Chromium, seed 17: it stayed
+	-- on the line, past its end.
+	run([[view:render(m.block({ width = 3, "abc", m.inline({ width = 1, height = 2 }) }))]])
+	eq(boxes(), { { 0, 0, 3, 3 }, { 0, 1, 1, 2 } })
+end
+
+-- Found by comparing tests/test_fuzz.lua with Chromium, seeds 20, 1007 and
+-- 2010: each broke words narrower than the longest, which CSS `fit-content`
+-- and `min-width: auto` keep whole.
+T["css"]["a box sized to its content is no narrower than its longest word"] = function()
+	run([[view:render(m.block({ width = 3, m.block({ width = "fit", "ipsum dolor" }) }))]])
+	eq(boxes(), { { 0, 0, 3, 2 }, { 0, 0, 5, 2 } })
+	eq(lines(), { "ipsum", "dolor" })
+end
+
+T["css"]["text in a column keeps its longest word"] = function()
+	run([[view:render(m.flex({ vertical = true, align = "start", width = 3, "ipsum dolor" }))]])
+	eq(boxes(), { { 0, 0, 3, 2 } })
+	eq(lines(), { "ipsum", "dolor" })
+end
+
+T["css"]["a grid row is as tall as its item laid out at its own width"] = function()
+	run(
+		[[view:render(m.grid({ columns = { 5, "1fr" }, m.block({ width = "fit", "xipsum dolor" }) }))]]
+	)
+	eq(boxes(), { { 0, 0, 60, 2 }, { 0, 0, 6, 2 } })
+end
+
+T["css"]["a flex item with a share does not shrink below its longest word"] = function()
+	run(
+		[[view:render(m.block({ width = 10, m.flex({ "abcdefgh", m.block({ width = "full", "abcdefgh" }) }) }))]]
+	)
+	eq(lines(), { "abcdefghabcdefgh" })
+end
+
+T["css"]["fraction tracks share a fraction size in a fit grid"] = function()
+	run([[view:render(m.grid({ width = "fit", columns = 3, "xx" }))]])
+	eq(boxes(), { { 0, 0, 6, 1 } })
+end
+
+T["css"]["an absolute auto width fits between its inset and the far edge"] = function()
+	run(
+		[[view:render(m.block({ position = "absolute", left = 9, m.grid({ columns = 2, string.rep("x", 30) }) }))]]
+	)
+	eq(boxes(), { { 9, 0, 51, 1 }, { 9, 0, 51, 1 } })
+end
+
+T["css"]["a percentage child fills the resolved fit width"] = function()
+	run([[view:render(m.block({ width = "fit", m.block({ width = "full" }), "abc" }))]])
+	eq(boxes(), { { 0, 0, 3, 1 }, { 0, 0, 3, 0 } })
+end
+
+T["css"]["an empty flex item can shrink below its specified width"] = function()
+	run([[view:render(m.flex({ width = 5, m.block({ width = 3 }), "abcde" }))]])
+	eq(boxes(), { { 0, 0, 5, 1 }, { 0, 0, 0, 1 } })
+end
+
+T["css"]["a wrapped column fits centered items to their flex line"] = function()
+	run([[view:render(m.flex({ width = 3, vertical = true, wrap = true, align = "center",
+		m.block("aa bb"), "abcdefghij" }))]])
+	eq(boxes(), { { 0, 0, 3, 3 }, { 2, 0, 5, 2 } })
+end
+
+T["css"]["anonymous flex text wraps before fractional edges snap to cells"] = function()
+	run([[view:render(m.flex({ width = 7, m.block({ width = 6 }), "日本語" }))]])
+	eq(lines(), { "   日", "   本", "   語" })
+end
+
+T["css"]["an inline-block inherits its last overflowing line baseline"] = function()
+	run(
+		[[view:render(m.block({ m.inline({ width = 3, m.block({ height = 1, "ipsum dolor" }) }) }))]]
+	)
+	eq(boxes()[1], { 0, 0, 60, 4 })
+end
+
+T["css"]["spacing separates an empty block from the following inline run"] = function()
+	run(
+		[[view:render(m.block({ spacing = 1, m.block({}), "a", m.inline({ m.block("b"), "c" }) }))]]
+	)
+	eq(lines(), { "", "a", "b", "c" })
+end
+
+T["css"]["a full-width blank inline-block has only its own blank line"] = function()
+	run([[view:render(m.block({ m.inline({ border = "rounded", width = "full", "" }) }))]])
+	eq(boxes()[1], { 0, 0, 60, 3 })
+end
+
+T["css"]["a split inline's leading padding can wrap after a full word"] = function()
+	run(
+		[[view:render(m.block({ width = 3, "abc", m.inline({ padding_left = 1, m.block("x") }) }))]]
+	)
+	eq(boxes()[1], { 0, 0, 3, 3 })
+	eq(boxes()[3], { 0, 2, 3, 1 })
+end
+
+T["css"]["a clipped descendant caps the baseline of an inline-block"] = function()
+	run(
+		[[view:render(m.block({ m.inline({ width = 3, m.block({ height = 1, overflow = "hidden", "ipsum dolor" }) }) }))]]
+	)
+	eq(boxes()[1], { 0, 0, 60, 1 })
+end
+
+T["css"]["a flex descendant supplies the baseline of an inline-block"] = function()
+	run([[view:render(m.block({ m.inline({ height = 1, m.block("x"), m.flex({ "y" }) }) }))]])
+	eq(boxes()[1], { 0, 0, 60, 2 })
+end
+
+T["css"]["a percentage inline-block fits its content during grid sizing"] = function()
+	run(
+		[[view:render(m.grid({ width = 3, columns = 1, m.block({ m.inline({ width = "full", "tab\there" }) }) }))]]
+	)
+	eq(boxes(), { { 0, 0, 3, 2 }, { 0, 0, 4, 2 }, { 0, 0, 4, 2 } })
+end
+
 T["flex"] = new_set()
 
 T["flex"]["lays items out in a row"] = function()
@@ -664,7 +967,8 @@ T["grid"]["is as wide as the view when full, inside an inline"] = function()
 	run(
 		[[view:render(m.inline({ m.grid({ columns = 2, width = "full", m.inline("a"), "b", "c" }) }))]]
 	)
-	eq(lines(), { "a" .. (" "):rep(29) .. "b", "c" })
+	-- As CSS: neighbouring text is one item, so "b" and "c" share a cell.
+	eq(lines(), { "a" .. (" "):rep(29) .. "bc" })
 end
 
 T["grid"]["survives clipping a full width grid inside an inline"] = function()
@@ -675,7 +979,8 @@ T["grid"]["survives clipping a full width grid inside an inline"] = function()
 		clip("hidden")
 		reactive.flush()
 	]])
-	eq(lines(), { "a" .. (" "):rep(29) .. "b", "c" })
+	-- As CSS: neighbouring text is one item, so "b" and "c" share a cell.
+	eq(lines(), { "a" .. (" "):rep(29) .. "bc" })
 end
 
 T["grid"]["rejects bad tracks"] = function()
@@ -2096,6 +2401,13 @@ T["snap"]["presses land on the snapped node"] = function()
 end
 
 T["wide text"] = new_set()
+
+T["wide text"]["a combining accent takes no cell of its own"] = function()
+	-- "e" with U+0301 is one cell, as Neovim draws it: what follows is next
+	-- to it, not a cell further on.
+	run([[view:render(m.flex({ m.inline("e\u{301}te\u{301}"), m.inline("|") }))]])
+	eq(lines(), { "e\u{301}te\u{301}|" })
+end
 
 --- Display width of every row, which must all reach the same column in a card.
 local function row_widths()

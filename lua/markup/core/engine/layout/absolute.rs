@@ -52,13 +52,19 @@ fn position(tree: &mut Tree, index: Index) {
         tree,
         index,
         Constraints {
-            width,
+            width: if auto_width || style.width == Length::Fit {
+                (width - inset.left.unwrap_or(0) - inset.right.unwrap_or(0)).max(0)
+            } else {
+                width
+            },
             height: Some(height),
             exact_width,
             exact_height,
             intrinsic: exact_width.is_none(),
             fit: exact_width.is_none(),
+            ignore_own_width: false,
             whole_words: false,
+            shares_as_auto: false,
         },
     );
 

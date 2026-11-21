@@ -268,6 +268,7 @@ Fields:
 
 - `borders`: `table` - Top left, top, top right, right, bottom right, bottom, bottom left, left.
 - `style`: `table` - Style properties by name, with the encoder for each value.
+- `valid_utf8`: `function` - Text with every byte that is not part of a UTF-8 character replaced, as what is drawn holds it.
 
 ### markup.view.protocol.check_cell_widths()
 

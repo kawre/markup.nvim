@@ -1531,6 +1531,7 @@ markup.node.props.grow                                *markup.node.props.grow*
 
 markup.node.props.height                            *markup.node.props.height*
     (fun():markup.length|markup.length)?
+    as in CSS, the box keeps it, and what is taller shows below it; `min_height` grows with the content
 
 markup.node.props.inert                              *markup.node.props.inert*
     (boolean|fun():boolean)?
@@ -1558,6 +1559,7 @@ markup.node.props.left                                *markup.node.props.left*
 
 markup.node.props.margin                            *markup.node.props.margin*
     (fun():markup.edges|markup.edges)?
+    vertical margins between blocks collapse, as in CSS: siblings share the larger, and a first or last child's passes through a parent with no padding or border there
 
 markup.node.props.margin_bottom              *markup.node.props.margin_bottom*
     (integer|fun():integer)?
@@ -2487,6 +2489,11 @@ markup.view.protocol.borders                    *markup.view.protocol.borders*
 markup.view.protocol.style                        *markup.view.protocol.style*
     table
     Style properties by name, with the encoder for each value.
+
+markup.view.protocol.valid_utf8              *markup.view.protocol.valid_utf8*
+    function
+    Text with every byte that is not part of a UTF-8 character replaced, as
+    what is drawn holds it.
 
 markup.view.protocol.check_cell_widths()
                                     *markup.view.protocol.check_cell_widths()*

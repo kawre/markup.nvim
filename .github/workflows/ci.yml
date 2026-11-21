@@ -77,6 +77,8 @@ jobs:
               - "lua/**/*.lua"
               - "tests/**"
               - "scripts/minimal_init.lua"
+              - "scripts/run_browser_suite.sh"
+              - "scripts/run_tests.sh"
               - "scripts/coverage.lua"
               - "Makefile"
               - ".stylua.toml"
@@ -246,6 +248,31 @@ jobs:
       - run: nvim --version | head -n 1
       - run: make test_lua
 
+  browser:
+    name: Browser layout comparisons
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: markup_core-Linux-X64
+          path: target/release
+      - uses: rhysd/action-setup-vim@v1
+        with:
+          neovim: true
+          version: stable
+      - run: google-chrome --version
+      - run: nvim -u NONE -l tests/browser/compare.lua
+      - run: make test_lua BROWSER=1
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: browser-comparison-report
+          path: .tests/browser-report.jsonl
+          include-hidden-files: true
+
   coverage-lua:
     name: Coverage (Lua)
     needs: [changes, build]
@@ -347,7 +374,7 @@ jobs:
   ci:
     name: All checks
     if: always()
-    needs: [changes, format, lint, build, versions, test-engine, test, coverage-lua, coverage-rust]
+    needs: [changes, format, lint, build, versions, test-engine, test, browser, coverage-lua, coverage-rust]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

@@ -119,7 +119,10 @@ impl<'a> Row<'a> {
         self.write(cell, text, width, cells);
     }
 
+    /// What of `from..to` shows: nothing left of the first column, which is
+    /// the buffer's edge, nor past what a clipping ancestor leaves.
     fn clipped(&self, from: i32, to: i32) -> (i32, i32) {
+        let from = from.max(0);
         self.clip
             .as_ref()
             .map_or((from, to), |clip| (from.max(clip.start), to.min(clip.end)))
@@ -997,6 +1000,22 @@ mod tests {
         tree.insert(root, after, None).unwrap();
 
         assert_eq!(texts(&render(&mut tree, root)), vec!["aa", "cc"]);
+    }
+
+    #[test]
+    fn text_left_of_the_first_column_is_cut_off() {
+        let mut tree = Tree::default();
+        let label = text(&mut tree, 1, "sliding", 7);
+        let moved = tree.create(2, Display::Block).unwrap();
+        tree.insert(moved, label, None).unwrap();
+        let style = &mut tree.node_mut(moved).style;
+        style.extra_mut().position = crate::engine::style::Position::Relative;
+        style.extra_mut().inset.left = Some(-4);
+
+        let root = tree.create(3, Display::Block).unwrap();
+        tree.insert(root, moved, None).unwrap();
+
+        assert_eq!(texts(&render(&mut tree, root)), vec!["ing"]);
     }
 
     #[test]

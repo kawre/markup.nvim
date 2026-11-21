@@ -22,12 +22,12 @@ local Element = require("markup.element")
 ---@field style? markup.factory.element.style|fun(): markup.factory.element.style? highlight group, or attributes of one
 --- Box
 ---@field width? markup.length|fun(): markup.length
----@field height? markup.length|fun(): markup.length
+---@field height? markup.length|fun(): markup.length as in CSS, the box keeps it, and what is taller shows below it; `min_height` grows with the content
 ---@field min_width? markup.length|fun(): markup.length
 ---@field max_width? markup.length|fun(): markup.length
 ---@field min_height? markup.length|fun(): markup.length
 ---@field max_height? markup.length|fun(): markup.length
----@field margin? markup.edges|fun(): markup.edges
+---@field margin? markup.edges|fun(): markup.edges vertical margins between blocks collapse, as in CSS: siblings share the larger, and a first or last child's passes through a parent with no padding or border there
 ---@field margin_top? integer|fun(): integer
 ---@field margin_right? integer|fun(): integer
 ---@field margin_bottom? integer|fun(): integer
