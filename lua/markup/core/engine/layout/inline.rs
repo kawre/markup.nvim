@@ -1,4 +1,5 @@
-use super::{Space, Strategy, measure, place};
+use super::{Space, Strategy, measure, place, wrap};
+use crate::engine::style::Display;
 use crate::engine::tree::{Index, Size, Tree};
 
 /// Lays children out left to right on one line.
@@ -11,12 +12,14 @@ impl Strategy for Inline {
         let (reverse, spacing) = (entry.style.reverse, entry.style.spacing);
         let mut size = Size::default();
         let mut first = true;
+        let mut children = Vec::new();
 
         tree.for_each_flow_child(node, reverse, &mut |tree, child| {
             if !first {
                 size.width += spacing;
             }
             first = false;
+            children.push(child);
 
             let outer = measure(tree, child, space.child((space.width - size.width).max(0)));
             place(tree, child, size.width, 0);
@@ -24,8 +27,31 @@ impl Strategy for Inline {
             size.height = size.height.max(outer.height);
         });
 
+        // A flex or grid item is sized like a box, as in CSS, so when it is made
+        // narrower than its content, the content wraps inside it as in a block.
+        let overflows = size.width > space.width && space.can_wrap() && tree.text_wraps(node);
+        if overflows && is_item(tree, node) {
+            let wrapped = wrap::flow(tree, &children, space.width, space.width);
+            for &child in &children {
+                place(tree, child, 0, 0);
+            }
+            return wrapped;
+        }
+
         size
     }
+}
+
+/// Whether a node is laid out by a flex or grid container.
+fn is_item(tree: &Tree, node: Index) -> bool {
+    let mut parent = tree.node(node).parent;
+    while let Some(index) = parent {
+        match tree.node(index).display {
+            Display::Contents => parent = tree.node(index).parent,
+            display => return matches!(display, Display::Flex | Display::Grid),
+        }
+    }
+    false
 }
 
 #[cfg(test)]
