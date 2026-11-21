@@ -315,6 +315,11 @@ impl Strategy for Flex {
         let reverse = style.reverse;
         let wrap = extra.wrap;
         let (justify, align, align_content) = (extra.justify, extra.align, extra.align_content);
+        let (min_cross, max_cross) = if axis.column {
+            (extra.min_width, extra.max_width)
+        } else {
+            (extra.min_height, extra.max_height)
+        };
 
         let (row_gap, column_gap) = (
             extra.row_gap.max(style.spacing),
@@ -373,6 +378,23 @@ impl Strategy for Flex {
         let natural_cross: i32 = lines.iter().map(|line| line.cross).sum::<i32>() + cross_gaps;
 
         // A single line takes the whole container, several share what is left.
+        // As CSS: a single line is no taller than the container may be, so
+        // what stretches does not reach past it.
+        if lines.len() == 1 && !wrap && definite_cross.is_none() {
+            let reference = if axis.column {
+                space.width
+            } else {
+                space.height.unwrap_or(0)
+            };
+            let cross = lines[0].cross;
+            let cross = max_cross
+                .resolve(reference)
+                .map_or(cross, |max| cross.min(max));
+            lines[0].cross = min_cross
+                .resolve(reference)
+                .map_or(cross, |min| cross.max(min));
+        }
+
         let mut line_offsets = vec![0; lines.len()];
         if let Some(cross) = definite_cross {
             let free = cross - natural_cross;
@@ -986,6 +1008,35 @@ mod tests {
 
         assert_eq!(size.width, 40);
         assert_eq!(width(&tree, a) + width(&tree, b), 40);
+    }
+
+    #[test]
+    fn a_single_line_is_no_taller_than_max_height() {
+        let mut tree = Tree::default();
+        let short = item(&mut tree, 1, "a");
+        let tall = item(&mut tree, 2, "b\nb\nb\nb");
+        let root = row(&mut tree, &[short, tall]);
+        tree.node_mut(root).style.extra_mut().max_height = Length::Cells(2);
+
+        let size = measure(&mut tree, root, 20);
+
+        // Both stretch to the line, which stops at the container. As in CSS,
+        // the text that does not fit runs past its box.
+        assert_eq!(size.height, 2);
+        assert_eq!(tree.node(short).geometry.outer.height, 2);
+        assert_eq!(tree.node(tall).geometry.outer.height, 2);
+    }
+
+    #[test]
+    fn a_single_line_is_at_least_min_height() {
+        let mut tree = Tree::default();
+        let short = item(&mut tree, 1, "a");
+        let root = row(&mut tree, &[short]);
+        tree.node_mut(root).style.extra_mut().min_height = Length::Cells(3);
+
+        measure(&mut tree, root, 20);
+
+        assert_eq!(tree.node(short).geometry.outer.height, 3);
     }
 
     #[test]
