@@ -1,6 +1,159 @@
-use super::{Space, Strategy, measure, place, wrap};
+use super::wrap::RunItem;
+use super::{Space, Strategy, is_inline_block, measure, place, wrap};
 use crate::engine::style::{Display, Length};
 use crate::engine::tree::{Collapse, Index, Size, Tree};
+use std::collections::HashMap;
+
+/// What a block lays out, in order, once inlines that hold blocks are split
+/// around them as CSS splits them.
+enum Event {
+    /// Inline content: text, an inline, an inline-block.
+    Inline(Index),
+    /// An inline split around the blocks in it: where it starts and ends.
+    Open(Index),
+    Close(Index),
+    Block(Index),
+}
+
+/// Whether an inline holds a block in its flow, so CSS splits it around it.
+fn holds_block(tree: &mut Tree, node: Index) -> bool {
+    let mut found = false;
+    tree.for_each_flow_child(node, false, &mut |tree, child| {
+        let entry = tree.node(child);
+        found = found
+            || !entry.display.is_inline()
+            || (entry.display == Display::Inline
+                && !is_inline_block(&entry.style)
+                && holds_block(tree, child));
+    });
+    found
+}
+
+fn events(tree: &mut Tree, node: Index, out: &mut Vec<Event>) {
+    let reverse = tree.node(node).style.reverse;
+    let mut children = Vec::new();
+    tree.for_each_flow_child(node, reverse, &mut |_, child| children.push(child));
+    for child in children {
+        let entry = tree.node(child);
+        if !entry.display.is_inline() {
+            out.push(Event::Block(child));
+        } else if entry.display == Display::Inline
+            && !is_inline_block(&entry.style)
+            && holds_block(tree, child)
+        {
+            out.push(Event::Open(child));
+            events(tree, child, out);
+            out.push(Event::Close(child));
+        } else {
+            out.push(Event::Inline(child));
+        }
+    }
+}
+
+/// The parts of inlines split around blocks: where each starts, in this
+/// block's content box, and what it sits in.
+#[derive(Default)]
+struct Split {
+    /// Top of each split inline's first part, which is its origin's row.
+    tops: HashMap<Index, i32>,
+    /// The split inline each one sits in, if any.
+    parents: HashMap<Index, Index>,
+}
+
+impl Split {
+    /// Where a split inline's content starts, in this block's content box.
+    fn content(&self, tree: &Tree, node: Index) -> (i32, i32) {
+        let style = &tree.node(node).style;
+        let (margin, inner) = (style.margin, style.inner());
+        (
+            margin.left + inner.left,
+            self.tops[&node] + margin.top + inner.top,
+        )
+    }
+
+    /// Moves a node placed in this block's content box into the content box of
+    /// the split inline it sits in.
+    fn place(&self, tree: &mut Tree, parent: Option<Index>, node: Index, x: i32, y: i32) {
+        let (left, top) = parent.map_or((0, 0), |parent| self.content(tree, parent));
+        place(tree, node, x - left, y - top);
+    }
+}
+
+/// Places a run that holds parts of split inlines. It always flows: each part
+/// needs to know where its pieces landed.
+fn flush_parts(
+    tree: &mut Tree,
+    run: &mut Vec<RunItem>,
+    split: &mut Split,
+    cursor: &mut Cursor,
+    space: Space,
+    wraps: bool,
+) {
+    let top = cursor.y();
+    let mut stack: Vec<Index> = Vec::new();
+    let mut content = false;
+    for item in run.iter_mut() {
+        match item {
+            RunItem::Open { node, first, base } => {
+                if *first {
+                    // The first part: the inline's origin is the start of
+                    // this row, in the content box of what it sits in.
+                    split.tops.insert(*node, top);
+                    if let Some(&parent) = stack.last() {
+                        split.parents.insert(*node, parent);
+                    }
+                    let parent = split.parents.get(node).copied();
+                    split.place(tree, parent, *node, 0, top);
+                    tree.node_mut(*node).fragments = Some(Vec::new());
+                    let style = &tree.node(*node).style;
+                    content |= style.margin.left + style.inner().left > 0;
+                }
+                *base = (0, split.tops[node] - top);
+                stack.push(*node);
+            }
+            RunItem::Close { node, last } => {
+                stack.pop();
+                if *last {
+                    let style = &tree.node(*node).style;
+                    content |= style.margin.right + style.inner().right > 0;
+                }
+            }
+            RunItem::Node(_) => content = true,
+        }
+    }
+
+    // As CSS: a line with nothing on it, not even an edge, takes no row.
+    if content {
+        let limit = if wraps && space.can_wrap() {
+            space.width
+        } else {
+            i32::MAX
+        };
+        let size = wrap::flow_items(tree, run, limit, space.width, !space.whole_words);
+        // What sits outside the split inlines is placed from the run's origin,
+        // as in any run; what is inside them, the flow placed.
+        let mut depth = 0;
+        for item in run.iter() {
+            match *item {
+                RunItem::Open { .. } => depth += 1,
+                RunItem::Close { .. } => depth -= 1,
+                RunItem::Node(child) if depth == 0 => {
+                    let entry = tree.node(child);
+                    if is_inline_block(&entry.style) {
+                        let (x, y) = (entry.geometry.x, entry.geometry.y);
+                        place(tree, child, x, top + y);
+                    } else {
+                        place(tree, child, 0, top);
+                    }
+                }
+                RunItem::Node(_) => {}
+            }
+        }
+        cursor.extend_line(size);
+        cursor.end_line();
+    }
+    run.clear();
+}
 
 /// Stacks block children. Runs of inline children share a line, and wrap when
 /// they do not fit.
@@ -62,7 +215,7 @@ fn flush_run(
 impl Strategy for Block {
     fn arrange(&self, tree: &mut Tree, node: Index, space: Space) -> Size {
         let style = &tree.node(node).style;
-        let (reverse, spacing) = (style.reverse, style.spacing);
+        let spacing = style.spacing;
         let wraps = tree.text_wraps(node);
         let through = Through::of(tree, node, space);
 
@@ -90,15 +243,60 @@ impl Strategy for Block {
             *started = true;
         };
 
-        tree.for_each_flow_child(node, reverse, &mut |tree, child| {
-            if tree.node(child).display.is_inline() {
-                run.push(child);
-                return;
+        let mut stream = Vec::new();
+        events(tree, node, &mut stream);
+        let mut parts: Vec<RunItem> = Vec::new();
+        let mut split = Split::default();
+        // The split inlines open where the next event is, outermost first.
+        let mut inside: Vec<Index> = Vec::new();
+
+        for event in stream {
+            let child = match event {
+                Event::Inline(child) => {
+                    if parts.is_empty() {
+                        run.push(child);
+                    } else {
+                        parts.push(RunItem::Node(child));
+                    }
+                    continue;
+                }
+                Event::Open(inline) => {
+                    parts.extend(run.drain(..).map(RunItem::Node));
+                    parts.push(RunItem::Open {
+                        node: inline,
+                        first: true,
+                        base: (0, 0),
+                    });
+                    inside.push(inline);
+                    continue;
+                }
+                Event::Close(inline) => {
+                    inside.pop();
+                    parts.push(RunItem::Close {
+                        node: inline,
+                        last: true,
+                    });
+                    continue;
+                }
+                Event::Block(child) => child,
+            };
+
+            // A block ends the line, closing the inlines it sits in for now.
+            for &inline in inside.iter().rev() {
+                parts.push(RunItem::Close {
+                    node: inline,
+                    last: false,
+                });
             }
-            if !run.is_empty() {
+            if !parts.is_empty() {
+                parts.extend(run.drain(..).map(RunItem::Node));
+                open(&mut cursor, &mut pending, &mut started);
+                flush_parts(tree, &mut parts, &mut split, &mut cursor, space, wraps);
+            } else if !run.is_empty() {
                 open(&mut cursor, &mut pending, &mut started);
                 flush_run(tree, &mut run, &mut cursor, space, wraps);
             }
+            let sits_in = inside.last().copied();
 
             let outer = measure(tree, child, space.child(space.width));
             let entry = tree.node(child);
@@ -118,25 +316,50 @@ impl Strategy for Block {
                     // bottom one it meets.
                     before.with(Collapse::of(margin.top)).value()
                 };
-                place(tree, child, 0, cursor.y() + past - margin.top);
+                split.place(tree, sits_in, child, 0, cursor.y() + past - margin.top);
                 pending = pending.with(geometry.margin_bottom);
-                return;
+            } else {
+                open(&mut cursor, &mut pending, &mut started);
+                let top = cursor.y();
+                split.place(tree, sits_in, child, 0, top - margin.top);
+                cursor.extend_line(Size {
+                    width: outer.width,
+                    height: outer.height - margin.top - margin.bottom,
+                });
+                cursor.end_line();
+                pending = geometry.margin_bottom;
             }
 
-            open(&mut cursor, &mut pending, &mut started);
-            let top = cursor.y();
-            place(tree, child, 0, top - margin.top);
-            cursor.extend_line(Size {
-                width: outer.width,
-                height: outer.height - margin.top - margin.bottom,
-            });
-            cursor.end_line();
-            pending = geometry.margin_bottom;
-        });
+            // The inlines go on after it, on a line of their own.
+            for &inline in &inside {
+                parts.push(RunItem::Open {
+                    node: inline,
+                    first: false,
+                    base: (0, 0),
+                });
+            }
+        }
 
-        if !run.is_empty() {
+        if !parts.is_empty() {
+            parts.extend(run.drain(..).map(RunItem::Node));
+            open(&mut cursor, &mut pending, &mut started);
+            flush_parts(tree, &mut parts, &mut split, &mut cursor, space, wraps);
+        } else if !run.is_empty() {
             open(&mut cursor, &mut pending, &mut started);
             flush_run(tree, &mut run, &mut cursor, space, wraps);
+        }
+
+        // A split inline covers from its first part to here.
+        for (&inline, &top) in &split.tops {
+            let entry = tree.node_mut(inline);
+            let size = Size {
+                width: space.width,
+                height: (cursor.height - top).max(0),
+            };
+            entry.geometry.content = size;
+            entry.geometry.outer = size;
+            entry.geometry.constraints = None;
+            entry.dirty = false;
         }
 
         let own = tree.node(node).style.margin;

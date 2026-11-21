@@ -150,8 +150,10 @@ fn collect_items(
             let item_align = extra.align_self.unwrap_or(align);
             let (grow, shrink) = (extra.grow, extra.shrink);
             // As CSS: a scroll container, cut off with `hidden`, may shrink
-            // past its content; one cut off with `clip` alone may not.
-            let clips = extra.scrolls;
+            // past its content; one cut off with `clip` alone may not. What
+            // the container itself needs at its narrowest still counts the
+            // content, so that measure keeps it.
+            let clips = extra.scrolls && !space.whole_words;
             let specified = style.width.resolve(reference).map(|width| width + edges);
 
             // Like CSS `min-width: auto` and `min-height: auto`. Text cannot

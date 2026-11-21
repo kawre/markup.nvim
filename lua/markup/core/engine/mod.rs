@@ -319,14 +319,29 @@ impl Engine {
                 row >= top && row < top + height && col >= left && col < left + width.max(1)
             }
         };
-        if !inside {
-            return false;
-        }
-
-        path.push(node.client);
         let style = &node.style;
         let content_x = x + style.margin.left + style.inner().left;
         let content_y = y + style.margin.top + style.inner().top;
+
+        if !inside {
+            // An inline split around a block holds it outside its own pieces:
+            // the cell can still be on what it holds.
+            if node.fragments.is_none() {
+                return false;
+            }
+            let at = path.len();
+            path.push(node.client);
+            let found = node
+                .children
+                .iter()
+                .any(|&child| self.descend_child(child, content_x, content_y, row, col, path));
+            if !found {
+                path.truncate(at);
+            }
+            return found;
+        }
+
+        path.push(node.client);
         node.children
             .iter()
             .any(|&child| self.descend_child(child, content_x, content_y, row, col, path));

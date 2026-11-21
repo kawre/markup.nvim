@@ -47,6 +47,9 @@ struct Span {
 struct Tokens {
     pieces: Vec<Piece>,
     spans: Vec<Span>,
+    /// Parts of inlines split around blocks: added to what earlier parts
+    /// cover, rather than replacing it.
+    parts: Vec<Span>,
     /// Every node visited, so all of them end up clean.
     nodes: Vec<Index>,
 }
@@ -400,16 +403,110 @@ fn break_lines(tree: &Tree, pieces: &[Piece], limit: i32, split_words: bool) -> 
     breaker
 }
 
+/// What a run of inline content holds: nodes, and the edges of an inline that
+/// is split around the blocks inside it, as CSS splits one.
+#[derive(Debug, Clone, Copy)]
+pub enum RunItem {
+    Node(Index),
+    /// Where a part of a split inline starts. Only the first part has its
+    /// left margin, border and padding. `base` is the inline's origin from
+    /// the run's origin.
+    Open {
+        node: Index,
+        first: bool,
+        base: (i32, i32),
+    },
+    /// Where a part ends. Only the last part has its right edges.
+    Close {
+        node: Index,
+        last: bool,
+    },
+}
+
+fn gap_piece(node: Index, base: (i32, i32), width: i32) -> Piece {
+    Piece {
+        kind: Kind::Gap,
+        node,
+        start: 0,
+        end: 0,
+        width,
+        height: 1,
+        baseline: 1,
+        base,
+    }
+}
+
+/// Flows a run of nodes, breaking lines past `limit`; see `flow_items`.
+pub fn flow(tree: &mut Tree, run: &[Index], limit: i32, available: i32, split_words: bool) -> Size {
+    let items: Vec<RunItem> = run.iter().map(|&node| RunItem::Node(node)).collect();
+    flow_items(tree, &items, limit, available, split_words)
+}
+
 /// Lays out a run of inline nodes in `limit` cells at the origin of the run.
 /// Flows a run of inline nodes, breaking lines past `limit`. Whatever cannot
 /// flow, such as a block among them, is laid out for `available`, which a run
 /// that never breaks still needs: `limit` is then unbounded, and a child as
 /// wide as its parent would be that wide too. Without `split_words`, a word
 /// longer than a line runs past it whole.
-pub fn flow(tree: &mut Tree, run: &[Index], limit: i32, available: i32, split_words: bool) -> Size {
+pub fn flow_items(
+    tree: &mut Tree,
+    items: &[RunItem],
+    limit: i32,
+    available: i32,
+    split_words: bool,
+) -> Size {
     let mut tokens = Tokens::default();
-    for &node in run {
-        tokenize(tree, node, (0, 0), available, &mut tokens);
+    // The split inlines open at this point.
+    struct Part {
+        /// Where its pieces start.
+        start: usize,
+        /// Its content's origin, and its own, from the run's origin.
+        inner: (i32, i32),
+        base: (i32, i32),
+    }
+    let mut open: Vec<Part> = Vec::new();
+    for &item in items {
+        match item {
+            RunItem::Node(node) => {
+                let base = open.last().map_or((0, 0), |part| part.inner);
+                tokenize(tree, node, base, available, &mut tokens);
+            }
+            RunItem::Open { node, first, base } => {
+                let style = &tree.node(node).style;
+                let (margin, padding) = (style.margin, style.inner());
+                if first && margin.left > 0 {
+                    tokens.pieces.push(gap_piece(node, base, margin.left));
+                }
+                let start = tokens.pieces.len();
+                if first && padding.left > 0 {
+                    tokens.pieces.push(gap_piece(node, base, padding.left));
+                }
+                let inner = (
+                    base.0 + margin.left + padding.left,
+                    base.1 + margin.top + padding.top,
+                );
+                open.push(Part { start, inner, base });
+            }
+            RunItem::Close { node, last } => {
+                let Some(Part { start, base, .. }) = open.pop() else {
+                    continue;
+                };
+                let style = &tree.node(node).style;
+                let (margin, padding) = (style.margin, style.inner());
+                if last && padding.right > 0 {
+                    tokens.pieces.push(gap_piece(node, base, padding.right));
+                }
+                tokens.parts.push(Span {
+                    node,
+                    first: start,
+                    last: tokens.pieces.len(),
+                    base,
+                });
+                if last && margin.right > 0 {
+                    tokens.pieces.push(gap_piece(node, base, margin.right));
+                }
+            }
+        }
     }
 
     let breaker = break_lines(tree, &tokens.pieces, limit, split_words);
@@ -482,8 +579,10 @@ pub fn flow(tree: &mut Tree, run: &[Index], limit: i32, available: i32, split_wo
             .push(fragment);
     }
 
-    // What each inline element covers on each line, for its highlight.
-    for span in &tokens.spans {
+    // What each inline element covers on each line, for its highlight. A
+    // part of a split inline adds to what its earlier parts cover.
+    let spans = tokens.spans.iter().map(|span| (span, false));
+    for (span, part) in spans.chain(tokens.parts.iter().map(|span| (span, true))) {
         let mut rows: Vec<Fragment> = Vec::new();
         for placed in &breaker.placed {
             if placed.source < span.first || placed.source >= span.last || placed.width == 0 {
@@ -501,7 +600,12 @@ pub fn flow(tree: &mut Tree, run: &[Index], limit: i32, available: i32, split_wo
                 }),
             }
         }
-        tree.node_mut(span.node).fragments = Some(rows);
+        let entry = tree.node_mut(span.node);
+        if part {
+            entry.fragments.get_or_insert_default().extend(rows);
+        } else {
+            entry.fragments = Some(rows);
+        }
     }
 
     size

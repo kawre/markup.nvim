@@ -182,7 +182,12 @@ local function html(node, profile)
 	local display = node.type
 	if
 		display == "inline"
-		and (props.width or props.min_width or props.max_width or props.height)
+		and (
+			(props.width or "auto") ~= "auto"
+			or (props.height or "auto") ~= "auto"
+			or (props.min_width or "auto") ~= "auto"
+			or (props.max_width or "auto") ~= "auto"
+		)
 	then
 		-- markup.nvim sizes an inline that has a width; CSS sizes only an
 		-- inline-block.

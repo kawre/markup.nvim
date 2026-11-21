@@ -485,6 +485,40 @@ T["css"]["text in a flex that is only white space is not drawn"] = function()
 	eq(lines(), { "ab" })
 end
 
+T["css"]["a block in an inline breaks it in two around itself"] = function()
+	run([[view:render(m.block({
+		"x",
+		m.inline({ padding_left = 1, padding_right = 1, "a", m.block("BLOCK"), "b" }),
+		"y",
+	}))]])
+	-- The inline's left padding opens its first part, its right one closes
+	-- its last; the block takes a row of its own, from the left edge.
+	eq(lines(), { "x a", "BLOCK", "b y" })
+end
+
+T["css"]["an inline in a grid is a block"] = function()
+	run([[view:render(m.grid({ columns = 1, m.inline({ "a", m.block("b") }) }))]])
+	eq(lines(), { "a", "b" })
+end
+
+T["css"]["an auto track grows only with room left after the others"] = function()
+	run([[view:render(m.block({ width = 20, m.grid({
+		columns = { "auto", "1fr" },
+		m.block("one two three four"),
+		"averyverylongword",
+	}) }))]])
+	-- The word needs 17 cells and "three" 5: no room is left, so the auto
+	-- track stays at its narrowest, and the two run past the 20.
+	eq(lines(), { "one  averyverylongword", "two", "three", "four" })
+end
+
+T["css"]["a grid that fits its content takes what its tracks need"] = function()
+	run(
+		[[view:render(m.block({ m.inline({ width = "fit", m.grid({ columns = { "auto", "1fr" }, "ab", m.block("cd") }) }), "|" }))]]
+	)
+	eq(lines(), { "abcd|" })
+end
+
 T["css"]["a closing collapse in a grid is as short as a fresh one"] = function()
 	-- Found by tests/test_fuzz.lua once it compared boxes: closing kept the
 	-- collapse's height "auto", so the grid stretched it to its row.

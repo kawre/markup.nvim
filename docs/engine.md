@@ -288,7 +288,22 @@ the fragments it was cut into, and each inline element the area it covers
 on every line, which is what paint draws highlights over.
 
 ```rust
+pub enum RunItem
+```
+
+What a run of inline content holds: nodes, and the edges of an inline that
+is split around the blocks inside it, as CSS splits one.
+0
+
+```rust
 pub fn flow(tree: &mut Tree, run: &[Index], limit: i32, available: i32, split_words: bool) -> Size
+```
+
+Flows a run of nodes, breaking lines past `limit`; see `flow_items`.
+0
+
+```rust
+pub fn flow_items( tree: &mut Tree, items: &[RunItem], limit: i32, available: i32, split_words: bool, ) -> Size
 ```
 
 Lays out a run of inline nodes in `limit` cells at the origin of the run.

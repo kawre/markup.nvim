@@ -106,11 +106,15 @@ pub trait Strategy {
     fn arrange(&self, tree: &mut Tree, node: Index, space: Space) -> Size;
 }
 
-fn strategy(display: Display, style: &Style) -> &'static dyn Strategy {
-    match display {
-        // An inline given a size is a box, as CSS `inline-block`: what it holds
-        // lays out as in a block, its text wrapping inside it.
-        Display::Inline if is_inline_block(style) => &block::Block,
+fn strategy(tree: &Tree, index: Index) -> &'static dyn Strategy {
+    let node = tree.node(index);
+    match node.display {
+        // An inline given a size is a box, as CSS `inline-block`, and so is a
+        // flex or grid item, which CSS makes a block: what it holds lays out
+        // as in a block, its text wrapping inside it.
+        Display::Inline if is_inline_block(&node.style) || inline::is_item(tree, index) => {
+            &block::Block
+        }
         Display::Block => &block::Block,
         Display::Inline => &inline::Inline,
         Display::Flex => &flex::Flex,
@@ -198,7 +202,7 @@ pub fn measure(tree: &mut Tree, index: Index, constraints: Constraints) -> Size 
     geometry.margin_bottom = Collapse::of(margin.bottom);
     geometry.collapses_through = false;
 
-    let strategy = strategy(display, &tree.node(index).style);
+    let strategy = strategy(tree, index);
     let mut content = strategy.arrange(tree, index, space);
 
     let fills = display.fills_width() && width != Length::Fit && !constraints.intrinsic;

@@ -1,4 +1,4 @@
-use super::{Space, Strategy, measure, place, wrap};
+use super::{Space, Strategy, measure, place};
 use crate::engine::style::Display;
 use crate::engine::tree::{Index, Size, Tree};
 
@@ -34,29 +34,12 @@ impl Strategy for Inline {
             size.height = 1;
         }
 
-        // A flex or grid item is sized like a box, as in CSS, so when it is made
-        // narrower than its content, the content wraps inside it as in a block.
-        let overflows = size.width > space.width && space.can_wrap() && tree.text_wraps(node);
-        if overflows && is_item(tree, node) {
-            let wrapped = wrap::flow(
-                tree,
-                &children,
-                space.width,
-                space.width,
-                !space.whole_words,
-            );
-            for &child in &children {
-                place(tree, child, 0, 0);
-            }
-            return wrapped;
-        }
-
         size
     }
 }
 
 /// Whether a node is laid out by a flex or grid container.
-fn is_item(tree: &Tree, node: Index) -> bool {
+pub(super) fn is_item(tree: &Tree, node: Index) -> bool {
     let mut parent = tree.node(node).parent;
     while let Some(index) = parent {
         match tree.node(index).display {
