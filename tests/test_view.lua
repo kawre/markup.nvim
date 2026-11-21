@@ -367,6 +367,36 @@ T["flex"]["wraps"] = function()
 	eq(lines(), { "aaa  bbb", "", "ccc" })
 end
 
+T["flex"]["a shrunk inline item wraps its text inside itself"] = function()
+	run([[view:render(m.flex({ width = 14, m.inline("aaaa bbbb cccc"), m.block("dddddddddd") }))]])
+	-- The inline gets 8 cells and its text breaks inside them, rather than
+	-- running on under the block next to it.
+	eq(lines(), { "aaaa    dddddd", "bbbb    dddd", "cccc" })
+end
+
+T["flex"]["a margin does not shrink and does not weigh in"] = function()
+	run([[view:render(m.flex({
+		width = 30, m.block({ "aaaaaaaaaa", margin_left = 20 }), m.block("bbbbbbbbbb"),
+	}))]])
+	eq(lines(), { "                    aaaaabbbbb", "                    aaaaabbbbb" })
+end
+
+T["flex"]["an item that cannot wrap does not shrink below its text"] = function()
+	run([[view:render(m.flex({
+		width = 14, m.block({ "aaaaaaaaaa", white_space = "nowrap" }), m.block("bbbbbbbbbb"),
+	}))]])
+	eq(lines(), { "aaaaaaaaaabbbb", "          bbbb", "          bb" })
+end
+
+T["flex"]["an item that clips may shrink below its text"] = function()
+	run([[view:render(m.flex({
+		width = 14,
+		m.block({ "aaaaaaaaaa", white_space = "nowrap", overflow = "hidden" }),
+		m.block("bbbbbbbbbb"),
+	}))]])
+	eq(lines(), { "aaaaaaabbbbbbb", "       bbb" })
+end
+
 T["flex"]["updates when a child changes size"] = function()
 	run([[
 		name = m.signal("a")
