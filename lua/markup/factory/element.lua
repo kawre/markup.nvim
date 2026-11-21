@@ -84,6 +84,7 @@ local Element = require("markup.element")
 ---@field click? "single"|"double"|false which click of the mouse presses it, single by default
 ---@field on_hover? fun(hovered: boolean) called as the cursor comes onto the element and leaves it
 ---@field interactive? boolean|fun(): boolean a place the cursor can land, without `on_press`
+---@field inert? boolean|fun(): boolean the element and all in it take no cursor: no snapping onto them, no hover, no press
 ---@field snap? boolean|fun(): boolean with `false`, a view with `snap = "text"` moves the cursor
 --- past the text in here, such as labels and decoration. Inherited, so `true` inside brings it
 --- back. Interactive nodes are always a place to land.

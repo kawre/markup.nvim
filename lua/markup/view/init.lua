@@ -66,6 +66,7 @@ end
 function M:new(win, opts)
 	opts = opts or {}
 	self.win = win
+	self.snap = opts.snap
 	self.snap_text = opts.snap == "text"
 	self.hide_cursor = opts.hide_cursor
 	Markup.views[self] = true
@@ -84,6 +85,7 @@ function M:new(win, opts)
 	self.fixed = {} ---@type markup.view.fixed[]
 	self.top_row = reactive.signal(0)
 	self.width_cells = reactive.signal(self:width())
+	self.height_cells = reactive.signal(self:height())
 	self.stats = { commands = 0, lines = 0, layout = 0, paint = 0, diff = 0, engine = 0, apply = 0 }
 	self.last_id = protocol.ROOT
 	self.commit_job = function()
@@ -92,6 +94,7 @@ function M:new(win, opts)
 
 	win:on("WinResized", function()
 		if win:valid() and vim.tbl_contains(vim.v.event.windows, win.win) then
+			self.height_cells(self:height())
 			-- Laid out again whatever changed, which also keeps the scroll where
 			-- it was when only the height did.
 			self:sync_width(true)
@@ -128,6 +131,10 @@ function M:new(win, opts)
 	end
 
 	win:on("CursorMoved", function()
+		-- Held still, see `hold_cursor`: what moves under it is not the user.
+		if self.held then
+			return
+		end
 		if opts.snap then
 			self:snap_cursor()
 		end
@@ -175,6 +182,7 @@ function M:sync_width(always)
 	self.laid_width = width
 	self.commands:resize(width)
 	self.width_cells(width)
+	self.height_cells(self:height())
 	return true
 end
 
@@ -390,6 +398,59 @@ function M:columns()
 	return self.width_cells()
 end
 
+--- Height of the window. Reading it tracks resizes.
+---@return integer
+function M:rows()
+	return self.height_cells()
+end
+
+--- Height to lay out for, which hidden windows can only estimate.
+---@return integer
+function M:height()
+	return self.win:win_valid() and api.nvim_win_get_height(self.win.win) or vim.o.lines
+end
+
+--- Keeps the cursor where it is while what is under it moves, such as during
+--- a transition: rows added above it do not carry it along, nothing snaps it
+--- onto what passes by, and nothing is hovered. `at` is where it waits, its
+--- `{ row, col }` as `nvim_win_get_cursor` gives it, where it is by default.
+--- Returns a function that lets it go, which snaps it to the nearest node.
+---@param at? integer[]
+---@return fun() release
+function M:hold_cursor(at)
+	if not self.win:win_valid() then
+		return function() end
+	end
+	local held = at or api.nvim_win_get_cursor(self.win.win)
+	self.held = held
+	self:place_held()
+	self:update_hover()
+
+	return function()
+		if self.held ~= held then
+			return
+		end
+		self.held = nil
+		self.cursor = nil
+		if self.win:win_valid() and api.nvim_get_current_win() == self.win.win then
+			if self.snap then
+				self:snap_cursor()
+			end
+			self:update_hover()
+		end
+	end
+end
+
+--- Puts a held cursor back where it waits, after lines moved it.
+function M:place_held()
+	if not (self.held and self.win:win_valid()) then
+		return
+	end
+	local last = api.nvim_buf_line_count(self.win.buf)
+	api.nvim_win_set_cursor(self.win.win, { math.min(self.held[1], last), self.held[2] })
+	self.cursor = nil
+end
+
 --- Rows scrolled past the top of the window. Reading it tracks the scrolling.
 ---@return integer
 function M:scroll()
@@ -409,7 +470,8 @@ function M:update_hover()
 		return
 	end
 
-	local id = self:node_at_cursor()
+	-- A held cursor hovers nothing: what passes under it is not the user's.
+	local id = not self.held and self:node_at_cursor() or nil
 	if id == self.hovered then
 		return
 	end
@@ -573,6 +635,8 @@ function M:commit()
 	if stats.lines > 0 then
 		keep_drawing()
 	end
+
+	self:place_held()
 
 	for _, listener in ipairs(self.commit_listeners) do
 		listener()

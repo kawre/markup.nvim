@@ -247,13 +247,23 @@ impl Engine {
         (geometry.x, geometry.y)
     }
 
-    /// Finds the innermost interactive node on a cell.
+    /// Finds the innermost interactive node on a cell. Nothing under an inert
+    /// node counts.
     pub fn node_at(&self, row: i32, col: i32) -> Option<ClientId> {
-        self.path_at(row, col).into_iter().rev().find(|&id| {
-            self.tree
-                .index_of(id)
-                .is_ok_and(|index| self.tree.node(index).style.interactive)
-        })
+        let mut found = None;
+        for id in self.path_at(row, col) {
+            let Ok(index) = self.tree.index_of(id) else {
+                continue;
+            };
+            let style = &self.tree.node(index).style;
+            if style.extra().inert {
+                break;
+            }
+            if style.interactive {
+                found = Some(id);
+            }
+        }
+        found
     }
 
     /// Every node on a cell, from the root down to the innermost one. Absolute
@@ -508,6 +518,22 @@ mod tests {
         // Padding and content are the node.
         assert_eq!(engine.node_at(1, 2), Some(2));
         assert_eq!(engine.node_at(1, 6), Some(2));
+    }
+
+    #[test]
+    fn node_at_finds_nothing_under_an_inert_node() {
+        let mut engine = Engine::new(20);
+        block(&mut engine, 2, ROOT, "outer");
+        block(&mut engine, 3, 2, "inner");
+        let property = StyleProperty::Interactive(true);
+        engine.apply(Command::SetStyle { id: 3, property }).unwrap();
+        engine.render(|_, _| ());
+        assert_eq!(engine.node_at(1, 0), Some(3));
+
+        let property = StyleProperty::Inert(true);
+        engine.apply(Command::SetStyle { id: 2, property }).unwrap();
+        engine.render(|_, _| ());
+        assert_eq!(engine.node_at(1, 0), None);
     }
 
     #[test]

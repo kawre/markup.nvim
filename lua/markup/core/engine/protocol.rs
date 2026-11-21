@@ -63,6 +63,7 @@ pub enum StyleProperty {
     OverflowY(Overflow),
     OverflowX(Overflow),
     Snap(Option<bool>),
+    Inert(bool),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -128,6 +129,7 @@ impl StyleProperty {
             StyleProperty::OverflowY(value) => style.extra_mut().set_overflow(None, Some(value)),
             StyleProperty::OverflowX(value) => style.extra_mut().set_overflow(Some(value), None),
             StyleProperty::Snap(value) => style.extra_mut().snap = value,
+            StyleProperty::Inert(value) => style.extra_mut().inert = value,
         }
     }
 }
@@ -386,6 +388,7 @@ impl Reader<'_> {
             45 => StyleProperty::OverflowY(self.overflow()?),
             46 => StyleProperty::OverflowX(self.overflow()?),
             47 => StyleProperty::Snap(self.optional()?.map(|value| value != 0)),
+            48 => StyleProperty::Inert(self.int()? != 0),
             other => return Err(LuaError::runtime(format!("unknown style property {other}"))),
         })
     }

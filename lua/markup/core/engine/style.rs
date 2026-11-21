@@ -172,6 +172,9 @@ pub struct Extra {
     pub white_space: Option<WhiteSpace>,
     /// Whether text is a place a snapping cursor lands on. Unset inherits.
     pub snap: Option<bool>,
+    /// The node and everything under it take no cursor: no snapping onto them,
+    /// no hover and no press, such as a page on its way out.
+    pub inert: bool,
 
     pub border: Option<Border>,
 
@@ -257,6 +260,7 @@ impl Default for Extra {
         Extra {
             white_space: None,
             snap: None,
+            inert: false,
             border: None,
             overflow_x: Overflow::Visible,
             overflow_y: Overflow::Visible,
