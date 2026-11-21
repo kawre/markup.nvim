@@ -80,6 +80,7 @@ impl Axis {
                 exact_height: Some(main),
                 intrinsic: cross.is_none(),
                 fit: cross.is_none(),
+                whole_words: false,
             }
         } else {
             Constraints {
@@ -89,6 +90,7 @@ impl Axis {
                 exact_height: cross,
                 intrinsic: false,
                 fit: false,
+                whole_words: false,
             }
         }
     }
@@ -160,7 +162,7 @@ fn collect_items(
                 } else if clips {
                     0
                 } else {
-                    let narrowest = measure(tree, index, Constraints::fit_content(0)).width;
+                    let narrowest = measure(tree, index, Constraints::min_content()).width;
                     specified.map_or(narrowest, |specified| narrowest.min(specified))
                 }
             });
@@ -525,8 +527,8 @@ mod tests {
     fn shrink_is_weighted_by_size() {
         let mut tree = Tree::default();
         let (a, b) = (
-            item(&mut tree, 1, "aaaaaaaaaa"),
-            item(&mut tree, 2, "bbbbbbbbbbbbbbbbbbbb"),
+            item(&mut tree, 1, "aaaa aaaaa"),
+            item(&mut tree, 2, "bbbb bbbb bbbb bbbbb"),
         );
         let root = row(&mut tree, &[a, b]);
 
@@ -540,7 +542,7 @@ mod tests {
         let mut tree = Tree::default();
         let (a, b) = (
             item(&mut tree, 1, "aaaaaaaaaa"),
-            item(&mut tree, 2, "bbbbbbbbbb"),
+            item(&mut tree, 2, "bb bb bb b"),
         );
         tree.node_mut(a).style.extra_mut().shrink = 0.0;
         let root = row(&mut tree, &[a, b]);
@@ -892,8 +894,8 @@ mod tests {
     fn a_margin_does_not_shrink_and_does_not_weigh_in() {
         let mut tree = Tree::default();
         let (a, b) = (
-            item(&mut tree, 1, "aaaaaaaaaa"),
-            item(&mut tree, 2, "bbbbbbbbbb"),
+            item(&mut tree, 1, "aaaa aaaaa"),
+            item(&mut tree, 2, "bbbb bbbbb"),
         );
         tree.node_mut(a).style.margin.left = 20;
         let root = row(&mut tree, &[a, b]);
@@ -912,7 +914,7 @@ mod tests {
         let mut tree = Tree::default();
         let (a, b) = (
             item(&mut tree, 1, "aaaaaaaaaa"),
-            item(&mut tree, 2, "bbbbbbbbbb"),
+            item(&mut tree, 2, "bb bb bb b"),
         );
         tree.node_mut(a).style.extra_mut().white_space = Some(WhiteSpace::Nowrap);
         let root = row(&mut tree, &[a, b]);
@@ -924,11 +926,40 @@ mod tests {
     }
 
     #[test]
+    fn an_item_does_not_shrink_below_its_longest_word() {
+        let mut tree = Tree::default();
+        let (a, b) = (
+            item(&mut tree, 1, "aaaaaaaa a"),
+            item(&mut tree, 2, "bb bb bb b"),
+        );
+        let root = row(&mut tree, &[a, b]);
+
+        // As CSS `min-width: auto`: "aaaaaaaa" stays whole, and `b` gives up
+        // what `a` cannot.
+        measure(&mut tree, root, 12);
+
+        assert_eq!((width(&tree, a), width(&tree, b)), (8, 4));
+    }
+
+    #[test]
+    fn a_word_longer_than_its_line_still_breaks_when_drawn() {
+        let mut tree = Tree::default();
+        let label = text(&mut tree, 1, "aaaaaaaaaa");
+        let root = element(&mut tree, 2, Display::Block, &[label]);
+
+        measure(&mut tree, root, 4);
+
+        // Only the minimum keeps words whole; laid out, a long word breaks.
+        let fragments = tree.node(label).fragments.as_ref().map(Vec::len);
+        assert_eq!(fragments, Some(3));
+    }
+
+    #[test]
     fn an_item_that_clips_may_shrink_below_its_text() {
         let mut tree = Tree::default();
         let (a, b) = (
             item(&mut tree, 1, "aaaaaaaaaa"),
-            item(&mut tree, 2, "bbbbbbbbbb"),
+            item(&mut tree, 2, "bbbb bbbbb"),
         );
         let extra = tree.node_mut(a).style.extra_mut();
         extra.white_space = Some(WhiteSpace::Nowrap);

@@ -29,6 +29,10 @@ pub struct Constraints {
     pub intrinsic: bool,
     /// With `intrinsic`, still wrap at `width`, like CSS `fit-content`.
     pub fit: bool,
+    /// Keep each word whole, even past `width`. A word longer than its line
+    /// still breaks when drawn, as with CSS `overflow-wrap: break-word`, but
+    /// the narrowest a node can be is its longest word, as CSS `min-content`.
+    pub whole_words: bool,
 }
 
 impl Constraints {
@@ -40,6 +44,7 @@ impl Constraints {
             exact_height: None,
             intrinsic: false,
             fit: false,
+            whole_words: false,
         }
     }
 
@@ -56,6 +61,15 @@ impl Constraints {
             ..Self::intrinsic(width)
         }
     }
+
+    /// The narrowest a node can be: as narrow as wrapping allows, with each
+    /// word whole.
+    pub fn min_content() -> Self {
+        Constraints {
+            whole_words: true,
+            ..Self::fit_content(0)
+        }
+    }
 }
 
 /// The content box a strategy arranges children in.
@@ -65,6 +79,7 @@ pub struct Space {
     pub height: Option<i32>,
     pub intrinsic: bool,
     pub fit: bool,
+    pub whole_words: bool,
 }
 
 impl Space {
@@ -78,6 +93,7 @@ impl Space {
         Constraints {
             intrinsic: self.intrinsic,
             fit: self.fit,
+            whole_words: self.whole_words,
             ..Constraints::available(width)
         }
     }
@@ -135,6 +151,7 @@ fn content_space(style: &Style, constraints: Constraints) -> Space {
         height: height.map(|height| height.max(0)),
         intrinsic: (constraints.intrinsic || style.width == Length::Fit) && !exact,
         fit: constraints.fit || style.width == Length::Fit,
+        whole_words: constraints.whole_words,
     }
 }
 
