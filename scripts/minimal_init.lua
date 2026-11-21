@@ -1,6 +1,10 @@
 -- Add current directory to 'runtimepath' to be able to use 'lua' files
 vim.cmd([[let &rtp.=','.getcwd()]])
 
+if vim.env.MARKUP_BROWSER_DIR then
+	dofile("tests/browser/capture.lua")
+end
+
 -- Collect Lua coverage with LuaCov when `MARKUP_COVERAGE` is set (`make coverage`).
 -- Every Neovim, the test runner and each child, writes stats of its own, which
 -- `scripts/coverage.lua` merges into one report.
@@ -48,6 +52,19 @@ if #vim.api.nvim_list_uis() == 0 then
 				stdout.update(id)
 				local case = MiniTest.current.all_cases[id]
 				local state = case.exec and case.exec.state or "start"
+				if vim.env.MARKUP_BROWSER_DIR then
+					local name = ("%d %s"):format(id, table.concat(case.desc, " | "))
+						.. " "
+						.. vim.inspect(case.args, { newline = "", indent = "" })
+					if vim.env.MARKUP_BROWSER_CASE ~= name then
+						vim.env.MARKUP_BROWSER_CASE = name
+						vim.fn.writefile(
+							{ name },
+							vim.env.MARKUP_BROWSER_DIR .. "/" .. vim.fn.getpid() .. ".cases",
+							"a"
+						)
+					end
+				end
 				if seen[id] ~= state then
 					seen[id] = state
 					io.stderr:write(

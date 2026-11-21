@@ -26,7 +26,7 @@ test: build test_lua
 # Run all test files on the engine already built, as CI does with a downloaded
 # one: at once on every core, with a progress bar
 test_lua: deps/mini.test
-	@scripts/run_tests.sh $(JOBS) $(TEST_TIMEOUT) $(NVIM_TEST)
+	@$(if $(filter 1,$(BROWSER)),scripts/run_browser_suite.sh,scripts/run_tests.sh) $(JOBS) $(TEST_TIMEOUT) $(NVIM_TEST)
 
 # Run the engine's unit tests
 test_engine:

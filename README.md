@@ -131,6 +131,7 @@ rest of the docs. Both are generated from the code and carry its version.
 
 ```sh
 make test          # build the engine and run the Neovim tests
+make test BROWSER=1 # also compare committed views against Chromium
 make test_engine   # the engine's own tests
 make format        # StyLua and rustfmt
 make lint          # clippy

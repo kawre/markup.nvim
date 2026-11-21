@@ -24,3 +24,13 @@ return {
 ```
 
 Chromium gives the child at `/1/1` the rectangle `[0, 0, 5, 2]`. This fixture detects a width error even though both renderers display a blank surface.
+
+## Existing Neovim tests
+
+Run `make test BROWSER=1` to instrument the existing MiniTest suite. The dedicated **Browser layout comparisons** CI job uses this mode on stable Neovim. Ordinary tests and coverage use their usual runner.
+
+Each attached markup view records distinct committed frames from the running test, including reactive updates and resizes. The capture uses the mounted node tree, the input style values sent to the engine, its computed boxes, and the painted buffer. Chromium processes the captured layouts in batches after MiniTest finishes, so browser startup does not run inside animation or input callbacks.
+
+The runner compares whole-cell rectangles and printable ASCII text where the browser profile applies. Frames containing unsupported inputs, such as wide characters, carry a skip reason. Borders, clipping, and absolutely positioned content get geometry checks only. Tests that exercise signals, configuration, or other behavior without rendering a view still run their original assertions.
+
+The job fails on a test failure, a browser mismatch, a capture error, or zero successful comparisons. Its `browser-comparison-report` artifact (`.tests/browser-report.jsonl` locally) contains counts per test case, skip reasons, and the viewport and translated HTML for mismatches. A mismatch records a difference from browser CSS, which can also be an intentional TUI convention.

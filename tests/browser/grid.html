@@ -4,12 +4,12 @@
   body { margin: 0; font: 20px/20px monospace; font-size-adjust: ch-width 0.5; font-variant-ligatures: none; }
   main { display: flow-root; white-space: pre-wrap; overflow-wrap: anywhere; }
 </style>
-<main style="width:WIDTHch">CONTENT</main>
+FIXTURES
 <output></output>
 <script>
-  const root = document.querySelector("main");
+function measure(root) {
   const origin = root.getBoundingClientRect();
-  const cellWidth = origin.width / WIDTH;
+  const cellWidth = origin.width / Number(root.dataset.columns);
   const lineHeight = parseFloat(getComputedStyle(root).lineHeight);
   const boxes = [];
   function visit(parent, path) {
@@ -54,5 +54,8 @@
   }
 
   visit(root, "");
-  document.querySelector("output").textContent = btoa(JSON.stringify({boxes, text: CHECK_TEXT ? textRows() : undefined}));
+  return {boxes, text: root.hasAttribute("data-text") ? textRows() : undefined};
+}
+const results = Array.from(document.querySelectorAll("main"), measure);
+document.querySelector("output").textContent = btoa(JSON.stringify(results));
 </script>
