@@ -569,6 +569,15 @@ function M:destroy()
 	end
 	self.hide_cursor = false
 	self:release_cursor()
+	-- What presses is bound on the window, which outlives the view: left there,
+	-- it would keep the view alive and press nothing.
+	for _, lhs in ipairs(self.press_keys or {}) do
+		if self.key_stacks["n " .. lhs] then
+			self.key_stacks["n " .. lhs] = nil
+			pcall(self.win.unmap, self.win, "n", lhs)
+		end
+	end
+	self.press_keys = {}
 	self:unmount()
 	self:commit()
 	self.destroyed = true
@@ -861,6 +870,8 @@ function M:bind_press(keys)
 		self.win:map("n", lhs, function()
 			stack[#stack].fn()
 		end)
+		self.press_keys = self.press_keys or {}
+		table.insert(self.press_keys, lhs)
 	end
 end
 
