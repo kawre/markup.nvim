@@ -13,6 +13,7 @@ local Element = require("markup.element")
 ---@alias markup.justify "start"|"end"|"center"|"between"|"around"|"evenly"|"stretch"
 ---@alias markup.track integer|"auto"|string cells, as wide as the content, or a share such as `"1fr"`
 ---@alias markup.border "single"|"rounded"|"double"|"heavy"|"half"|{ chars: string }
+---@alias markup.overflow "visible"|"hidden"|"clip" `hidden` cuts off, `clip` cuts off along one axis alone
 
 --- Props every element takes. Each value can also be a function, which is read
 --- again whenever a signal it reads changes, updating only that property.
@@ -39,8 +40,9 @@ local Element = require("markup.element")
 ---@field border? markup.border drawn inside the box, around the padding
 ---@field border_style? string highlight of the border
 ---@field border_sides? ("top"|"right"|"bottom"|"left")[] the sides to draw, all by default
----@field overflow? "visible"|"hidden"|fun(): "visible"|"hidden" cuts off what does not fit
----@field overflow_x? "visible"|"hidden"|fun(): "visible"|"hidden" cuts off only what is too wide
+---@field overflow? markup.overflow|fun(): markup.overflow sets `overflow_x` and `overflow_y`, as in CSS
+---@field overflow_x? markup.overflow|fun(): markup.overflow cuts off what is too wide. As in CSS, `hidden` cuts off what is too tall too, unless `overflow_y` says otherwise, and `clip` cuts off only this axis
+---@field overflow_y? markup.overflow|fun(): markup.overflow cuts off what is too tall. As in CSS, `hidden` cuts off what is too wide too, unless `overflow_x` says otherwise, and `clip` cuts off only this axis
 ---@field white_space? "normal"|"nowrap"|fun(): "normal"|"nowrap" whether text wraps, inherited
 --- Flex and grid
 ---@field direction? "row"|"column"|fun(): "row"|"column"

@@ -54,7 +54,8 @@ function M.use_key(lhs, fn, opts)
 	local win = view.win
 
 	-- Components can overlap, such as pages during a slide, so the latest one wins
-	-- and the key goes back to the one before it when that unmounts.
+	-- and the key goes back to the one before it when that unmounts, or to the
+	-- view's own press when it was a press key.
 	local id = mode .. " " .. lhs
 	local stack = view.key_stacks[id]
 	if not stack then

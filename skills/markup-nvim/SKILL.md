@@ -50,11 +50,7 @@ view:render(m.block({
     end,
   }),
 }))
-
--- A mouse click presses a button already. Keys are not bound for you:
-vim.keymap.set("n", "<CR>", function()
-  view:press()
-end, { buffer = win.buf })
+-- A click or <CR> presses the button.
 ```
 
 ## Elements
@@ -82,7 +78,7 @@ Props (all of them are in `reference/elements.md` under `markup.node.props`):
 - Box: `width`, `height`, `min_*`, `max_*` (cells, `"auto"`, `"fit"`, `"full"`),
   `margin`, `padding` (one number, or CSS order such as `{ y, x }`),
   `border` (`"single"`, `"rounded"`, `"double"`, `"heavy"`, `"half"`),
-  `border_style`, `border_sides`, `overflow`, `overflow_x`, `white_space`.
+  `border_style`, `border_sides`, `overflow`, `overflow_x`, `overflow_y`, `white_space`.
 - Flex and grid: `direction`, `vertical`, `reverse`, `wrap`, `justify`,
   `align`, `align_self`, `gap`, `grow`, `shrink`, `basis`, `columns`, `rows`,
   `column`, `row`, `column_span`, `row_span`.
@@ -165,8 +161,10 @@ windows relative to others. See `reference/window.md`.
 
 ## Pitfalls
 
-- **Keys are not bound for you.** `on_press` fires on a mouse click. Bind
-  `<CR>` (or any key) to `view:press()` yourself, or use `m.use_key`.
+- **`<CR>` presses, like a click.** The view binds it to `view:press()`. Choose
+  other keys with `Markup.view(win, { press_key = { "<CR>", "<Space>" } })`, or
+  none with `press_key = false`. A component's `m.use_key("<CR>", ...)` takes it
+  over while mounted. Do not bind `<CR>` to `view:press()` yourself.
 - **`width` is the content box.** Padding and border are added around it, as
   in CSS `box-sizing: content-box`. `width = 8, padding = { 0, 2 }` takes 12 cells.
 - **Render once.** Change signals to update the UI. Do not call

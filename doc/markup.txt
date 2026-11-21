@@ -47,6 +47,7 @@ CONTENTS                                                     *markup-contents*
     markup.node.props....................................|markup.node.props|
     markup.object............................................|markup.object|
     markup.object.type..................................|markup.object.type|
+    markup.overflow........................................|markup.overflow|
     markup.picker............................................|markup.picker|
     markup.picker.item..................................|markup.picker.item|
     markup.picker.opts..................................|markup.picker.opts|
@@ -1587,12 +1588,16 @@ markup.node.props.order                              *markup.node.props.order*
     (integer|fun():integer)?
 
 markup.node.props.overflow                        *markup.node.props.overflow*
-    ("hidden"|"visible"|fun():"hidden"|"visible")?
-    cuts off what does not fit
+    (fun():markup.overflow|markup.overflow)?
+    sets `overflow_x` and `overflow_y`, as in CSS
 
 markup.node.props.overflow_x                    *markup.node.props.overflow_x*
-    ("hidden"|"visible"|fun():"hidden"|"visible")?
-    cuts off only what is too wide
+    (fun():markup.overflow|markup.overflow)?
+    cuts off what is too wide. As in CSS, `hidden` cuts off what is too tall too, unless `overflow_y` says otherwise, and `clip` cuts off only this axis
+
+markup.node.props.overflow_y                    *markup.node.props.overflow_y*
+    (fun():markup.overflow|markup.overflow)?
+    cuts off what is too tall. As in CSS, `hidden` cuts off what is too wide too, unless `overflow_x` says otherwise, and `clip` cuts off only this axis
 
 markup.node.props.overlay                          *markup.node.props.overlay*
     boolean?
@@ -1689,6 +1694,15 @@ markup.object.type                                        *markup.object.type*
 
 >lua
     markup.object.type = markup.object.type
+<
+
+==============================================================================
+markup.overflow                                              *markup.overflow*
+
+    lua/markup/factory/element.lua
+
+>lua
+    markup.overflow = markup.overflow
 <
 
 ==============================================================================
@@ -2020,6 +2034,16 @@ markup.view:apply()                                      *markup.view:apply()*
 markup.view:attach()                                    *markup.view:attach()*
     markup.view:attach()
     Starts over from a blank buffer, which the engine's next frame then fills.
+
+markup.view:bind_press()                            *markup.view:bind_press()*
+    markup.view:bind_press(keys?: string|string[]|false)
+    Binds the keys that press, under whatever `m.use_key` binds to them later:
+    a component can take one over while it is mounted.
+
+>lua
+    keys:
+       | false
+<
 
 markup.view:click()                                      *markup.view:click()*
     markup.view:click(mouse: table, kind?: "double"|"single")
@@ -2392,6 +2416,10 @@ markup.view.opts                                            *markup.view.opts*
 markup.view.opts.hide_cursor                    *markup.view.opts.hide_cursor*
     boolean?
     hide the cursor in normal mode while in this window,
+
+markup.view.opts.press_key                        *markup.view.opts.press_key*
+    (string|string[]|false)?
+    the keys that press what is under the
 
 markup.view.opts.snap                                  *markup.view.opts.snap*
     (boolean|"text")?

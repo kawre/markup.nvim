@@ -327,6 +327,7 @@ impl Strategy for Grid {
                     exact_height: stretch_y.then_some(height),
                     intrinsic: !stretch_x,
                     fit: !stretch_x,
+                    whole_words: false,
                 },
             );
 

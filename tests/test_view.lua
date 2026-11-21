@@ -293,6 +293,84 @@ T["white_space"]["changing it back inside a component wraps again"] = function()
 	eq(lines(), { "one two three four", "five six seven" })
 end
 
+--- Six words of four letters, 29 cells: text that can wrap at every word.
+local function words(letter)
+	return ("%q"):format(vim.fn.join(vim.fn["repeat"]({ letter:rep(4) }, 6), " "))
+end
+
+T["overflow"] = new_set()
+
+T["overflow"]["hidden cuts off what is too wide, too"] = function()
+	run([[view:render(m.block({
+		width = 4, overflow = "hidden", m.block({ white_space = "nowrap", "abcdefghij" }),
+	}))]])
+	eq(lines(), { "abcd" })
+end
+
+T["overflow"]["hidden cuts off what is too tall"] = function()
+	run([[view:render(m.block({
+		m.block({ height = 1, overflow = "hidden", m.block("a"), m.block("b") }),
+		m.block("c"),
+	}))]])
+	eq(lines(), { "a", "c" })
+end
+
+T["overflow"]["overflow_y hidden cuts off what is too wide, as in CSS"] = function()
+	run([[view:render(m.block({
+		width = 4, overflow_y = "hidden", m.block({ white_space = "nowrap", "abcdefghij" }),
+	}))]])
+	eq(lines(), { "abcd" })
+end
+
+T["overflow"]["overflow_x hidden cuts off what is too tall, as in CSS"] = function()
+	run([[view:render(m.block({
+		m.block({ height = 1, overflow_x = "hidden", m.block("a"), m.block("b") }),
+		m.block("c"),
+	}))]])
+	eq(lines(), { "a", "c" })
+end
+
+T["overflow"]["clip cuts off its own axis alone"] = function()
+	run([[view:render(m.block({
+		m.block({ width = 4, overflow_y = "clip", m.block({ white_space = "nowrap", "abcdefghij" }) }),
+		-- Nothing after it, so the rows that run past it show as in a browser.
+		m.block({ height = 1, overflow_x = "clip", m.block("a"), m.block("b") }),
+	}))]])
+	eq(lines(), { "abcdefghij", "a", "b" })
+end
+
+T["overflow"]["beside hidden, clip cuts off both axes"] = function()
+	run([[view:render(m.block({
+		m.block({
+			width = 4, height = 1, overflow_x = "clip", overflow_y = "hidden",
+			m.block({ white_space = "nowrap", "abcdefghij" }), m.block("b"),
+		}),
+		m.block("c"),
+	}))]])
+	eq(lines(), { "abcd", "c" })
+end
+
+T["overflow"]["the axis given on its own wins over the shorthand"] = function()
+	run([[view:render(m.block({
+		width = 4, overflow = "hidden", overflow_x = "visible",
+		m.block({ white_space = "nowrap", "abcdefghij" }),
+	}))]])
+	-- `overflow_y` stays hidden, so `visible` along the row computes to cut off.
+	eq(lines(), { "abcd" })
+end
+
+T["max_width"] = new_set()
+
+T["max_width"]["text wraps inside it"] = function()
+	run([[view:render(m.block({ max_width = 10, "aaaa bbbb cccc" }))]])
+	eq(lines(), { "aaaa bbbb", "cccc" })
+end
+
+T["max_width"]["a narrower window still wins"] = function()
+	run([[view:render(m.block({ max_width = 100, ("a"):rep(70) }))]])
+	eq(lines(), { ("a"):rep(60), ("a"):rep(10) })
+end
+
 T["flex"] = new_set()
 
 T["flex"]["lays items out in a row"] = function()
@@ -365,6 +443,124 @@ T["flex"]["wraps"] = function()
 		m.block("aaa"), m.block("bbb"), m.block("ccc"),
 	}))]])
 	eq(lines(), { "aaa  bbb", "", "ccc" })
+end
+
+-- The cases below render the same, cell for cell, as their HTML and CSS do in
+-- a browser, with `overflow-wrap: break-word` and `box-sizing: content-box`.
+T["flex"]["a shrunk inline item wraps its text inside itself"] = function()
+	run([[view:render(m.flex({ width = 14, m.inline("aaaa bbbb cccc"), m.block("ddddd ddddd") }))]])
+	-- The inline gets 8 cells and its text breaks inside them, rather than
+	-- running on under the block next to it.
+	eq(lines(), { "aaaa    ddddd", "bbbb    ddddd", "cccc" })
+end
+
+T["flex"]["a margin does not shrink and does not weigh in"] = function()
+	run([[view:render(m.flex({
+		width = 30, m.block({ "aaaa aaaaa", margin_left = 20 }), m.block("bbbb bbbbb"),
+	}))]])
+	eq(lines(), { "                    aaaa bbbb", "                    aaaaabbbbb" })
+end
+
+T["flex"]["an item that cannot wrap does not shrink below its text"] = function()
+	run([[view:render(m.flex({
+		width = 14, m.block({ "aaaaaaaaaa", white_space = "nowrap" }), m.block("bb bb bb b"),
+	}))]])
+	eq(lines(), { "aaaaaaaaaabb", "          bb", "          bb b" })
+end
+
+T["flex"]["an item does not shrink below its longest word"] = function()
+	run([[view:render(m.flex({ width = 12, m.block("aaaaaaaa a"), m.block("bb bb bb b") }))]])
+	eq(lines(), { "aaaaaaaabb", "a       bb", "        bb b" })
+end
+
+T["flex"]["an item that clips may shrink below its text"] = function()
+	run([[view:render(m.flex({
+		width = 14,
+		m.block({ "aaaaaaaaaa", white_space = "nowrap", overflow = "hidden" }),
+		m.block("bbbb bbbbb"),
+	}))]])
+	eq(lines(), { "aaaaaaabbbb", "       bbbbb" })
+end
+
+T["flex"]["max_width narrows what the items get"] = function()
+	run(
+		([[view:render(m.flex({ max_width = 40, m.block(%s), m.block(%s) }))]]):format(
+			words("a"),
+			words("b")
+		)
+	)
+	eq(lines(), {
+		"aaaa aaaa aaaa aaaa bbbb bbbb bbbb bbbb",
+		"aaaa aaaa           bbbb bbbb",
+	})
+end
+
+T["flex"]["min_width widens what the items get"] = function()
+	run([[view:render(m.block({
+		width = 6,
+		m.flex({ min_width = 10, justify = "between", m.block("a"), m.block("b") }),
+	}))]])
+	eq(lines(), { "a        b" })
+end
+
+--- What the window shows, text and highlights alike, compared with the
+--- screenshot saved under tests/screenshots. Nothing around the buffer, such
+--- as a status line, differs between Neovim versions.
+local function expect_screen(code)
+	child.lua([[
+		vim.o.laststatus, vim.o.ruler, vim.o.showmode = 0, false, false
+		vim.opt.fillchars = { eob = " " }
+		-- A group of its own for each part, so each shows apart in the screenshot.
+		vim.api.nvim_set_hl(0, "Box", { bg = "#f5a97f" })
+		vim.api.nvim_set_hl(0, "Item", { bg = "#a6da95" })
+		vim.api.nvim_set_hl(0, "Other", { bg = "#8aadf4" })
+		vim.api.nvim_set_hl(0, "Third", { bg = "#c6a0f6" })
+	]])
+	child.o.lines, child.o.columns = 16, 30
+	run(code)
+	run("vim.cmd('redraw')")
+	MiniTest.expect.reference_screenshot(child.get_screenshot())
+end
+
+T["flex"]["what stretches stops at max_height"] = function()
+	-- `a` stretches to the line, which is no taller than the flex, though
+	-- the item beside it is: its highlight does not reach past the flex.
+	expect_screen([[view:render(m.block({
+		m.flex({
+			max_height = 3, max_width = 10, style = "Box", overflow_x = "hidden",
+			m.inline({ "a", style = "Item" }),
+			m.inline({ "b\nb\nb\nb\nb", padding_left = 20 }),
+			m.block({ "c", style = "Other" }),
+		}),
+		m.block("after"),
+	}))]])
+end
+
+T["flex"]["overflow_x hidden cuts off what is too tall and its highlights"] = function()
+	-- As in CSS: `hidden` along the row makes `visible` along the column cut
+	-- off as well, so the rows of `b` past max_height do not show.
+	expect_screen([[view:render(m.block({
+		m.flex({
+			max_height = 2, width = 8, style = "Box", overflow_x = "hidden",
+			m.block({ "a", style = "Item" }),
+			m.block({ "b\nb\nb\nb", style = "Other" }),
+		}),
+		m.block("after"),
+	}))]])
+end
+
+T["flex"]["overflow hidden cuts off highlights too"] = function()
+	-- The third row of `b` and the end of `c` are past the flex, and neither
+	-- their text nor their highlights show there.
+	expect_screen([[view:render(m.block({
+		m.flex({
+			width = 6, max_height = 2, style = "Box", overflow = "hidden",
+			m.block({ "aa", style = "Item" }),
+			m.block({ "b\nb\nb", style = "Other" }),
+			m.block({ "cccccccccc", white_space = "nowrap", style = "Third" }),
+		}),
+		m.block("after"),
+	}))]])
 end
 
 T["flex"]["updates when a child changes size"] = function()
@@ -941,6 +1137,92 @@ T["press"]["reports when nothing was pressed"] = function()
 	eq(child.lua_get("handled"), false)
 end
 
+T["press"]["<CR> presses like a click"] = function()
+	run([[
+		pressed = 0
+		view:render(m.block({
+			m.block("nothing"),
+			m.button({ "press me", on_press = function() pressed = pressed + 1 end }),
+		}))
+		vim.api.nvim_win_set_cursor(0, { 2, 2 })
+	]])
+	child.type_keys("<CR>")
+	eq(child.lua_get("pressed"), 1)
+end
+
+T["press"]["<CR> over nothing to press moves down, as it always did"] = function()
+	run([[
+		pressed = false
+		view:render(m.block({
+			m.block("nothing"),
+			m.block("more"),
+			m.button({ "press me", on_press = function() pressed = true end }),
+		}))
+		vim.api.nvim_win_set_cursor(0, { 1, 0 })
+	]])
+	child.type_keys("<CR>")
+	eq(child.lua_get("vim.api.nvim_win_get_cursor(0)[1]"), 2)
+	eq(child.lua_get("pressed"), false)
+end
+
+T["press"]["press_key binds other keys instead"] = function()
+	run([[
+		pressed = 0
+		vim.cmd("only | new")
+		win = Markup.window({ position = "current", hijack = true, show = false, minimal = false })
+		win.buf = vim.api.nvim_get_current_buf()
+		win:show()
+		view = Markup.view(win, { press_key = { "<Space>", "x" } })
+		view:render(m.block({
+			m.button({ "press me", on_press = function() pressed = pressed + 1 end }),
+			m.block("below"),
+		}))
+		vim.api.nvim_win_set_cursor(0, { 1, 0 })
+	]])
+	child.type_keys("<Space>", "x")
+	eq(child.lua_get("pressed"), 2)
+	eq(child.lua_get([[vim.fn.maparg("<CR>", "n")]]), "")
+end
+
+T["press"]["press_key = false binds nothing"] = function()
+	run([[
+		vim.cmd("only | new")
+		win = Markup.window({ position = "current", hijack = true, show = false, minimal = false })
+		win.buf = vim.api.nvim_get_current_buf()
+		win:show()
+		view = Markup.view(win, { press_key = false })
+		view:render(m.button({ "press me", on_press = function() end }))
+	]])
+	eq(child.lua_get([[vim.fn.maparg("<CR>", "n")]]), "")
+end
+
+T["press"]["a component can take <CR> over, and give it back"] = function()
+	run([[
+		pressed, taken = 0, 0
+		open = m.signal(true)
+		local Taker = m.component(function()
+			m.use_key("<CR>", function() taken = taken + 1 end)
+			return m.block("taker")
+		end)
+		view:render(m.block({
+			m.button({ "press me", on_press = function() pressed = pressed + 1 end }),
+			m.show(open, function() return Taker() end),
+		}))
+		vim.api.nvim_win_set_cursor(0, { 1, 0 })
+	]])
+	child.type_keys("<CR>")
+	eq(child.lua_get("{ pressed, taken }"), { 0, 1 })
+	run("open(false); reactive.flush()")
+	child.type_keys("<CR>")
+	eq(child.lua_get("{ pressed, taken }"), { 1, 1 })
+	eq(
+		child.lua_get(
+			[[vim.fn.maparg("<CR>", "n") ~= "" or #vim.api.nvim_buf_get_keymap(win.buf, "n") > 0]]
+		),
+		true
+	)
+end
+
 T["press"]["forgets handlers of unmounted nodes"] = function()
 	run([[
 		open = m.signal(true)
@@ -1507,6 +1789,30 @@ T["click"]["a single click presses by default"] = function()
 	eq(child.lua_get("pressed"), "two")
 	click(1, 0, 1)
 	eq(child.lua_get("pressed"), "one")
+end
+
+T["click"]["the margin is not part of what is pressed"] = function()
+	child.lua([[
+		pressed = nil
+		view:render(m.block({
+			m.block("title"),
+			m.block({
+				"go",
+				width = "fit",
+				margin = { 1, 0, 0, 4 },
+				padding = { 0, 1 },
+				on_press = function() pressed = true end,
+			}),
+		}))
+		reactive.flush()
+	]])
+	-- The row above it and the cells to its left are margin.
+	click(1, 5, 1)
+	click(2, 2, 1)
+	eq(child.lua_get("pressed"), vim.NIL)
+	-- Its padding is part of it.
+	click(2, 4, 1)
+	eq(child.lua_get("pressed"), true)
 end
 
 T["click"]["anything else stays a click"] = function()

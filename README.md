@@ -102,12 +102,11 @@ view:render(m.block({
     end,
   }),
 }))
-
--- A click presses the button already. This makes <CR> press it too.
-vim.keymap.set("n", "<CR>", function()
-  view:press()
-end, { buffer = win.buf })
 ```
+
+A click or `<CR>` presses the button. Pass `press_key` to the view to press with
+other keys, as in `Markup.view(win, { press_key = { "<CR>", "<Space>" } })`, or
+`false` to bind none.
 
 ## For AI agents
 
