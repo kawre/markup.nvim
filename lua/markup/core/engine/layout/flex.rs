@@ -148,8 +148,9 @@ fn collect_items(
             };
             let item_align = extra.align_self.unwrap_or(align);
             let (grow, shrink) = (extra.grow, extra.shrink);
-            // Only what clips along the row may shrink past its content.
-            let clips = extra.clip_x;
+            // As CSS: a scroll container, cut off with `hidden`, may shrink
+            // past its content; one cut off with `clip` alone may not.
+            let clips = extra.scrolls;
             let specified = style.width.resolve(reference).map(|width| width + edges);
 
             // Like CSS `min-width: auto` and `min-height: auto`. Text cannot
@@ -465,7 +466,9 @@ impl Strategy for Flex {
 mod tests {
     use super::super::testing::*;
     use super::offsets;
-    use crate::engine::style::{Align, Direction, Display, Distribute, Length, WhiteSpace};
+    use crate::engine::style::{
+        Align, Direction, Display, Distribute, Length, Overflow, WhiteSpace,
+    };
     use crate::engine::tree::{Index, Size, Tree};
 
     fn item(tree: &mut Tree, id: u32, value: &str) -> Index {
@@ -985,7 +988,7 @@ mod tests {
         );
         let extra = tree.node_mut(a).style.extra_mut();
         extra.white_space = Some(WhiteSpace::Nowrap);
-        extra.clip_x = true;
+        extra.set_overflow(Some(Overflow::Hidden), None);
         let root = row(&mut tree, &[a, b]);
 
         measure(&mut tree, root, 14);

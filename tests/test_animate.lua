@@ -860,11 +860,11 @@ T["overflow_x"] = function()
 	eq(get("lines()"), { "abcd" })
 end
 
-T["overflow_y keeps wide content readable"] = function()
+T["overflow_y clip keeps wide content readable"] = function()
 	run([[
 		view:render(m.block({
 			width = 4,
-			overflow_y = "hidden",
+			overflow_y = "clip",
 			m.block({ white_space = "nowrap", width = 10, "abcdefghij" }),
 		}))
 	]])

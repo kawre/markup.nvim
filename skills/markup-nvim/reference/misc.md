@@ -270,6 +270,14 @@ Source: `lua/markup/log.lua`
 function markup.logger.inspect(...any)
 ```
 
+## markup.overflow
+
+Source: `lua/markup/factory/element.lua`
+
+```lua
+---@alias markup.overflow markup.overflow
+```
+
 ## markup.util
 
 Source: `lua/markup/util.lua`
