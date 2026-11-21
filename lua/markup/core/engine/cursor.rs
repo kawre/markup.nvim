@@ -19,6 +19,10 @@ impl Engine {
         let tree = self.tree();
         let node = tree.node(index);
 
+        if node.style.extra().inert {
+            return;
+        }
+
         if node.display == Display::Contents {
             for &child in &node.children {
                 self.interactive_rects(child, x, y, rects, lands);
@@ -216,6 +220,29 @@ mod tests {
         }
         engine.render(|_, _| ());
         engine
+    }
+
+    /// Makes the block of `row` in `engine_with_buttons` inert.
+    fn inert_row(engine: &mut Engine, row: u32) {
+        let id = 2 + row * 2;
+        let property = StyleProperty::Inert(true);
+        engine.apply(Command::SetStyle { id, property }).unwrap();
+        engine.render(|_, _| ());
+    }
+
+    #[test]
+    fn passes_over_an_inert_button() {
+        let mut engine = engine_with_buttons(&[1, 3, 5]);
+        inert_row(&mut engine, 3);
+        assert_eq!(engine.snap((1, 0), (2, 0), false), Some((5, 0)));
+        assert_eq!(engine.snap((5, 0), (4, 0), false), Some((1, 0)));
+    }
+
+    #[test]
+    fn nothing_but_inert_buttons_leaves_the_cursor_alone() {
+        let mut engine = engine_with_buttons(&[1]);
+        inert_row(&mut engine, 1);
+        assert_eq!(engine.snap((0, 0), (1, 0), false), None);
     }
 
     #[test]

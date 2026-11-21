@@ -1174,6 +1174,124 @@ T["snap"]["stays put at the end"] = function()
 	eq(child.lua_get("vim.api.nvim_win_get_cursor(0)")[1], 3)
 end
 
+T["snap"]["passes over what is inert"] = function()
+	run([[
+		view = Markup.view(win, { snap = true })
+		away = m.signal(true)
+		local function item(name)
+			return m.block({ name, width = "fit", on_press = function() end })
+		end
+		view:render(m.block({
+			item("one"),
+			m.block({ inert = away, m.block(""), item("two") }),
+			m.block(""),
+			item("three"),
+		}))
+		vim.api.nvim_win_set_cursor(0, { 1, 0 })
+		view.cursor = { 1, 0 }
+	]])
+	child.type_keys("j")
+	eq(child.lua_get("vim.api.nvim_win_get_cursor(0)")[1], 5)
+
+	-- Back in reach once it is not.
+	run("away(false)")
+	child.type_keys("k")
+	eq(child.lua_get("vim.api.nvim_win_get_cursor(0)")[1], 3)
+end
+
+T["snap"]["what is inert is neither hovered nor pressed"] = function()
+	run([[
+		view = Markup.view(win)
+		hovered, pressed = false, false
+		view:render(m.block({
+			inert = true,
+			m.block({
+				"button",
+				on_press = function() pressed = true end,
+				on_hover = function(on) hovered = on end,
+			}),
+		}))
+		vim.api.nvim_win_set_cursor(0, { 1, 0 })
+		vim.api.nvim_exec_autocmds("CursorMoved", { buffer = view.win.buf })
+		view:press()
+	]])
+	eq(child.lua_get("hovered"), false)
+	eq(child.lua_get("pressed"), false)
+end
+
+T["hold_cursor"] = new_set()
+
+local function moving_view()
+	run([[
+		view = Markup.view(win, { snap = true })
+		above = m.signal(0)
+		hovered = {}
+		local function item(name)
+			return m.block({
+				name,
+				width = "fit",
+				on_press = function() end,
+				on_hover = function(on) if on then hovered[#hovered + 1] = name end end,
+			})
+		end
+		view:render(m.block({
+			m.block("title"),
+			function()
+				local rows = {}
+				for i = 1, above() do rows[i] = m.block("") end
+				return m.block(rows)
+			end,
+			item("one"),
+			m.block(""),
+			item("two"),
+		}))
+		reactive.flush()
+		vim.api.nvim_win_set_cursor(0, { 2, 0 })
+		view.cursor = nil
+		vim.api.nvim_exec_autocmds("CursorMoved", { buffer = view.win.buf })
+		hovered = {}
+	]])
+end
+
+T["hold_cursor"]["keeps the cursor still while rows come in above it"] = function()
+	moving_view()
+	run([[
+		release = view:hold_cursor({ 1, 0 })
+		above(5)
+		reactive.flush()
+		vim.api.nvim_exec_autocmds("CursorMoved", { buffer = view.win.buf })
+	]])
+	eq(child.lua_get("vim.api.nvim_win_get_cursor(0)")[1], 1)
+	-- Nothing passing under it is hovered.
+	eq(child.lua_get("hovered"), {})
+	eq(child.lua_get("view.hovered"), vim.NIL)
+end
+
+T["hold_cursor"]["lets go onto the nearest node"] = function()
+	moving_view()
+	run([[
+		release = view:hold_cursor({ 1, 0 })
+		above(3)
+		reactive.flush()
+		release()
+	]])
+	-- "one" moved down by three rows, and the cursor snapped onto it.
+	eq(child.lua_get("vim.api.nvim_win_get_cursor(0)")[1], 5)
+	eq(child.lua_get("hovered"), { "one" })
+end
+
+T["hold_cursor"]["a release of an older hold does nothing"] = function()
+	moving_view()
+	run([[
+		first = view:hold_cursor({ 1, 0 })
+		second = view:hold_cursor({ 1, 0 })
+		first()
+	]])
+	eq(child.lua_get("view.held ~= nil"), true)
+	run("second()")
+	eq(child.lua_get("view.held"), vim.NIL)
+end
+
 local function tall_view()
 	run([[
 		view = Markup.view(win, { snap = true })
@@ -1946,6 +2064,20 @@ T["fixed"]["the width can be tracked"] = function()
 	child.lua("reactive.flush()")
 	eq(child.lua_get("seen[1] > 30"), true)
 	eq(child.lua_get("seen[#seen]"), 30)
+end
+
+T["fixed"]["the height can be tracked"] = function()
+	overlay_view()
+	child.lua([[
+		seen = {}
+		reactive.effect(function() seen[#seen + 1] = view:rows() end)
+		vim.cmd("new")
+		vim.api.nvim_win_set_height(win.win, 10)
+	]])
+	child.lua("vim.wait(20, function() return false end, 5)")
+	child.lua("reactive.flush()")
+	eq(child.lua_get("seen[1] > 10"), true)
+	eq(child.lua_get("seen[#seen]"), 10)
 end
 
 T["fixed"]["the width is known once a hidden window opens"] = function()

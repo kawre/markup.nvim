@@ -129,6 +129,7 @@ M.style = {
 	overflow = { 45, choice({ visible = 0, hidden = 1 }, "overflow") },
 	overflow_x = { 46, choice({ visible = 0, hidden = 1 }, "overflow_x") },
 	snap = { 47, optional_flag },
+	inert = { 48, flag },
 }
 
 local TRACK = { auto = 0, cells = 1, fr = 2 }
