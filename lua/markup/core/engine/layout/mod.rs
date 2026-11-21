@@ -115,6 +115,10 @@ fn content_space(style: &Style, constraints: Constraints) -> Space {
         .map(|exact| exact - edges_x)
         .or(style.width.resolve(constraints.width))
         .unwrap_or(constraints.width - edges_x);
+    // Children are laid out in the width the node will end up with, so a
+    // `max_width` narrows what they get rather than cutting them off after.
+    let extra = style.extra();
+    let width = limit(width, extra.min_width, extra.max_width, constraints.width);
 
     let height = constraints
         .exact_height
