@@ -12,10 +12,11 @@ return {
 	},
 	{
 		name = "block and inline",
+		check_text = true,
 		width = 12,
-		tree = m.block({ m.inline("one "), m.inline("two"), m.block("three") }),
+		tree = m.block({ m.inline("one "), m.inline("<&>"), m.block("three") }),
 	},
-	{ name = "word wrap", width = 5, tree = m.block("aa bb cc") },
+	{ name = "word wrap", check_text = true, width = 5, tree = m.block("aa bb cc") },
 	{
 		name = "flex space between",
 		width = 12,
@@ -23,6 +24,7 @@ return {
 	},
 	{
 		name = "grid columns and gaps",
+		check_text = true,
 		width = 12,
 		tree = m.grid({
 			columns = { 3, "1fr" },

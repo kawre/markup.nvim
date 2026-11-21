@@ -27,6 +27,32 @@
       visit(element, childPath);
     });
   }
+  function textRows() {
+    const height = Math.round(origin.height / lineHeight);
+    const rows = Array.from({length: Math.max(1, height)}, () => []);
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    const range = document.createRange();
+    while (walker.nextNode()) {
+      const node = walker.currentNode;
+      for (let i = 0; i < node.length; i++) {
+        const ch = node.data[i];
+        if (ch === " ") continue;
+        range.setStart(node, i);
+        range.setEnd(node, i + 1);
+        const rect = range.getBoundingClientRect();
+        const x = (rect.left - origin.left) / cellWidth;
+        const col = Math.round(x);
+        const row = Math.floor(((rect.top + rect.bottom) / 2 - origin.top) / lineHeight);
+        if (Math.abs(rect.width / cellWidth - 1) > 0.025 || Math.abs(x - col) > 0.025 ||
+            col < 0 || !rows[row] || rows[row][col] !== undefined) {
+          return {unsupported: "character " + JSON.stringify(ch) + " has no unique whole cell at " + x + ", " + row};
+        }
+        rows[row][col] = ch;
+      }
+    }
+    return {lines: rows.map(row => Array.from(row, ch => ch ?? " ").join(""))};
+  }
+
   visit(root, "");
-  document.querySelector("output").textContent = btoa(JSON.stringify(boxes));
+  document.querySelector("output").textContent = btoa(JSON.stringify({boxes, text: CHECK_TEXT ? textRows() : undefined}));
 </script>

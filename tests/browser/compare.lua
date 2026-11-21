@@ -93,9 +93,12 @@ vim.fn.mkdir(directory, "p")
 local template = table.concat(vim.fn.readfile("tests/browser/grid.html"), "\n")
 
 local function reference(case)
-	local page = template:gsub("WIDTH", tostring(case.width)):gsub("CONTENT", function()
-		return html(case.tree)
-	end)
+	local page = template
+		:gsub("CHECK_TEXT", case.check_text and "true" or "false")
+		:gsub("WIDTH", tostring(case.width))
+		:gsub("CONTENT", function()
+			return html(case.tree)
+		end)
 	local path = directory .. "/layout.html"
 	vim.fn.writefile(vim.split(page, "\n", { plain = true }), path)
 	local result = vim.system({
@@ -149,13 +152,15 @@ local function engine_boxes(engine)
 end
 
 local function compare(case)
-	local expected = reference(case)
+	local browser_layout = reference(case)
+	local expected = browser_layout.boxes
 	local win =
 		Markup.window({ width = case.width, height = 10, border = "none", backdrop = false })
 	local view = Markup.view(win)
 	assert(view:columns() == case.width, "Neovim viewport width differs from fixture")
 	view:render(case.tree)
 	local actual = engine_boxes(view.engine)
+	local lines = case.check_text and vim.api.nvim_buf_get_lines(win.buf, 0, -1, false)
 	view:destroy()
 	win:destroy()
 	assert(#expected > 0, "fixture needs a block, flex, or grid element")
@@ -181,6 +186,25 @@ local function compare(case)
 				),
 				0
 			)
+		end
+	end
+	if lines then
+		local text = browser_layout.text
+		if text.unsupported then
+			return "unsupported", text.unsupported
+		end
+		for row = 1, math.max(#lines, #text.lines) do
+			local actual_line = lines[row] and lines[row]:gsub(" +$", "")
+			if actual_line ~= text.lines[row] then
+				error(
+					("text row %d: browser %s, Neovim %s"):format(
+						row,
+						vim.inspect(text.lines[row]),
+						vim.inspect(actual_line)
+					),
+					0
+				)
+			end
 		end
 	end
 end
