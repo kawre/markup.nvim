@@ -941,6 +941,92 @@ T["press"]["reports when nothing was pressed"] = function()
 	eq(child.lua_get("handled"), false)
 end
 
+T["press"]["<CR> presses like a click"] = function()
+	run([[
+		pressed = 0
+		view:render(m.block({
+			m.block("nothing"),
+			m.button({ "press me", on_press = function() pressed = pressed + 1 end }),
+		}))
+		vim.api.nvim_win_set_cursor(0, { 2, 2 })
+	]])
+	child.type_keys("<CR>")
+	eq(child.lua_get("pressed"), 1)
+end
+
+T["press"]["<CR> over nothing to press moves down, as it always did"] = function()
+	run([[
+		pressed = false
+		view:render(m.block({
+			m.block("nothing"),
+			m.block("more"),
+			m.button({ "press me", on_press = function() pressed = true end }),
+		}))
+		vim.api.nvim_win_set_cursor(0, { 1, 0 })
+	]])
+	child.type_keys("<CR>")
+	eq(child.lua_get("vim.api.nvim_win_get_cursor(0)[1]"), 2)
+	eq(child.lua_get("pressed"), false)
+end
+
+T["press"]["press_key binds other keys instead"] = function()
+	run([[
+		pressed = 0
+		vim.cmd("only | new")
+		win = Markup.window({ position = "current", hijack = true, show = false, minimal = false })
+		win.buf = vim.api.nvim_get_current_buf()
+		win:show()
+		view = Markup.view(win, { press_key = { "<Space>", "x" } })
+		view:render(m.block({
+			m.button({ "press me", on_press = function() pressed = pressed + 1 end }),
+			m.block("below"),
+		}))
+		vim.api.nvim_win_set_cursor(0, { 1, 0 })
+	]])
+	child.type_keys("<Space>", "x")
+	eq(child.lua_get("pressed"), 2)
+	eq(child.lua_get([[vim.fn.maparg("<CR>", "n")]]), "")
+end
+
+T["press"]["press_key = false binds nothing"] = function()
+	run([[
+		vim.cmd("only | new")
+		win = Markup.window({ position = "current", hijack = true, show = false, minimal = false })
+		win.buf = vim.api.nvim_get_current_buf()
+		win:show()
+		view = Markup.view(win, { press_key = false })
+		view:render(m.button({ "press me", on_press = function() end }))
+	]])
+	eq(child.lua_get([[vim.fn.maparg("<CR>", "n")]]), "")
+end
+
+T["press"]["a component can take <CR> over, and give it back"] = function()
+	run([[
+		pressed, taken = 0, 0
+		open = m.signal(true)
+		local Taker = m.component(function()
+			m.use_key("<CR>", function() taken = taken + 1 end)
+			return m.block("taker")
+		end)
+		view:render(m.block({
+			m.button({ "press me", on_press = function() pressed = pressed + 1 end }),
+			m.show(open, function() return Taker() end),
+		}))
+		vim.api.nvim_win_set_cursor(0, { 1, 0 })
+	]])
+	child.type_keys("<CR>")
+	eq(child.lua_get("{ pressed, taken }"), { 0, 1 })
+	run("open(false); reactive.flush()")
+	child.type_keys("<CR>")
+	eq(child.lua_get("{ pressed, taken }"), { 1, 1 })
+	eq(
+		child.lua_get(
+			[[vim.fn.maparg("<CR>", "n") ~= "" or #vim.api.nvim_buf_get_keymap(win.buf, "n") > 0]]
+		),
+		true
+	)
+end
+
 T["press"]["forgets handlers of unmounted nodes"] = function()
 	run([[
 		open = m.signal(true)
