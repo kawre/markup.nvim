@@ -4,10 +4,8 @@
 local CELL, LINE = 10, 20
 
 local function cells(value, unit)
-	assert(
-		type(value) == "number" and value >= 0 and value % 1 == 0,
-		"unsupported: non-integral cell length"
-	)
+	-- Whole cells, and below zero too: offsets and margins can be negative.
+	assert(type(value) == "number" and value % 1 == 0, "unsupported: non-integral cell length")
 	return value .. unit
 end
 
@@ -83,7 +81,9 @@ local function length(value, unit)
 		return value
 	end
 	if type(value) == "number" and value > 0 and value < 1 then
-		return (value * 100) .. "%"
+		-- A terminal has no part of a cell: markup.nvim rounds a share up to
+		-- whole cells, which CSS `round()` does too.
+		return ("round(up, %s%%, %dpx)"):format(value * 100, unit == "row" and LINE or CELL)
 	end
 	assert(type(value) == "number", "unsupported: length " .. tostring(value))
 	if unit == "row" or unit == "col" then
@@ -154,6 +154,54 @@ local function is_inline(child)
 end
 
 local tags = { block = "div", inline = "span", flex = "div", grid = "div" }
+local escape_widths
+--- Runs of code points of one width, as the page's font has them: Neovim's
+--- widths with the options it starts with.
+local font_widths =
+	vim.json.decode(table.concat(vim.fn.readfile("tests/browser/cell-widths.json"), ""))
+
+local function font_width(code)
+	local low, high = 1, #font_widths
+	while low <= high do
+		local middle = math.floor((low + high) / 2)
+		local run = font_widths[middle]
+		if code < run[1] then
+			high = middle - 1
+		elseif code > run[2] then
+			low = middle + 1
+		else
+			return run[3]
+		end
+	end
+	return 1
+end
+
+--- Escapes text for HTML. Where the test's options make a character wider or
+--- narrower than the font, as `ambiwidth` and `setcellwidths()` do, letter
+--- spacing makes up the difference, which leaves where lines break alone.
+function escape_widths(text)
+	local custom = vim.o.ambiwidth ~= "single" or #vim.fn.getcellwidths() > 0
+	local parts = {}
+	for character in text:gmatch("[%z\1-\127\194-\244][\128-\191]*") do
+		local escaped = character:gsub("&", "&amp;"):gsub("<", "&lt;"):gsub(">", "&gt;")
+		if custom and #character > 1 then
+			local width = vim.fn.strdisplaywidth(character)
+			if vim.fn.strdisplaywidth("a" .. character) == 1 then
+				width = 0
+			end
+			local difference = width - font_width(vim.fn.char2nr(character))
+			if difference ~= 0 then
+				escaped = ("<span style=\"letter-spacing:%dpx\">%s</span>"):format(
+					difference * CELL,
+					escaped
+				)
+			end
+		end
+		parts[#parts + 1] = escaped
+	end
+	return table.concat(parts)
+end
+
 local render_children
 
 local function html(node, profile)
@@ -166,8 +214,10 @@ local function html(node, profile)
 			-- Only a line when nothing else is, see `render_children`.
 			return ""
 		end
-		assert(not text:find("[^ -~]"), "unsupported: text outside printable ASCII")
-		return (text:gsub("&", "&amp;"):gsub("<", "&lt;"):gsub(">", "&gt;"))
+		-- As markup.nvim draws it: bytes that are not UTF-8 replaced, and a
+		-- tab four spaces wherever it lands, a convention of its own.
+		text = require("markup.view.protocol").valid_utf8(text):gsub("\t", "    ")
+		return escape_widths(text)
 	end
 	assert(type(node) == "table", "expected a static element or list")
 	if not node.type then
@@ -230,7 +280,9 @@ local function html(node, profile)
 			if value then
 				css[#css + 1] = "flex-direction:" .. (props.direction or "row") .. "-reverse"
 			end
-		elseif name == "spacing" and (node.type == "flex" or node.type == "grid") then
+		elseif name == "spacing" and node.type ~= "flex" and node.type ~= "grid" then
+			-- Spacers between the children, see `render_children`.
+		elseif name == "spacing" then
 			css[#css + 1] = "row-gap:" .. length(math.max(value, props.row_gap or 0), "row")
 			css[#css + 1] = "column-gap:" .. length(math.max(value, props.column_gap or 0), "col")
 		elseif name ~= "children" then
@@ -249,21 +301,34 @@ function render_children(node, children, profile)
 		children = { children }
 	end
 	local items = node.type == "flex" or node.type == "grid"
-	local parts, run = {}, {}
+	local spacing = not items and node.props.spacing or 0
+	if node.type == "inline" and spacing > 0 then
+		-- Spacing between the children of an inline, in cells.
+		local spacer = ("<span data-line style=\"display:inline-block;width:%dpx\"></span>"):format(
+			spacing * CELL
+		)
+		local parts = {}
+		for _, child in ipairs(children) do
+			parts[#parts + 1] = html(child, profile)
+		end
+		return table.concat(parts, spacer)
+	end
+	-- Each row: a run of inline content, or a block.
+	local rows, run = {}, {}
 	local function flush()
 		if #run == 0 then
 			return
 		end
 		local blank = true
+		local parts = {}
 		for _, child in ipairs(run) do
 			blank = blank and is_blank(child)
-		end
-		if blank and not items then
-			parts[#parts + 1] = STRUT
-		end
-		for _, child in ipairs(run) do
 			parts[#parts + 1] = html(child, profile)
 		end
+		if blank and not items then
+			table.insert(parts, 1, STRUT)
+		end
+		rows[#rows + 1] = table.concat(parts)
 		run = {}
 	end
 	for _, child in ipairs(children) do
@@ -271,11 +336,15 @@ function render_children(node, children, profile)
 			run[#run + 1] = child
 		else
 			flush()
-			parts[#parts + 1] = html(child, profile)
+			rows[#rows + 1] = html(child, profile)
 		end
 	end
 	flush()
-	return table.concat(parts)
+	-- markup.nvim's `spacing` in a block: a row of its own between rows.
+	local spacer = spacing > 0
+			and ("<div data-line style=\"display:block;height:%dpx\"></div>"):format(spacing * LINE)
+		or ""
+	return table.concat(rows, spacer)
 end
 
 local browser = vim.env.CHROME_BIN
@@ -400,14 +469,17 @@ end
 local function compare(browser_layout, actual, lines)
 	local expected = browser_layout.boxes
 	assert(#actual == #expected, ("expected %d boxes, found %d"):format(#expected, #actual))
-	for _, box in ipairs(expected) do
+	-- A terminal has no part of a cell. Where the browser gives one, such as
+	-- half of an odd space centered or a fraction's share, markup.nvim's
+	-- whole cells match it when they are within a cell of it.
+	for i, box in ipairs(expected) do
 		for j, value in ipairs(box.rect) do
 			local rounded = math.floor(value + 0.5)
-			if math.abs(value - rounded) > 0.025 then
-				return "unsupported",
-					("box %s has fractional geometry %s"):format(box.path, vim.inspect(box.rect))
+			if math.abs(value - rounded) <= 0.025 then
+				box.rect[j] = rounded
+			elseif actual[i] and math.abs(actual[i].rect[j] - value) < 1 then
+				box.rect[j] = actual[i].rect[j]
 			end
-			box.rect[j] = rounded
 		end
 	end
 	for i, box in ipairs(expected) do
@@ -441,11 +513,12 @@ local function compare(browser_layout, actual, lines)
 		end
 		for row = 1, math.max(trim(lines), trim(text.lines)) do
 			local actual_line = lines[row] and lines[row]:gsub(" +$", "")
-			if actual_line ~= text.lines[row] then
+			local browser_line = text.lines[row] and text.lines[row]:gsub(" +$", "")
+			if actual_line ~= browser_line then
 				error(
 					("text row %d: browser %s, Neovim %s"):format(
 						row,
-						vim.inspect(text.lines[row]),
+						vim.inspect(browser_line),
 						vim.inspect(actual_line)
 					),
 					0

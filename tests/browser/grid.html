@@ -5,6 +5,8 @@
      whatever monospace font it has. See scripts/browser_font.py. */
   @font-face { font-family: cell; src: url(data:font/ttf;base64,FONT) format("truetype"); }
   body { margin: 0; font: 20px/20px cell; font-variant-ligatures: none; }
+  /* A terminal has no scrollbars, to take room from what scrolls. */
+  * { scrollbar-width: none; }
   /* As markup.nvim: a word longer than its line breaks, but the narrowest a
      box can be is its longest word. */
   main { display: flow-root; white-space: pre-wrap; overflow-wrap: break-word; }
@@ -34,37 +36,56 @@ function measure(root) {
       visit(element, childPath);
     });
   }
+  // Each character's cells, as Neovim's buffer holds them: a wide character
+  // takes its cell and the next, and what is drawn later covers what is
+  // under it, as markup.nvim paints later nodes over earlier ones.
   function textRows() {
+    const rows = [];
     const height = Math.round(origin.height / lineHeight);
-    const rows = Array.from({length: Math.max(1, height)}, () => []);
+    for (let row = 0; row < Math.max(1, height); row++) rows[row] = [];
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
     const range = document.createRange();
+    // A character with what joins it, such as an accent: one cell, as Neovim
+    // draws it, and one box, as the browser measures it.
+    const graphemes = new Intl.Segmenter("en", {granularity: "grapheme"});
     while (walker.nextNode()) {
       const node = walker.currentNode;
-      for (let i = 0; i < node.length; i++) {
-        const ch = node.data[i];
-        if (ch === " ") continue;
-        range.setStart(node, i);
-        range.setEnd(node, i + 1);
+      for (const {segment: ch, index} of graphemes.segment(node.data)) {
+        range.setStart(node, index);
+        range.setEnd(node, index + ch.length);
         const rect = range.getBoundingClientRect();
+        if (rect.width < 0.5) continue;
+        const cells = Math.round(rect.width / cellWidth);
         const x = (rect.left - origin.left) / cellWidth;
-        const col = Math.round(x);
+        // A terminal has no part of a cell: what the browser puts half a cell
+        // in, markup.nvim puts in the cell to its left.
+        const col = Math.round(x - 0.01);
         const row = Math.floor(((rect.top + rect.bottom) / 2 - origin.top) / lineHeight);
-        if (Math.abs(rect.width / cellWidth - 1) > 0.025 || Math.abs(x - col) > 0.025 ||
-            col < 0 || !rows[row] || rows[row][col] !== undefined) {
-          return {unsupported: "character " + JSON.stringify(ch) + " has no unique whole cell at " + x + ", " + row};
+        // Left of the first column, as a page slid out of sight: not drawn.
+        if (col < 0) continue;
+        if (Math.abs(rect.width / cellWidth - cells) > 0.025 || row < 0) {
+          return {unsupported: "character " + JSON.stringify(ch) + " has no whole cells at " + x + ", " + row};
         }
+        for (let r = rows.length; r <= row; r++) rows[r] = [];
         rows[row][col] = ch;
+        for (let k = 1; k < cells; k++) rows[row][col + k] = "";
       }
     }
     return {lines: rows.map(row => Array.from(row, ch => ch ?? " ").join(""))};
   }
+
 
   visit(root, "");
   return {boxes, text: root.hasAttribute("data-text") ? textRows() : undefined};
 }
 document.fonts.load("20px cell").then(() => {
   const results = Array.from(document.querySelectorAll("main"), measure);
-  document.querySelector("output").textContent = btoa(JSON.stringify(results));
+  // As UTF-8, which btoa alone cannot take past Latin-1.
+  const bytes = new TextEncoder().encode(JSON.stringify(results));
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  document.querySelector("output").textContent = btoa(binary);
+}).catch(error => {
+  document.querySelector("output").textContent = "ERROR " + error;
 });
 </script>
