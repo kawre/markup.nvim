@@ -95,9 +95,13 @@ fb.setupGlyf(glyphs)
 metrics = {".notdef": (CELL, 0), "space": (CELL, 0)}
 metrics.update({f"cells{width}": (width * CELL, 0) for width in cells})
 fb.setupHorizontalMetrics(metrics)
-fb.setupHorizontalHeader(ascent=800, descent=-200)
+# A terminal's baseline is the bottom of its cell: all of the line is above it,
+# so what sits on the baseline, such as an empty inline-block, ends on a row.
+fb.setupHorizontalHeader(ascent=UPEM, descent=0)
 fb.setupNameTable({"familyName": "markup cell", "styleName": "Regular"})
-fb.setupOS2(sTypoAscender=800, sTypoDescender=-200, usWinAscent=800, usWinDescent=200)
+fb.setupOS2(
+    sTypoAscender=UPEM, sTypoDescender=0, sTypoLineGap=0, usWinAscent=UPEM, usWinDescent=0
+)
 fb.setupPost(isFixedPitch=1)
 
 table = cmap_format_13(13)

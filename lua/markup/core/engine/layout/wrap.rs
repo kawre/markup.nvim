@@ -351,7 +351,9 @@ fn unbreakable_end(pieces: &[Piece], from: usize) -> usize {
     let mut end = from;
     while end < pieces.len() {
         let piece = &pieces[end];
-        let alone = piece.kind == Kind::Ideograph;
+        // As CSS: a line can break on either side of an ideograph or an
+        // inline-block, with no space between them and the words next to them.
+        let alone = matches!(piece.kind, Kind::Ideograph | Kind::Atomic);
         if matches!(piece.kind, Kind::Space | Kind::Newline) || (alone && end > from) {
             break;
         }

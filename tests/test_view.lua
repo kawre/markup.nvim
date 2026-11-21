@@ -565,6 +565,20 @@ T["css"]["no longer wrapping paints a box where it is"] = function()
 	eq(child.lua_get("rows"), { 0, 1 })
 end
 
+T["css"]["a block fills a box sized to its content"] = function()
+	-- Found by comparing tests/test_fuzz.lua with Chromium, seed 1004: an empty
+	-- block in a `fit` box took no width.
+	run([[view:render(m.block({ width = "fit", m.block({ height = 1 }), "xyz" }))]])
+	eq(boxes(), { { 0, 0, 3, 2 }, { 0, 0, 3, 1 } })
+end
+
+T["css"]["a line breaks before an inline-block that does not fit"] = function()
+	-- Found by comparing tests/test_fuzz.lua with Chromium, seed 17: it stayed
+	-- on the line, past its end.
+	run([[view:render(m.block({ width = 3, "abc", m.inline({ width = 1, height = 2 }) }))]])
+	eq(boxes(), { { 0, 0, 3, 3 }, { 0, 1, 1, 2 } })
+end
+
 T["flex"] = new_set()
 
 T["flex"]["lays items out in a row"] = function()

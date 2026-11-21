@@ -238,6 +238,27 @@ pub fn measure(tree: &mut Tree, index: Index, constraints: Constraints) -> Size 
     }
     content.width = limit(content.width, min_width, max_width, constraints.width);
 
+    // As CSS: a box sized to its content, such as `width = "fit"`, lays out
+    // what it holds in the width that was found, so a block in it fills it.
+    // Only done when such a block came out narrower, which is all it changes.
+    if space.intrinsic
+        && lays_out_as_block(tree, index)
+        && narrower_block(tree, index, content.width)
+    {
+        let width = content.width;
+        content = strategy.arrange(
+            tree,
+            index,
+            Space {
+                width,
+                intrinsic: false,
+                fit: false,
+                ..space
+            },
+        );
+        content.width = width;
+    }
+
     if constraints.exact_height.is_some() {
         content.height = space.height.unwrap_or(content.height);
     } else if let Some(definite) = space.height {
@@ -259,6 +280,28 @@ pub fn measure(tree: &mut Tree, index: Index, constraints: Constraints) -> Size 
     node.geometry.constraints = Some(constraints);
     node.dirty = false;
     outer
+}
+
+/// Whether a node arranges what it holds as a block does: see [`strategy`].
+fn lays_out_as_block(tree: &Tree, index: Index) -> bool {
+    let node = tree.node(index);
+    match node.display {
+        Display::Block => true,
+        Display::Inline => is_inline_block(&node.style) || inline::is_item(tree, index),
+        _ => false,
+    }
+}
+
+/// Whether a block in the flow of `index` that fills its width with an `auto`
+/// one is narrower than `width`.
+fn narrower_block(tree: &mut Tree, index: Index, width: i32) -> bool {
+    let mut found = false;
+    tree.for_each_flow_child(index, false, &mut |tree, child| {
+        let node = tree.node(child);
+        let fills = node.display.fills_width() && node.style.width == Length::Auto;
+        found = found || (fills && node.geometry.outer.width < width);
+    });
+    found
 }
 
 /// Splits `total` by `weights` in whole cells, as a browser would snap the
