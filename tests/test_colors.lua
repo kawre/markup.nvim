@@ -182,6 +182,25 @@ T["view"]["draws a half border in the card's color over the window's"] = functio
 	eq(screen:cell_at("ab").bg, CARD)
 end
 
+T["view"]["a half border follows a style that changes"] = function()
+	run([[
+		lit = m.signal(false)
+		view:render(m.block({ m.block({
+			"ab",
+			width = 4,
+			border = "half",
+			style = function() return lit() and "CursorLine" or "Card" end,
+		}) }))
+	]])
+	eq(screen:cell(1, 1), { text = "▄", fg = CARD, bg = VIEW_BG })
+
+	run("lit(true)")
+	-- The edges in the color the element has now, not the one it started with.
+	eq(screen:cell(1, 1), { text = "▄", fg = LINE, bg = VIEW_BG })
+	eq(screen:cell(3, 1), { text = "▀", fg = LINE, bg = VIEW_BG })
+	eq(screen:cell_at("ab").bg, LINE)
+end
+
 T["view"]["colors wide characters across both of their cells"] = function()
 	run([[view:render(m.block({ m.inline("你好", "Label"), m.inline("x") }))]])
 	local spans = screen:spans(1, 1, 6)

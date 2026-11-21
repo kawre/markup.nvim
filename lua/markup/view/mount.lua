@@ -174,11 +174,24 @@ local function apply_props(view, id, tag, props)
 	end
 
 	if props.border then
-		local border_style = props.border_style
-		if border_style == nil and props.border == "half" and type(style) == "string" then
-			border_style = hl.edge(style)
+		--- A half border draws in the background of the element, whichever
+		--- group that is at the moment.
+		local function set_border(current)
+			local border_style = props.border_style
+			if border_style == nil and props.border == "half" and type(current) == "string" then
+				border_style = hl.edge(current)
+			end
+			view.commands:set_border(id, props.border, props.border_sides, hl.id(border_style))
+			view:request_commit()
 		end
-		view.commands:set_border(id, props.border, props.border_sides, hl.id(border_style))
+
+		if props.border_style == nil and props.border == "half" and type(style) == "function" then
+			effect(function()
+				set_border(style())
+			end)
+		else
+			set_border(style)
+		end
 	end
 
 	if props.on_hover then

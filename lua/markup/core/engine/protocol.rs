@@ -63,6 +63,7 @@ pub enum StyleProperty {
     Clip(bool),
     ClipX(bool),
     Snap(Option<bool>),
+    Inert(bool),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -128,6 +129,7 @@ impl StyleProperty {
             StyleProperty::Clip(value) => style.extra_mut().clip = value,
             StyleProperty::ClipX(value) => style.extra_mut().clip_x = value,
             StyleProperty::Snap(value) => style.extra_mut().snap = value,
+            StyleProperty::Inert(value) => style.extra_mut().inert = value,
         }
     }
 }
@@ -386,6 +388,7 @@ impl Reader<'_> {
             45 => StyleProperty::Clip(self.int()? != 0),
             46 => StyleProperty::ClipX(self.int()? != 0),
             47 => StyleProperty::Snap(self.optional()?.map(|value| value != 0)),
+            48 => StyleProperty::Inert(self.int()? != 0),
             other => return Err(LuaError::runtime(format!("unknown style property {other}"))),
         })
     }
