@@ -206,7 +206,7 @@ pub fn measure(tree: &mut Tree, index: Index, constraints: Constraints) -> Size 
     let display = node.display;
     let style = &node.style;
     let extra = style.extra();
-    let space = content_space(style, constraints);
+    let mut space = content_space(style, constraints);
 
     let edges_x = style.margin.horizontal() + style.inner().horizontal();
     let edges_y = style.margin.vertical() + style.inner().vertical();
@@ -217,6 +217,22 @@ pub fn measure(tree: &mut Tree, index: Index, constraints: Constraints) -> Size 
     // What collapses through this node, if anything, is up to its strategy:
     // only a block lets the margins of its children through.
     let margin = style.margin;
+
+    // As CSS `fit-content`: a box sized to its content is no narrower than its
+    // longest word, even where less room is left, unless its `max_width` says
+    // otherwise. Measured with each word whole, which asks nothing of this.
+    if space.intrinsic && space.fit && !space.whole_words && constraints.exact_width.is_none() {
+        let narrowest = Constraints {
+            height: constraints.height,
+            shares_as_auto: constraints.shares_as_auto,
+            ..Constraints::min_content()
+        };
+        let narrowest = measure(tree, index, narrowest).width - edges_x;
+        if narrowest > space.width {
+            space.width = limit(narrowest, min_width, max_width, constraints.width);
+        }
+    }
+
     // Laid out anew: pieces of an earlier wrap would paint it where it no
     // longer is. A run that flows it again sets them after this.
     tree.node_mut(index).fragments = None;

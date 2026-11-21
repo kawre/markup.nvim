@@ -288,6 +288,14 @@ fn size_tracks(
     sizes
 }
 
+/// Whether an item fills the width of its area: stretched, with no width of
+/// its own. Otherwise it is as wide as its content, up to the area.
+fn stretches_x(tree: &Tree, item: &Placed, justify_items: Align) -> bool {
+    let style = item.unit.style(tree);
+    let justify = style.extra().justify_self.unwrap_or(justify_items);
+    justify == Align::Stretch && style.width == Length::Auto
+}
+
 fn starts(sizes: &[i32], gap: i32) -> Vec<i32> {
     let mut position = 0;
     sizes
@@ -395,8 +403,12 @@ impl Strategy for Grid {
             .iter()
             .map(|item| {
                 let width = area(&columns, item.column, item.column_span, column_gap);
+                // As wide as it is laid out below, so its row holds it.
+                let stretch_x = stretches_x(tree, item, justify_items);
                 let constraints = Constraints {
-                    exact_width: Some(width),
+                    exact_width: stretch_x.then_some(width),
+                    intrinsic: !stretch_x,
+                    fit: !stretch_x,
                     shares_as_auto: space.shares_as_auto,
                     ..Constraints::available(width)
                 };
@@ -431,7 +443,7 @@ impl Strategy for Grid {
             let justify = extra.justify_self.unwrap_or(justify_items);
             let align = extra.align_self.unwrap_or(align_items);
 
-            let stretch_x = justify == Align::Stretch && style.width == Length::Auto;
+            let stretch_x = stretches_x(tree, item, justify_items);
             let stretch_y = align == Align::Stretch && style.height == Length::Auto;
 
             let outer = item.unit.measure(

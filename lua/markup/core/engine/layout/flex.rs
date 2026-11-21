@@ -172,8 +172,10 @@ fn collect_items(
                 } else if clips {
                     0
                 } else {
+                    // What its content needs: a share of the container, such
+                    // as `width = "full"`, is `auto` here, as in CSS.
                     let constraints = Constraints {
-                        shares_as_auto: space.shares_as_auto,
+                        shares_as_auto: true,
                         ..Constraints::min_content()
                     };
                     let narrowest = unit.measure(tree, constraints).width;

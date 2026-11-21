@@ -90,9 +90,15 @@ fn close(tree: &mut Tree, texts: &mut Vec<Index>, units: &mut Vec<Unit>) {
 
 /// Lays text out as a block with no style of its own would.
 fn measure_texts(tree: &mut Tree, texts: &[Index], constraints: Constraints) -> Size {
-    let space = content_space(&ANONYMOUS, constraints);
+    let mut space = content_space(&ANONYMOUS, constraints);
     for &text in texts {
         measure(tree, text, space.child(space.width));
+    }
+    // As CSS `fit-content`, and `measure` does for any box: no narrower than
+    // its longest word.
+    if space.intrinsic && space.fit && !space.whole_words && constraints.exact_width.is_none() {
+        let longest = wrap::flow(tree, texts, 0, space.width, false).width;
+        space.width = space.width.max(longest);
     }
     let wraps = space.can_wrap() && tree.text_wraps(texts[0]);
     let limit = if wraps { space.width } else { i32::MAX };

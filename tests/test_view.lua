@@ -579,6 +579,35 @@ T["css"]["a line breaks before an inline-block that does not fit"] = function()
 	eq(boxes(), { { 0, 0, 3, 3 }, { 0, 1, 1, 2 } })
 end
 
+-- Found by comparing tests/test_fuzz.lua with Chromium, seeds 20, 1007 and
+-- 2010: each broke words narrower than the longest, which CSS `fit-content`
+-- and `min-width: auto` keep whole.
+T["css"]["a box sized to its content is no narrower than its longest word"] = function()
+	run([[view:render(m.block({ width = 3, m.block({ width = "fit", "ipsum dolor" }) }))]])
+	eq(boxes(), { { 0, 0, 3, 2 }, { 0, 0, 5, 2 } })
+	eq(lines(), { "ipsum", "dolor" })
+end
+
+T["css"]["text in a column keeps its longest word"] = function()
+	run([[view:render(m.flex({ vertical = true, align = "start", width = 3, "ipsum dolor" }))]])
+	eq(boxes(), { { 0, 0, 3, 2 } })
+	eq(lines(), { "ipsum", "dolor" })
+end
+
+T["css"]["a grid row is as tall as its item laid out at its own width"] = function()
+	run(
+		[[view:render(m.grid({ columns = { 5, "1fr" }, m.block({ width = "fit", "xipsum dolor" }) }))]]
+	)
+	eq(boxes(), { { 0, 0, 60, 2 }, { 0, 0, 6, 2 } })
+end
+
+T["css"]["a flex item with a share does not shrink below its longest word"] = function()
+	run(
+		[[view:render(m.block({ width = 10, m.flex({ "abcdefgh", m.block({ width = "full", "abcdefgh" }) }) }))]]
+	)
+	eq(lines(), { "abcdefghabcdefgh" })
+end
+
 T["flex"] = new_set()
 
 T["flex"]["lays items out in a row"] = function()
