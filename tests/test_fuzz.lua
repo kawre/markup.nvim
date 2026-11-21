@@ -117,6 +117,37 @@ local function play(seed, steps, opts)
 	return child.lua_get("failure")
 end
 
+T["freezing each items preserves their rendered text when a wrapper is removed"] = function()
+	child.lua([[
+		local frozen = dofile("tests/browser/frozen.lua")
+		local knobs = {
+			{ signal = m.signal({ 3, 7 }) },
+			{ signal = m.signal("live") },
+			{ signal = m.signal(false) },
+		}
+		local spec = { kind = "each", knob = 1, item = {
+			kind = "box", tag = "block", props = {}, dynamic = {}, children = {
+				{ kind = "text", value = "fixed" },
+				{ kind = "dyntext", knob = 2 },
+				{ kind = "dynchild", knob = 3, text = "fallback" },
+			},
+		} }
+		local root = frozen.freeze({ root = spec, knobs = knobs })
+		local function render(spec)
+			view:render(frozen.build(spec))
+			F.settle()
+			return vim.api.nvim_buf_get_lines(win.buf, 0, -1, false)
+		end
+		whole = render(root)
+		reduced = render(root.children[2].children[2])
+	]])
+	eq(
+		child.lua_get("whole"),
+		{ "item 3 ", "fixed#3live#3fallback", "item 7 ", "fixed#7live#7fallback" }
+	)
+	eq(child.lua_get("reduced"), { "fixed#7live#7fallback" })
+end
+
 T["updates match a fresh render"] = new_set({ parametrize = range(1, SEEDS) })
 
 T["updates match a fresh render"]["seed"] = function(seed)

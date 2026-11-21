@@ -14,7 +14,6 @@
 --- `resizes` 40 at depth 4 with `resize`.
 local seed, steps, depth, resize =
 	tonumber(arg[1]), tonumber(arg[2]), tonumber(arg[3]), arg[4] == "resize"
-local m = require("markup")
 local F = dofile("tests/helpers/fuzz.lua")
 local ref = dofile("tests/browser/reference.lua")
 F.capture()
@@ -114,102 +113,11 @@ local width = s.width
 vim.o.columns = width
 F.settle()
 
--- Freeze knobs into a static spec.
-local function val(knob)
-	return world.knobs[knob].signal()
-end
-local function freeze(spec, item)
-	local k = spec.kind
-	if k == "text" then
-		return { kind = "text", value = spec.value .. (item and ("#" .. item) or "") }
-	elseif k == "dyntext" then
-		return { kind = "text", value = val(spec.knob) .. (item and ("#" .. item) or "") }
-	elseif k == "dynchild" then
-		return val(spec.knob) and freeze(spec.child, item) or { kind = "text", value = spec.text }
-	elseif k == "show" then
-		if val(spec.knob) then
-			return freeze(spec.child, item)
-		end
-		return spec.fallback and freeze(spec.fallback, item) or { kind = "none" }
-	elseif k == "collapse" then
-		return { kind = "collapse", open = val(spec.knob), child = freeze(spec.child, item) }
-	elseif k == "each" then
-		local items = {}
-		for _, key in ipairs(val(spec.knob)) do
-			items[#items + 1] = {
-				kind = "box",
-				tag = "block",
-				props = {},
-				children = {
-					{ kind = "text", value = "item " .. key .. " " },
-					freeze(spec.item, key),
-				},
-			}
-		end
-		return { kind = "box", tag = "block", props = {}, children = items }
-	elseif k == "slide" then
-		local page = val(spec.knob)
-		return {
-			kind = "slide",
-			page = page,
-			child = {
-				kind = "box",
-				tag = "block",
-				props = {},
-				children = {
-					{ kind = "text", value = "page " .. page },
-					freeze(spec.pages[page], item),
-				},
-			},
-		}
-	elseif k == "component" then
-		return freeze(spec.child, item)
-	end
-	local props = vim.deepcopy(spec.props)
-	for name, index in pairs(spec.dynamic) do
-		props[name] = val(index)
-	end
-	local children = {}
-	for _, c in ipairs(spec.children) do
-		children[#children + 1] = freeze(c, item)
-	end
-	return { kind = "box", tag = spec.tag, props = props, children = children }
-end
-local function build(spec)
-	local k = spec.kind
-	if k == "none" then
-		return nil
-	elseif k == "text" then
-		return spec.value
-	elseif k == "collapse" then
-		return m.collapse(function()
-			return spec.open
-		end, function()
-			return m.block({ build(spec.child) })
-		end)
-	elseif k == "slide" then
-		return m.slide(function()
-			return 1
-		end, function()
-			return build(spec.child)
-		end)
-	end
-	local props = vim.deepcopy(spec.props)
-	local children = {}
-	for _, c in ipairs(spec.children) do
-		local b = build(c)
-		if b ~= nil then
-			children[#children + 1] = b
-		end
-	end
-	props.children = children
-	return m[spec.tag](props)
-end
-
-local root = freeze(world.root)
+local frozen = dofile("tests/browser/frozen.lua")
+local root = frozen.freeze(world)
 local function try(spec)
 	return measure(function()
-		return build(spec)
+		return frozen.build(spec)
 	end, width)
 end
 local first = try(root)

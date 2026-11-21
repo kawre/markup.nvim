@@ -655,6 +655,38 @@ T["css"]["spacing separates an empty block from the following inline run"] = fun
 	eq(lines(), { "", "a", "b", "c" })
 end
 
+T["css"]["a full-width blank inline-block has only its own blank line"] = function()
+	run([[view:render(m.block({ m.inline({ border = "rounded", width = "full", "" }) }))]])
+	eq(boxes()[1], { 0, 0, 60, 3 })
+end
+
+T["css"]["a split inline's leading padding can wrap after a full word"] = function()
+	run(
+		[[view:render(m.block({ width = 3, "abc", m.inline({ padding_left = 1, m.block("x") }) }))]]
+	)
+	eq(boxes()[1], { 0, 0, 3, 3 })
+	eq(boxes()[3], { 0, 2, 3, 1 })
+end
+
+T["css"]["a clipped descendant caps the baseline of an inline-block"] = function()
+	run(
+		[[view:render(m.block({ m.inline({ width = 3, m.block({ height = 1, overflow = "hidden", "ipsum dolor" }) }) }))]]
+	)
+	eq(boxes()[1], { 0, 0, 60, 1 })
+end
+
+T["css"]["a flex descendant supplies the baseline of an inline-block"] = function()
+	run([[view:render(m.block({ m.inline({ height = 1, m.block("x"), m.flex({ "y" }) }) }))]])
+	eq(boxes()[1], { 0, 0, 60, 2 })
+end
+
+T["css"]["a percentage inline-block fits its content during grid sizing"] = function()
+	run(
+		[[view:render(m.grid({ width = 3, columns = 1, m.block({ m.inline({ width = "full", "tab\there" }) }) }))]]
+	)
+	eq(boxes(), { { 0, 0, 3, 2 }, { 0, 0, 4, 2 }, { 0, 0, 4, 2 } })
+end
+
 T["flex"] = new_set()
 
 T["flex"]["lays items out in a row"] = function()
