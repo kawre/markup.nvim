@@ -375,7 +375,8 @@ Top left of a node's margin box, in buffer cells.
 pub fn node_at(&self, row: i32, col: i32) -> Option<ClientId>
 ```
 
-Finds the innermost interactive node on a cell.
+Finds the innermost interactive node on a cell. Nothing under an inert
+node counts.
 0
 
 ```rust
@@ -577,17 +578,25 @@ behind a box that plain nodes never allocate.
 0
 
 ```rust
-pub white_space: Option<WhiteSpace>, /// Whether text is a place a snapping cursor lands on. Unset inherits. pub snap: Option<bool>,  pub border: Option<Border>,  /// As given. What is cut off follows from both, see `set_overflow`. pub overflow_x: Overflow, pub overflow_y: Overflow,
+pub white_space: Option<WhiteSpace>, /// Whether text is a place a snapping cursor lands on. Unset inherits. pub snap: Option<bool>, /// The node and everything under it take no cursor: no snapping onto them, /// no hover and no press, such as a page on its way out. pub inert: bool,  pub border: Option<Border>,
 ```
 
 Unset inherits from the parent.
 0
 
 ```rust
-pub snap: Option<bool>,  pub border: Option<Border>,  /// As given. What is cut off follows from both, see `set_overflow`. pub overflow_x: Overflow, pub overflow_y: Overflow, /// Cut what does not fit the height, so a height can be animated. pub clip: bool,
+pub snap: Option<bool>, /// The node and everything under it take no cursor: no snapping onto them, /// no hover and no press, such as a page on its way out. pub inert: bool,  pub border: Option<Border>,  /// As given. What is cut off follows from both, see `set_overflow`. pub overflow_x: Overflow,
 ```
 
 Whether text is a place a snapping cursor lands on. Unset inherits.
+0
+
+```rust
+pub inert: bool,  pub border: Option<Border>,  /// As given. What is cut off follows from both, see `set_overflow`. pub overflow_x: Overflow, pub overflow_y: Overflow, /// Cut what does not fit the height, so a height can be animated. pub clip: bool,
+```
+
+The node and everything under it take no cursor: no snapping onto them,
+no hover and no press, such as a page on its way out.
 0
 
 ```rust

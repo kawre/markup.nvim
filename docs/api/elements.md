@@ -391,6 +391,7 @@ Fields:
 - `gap`: `(integer|fun():integer|integer[]|integer[])?` - between children, or `{ rows, columns }`
 - `grow`: `(number|fun():number)?`
 - `height`: `(fun():markup.length|markup.length)?` - as in CSS, the box keeps it, and what is taller shows below it; `min_height` grows with the content
+- `inert`: `(boolean|fun():boolean)?` - the element and all in it take no cursor: no snapping onto them, no hover, no press
 - `inset`: `(fun():markup.edges|markup.edges)?` - shorthand for `top`, `right`, `bottom` and `left`
 - `interactive`: `(boolean|fun():boolean)?` - a place the cursor can land, without `on_press`
 - `justify`: `(fun():markup.justify|markup.justify)?`
