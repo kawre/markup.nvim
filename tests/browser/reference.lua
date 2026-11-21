@@ -385,7 +385,8 @@ local function batch(cases)
 		fixtures[#fixtures + 1] = ("<main style=\"position:absolute;left:0;top:0;width:%dpx\" data-columns=\"%d\"%s>%s</main>"):format(
 			case.width * CELL,
 			case.width,
-			case.check_text and " data-text" or "",
+			-- With SHOW, the text is measured too, to show it, compared or not.
+			(case.check_text or (vim.env.SHOW or "") ~= "") and " data-text" or "",
 			case.html or html(case.tree)
 		)
 	end
@@ -528,6 +529,127 @@ local function compare(browser_layout, actual, lines)
 	end
 end
 
+--- Escapes text for an HTML attribute or element.
+local function escape(text)
+	return (
+		tostring(text):gsub("&", "&amp;"):gsub("<", "&lt;"):gsub(">", "&gt;"):gsub("\"", "&quot;")
+	)
+end
+
+--- Writes a page that shows each frame as the browser lays it out, with the
+--- boxes markup.nvim laid out over it and the lines Neovim drew beside it, and
+--- opens it. `entries` hold `name`, `status` ("failed", "passed" or
+--- "skipped"), `reason`, `html`, `width`, `boxes` and `lines`.
+local function show(entries, path)
+	local style = template:match("<style>(.-)</style>")
+	local order = { failed = 1, skipped = 2, passed = 3 }
+	table.sort(entries, function(a, b)
+		return (order[a.status] or 4) < (order[b.status] or 4)
+	end)
+	local counts = { failed = 0, skipped = 0, passed = 0 }
+	local sections = {}
+	for _, entry in ipairs(entries) do
+		counts[entry.status] = (counts[entry.status] or 0) + 1
+		local wrong = entry.status == "failed"
+			and tostring(entry.reason or ""):match("^at (%S+) %(")
+		local rows = #(entry.lines or {})
+		local overlay = {}
+		for _, box in ipairs(entry.boxes or {}) do
+			local x, y, w, h = unpack(box.rect)
+			rows = math.max(rows, y + h)
+			overlay[#overlay + 1] = ("<div class=\"box%s\" title=\"%s %s: %s\" style=\"left:%dpx;top:%dpx;width:%dpx;height:%dpx\"></div>"):format(
+				box.path == wrong and " wrong" or "",
+				escape(box.path),
+				escape(box.display),
+				escape(table.concat(box.rect, ", ")),
+				x * CELL,
+				y * LINE,
+				math.max(w * CELL, 1),
+				math.max(h * LINE, 1)
+			)
+		end
+		local width = (entry.width or 60) * CELL
+		sections[#sections + 1] = ([[
+<section class="%s">
+  <h2><span class="tag">%s</span> %s</h2>
+  %s
+  <div class="row">
+    <figure><figcaption>Chromium, markup.nvim's boxes over it</figcaption>
+      <div class="frame%s" style="width:%dpx;height:%dpx"><main style="position:absolute;left:0;top:0;width:%dpx">%s</main>%s<div class="overlay">%s</div></div>
+    </figure>
+    <figure><figcaption>Neovim</figcaption><pre class="frame nvim" style="width:%dpx">%s</pre></figure>
+  </div>
+</section>]]):format(
+			entry.status,
+			entry.status,
+			escape(entry.name),
+			entry.reason and ("<p class=\"reason\">%s</p>"):format(escape(entry.reason)) or "",
+			entry.browser_lines and " readable" or "",
+			width,
+			math.max(rows, #(entry.browser_lines or {}), 1) * LINE,
+			width,
+			entry.html or "",
+			entry.browser_lines
+					and ("<pre class=\"text\">%s</pre>"):format(
+						escape(table.concat(entry.browser_lines, "\n"))
+					)
+				or "",
+			table.concat(overlay),
+			width,
+			escape(table.concat(entry.lines or {}, "\n"))
+		)
+	end
+	local page = ([[<!doctype html>
+<meta charset="utf-8">
+<title>markup.nvim against Chromium</title>
+<style>%s
+  body { margin: 16px; background: #11111b; color: #cdd6f4; }
+  header, h2, figcaption, .reason { font: 14px/1.4 system-ui, sans-serif; }
+  header { position: sticky; top: 0; background: #11111b; padding: 8px 0; z-index: 2; }
+  section { margin: 0 0 24px; padding: 12px; border-radius: 8px; background: #181825; }
+  section.failed { box-shadow: inset 4px 0 #f38ba8; }
+  section.skipped { box-shadow: inset 4px 0 #f9e2af; }
+  section.passed { box-shadow: inset 4px 0 #a6e3a1; }
+  h2 { margin: 0 0 6px; font-size: 13px; font-weight: 600; }
+  .tag { text-transform: uppercase; font-size: 11px; opacity: .7; }
+  .reason { margin: 0 0 8px; color: #f38ba8; }
+  .row { display: flex; gap: 24px; align-items: flex-start; flex-wrap: wrap; }
+  figure { margin: 0; }
+  figcaption { opacity: .6; margin-bottom: 4px; font-size: 12px; }
+  .frame { position: relative; background: #1e1e2e; color: #cdd6f4; outline: 1px solid #45475a; overflow: visible; }
+  .frame main { color: #cdd6f4; }
+  .overlay { position: absolute; inset: 0; pointer-events: none; }
+  .box { position: absolute; outline: 1px dashed #a6e3a1; }
+  .box.wrong { outline: 2px solid #f38ba8; background: #f38ba822; }
+  /* The page's font draws each character as a box, which lays out as Neovim
+     measures; where the browser's text is known, it is shown over it in a
+     font that can be read, about as wide. */
+  .frame.readable main { color: transparent; }
+  pre.text, pre.nvim { margin: 0; white-space: pre; min-height: 20px;
+    font: 20px/20px monospace; font-size-adjust: ch-width 0.5; }
+  pre.text { position: absolute; left: 0; top: 0; pointer-events: none; }
+  .hide-passed section.passed { display: none; }
+</style>
+<header>%d failed, %d skipped, %d passed.
+  <label><input type="checkbox" %s onchange="document.body.classList.toggle('hide-passed', this.checked)"> Hide what passed</label>
+  Hover a box for its path and cells.</header>
+<body class="%s">
+%s
+</body>]]):format(
+		style,
+		counts.failed,
+		counts.skipped,
+		counts.passed,
+		-- What passed only gets in the way while something differs.
+		counts.failed > 0 and "checked" or "",
+		counts.failed > 0 and "hide-passed" or "",
+		table.concat(sections, "\n")
+	)
+	vim.fn.writefile(vim.split(page, "\n", { plain = true }), path)
+	vim.ui.open(path)
+	print("opened " .. path)
+end
+
 return {
 	unsupported = function(err)
 		return tostring(err):find("unsupported: ", 1, true) ~= nil
@@ -539,6 +661,7 @@ return {
 		return batch({ case })[1]
 	end,
 	compare = compare,
+	show = show,
 	close = function()
 		if directory then
 			vim.fn.delete(directory, "rf")

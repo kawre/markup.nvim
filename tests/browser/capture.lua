@@ -96,6 +96,12 @@ package.preload["markup.view"] = function()
 					boxes = boxes,
 					lines = profile.check_text
 						and vim.api.nvim_buf_get_lines(self.win.buf, 0, -1, false),
+					-- What the buffer shows, only to look at with SHOW.
+					drawn = vim.env.SHOW
+							and buf
+							and vim.api.nvim_buf_is_valid(buf)
+							and vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+						or nil,
 				})
 			end)
 			if not ok then

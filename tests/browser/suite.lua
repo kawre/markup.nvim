@@ -8,6 +8,10 @@ local function entry(data)
 	report:write(vim.json.encode(data), "\n")
 end
 local unique, groups = {}, {}
+-- With SHOW, a page of what differs, or of everything with SHOW=all.
+local shown = {}
+local show_all = vim.env.SHOW == "all"
+local show = vim.env.SHOW ~= nil and vim.env.SHOW ~= "" and vim.env.SHOW ~= "0"
 local function skip(case, reason)
 	cases[case].skipped = cases[case].skipped + 1
 	entry({ case = case, status = "skipped", reason = reason })
@@ -54,18 +58,34 @@ for start = 1, #unique, 32 do
 	local results = ref.batch(batch)
 	assert(#results == #batch, "incomplete Chromium response")
 	for i, input in ipairs(batch) do
+		local passed_shown = false
 		for _, frame in ipairs(groups[input.key]) do
 			local ok, status, reason = pcall(ref.compare, results[i], frame.boxes, frame.lines)
+			local result
 			if not ok then
 				fail(frame.case, status, input)
+				result = { status = "failed", reason = status }
 			elseif status == "unsupported" then
 				skip(frame.case, reason)
+				result = { status = "skipped", reason = reason }
 			else
 				compared = compared + 1
 				cases[frame.case].passed = cases[frame.case].passed + 1
+				result = { status = "passed" }
+			end
+			local wanted = result.status ~= "passed" or (show_all and not passed_shown)
+			if show and wanted then
+				passed_shown = passed_shown or result.status == "passed"
+				result.name, result.html, result.width = frame.case, input.html, input.width
+				result.boxes, result.lines = frame.boxes, frame.lines or frame.drawn
+				result.browser_lines = results[i].text and results[i].text.lines
+				shown[#shown + 1] = result
 			end
 		end
 	end
+end
+if show then
+	ref.show(shown, vim.fn.fnamemodify(".tests/browser-view.html", ":p"))
 end
 ref.close()
 for _, reason in ipairs(vim.fn.sort(vim.tbl_keys(skips))) do
