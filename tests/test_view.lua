@@ -298,6 +298,38 @@ local function words(letter)
 	return ("%q"):format(vim.fn.join(vim.fn["repeat"]({ letter:rep(4) }, 6), " "))
 end
 
+T["overflow"] = new_set()
+
+T["overflow"]["hidden cuts off what is too wide, too"] = function()
+	run([[view:render(m.block({
+		width = 4, overflow = "hidden", m.block({ white_space = "nowrap", "abcdefghij" }),
+	}))]])
+	eq(lines(), { "abcd" })
+end
+
+T["overflow"]["hidden cuts off what is too tall"] = function()
+	run([[view:render(m.block({
+		m.block({ height = 1, overflow = "hidden", m.block("a"), m.block("b") }),
+		m.block("c"),
+	}))]])
+	eq(lines(), { "a", "c" })
+end
+
+T["overflow"]["overflow_y keeps what is too wide"] = function()
+	run([[view:render(m.block({
+		width = 4, overflow_y = "hidden", m.block({ white_space = "nowrap", "abcdefghij" }),
+	}))]])
+	eq(lines(), { "abcdefghij" })
+end
+
+T["overflow"]["overflow_x keeps what is too tall"] = function()
+	run([[view:render(m.block({
+		m.block({ height = 1, overflow_x = "hidden", m.block("a"), m.block("b") }),
+		m.block("c"),
+	}))]])
+	eq(lines(), { "a", "b", "c" })
+end
+
 T["max_width"] = new_set()
 
 T["max_width"]["text wraps inside it"] = function()
