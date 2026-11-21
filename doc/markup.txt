@@ -2025,6 +2025,16 @@ markup.view:attach()                                    *markup.view:attach()*
     markup.view:attach()
     Starts over from a blank buffer, which the engine's next frame then fills.
 
+markup.view:bind_press()                            *markup.view:bind_press()*
+    markup.view:bind_press(keys?: string|string[]|false)
+    Binds the keys that press, under whatever `m.use_key` binds to them later:
+    a component can take one over while it is mounted.
+
+>lua
+    keys:
+       | false
+<
+
 markup.view:click()                                      *markup.view:click()*
     markup.view:click(mouse: table, kind?: "double"|"single")
       -> pressed: boolean
@@ -2419,6 +2429,10 @@ markup.view.opts                                            *markup.view.opts*
 markup.view.opts.hide_cursor                    *markup.view.opts.hide_cursor*
     boolean?
     hide the cursor in normal mode while in this window,
+
+markup.view.opts.press_key                        *markup.view.opts.press_key*
+    (string|string[]|false)?
+    the keys that press what is under the
 
 markup.view.opts.snap                                  *markup.view.opts.snap*
     (boolean|"text")?

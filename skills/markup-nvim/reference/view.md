@@ -37,6 +37,20 @@ markup.view:attach()
 
 Starts over from a blank buffer, which the engine's next frame then fills.
 
+### markup.view:bind_press()
+
+```lua
+markup.view:bind_press(keys?: string|string[]|false)
+```
+
+Binds the keys that press, under whatever `m.use_key` binds to them later:
+a component can take one over while it is mounted.
+
+```lua
+keys:
+   | false
+```
+
 ### markup.view:click()
 
 ```lua
@@ -459,6 +473,7 @@ Source: `lua/markup/view/init.lua`
 Fields:
 
 - `hide_cursor`: `boolean?` - hide the cursor in normal mode while in this window,
+- `press_key`: `(string|string[]|false)?` - the keys that press what is under the
 - `snap`: `(boolean|"text")?` - keep the cursor on interactive nodes, like a menu,
 
 ## markup.view.progress
