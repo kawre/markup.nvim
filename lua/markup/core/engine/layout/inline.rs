@@ -31,7 +31,13 @@ impl Strategy for Inline {
         // narrower than its content, the content wraps inside it as in a block.
         let overflows = size.width > space.width && space.can_wrap() && tree.text_wraps(node);
         if overflows && is_item(tree, node) {
-            let wrapped = wrap::flow(tree, &children, space.width, space.width);
+            let wrapped = wrap::flow(
+                tree,
+                &children,
+                space.width,
+                space.width,
+                !space.whole_words,
+            );
             for &child in &children {
                 place(tree, child, 0, 0);
             }
