@@ -410,9 +410,9 @@ Fields:
 - `on_hover`: `fun(hovered: boolean)?` - called as the cursor comes onto the element and leaves it
 - `on_press`: `fun()?` - called on <CR>, or on a click, which makes the element a place the cursor can land
 - `order`: `(integer|fun():integer)?`
-- `overflow`: `("hidden"|"visible"|fun():"hidden"|"visible")?` - cuts off what does not fit, either way
-- `overflow_x`: `("hidden"|"visible"|fun():"hidden"|"visible")?` - cuts off only what is too wide
-- `overflow_y`: `("hidden"|"visible"|fun():"hidden"|"visible")?` - cuts off only what is too tall
+- `overflow`: `(fun():markup.overflow|markup.overflow)?` - sets `overflow_x` and `overflow_y`, as in CSS
+- `overflow_x`: `(fun():markup.overflow|markup.overflow)?` - cuts off what is too wide. As in CSS, `hidden` cuts off what is too tall too, unless `overflow_y` says otherwise, and `clip` cuts off only this axis
+- `overflow_y`: `(fun():markup.overflow|markup.overflow)?` - cuts off what is too tall. As in CSS, `hidden` cuts off what is too wide too, unless `overflow_x` says otherwise, and `clip` cuts off only this axis
 - `overlay`: `boolean?` - with `fixed`, float over the content rather than pushing it down
 - `padding`: `(fun():markup.edges|markup.edges)?`
 - `padding_bottom`: `(integer|fun():integer)?`

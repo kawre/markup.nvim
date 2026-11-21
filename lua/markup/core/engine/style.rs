@@ -125,6 +125,19 @@ pub struct Border {
     pub outside_background: bool,
 }
 
+/// What happens to what does not fit along one axis, as CSS `overflow-x` and
+/// `overflow-y`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Overflow {
+    #[default]
+    Visible,
+    /// Cut off. In CSS this makes the box a scroll container, so the other
+    /// axis is cut off too, unless it is also set.
+    Hidden,
+    /// Cut off along this axis alone.
+    Clip,
+}
+
 /// Whether text may break onto new lines. Inherited, like in CSS.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum WhiteSpace {
@@ -165,10 +178,16 @@ pub struct Extra {
 
     pub border: Option<Border>,
 
+    /// As given. What is cut off follows from both, see `set_overflow`.
+    pub overflow_x: Overflow,
+    pub overflow_y: Overflow,
     /// Cut what does not fit the height, so a height can be animated.
     pub clip: bool,
     /// Cut what does not fit the width, so content can move past an edge.
     pub clip_x: bool,
+    /// Cut off with `hidden` along either axis, which in CSS makes the box a
+    /// scroll container: as a flex item, it may shrink below its content.
+    pub scrolls: bool,
 
     // Containers.
     pub direction: Direction,
@@ -211,6 +230,31 @@ pub struct Extra {
     pub justify_self: Option<Align>,
 }
 
+impl Extra {
+    /// Sets one axis and works out what is cut off, as CSS computes it: when
+    /// one axis is `hidden`, `visible` and `clip` on the other become `hidden`.
+    pub fn set_overflow(&mut self, x: Option<Overflow>, y: Option<Overflow>) {
+        if let Some(x) = x {
+            self.overflow_x = x;
+        }
+        if let Some(y) = y {
+            self.overflow_y = y;
+        }
+        let computed = |own: Overflow, other: Overflow| {
+            if other == Overflow::Hidden {
+                Overflow::Hidden
+            } else {
+                own
+            }
+        };
+        let x = computed(self.overflow_x, self.overflow_y);
+        let y = computed(self.overflow_y, self.overflow_x);
+        self.clip_x = x != Overflow::Visible;
+        self.clip = y != Overflow::Visible;
+        self.scrolls = x == Overflow::Hidden;
+    }
+}
+
 impl Default for Extra {
     fn default() -> Self {
         Extra {
@@ -218,8 +262,11 @@ impl Default for Extra {
             snap: None,
             inert: false,
             border: None,
+            overflow_x: Overflow::Visible,
+            overflow_y: Overflow::Visible,
             clip: false,
             clip_x: false,
+            scrolls: false,
             direction: Direction::Row,
             wrap: false,
             justify: Distribute::Start,
@@ -326,5 +373,42 @@ impl Style {
                 .or(inset.bottom.map(|bottom| -bottom))
                 .unwrap_or(0),
         )
+    }
+}
+
+#[cfg(test)]
+mod overflow_tests {
+    use super::{Extra, Overflow};
+
+    /// What is cut off, as `(columns, rows, scroll container)`.
+    fn cut(x: Overflow, y: Overflow) -> (bool, bool, bool) {
+        let mut extra = Extra::default();
+        extra.set_overflow(Some(x), Some(y));
+        (extra.clip_x, extra.clip, extra.scrolls)
+    }
+
+    #[test]
+    fn overflow_is_computed_as_in_css() {
+        use Overflow::{Clip, Hidden, Visible};
+        assert_eq!(cut(Visible, Visible), (false, false, false));
+        // `hidden` makes a scroll container, so `visible` on the other axis
+        // becomes `auto`: cut off as well.
+        assert_eq!(cut(Hidden, Visible), (true, true, true));
+        assert_eq!(cut(Visible, Hidden), (true, true, true));
+        // `clip` cuts off its own axis alone.
+        assert_eq!(cut(Clip, Visible), (true, false, false));
+        assert_eq!(cut(Visible, Clip), (false, true, false));
+        // Beside `hidden`, `clip` becomes `hidden`.
+        assert_eq!(cut(Clip, Hidden), (true, true, true));
+        assert_eq!(cut(Hidden, Clip), (true, true, true));
+    }
+
+    #[test]
+    fn each_axis_keeps_its_value_when_the_other_changes() {
+        let mut extra = Extra::default();
+        extra.set_overflow(Some(Overflow::Clip), None);
+        extra.set_overflow(None, Some(Overflow::Hidden));
+        extra.set_overflow(None, Some(Overflow::Visible));
+        assert_eq!((extra.clip_x, extra.clip), (true, false));
     }
 }

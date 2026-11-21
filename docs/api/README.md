@@ -22,7 +22,7 @@ signatures and types, from the LuaCATS annotations in `lua/`.
 - [layout.md](layout.md): `Markup.layout`: windows arranged in boxes.
   Classes: `markup.layout`, `markup.layout.box`, `markup.layout.config`, `markup.layout.widget`, `markup.layout.window`
 - [misc.md](misc.md): Setup and config, commands, logging, lists and utilities.
-  Classes: `markup.cmd`, `markup.config`, `markup.list`, `markup.logger`, `markup.util`
+  Classes: `markup.cmd`, `markup.config`, `markup.list`, `markup.logger`, `markup.overflow`, `markup.util`
 - [devkit.md](devkit.md): Tools for working on markup.nvim: the inspector, the stress test and the playground.
   Classes: `markup.devkit`, `markup.devkit.part`, `markup.devkit.tree`, `markup.playground`, `markup.playground.opts`
 - [internals.md](internals.md): What the view, the engine and the object system use inside. Plugins built on markup.nvim do not need these.

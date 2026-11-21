@@ -14,7 +14,7 @@ use super::Timings;
 use super::diff::Patch;
 use super::inspect::NodeInfo;
 use super::style::{
-    Align, Border, Direction, Display, Distribute, Edges, Length, Position, Style, Track,
+    Align, Border, Direction, Display, Distribute, Edges, Length, Overflow, Position, Style, Track,
     WhiteSpace,
 };
 use super::tree::ClientId;
@@ -60,8 +60,8 @@ pub enum StyleProperty {
     ColumnSpan(i32),
     RowSpan(i32),
     WhiteSpace(Option<WhiteSpace>),
-    Clip(bool),
-    ClipX(bool),
+    OverflowY(Overflow),
+    OverflowX(Overflow),
     Snap(Option<bool>),
     Inert(bool),
 }
@@ -126,8 +126,8 @@ impl StyleProperty {
             StyleProperty::ColumnSpan(value) => style.extra_mut().column_span = value,
             StyleProperty::RowSpan(value) => style.extra_mut().row_span = value,
             StyleProperty::WhiteSpace(value) => style.extra_mut().white_space = value,
-            StyleProperty::Clip(value) => style.extra_mut().clip = value,
-            StyleProperty::ClipX(value) => style.extra_mut().clip_x = value,
+            StyleProperty::OverflowY(value) => style.extra_mut().set_overflow(None, Some(value)),
+            StyleProperty::OverflowX(value) => style.extra_mut().set_overflow(Some(value), None),
             StyleProperty::Snap(value) => style.extra_mut().snap = value,
             StyleProperty::Inert(value) => style.extra_mut().inert = value,
         }
@@ -385,11 +385,19 @@ impl Reader<'_> {
                 Some(0) => Some(WhiteSpace::Normal),
                 Some(_) => Some(WhiteSpace::Nowrap),
             }),
-            45 => StyleProperty::Clip(self.int()? != 0),
-            46 => StyleProperty::ClipX(self.int()? != 0),
+            45 => StyleProperty::OverflowY(self.overflow()?),
+            46 => StyleProperty::OverflowX(self.overflow()?),
             47 => StyleProperty::Snap(self.optional()?.map(|value| value != 0)),
             48 => StyleProperty::Inert(self.int()? != 0),
             other => return Err(LuaError::runtime(format!("unknown style property {other}"))),
+        })
+    }
+
+    fn overflow(&mut self) -> LuaResult<Overflow> {
+        Ok(match self.int()? {
+            0 => Overflow::Visible,
+            1 => Overflow::Hidden,
+            _ => Overflow::Clip,
         })
     }
 
