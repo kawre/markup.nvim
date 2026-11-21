@@ -114,7 +114,7 @@ call `require("markup.reactive").flush()` to apply them at once.
 local Todo = m.component(function(props)
   local done = m.signal(false) -- state of its own, per instance
   return m.button({
-    function() return (done() and "[x] " or "[ ] ") .. props.title end,
+    function() return (done() and "[x] " or "[ ] ") .. props.title() end,
     on_press = function() done(not done()) end,
   })
 end)
@@ -127,7 +127,8 @@ view:render(m.block({
 
 - `m.show(when, content, fallback?)` renders `content` while `when()` is truthy.
 - `m.each(list, render, { key = fn }?)` renders a keyed list and keeps the UI
-  of items that stay.
+  of items that stay. The render callback receives item and one-based index
+  accessors. Read them in dynamic children or props to follow updates.
 - `m.collapse(when, content, opts?)` is like `show`, but the height animates.
 - `m.slide(key, render, opts?)` slides between pages as `key()` changes.
 - `m.use_view()` gives the view of the current component, and

@@ -237,7 +237,8 @@ end
 local function Wave(now, rows)
 	return m.each(function()
 		return range(rows())
-	end, function(y)
+	end, function(item)
+		local y = item()
 		local cells = {}
 		for x = 1, 64 do
 			local function level()
@@ -284,8 +285,8 @@ end)
 local function Meters(count)
 	return m.each(function()
 		return range(count())
-	end, function(index)
-		return Meter({ index = index })
+	end, function(item)
+		return Meter({ index = item() })
 	end)
 end
 
@@ -331,7 +332,8 @@ local Churn = m.component(function(props)
 		items(list)
 	end)
 
-	return m.each(items, function(entry)
+	return m.each(items, function(item)
+		local entry = item()
 		return m.flex({
 			gap = 1,
 			m.inline(("#%05d"):format(entry.id), "Comment"),
@@ -354,7 +356,8 @@ local Accordion = m.component(function(props)
 
 	return m.each(function()
 		return range(props.count())
-	end, function(i)
+	end, function(item)
+		local i = item()
 		return m.block({
 			m.block({
 				m.inline(function()
@@ -410,8 +413,8 @@ end)
 local function Reflows(count)
 	return m.each(function()
 		return range(count())
-	end, function(index)
-		return Reflow({ index = index })
+	end, function(item)
+		return Reflow({ index = item() })
 	end)
 end
 
@@ -457,8 +460,8 @@ local function Cards(count)
 		gap = { 0, 1 },
 		m.each(function()
 			return range(count())
-		end, function(index)
-			return Card({ index = index })
+		end, function(item)
+			return Card({ index = item() })
 		end),
 	})
 end
@@ -493,8 +496,8 @@ end)
 local function Carousels(count)
 	return m.each(function()
 		return range(count())
-	end, function(index)
-		return Carousel({ index = index })
+	end, function(item)
+		return Carousel({ index = item() })
 	end)
 end
 
@@ -584,8 +587,8 @@ end)
 local function Texts(count)
 	return m.each(function()
 		return range(count())
-	end, function(index)
-		return RichText({ index = index })
+	end, function(item)
+		return RichText({ index = item() })
 	end)
 end
 
@@ -609,8 +612,8 @@ local function Highlights(count)
 		white_space = "normal",
 		m.each(function()
 			return range(count())
-		end, function(index)
-			return Chip({ index = index })
+		end, function(item)
+			return Chip({ index = item() })
 		end),
 	})
 end
@@ -620,7 +623,8 @@ local function Spinners(count)
 		white_space = "normal",
 		m.each(function()
 			return range(count())
-		end, function(index)
+		end, function(item)
+			local index = item()
 			return m.inline({ m.loader({ style = PALETTE[index % #PALETTE + 1] }), " " })
 		end),
 	})

@@ -130,8 +130,14 @@ function M.show(...)
 	return require("markup.view.mount").show(...)
 end
 
-function M.each(...)
-	return require("markup.view.mount").each(...)
+--- Mounts a row per key. Read item() and index() in dynamic children or props
+--- to follow replacements and reorders while keeping row-local state.
+---@generic T
+---@param list fun(): T[]
+---@param render fun(item: (fun(): T), index: (fun(): integer)): any
+---@param opts? { key?: fun(item: T): any }
+function M.each(list, render, opts)
+	return require("markup.view.mount").each(list, render, opts)
 end
 
 setmetatable(M, { ---@diagnostic disable-line: param-type-mismatch

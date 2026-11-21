@@ -33,6 +33,21 @@ end
 
 T["effect"] = new_set()
 
+T["effect"]["a live source releases a disposed subscriber"] = function()
+	local source = r.signal(0)
+	local weak = setmetatable({}, { __mode = "v" })
+	do
+		local effect = r.effect(function()
+			source()
+		end)
+		weak[1] = effect
+		r.dispose(effect)
+	end
+	collectgarbage("collect")
+	eq(weak[1] == nil, true)
+	eq(source(), 0)
+end
+
 T["effect"]["runs immediately and after changes"] = function()
 	local count, seen = r.signal(0), {}
 	r.effect(function()

@@ -175,48 +175,31 @@ Width to fill or fit into.
 0
 
 ```rust
-pub height: Option<i32>, /// Sizes the child must take, such as a stretched flex item. pub exact_width: Option<i32>, pub exact_height: Option<i32>, /// Ask for the natural size, so blocks do not fill the width. pub intrinsic: bool, /// With `intrinsic`, still wrap at `width`, like CSS `fit-content`. pub fit: bool, /// Keep each word whole, even past `width`. A word longer than its line
+pub height: Option<i32>, /// Sizes the child must take, such as a stretched flex item. pub exact_width: Option<i32>, pub exact_height: Option<i32>, /// Ask for the natural size, so blocks do not fill the width. pub intrinsic: bool, /// With `intrinsic`, still wrap at `width`, like CSS `fit-content`. pub fit: bool, }
 ```
 
 Height, when the parent has a definite one.
 0
 
 ```rust
-pub exact_width: Option<i32>, pub exact_height: Option<i32>, /// Ask for the natural size, so blocks do not fill the width. pub intrinsic: bool, /// With `intrinsic`, still wrap at `width`, like CSS `fit-content`. pub fit: bool, /// Keep each word whole, even past `width`. A word longer than its line /// still breaks when drawn, as with CSS `overflow-wrap: break-word`, but /// the narrowest a node can be is its longest word, as CSS `min-content`.
+pub exact_width: Option<i32>, pub exact_height: Option<i32>, /// Ask for the natural size, so blocks do not fill the width. pub intrinsic: bool, /// With `intrinsic`, still wrap at `width`, like CSS `fit-content`. pub fit: bool, }  impl Constraints
 ```
 
 Sizes the child must take, such as a stretched flex item.
 0
 
 ```rust
-pub intrinsic: bool, /// With `intrinsic`, still wrap at `width`, like CSS `fit-content`. pub fit: bool, /// Keep each word whole, even past `width`. A word longer than its line /// still breaks when drawn, as with CSS `overflow-wrap: break-word`, but /// the narrowest a node can be is its longest word, as CSS `min-content`. pub whole_words: bool, }
+pub intrinsic: bool, /// With `intrinsic`, still wrap at `width`, like CSS `fit-content`. pub fit: bool, }  impl Constraints
 ```
 
 Ask for the natural size, so blocks do not fill the width.
 0
 
 ```rust
-pub fit: bool, /// Keep each word whole, even past `width`. A word longer than its line /// still breaks when drawn, as with CSS `overflow-wrap: break-word`, but /// the narrowest a node can be is its longest word, as CSS `min-content`. pub whole_words: bool, }  impl Constraints
+pub fit: bool, }  impl Constraints
 ```
 
 With `intrinsic`, still wrap at `width`, like CSS `fit-content`.
-0
-
-```rust
-pub whole_words: bool, }  impl Constraints
-```
-
-Keep each word whole, even past `width`. A word longer than its line
-still breaks when drawn, as with CSS `overflow-wrap: break-word`, but
-the narrowest a node can be is its longest word, as CSS `min-content`.
-0
-
-```rust
-pub fn min_content() -> Self
-```
-
-The narrowest a node can be: as narrow as wrapping allows, with each
-word whole.
 0
 
 ```rust
@@ -267,15 +250,14 @@ the fragments it was cut into, and each inline element the area it covers
 on every line, which is what paint draws highlights over.
 
 ```rust
-pub fn flow(tree: &mut Tree, run: &[Index], limit: i32, available: i32, split_words: bool) -> Size
+pub fn flow(tree: &mut Tree, run: &[Index], limit: i32, available: i32) -> Size
 ```
 
 Lays out a run of inline nodes in `limit` cells at the origin of the run.
 Flows a run of inline nodes, breaking lines past `limit`. Whatever cannot
 flow, such as a block among them, is laid out for `available`, which a run
 that never breaks still needs: `limit` is then unbounded, and a child as
-wide as its parent would be that wide too. Without `split_words`, a word
-longer than a line runs past it whole.
+wide as its parent would be that wide too.
 0
 
 ## `engine/lua.rs`
@@ -482,26 +464,18 @@ Top left, top, top right, right, bottom right, bottom, bottom left, left.
 0
 
 ```rust
-pub hl: u32, /// Keep the background off the border. Half block borders need it, as /// their characters paint the half of the cell that belongs to the box. pub outside_background: bool, }  /// What happens to what does not fit along one axis, as CSS `overflow-x` and /// `overflow-y`. #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub hl: u32, /// Keep the background off the border. Half block borders need it, as /// their characters paint the half of the cell that belongs to the box. pub outside_background: bool, }  /// Whether text may break onto new lines. Inherited, like in CSS. #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)] pub enum WhiteSpace
 ```
 
 Highlight id of the border itself.
 0
 
 ```rust
-pub outside_background: bool, }  /// What happens to what does not fit along one axis, as CSS `overflow-x` and /// `overflow-y`. #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)] pub enum Overflow
+pub outside_background: bool, }  /// Whether text may break onto new lines. Inherited, like in CSS. #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)] pub enum WhiteSpace
 ```
 
 Keep the background off the border. Half block borders need it, as
 their characters paint the half of the cell that belongs to the box.
-0
-
-```rust
-pub enum Overflow
-```
-
-What happens to what does not fit along one axis, as CSS `overflow-x` and
-`overflow-y`.
 0
 
 ```rust
@@ -541,14 +515,14 @@ Unset inherits from the parent.
 0
 
 ```rust
-pub snap: Option<bool>, /// The node and everything under it take no cursor: no snapping onto them, /// no hover and no press, such as a page on its way out. pub inert: bool,  pub border: Option<Border>,  /// As given. What is cut off follows from both, see `set_overflow`. pub overflow_x: Overflow,
+pub snap: Option<bool>, /// The node and everything under it take no cursor: no snapping onto them, /// no hover and no press, such as a page on its way out. pub inert: bool,  pub border: Option<Border>,  /// Cut what does not fit the height, so a height can be animated. pub clip: bool,
 ```
 
 Whether text is a place a snapping cursor lands on. Unset inherits.
 0
 
 ```rust
-pub inert: bool,  pub border: Option<Border>,  /// As given. What is cut off follows from both, see `set_overflow`. pub overflow_x: Overflow, pub overflow_y: Overflow, /// Cut what does not fit the height, so a height can be animated. pub clip: bool,
+pub inert: bool,  pub border: Option<Border>,  /// Cut what does not fit the height, so a height can be animated. pub clip: bool, /// Cut what does not fit the width, so content can move past an edge. pub clip_x: bool,
 ```
 
 The node and everything under it take no cursor: no snapping onto them,
@@ -556,40 +530,17 @@ no hover and no press, such as a page on its way out.
 0
 
 ```rust
-pub overflow_x: Overflow, pub overflow_y: Overflow, /// Cut what does not fit the height, so a height can be animated. pub clip: bool, /// Cut what does not fit the width, so content can move past an edge. pub clip_x: bool, /// Cut off with `hidden` along either axis, which in CSS makes the box a /// scroll container: as a flex item, it may shrink below its content. pub scrolls: bool,
-```
-
-As given. What is cut off follows from both, see `set_overflow`.
-0
-
-```rust
-pub clip: bool, /// Cut what does not fit the width, so content can move past an edge. pub clip_x: bool, /// Cut off with `hidden` along either axis, which in CSS makes the box a /// scroll container: as a flex item, it may shrink below its content. pub scrolls: bool,  // Containers. pub direction: Direction,
+pub clip: bool, /// Cut what does not fit the width, so content can move past an edge. pub clip_x: bool,  // Containers. pub direction: Direction, pub wrap: bool, pub justify: Distribute, pub align: Align,
 ```
 
 Cut what does not fit the height, so a height can be animated.
 0
 
 ```rust
-pub clip_x: bool, /// Cut off with `hidden` along either axis, which in CSS makes the box a /// scroll container: as a flex item, it may shrink below its content. pub scrolls: bool,  // Containers. pub direction: Direction, pub wrap: bool, pub justify: Distribute,
+pub clip_x: bool,  // Containers. pub direction: Direction, pub wrap: bool, pub justify: Distribute, pub align: Align, pub align_content: Distribute, pub row_gap: i32,
 ```
 
 Cut what does not fit the width, so content can move past an edge.
-0
-
-```rust
-pub scrolls: bool,  // Containers. pub direction: Direction, pub wrap: bool, pub justify: Distribute, pub align: Align, pub align_content: Distribute, pub row_gap: i32,
-```
-
-Cut off with `hidden` along either axis, which in CSS makes the box a
-scroll container: as a flex item, it may shrink below its content.
-0
-
-```rust
-pub fn set_overflow(&mut self, x: Option<Overflow>, y: Option<Overflow>)
-```
-
-Sets one axis and works out what is cut off, as CSS computes it: when
-one axis is `hidden`, `visible` and `clip` on the other become `hidden`.
 0
 
 ```rust

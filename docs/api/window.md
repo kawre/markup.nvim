@@ -130,6 +130,7 @@ markup.window:new(opts?: table|markup.window.config)
 
 ```lua
 markup.window:on(event: string|string[], cb: fun(self: markup.window, ev: vim.api.keyset.create_autocmd.callback_args):boolean?, opts?: markup.window.Event)
+  -> unsubscribe: function
 ```
 
 ### markup.window:on_current_tab()
@@ -149,6 +150,7 @@ markup.window:on_resize()
 
 ```lua
 markup.window:on_show(listener: fun(self: markup.window))
+  -> unsubscribe: function
 ```
 
 Calls `listener` every time the window opens.

@@ -22,7 +22,7 @@ local M = {}
 ---@field deps table<table, boolean>
 ---@field memo? boolean
 ---@field stale? boolean
----@field subs? table<markup.reactive.computation, boolean>
+---@field subs? table<markup.reactive.computation, integer>
 ---@field value? any
 
 local MAX_ROUNDS = 100
@@ -76,17 +76,17 @@ end
 --- addresses of the subscribers, which differ from one session to the next,
 --- and so would whatever depends on the order effects run in.
 local function unsubscribe(source, computation)
+	source.order[source.subs[computation]] = false
 	source.subs[computation] = nil
 	local stale = source.stale_subs + 1
 	source.stale_subs = stale
-	-- Left in the list until there are enough to sweep, so leaving costs nothing.
+	-- Compact vacant slots together, preserving subscription order.
 	if stale > 16 and stale * 2 > #source.order then
-		local live, seen, n = {}, {}, 0
+		local live = {}
 		for _, sub in ipairs(source.order) do
-			if source.subs[sub] and not seen[sub] then
-				seen[sub] = true
-				n = n + 1
-				live[n] = sub
+			if sub then
+				live[#live + 1] = sub
+				source.subs[sub] = #live
 			end
 		end
 		source.order, source.stale_subs = live, 0
@@ -161,7 +161,7 @@ local function track(source)
 	if observer then
 		observer.deps[source] = true
 		if not source.subs[observer] then
-			source.subs[observer] = true
+			source.subs[observer] = #source.order + 1
 			source.order[#source.order + 1] = observer
 		end
 	end
@@ -170,13 +170,11 @@ end
 --- Effects are queued, memos only go stale until someone reads them, so a
 --- computation never sees a mix of old and new values.
 local function notify(source)
-	local subs = source.subs
 	local order = source.order
 	for i = 1, #order do
 		local sub = order[i]
-		if not subs[sub] then
-			-- It left, and stays listed until a sweep. One that came back is
-			-- listed twice for as long, which the checks below make harmless.
+		if not sub then
+			-- Vacant until the next sweep.
 		elseif sub.memo then
 			if not sub.stale then
 				sub.stale = true

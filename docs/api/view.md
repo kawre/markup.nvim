@@ -385,7 +385,7 @@ markup.view.fixed:hide()
 ### markup.view.fixed:new()
 
 ```lua
-markup.view.fixed:new(parent: markup.view, spacer?: integer, content: any, style?: string|false)
+markup.view.fixed:new(parent: markup.view, spacer?: integer, content: any, style?: fun():(markup.factory.element.style)?|markup.factory.element.style|false)
 ```
 
 ```lua
@@ -426,7 +426,7 @@ Keeps the float and the reserved rows as tall as the content.
 ### markup.view.fixed.winhighlight()
 
 ```lua
-function markup.view.fixed.winhighlight(parent: markup.view, style?: string|false)
+function markup.view.fixed.winhighlight(parent: markup.view, style?: markup.factory.element.style|false)
   -> string
 ```
 

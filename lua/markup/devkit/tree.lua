@@ -1146,7 +1146,7 @@ function M:tree()
 	return m.block({
 		white_space = "nowrap",
 		m.each(self.rows, function(row)
-			return self:row(row)
+			return self:row(row())
 		end, {
 			key = function(row)
 				return row.key

@@ -7,6 +7,7 @@
 --- With `overlay` there is no spacer, so appearing moves nothing. Fixed elements
 --- stack in order, and an empty one takes no room.
 
+local hl = require("markup.view.hl")
 local protocol = require("markup.view.protocol")
 local reactive = require("markup.reactive")
 
@@ -16,14 +17,15 @@ local api = vim.api
 ---@field parent markup.view
 ---@field view markup.view
 ---@field win markup.window
----@overload fun(parent: markup.view, spacer: integer, content: any, style?: string): markup.view.fixed
+---@overload fun(parent: markup.view, spacer: integer, content: any, style?: markup.factory.element.style|fun(): markup.factory.element.style?): markup.view.fixed
 local M = Markup.object()
 
 ---@param parent markup.view
----@param style? string|false
+---@param style? markup.factory.element.style|false
 function M.winhighlight(parent, style)
-	if style then
-		return ("Normal:%s"):format(style)
+	local group = hl.name(hl.id(style))
+	if group then
+		return ("Normal:%s"):format(group)
 	end
 	return parent.win:win_valid() and vim.wo[parent.win.win].winhighlight or ""
 end
@@ -31,7 +33,7 @@ end
 ---@param parent markup.view
 ---@param spacer? integer node that reserves the rows in the parent
 ---@param content any
----@param style? string|false highlight for the whole band, false for none
+---@param style? markup.factory.element.style|false|fun(): markup.factory.element.style? highlight for the whole band, false for none
 function M:new(parent, spacer, content, style)
 	self.parent = parent
 	self.spacer = spacer
@@ -52,8 +54,26 @@ function M:new(parent, spacer, content, style)
 		minimal = true,
 		show = false,
 		zindex = 45,
-		wo = { winhighlight = M.winhighlight(parent, style) },
 	})
+
+	local function set_style(value)
+		local highlight = M.winhighlight(parent, value)
+		self.win.opts.wo.winhighlight = highlight
+		if self.win:win_valid() then
+			api.nvim_set_option_value(
+				"winhighlight",
+				highlight,
+				{ win = self.win.win, scope = "local" }
+			)
+		end
+	end
+	if type(style) == "function" then
+		reactive.effect(function()
+			set_style(style())
+		end)
+	else
+		set_style(style)
+	end
 
 	self.view = Markup.view(self.win)
 	self.view.devtool = true
@@ -83,7 +103,7 @@ function M:new(parent, spacer, content, style)
 		end,
 	})
 
-	parent.win:on_show(function()
+	self.unsubscribe = parent.win:on_show(function()
 		self:show()
 	end)
 
@@ -156,6 +176,7 @@ end
 
 function M:dispose()
 	self.disposed = true
+	self.unsubscribe()
 	api.nvim_del_augroup_by_id(self.group)
 	self.view:destroy()
 	self:hide()
