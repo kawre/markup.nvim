@@ -13,6 +13,11 @@ COVERAGE_TIMEOUT ?= 20m
 TEST_TIMEOUT ?= 10m
 # The least coverage, in percent, of the Lua and of the Rust
 COVERAGE_MIN ?= 80
+# Patch coverage uses the same LCOV report. Override the base for a longer series.
+PATCH_COVERAGE_MIN ?= 80
+COVERAGE_BASE ?= HEAD^
+DIFF_COVER = pipx run --spec diff-cover==11.0.4 diff-cover
+PATCH_CHECK = $(DIFF_COVER) --compare-branch "$(COVERAGE_BASE)" --diff-range-notation=.. --include-untracked --fail-under=$(PATCH_COVERAGE_MIN)
 # How many test files run at once
 JOBS ?= $(shell nproc 2>/dev/null || echo 2)
 
@@ -60,13 +65,16 @@ coverage_lua: deps/mini.test $(if $(SKIP_BUILD),,build) $(ROCKS)
 	@mkdir -p .tests/coverage
 	@failed=0; MARKUP_COVERAGE=1 scripts/run_tests.sh $(JOBS) $(COVERAGE_TIMEOUT) $(NVIM_TEST) || failed=1; \
 	MARKUP_COVERAGE_MIN=$(COVERAGE_MIN) nvim -l scripts/coverage.lua || failed=1; \
+	$(PATCH_CHECK) .tests/coverage/lua.lcov || failed=1; \
 	exit $$failed
 
 # Rust coverage of the engine's unit tests, as LCOV in .tests/coverage/rust.lcov
 coverage_rust:
 	@mkdir -p .tests/coverage
 	cargo llvm-cov --lcov --output-path .tests/coverage/rust.lcov
-	cargo llvm-cov report --summary-only --fail-under-lines $(COVERAGE_MIN)
+	@failed=0; cargo llvm-cov report --summary-only --fail-under-lines $(COVERAGE_MIN) || failed=1; \
+	$(PATCH_CHECK) .tests/coverage/rust.lcov || failed=1; \
+	exit $$failed
 
 # LuaCov, in a tree of the project's own
 $(ROCKS):
