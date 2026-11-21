@@ -474,6 +474,53 @@ T["flex"]["min_width widens what the items get"] = function()
 	eq(lines(), { "a        b" })
 end
 
+--- What the window shows, text and highlights alike, compared with the
+--- screenshot saved under tests/screenshots. Nothing around the buffer, such
+--- as a status line, differs between Neovim versions.
+local function expect_screen(code)
+	child.lua([[
+		vim.o.laststatus, vim.o.ruler, vim.o.showmode = 0, false, false
+		vim.opt.fillchars = { eob = " " }
+		-- A group of its own for each part, so each shows apart in the screenshot.
+		vim.api.nvim_set_hl(0, "Box", { bg = "#f5a97f" })
+		vim.api.nvim_set_hl(0, "Item", { bg = "#a6da95" })
+		vim.api.nvim_set_hl(0, "Other", { bg = "#8aadf4" })
+		vim.api.nvim_set_hl(0, "Third", { bg = "#c6a0f6" })
+	]])
+	child.o.lines, child.o.columns = 16, 30
+	run(code)
+	run("vim.cmd('redraw')")
+	MiniTest.expect.reference_screenshot(child.get_screenshot())
+end
+
+T["flex"]["what stretches stops at max_height"] = function()
+	-- `a` stretches to the line, which is no taller than the flex, though
+	-- the item beside it is: its highlight does not reach past the flex.
+	expect_screen([[view:render(m.block({
+		m.flex({
+			max_height = 3, max_width = 10, style = "Box", overflow_x = "hidden",
+			m.inline({ "a", style = "Item" }),
+			m.inline({ "b\nb\nb\nb\nb", padding_left = 20 }),
+			m.block({ "c", style = "Other" }),
+		}),
+		m.block("after"),
+	}))]])
+end
+
+T["flex"]["overflow hidden cuts off highlights too"] = function()
+	-- The third row of `b` and the end of `c` are past the flex, and neither
+	-- their text nor their highlights show there.
+	expect_screen([[view:render(m.block({
+		m.flex({
+			width = 6, max_height = 2, style = "Box", overflow = "hidden",
+			m.block({ "aa", style = "Item" }),
+			m.block({ "b\nb\nb", style = "Other" }),
+			m.block({ "cccccccccc", white_space = "nowrap", style = "Third" }),
+		}),
+		m.block("after"),
+	}))]])
+end
+
 T["flex"]["updates when a child changes size"] = function()
 	run([[
 		name = m.signal("a")
