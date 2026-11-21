@@ -137,7 +137,7 @@ Fields:
 - `memo`: `boolean?`
 - `parent`: `(markup.reactive.owner)?`
 - `stale`: `boolean?`
-- `subs`: `table<markup.reactive.computation, boolean>?`
+- `subs`: `table<markup.reactive.computation, integer>?`
 - `value`: `any`
 
 ## markup.reactive.owner

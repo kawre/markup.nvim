@@ -70,7 +70,7 @@ local function Cards()
 			columns = 4,
 			gap = { 0, 1 },
 			m.each(cards, function(card)
-				return m.block(" card " .. card, "DiffText")
+				return m.block(" card " .. card(), "DiffText")
 			end),
 		})
 	)

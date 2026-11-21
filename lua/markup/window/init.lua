@@ -9,7 +9,7 @@ local styles = require("markup.window.styles")
 ---@field augroup? number
 ---@field backdrop? markup.window
 ---@field keys markup.window.Keys[]
----@field events (markup.window.Event|{event:string|string[]})[]
+---@field events { event: string|string[], opts: markup.window.Event, id?: integer }[]
 ---@field meta table<string, any>
 ---@field closed? boolean
 ---@overload fun(opts?: markup.window.config|{}): markup.window
@@ -283,22 +283,45 @@ function M:action(actions)
 		table.concat(desc, ", ")
 end
 
+local function remove_entry(entries, entry)
+	for i, value in ipairs(entries) do
+		if value == entry then
+			table.remove(entries, i)
+			return
+		end
+	end
+end
+
 --- Calls `listener` every time the window opens.
 ---@param listener fun(self: markup.window)
+---@return function unsubscribe
 function M:on_show(listener)
 	self.show_listeners = self.show_listeners or {}
-	table.insert(self.show_listeners, listener)
+	local registration = { callback = listener }
+	table.insert(self.show_listeners, registration)
+	return function()
+		registration.callback = nil
+		remove_entry(self.show_listeners, registration)
+	end
 end
 
 ---@param event string|string[]
 ---@param cb fun(self: markup.window, ev:vim.api.keyset.create_autocmd.callback_args):boolean?
 ---@param opts? markup.window.Event
+---@return function unsubscribe
 function M:on(event, cb, opts)
-	opts = opts or {}
-	opts.callback = cb
-	table.insert(self.events, vim.tbl_extend("keep", { event = event }, opts))
+	local registration =
+		{ event = event, opts = vim.tbl_extend("force", opts or {}, { callback = cb }) }
+	table.insert(self.events, registration)
 	if self:valid() then
-		self:_on(event, opts)
+		registration.id = self:_on(event, registration.opts)
+	end
+	return function()
+		remove_entry(self.events, registration)
+		if registration.id then
+			pcall(vim.api.nvim_del_autocmd, registration.id)
+			registration.id = nil
+		end
 	end
 end
 
@@ -327,7 +350,7 @@ function M:_on(event, opts)
 		event_opts.buffer = self.buf
 	end
 
-	vim.api.nvim_create_autocmd(event, event_opts)
+	return vim.api.nvim_create_autocmd(event, event_opts)
 end
 
 function M:focus()
@@ -617,8 +640,10 @@ function M:show()
 		self.opts.on_win(self)
 	end
 
-	for _, listener in ipairs(self.show_listeners or {}) do
-		listener(self)
+	for _, registration in ipairs(vim.list_slice(self.show_listeners or {})) do
+		if registration.callback then
+			registration.callback(self)
+		end
 	end
 
 	-- syntax highlighting
@@ -636,7 +661,10 @@ function M:show()
 	end
 
 	for _, event in ipairs(self.events) do
-		self:_on(event.event, event)
+		if event.id then
+			pcall(vim.api.nvim_del_autocmd, event.id)
+		end
+		event.id = self:_on(event.event, event.opts)
 	end
 
 	-- swap buffers when opening a new buffer in the same window

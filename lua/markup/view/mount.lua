@@ -272,7 +272,7 @@ local function mount_fixed(view, parent, before, element)
 	-- its style and the float blends in with what is underneath.
 	local style = props.style
 	if props.border then
-		style = false
+		style = nil
 	else
 		props.style = nil
 	end
@@ -809,17 +809,18 @@ function Each.mount(view, parent, before, props)
 	view.commands:insert(parent, group, before)
 
 	local outer = reactive.current_owner()
-	local entries = {} ---@type table<any, { id: integer, owner: table }>
+	local entries = {} ---@type table<any, { id: integer, owner: table, item: function, index: function }>
 	local order = {} ---@type any[]
 
 	local function create(item, index, next_id)
 		local id = view:next_id()
 		view.commands:create(id, DISPLAY.contents)
 		view.commands:insert(group, id, next_id)
+		local current_item, current_index = reactive.signal(item), reactive.signal(index)
 		local _, owner = scope(function()
-			mount(view, render(item, index), id)
+			mount(view, render(current_item, current_index), id)
 		end, outer)
-		return { id = id, owner = owner }
+		return { id = id, owner = owner, item = current_item, index = current_index }
 	end
 
 	effect(function()
@@ -855,13 +856,26 @@ function Each.mount(view, parent, before, props)
 
 		untrack(function()
 			for i, key in ipairs(keys) do
+				local entry = entries[key]
+				if entry then
+					local item = items[i]
+					-- A function-valued item is data. A signal normally treats it as an updater.
+					if type(item) == "function" then
+						entry.item(function()
+							return item
+						end)
+					else
+						entry.item(item)
+					end
+					entry.index(i)
+				end
 				local expected = current()
 				if key == expected then
 					cursor = cursor + 1
 				else
 					local next_id = expected ~= nil and entries[expected].id or nil
-					if entries[key] then
-						view.commands:insert(group, entries[key].id, next_id)
+					if entry then
+						view.commands:insert(group, entry.id, next_id)
 					else
 						entries[key] = create(items[i], i, next_id)
 					end
@@ -875,11 +889,11 @@ function Each.mount(view, parent, before, props)
 	end)
 end
 
---- Renders `render(item, index)` for each item of `list()`, keeping the UI of
---- items that stay. Items are their own key unless `opts.key` says otherwise.
+--- Mounts each key once. The render callback receives accessors for its current
+--- item and one-based index. Items are their own key unless `opts.key` says otherwise.
 ---@generic T
 ---@param list fun(): T[]
----@param render fun(item: T, index: integer): any
+---@param render fun(item: (fun(): T), index: (fun(): integer)): any
 ---@param opts? { key?: fun(item: T): any }
 function M.each(list, render, opts)
 	return element(Each, { list = list, render = render, key = opts and opts.key })

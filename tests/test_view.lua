@@ -51,6 +51,19 @@ T["static"]["renders text in blocks"] = function()
 	eq(lines(), { "one", "two" })
 end
 
+T["static"]["max width constrains wrapping and the measured height"] = function()
+	run([[view:render(m.block({ max_width = 5, "aa bb cc" }))]])
+	eq(lines(), { "aa bb", "cc" })
+	eq(child.lua_get("view.engine:describe(2).outer_height"), 2)
+end
+
+T["static"]["full height uses the definite height of the parent block"] = function()
+	run(
+		[[view:render(m.block({ height = 3, m.block({height = "full", "first"}), m.block("next") }))]]
+	)
+	eq(lines(), { "first", "", "", "next" })
+end
+
 T["static"]["keeps inline runs on one line"] = function()
 	run([[view:render(m.block({ m.inline("a "), m.inline("b"), m.block("c") }))]])
 	eq(lines(), { "a b", "c" })
@@ -1022,7 +1035,7 @@ local function each_with(initial)
 			m.block("head"),
 			m.each(items, function(item)
 				mounts = mounts + 1
-				return m.block("row " .. item)
+				return m.block("row " .. item())
 			end),
 			m.block("tail"),
 		}))
@@ -1072,17 +1085,34 @@ T["each"]["keeps the UI of items that stay"] = function()
 	eq(child.lua_get("mounts"), 4)
 end
 
-T["each"]["uses a key function"] = function()
+T["each"]["updates item and index without remounting retained keys"] = function()
 	run([[
 		local a, b = { id = 1, name = "a" }, { id = 2, name = "b" }
 		items = m.signal({ a, b })
-		view:render(m.each(items, function(item)
-			return m.block(item.name)
+		mounts = 0
+		view:render(m.each(items, function(item, index)
+			mounts = mounts + 1
+			local original = item().name
+			return m.block(function() return index() .. original .. item().name end)
 		end, { key = function(item) return item.id end }))
-		items({ { id = 2, name = "ignored" }, { id = 1, name = "ignored" } })
+		items({ { id = 2, name = "B" }, { id = 1, name = "A" } })
 		reactive.flush()
 	]])
-	eq(lines(), { "b", "a" })
+	eq(lines(), { "1bB", "2aA" })
+	eq(child.lua_get("mounts"), 2)
+end
+
+T["each"]["replacing a function-valued item preserves its value"] = function()
+	run([[
+		local a, b = function() return "old" end, function() return "new" end
+		local items = m.signal({ a })
+		view:render(m.each(items, function(item)
+			return m.block(function() return item()() end)
+		end, { key = function() return 1 end }))
+		items({ b })
+		reactive.flush()
+	]])
+	eq(lines(), { "new" })
 end
 
 T["each"]["rejects duplicate keys"] = function()
@@ -1269,7 +1299,7 @@ T["updates match a fresh render"] = function()
 					return m.block({
 						margin_left = 2,
 						m.each(lists[i], function(item)
-							return m.block({ m.inline("item " .. item, "Comment") })
+							return m.block({ m.inline("item " .. item(), "Comment") })
 						end),
 						i < 8 and Group(i + 1) or nil,
 					})
@@ -2451,6 +2481,25 @@ T["fixed"]["colors the whole band"] = function()
 	eq(child.lua_get("vim.wo[band.win.win].winhighlight"), "Normal:Visual")
 end
 
+T["fixed"]["a borderless band tracks its highlight"] = function()
+	run([[
+		style = m.signal("Visual")
+		view:render(m.block({ position = "fixed", style = style, "header" }))
+		band = view.fixed[1]
+	]])
+	eq(child.lua_get("vim.wo[band.win.win].winhighlight"), "Normal:Visual")
+	run([[style({bg = "#123456"}); reactive.flush()]])
+	eq(
+		child.lua_get([[vim.wo[band.win.win].winhighlight:match("^Normal:MarkupStyle%d+$") ~= nil]]),
+		true
+	)
+	run([[style(nil); reactive.flush()]])
+	eq(
+		child.lua_get("vim.wo[band.win.win].winhighlight"),
+		child.lua_get("vim.wo[win.win].winhighlight")
+	)
+end
+
 T["fixed"]["cannot take the cursor"] = function()
 	fixed_view()
 	eq(child.lua_get("vim.api.nvim_win_get_config(band.win.win).focusable"), false)
@@ -2660,6 +2709,23 @@ T["lifecycle"]["holds more nodes than mlua has handles"] = function()
 end
 
 T["destroy"] = new_set()
+
+T["destroy"]["reopening a window preserves its new contents and releases its old view"] = function()
+	run([[
+		host = Markup.window({ position = "right", width = 20 })
+		local hosted = Markup.view(host)
+		hosted:render(m.block("old"))
+		weak = setmetatable({ hosted }, { __mode = "v" })
+		hosted:destroy()
+		host:hide()
+		vim.bo[host.buf].modifiable = true
+		vim.api.nvim_buf_set_lines(host.buf, 0, -1, false, { "replacement" })
+		host:show()
+	]])
+	run([[reactive.flush(); collectgarbage("collect")]])
+	eq(child.lua_get("vim.api.nvim_buf_get_lines(host.buf, 0, -1, false)"), { "replacement" })
+	eq(child.lua_get("weak[1] == nil"), true)
+end
 
 T["destroy"]["a collapse closing as the view goes away writes nothing late"] = function()
 	child.lua([[
