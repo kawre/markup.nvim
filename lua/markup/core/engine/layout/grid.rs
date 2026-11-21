@@ -1,13 +1,14 @@
 //! CSS grid: fixed, auto and fractional tracks, spans and auto placement.
 
-use super::{Constraints, Space, Strategy, measure, place, share};
+use super::anonymous::{self, Unit};
+use super::{Constraints, Space, Strategy, share};
 use crate::engine::style::{Align, Direction, Length, Track};
 use crate::engine::tree::{Index, Size, Tree};
 
 pub struct Grid;
 
 struct Placed {
-    index: Index,
+    unit: Unit,
     column: usize,
     row: usize,
     column_span: usize,
@@ -49,8 +50,7 @@ fn place_items(
     rows: usize,
     flow: Direction,
 ) -> (Vec<Placed>, Occupancy) {
-    let mut children = Vec::new();
-    tree.for_each_flow_child(node, false, &mut |_, child| children.push(child));
+    let children = anonymous::items(tree, node);
 
     let mut grid = Occupancy {
         columns,
@@ -61,15 +61,16 @@ fn place_items(
     let mut placed = Vec::with_capacity(children.len());
     let mut automatic = Vec::new();
 
-    for index in children {
-        let extra = tree.node(index).style.extra();
+    for unit in children {
+        let extra = unit.style(tree).extra();
         let (column, row) = (extra.column, extra.row);
+        let (column_span, row_span) = (extra.column_span, extra.row_span);
         let item = Placed {
-            index,
+            unit,
             column: column.map_or(0, |column| (column - 1).max(0) as usize),
             row: row.map_or(0, |row| (row - 1).max(0) as usize),
-            column_span: extra.column_span.max(1) as usize,
-            row_span: extra.row_span.max(1) as usize,
+            column_span: column_span.max(1) as usize,
+            row_span: row_span.max(1) as usize,
         };
 
         if column.is_some() && row.is_some() {
@@ -326,11 +327,14 @@ impl Strategy for Grid {
             .map(|item| Contribution {
                 start: item.column,
                 span: item.column_span,
-                size: measure(tree, item.index, Constraints::intrinsic(space.width)).width,
-                min: if tree.node(item.index).style.extra().scrolls {
+                size: item
+                    .unit
+                    .measure(tree, Constraints::intrinsic(space.width))
+                    .width,
+                min: if item.unit.style(tree).extra().scrolls {
                     0
                 } else {
-                    measure(tree, item.index, Constraints::min_content()).width
+                    item.unit.measure(tree, Constraints::min_content()).width
                 },
             })
             .collect();
@@ -353,7 +357,7 @@ impl Strategy for Grid {
                     exact_width: Some(width),
                     ..Constraints::available(width)
                 };
-                let height = measure(tree, item.index, constraints).height;
+                let height = item.unit.measure(tree, constraints).height;
                 Contribution {
                     start: item.row,
                     span: item.row_span,
@@ -379,7 +383,7 @@ impl Strategy for Grid {
             let width = area(&columns, item.column, item.column_span, column_gap);
             let height = area(&rows, item.row, item.row_span, row_gap);
 
-            let style = &tree.node(item.index).style;
+            let style = item.unit.style(tree);
             let extra = style.extra();
             let justify = extra.justify_self.unwrap_or(justify_items);
             let align = extra.align_self.unwrap_or(align_items);
@@ -387,9 +391,8 @@ impl Strategy for Grid {
             let stretch_x = justify == Align::Stretch && style.width == Length::Auto;
             let stretch_y = align == Align::Stretch && style.height == Length::Auto;
 
-            let outer = measure(
+            let outer = item.unit.measure(
                 tree,
-                item.index,
                 Constraints {
                     width,
                     height: Some(height),
@@ -407,9 +410,8 @@ impl Strategy for Grid {
                 Align::Center => free.max(0) / 2,
             };
 
-            place(
+            item.unit.place(
                 tree,
-                item.index,
                 column_starts[item.column] + inside(justify, width - outer.width),
                 row_starts[item.row] + inside(align, height - outer.height),
             );

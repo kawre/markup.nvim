@@ -236,10 +236,9 @@ local function html(node, profile)
 	return ("<%s style=\"%s\">%s</%s>"):format(tag, table.concat(css, ";"), inner, tag)
 end
 
---- The children of an element. Two markup.nvim conventions that CSS has not:
---- a run of inline content that is only empty text is still a line, as
---- `m.block("")` makes a blank one, and each text of a flex or grid is an
---- item of its own, where CSS would join neighbouring text into one.
+--- The children of an element. A markup.nvim convention that CSS has not: a
+--- run of inline content that is only empty text is still a line, as
+--- `m.block("")` makes a blank one. In a flex or grid, text is as in CSS.
 function render_children(node, children, profile)
 	if type(children) ~= "table" or children.type then
 		children = { children }
@@ -263,11 +262,7 @@ function render_children(node, children, profile)
 		run = {}
 	end
 	for _, child in ipairs(children) do
-		if items and (type(child) == "string" or type(child) == "number") then
-			parts[#parts + 1] = "<span data-line>"
-				.. (child == "" and STRUT or html(child, profile))
-				.. "</span>"
-		elseif is_inline(child) and not items then
+		if is_inline(child) and not items then
 			run[#run + 1] = child
 		else
 			flush()

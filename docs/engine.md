@@ -115,6 +115,27 @@ pub fn layout(tree: &mut Tree)
 Outer boxes come first, because inner ones may be placed against them.
 0
 
+## `engine/layout/anonymous.rs`
+
+*lua/markup/core/engine/layout/anonymous.rs*
+
+Anonymous boxes, as CSS makes them: neighbouring text in a flex or grid
+container is one item, a block that holds it.
+
+```rust
+pub enum Unit
+```
+
+An item of a flex or grid container.
+0
+
+```rust
+pub fn items(tree: &mut Tree, node: Index) -> Vec<Unit>
+```
+
+The items of a flex or grid container, in tree order.
+0
+
 ## `engine/layout/block.rs`
 
 *lua/markup/core/engine/layout/block.rs*

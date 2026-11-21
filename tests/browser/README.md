@@ -13,7 +13,6 @@ Text breaks as markup.nvim breaks it: a word longer than its line breaks anywher
 A mismatch is a difference from CSS, which markup.nvim fixes. A few things are terminal conventions instead, and the translation gives them the same meaning in the browser:
 
 - A run of inline content that is only empty text is a line, as `m.block("")` makes a blank one. In the browser an empty inline-block holds the line open.
-- Each text of a flex or grid is an item of its own. CSS would join neighbouring text into one anonymous item.
 - An inline given a size (`width`, `height`, `min_width` or `max_width`) is an inline-block.
 - `center` and `end` never push content past the start of its box: a terminal has no column before the first. That is CSS `safe` alignment.
 

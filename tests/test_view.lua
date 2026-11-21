@@ -453,10 +453,13 @@ end
 
 T["css"]["a fraction track is no narrower than its content"] = function()
 	run([[view:render(m.grid({
-		columns = 3, m.block({ white_space = "nowrap", "one two three four five" }), "b", "c",
+		columns = 3,
+		m.block({ white_space = "nowrap", "one two three four five" }),
+		m.block("b"),
+		m.block("c"),
 	}))]])
 	-- 23 cells for the first track, and the other two share what is left.
-	eq(boxes(), { { 0, 0, 60, 1 }, { 0, 0, 23, 1 } })
+	eq(boxes(), { { 0, 0, 60, 1 }, { 0, 0, 23, 1 }, { 23, 0, 19, 1 }, { 42, 0, 18, 1 } })
 	eq(lines(), { "one two three four fiveb                  c" })
 end
 
@@ -469,6 +472,17 @@ end
 T["css"]["an empty inline with a margin holds a line open"] = function()
 	run([[view:render(m.block({ m.inline({ margin_left = 2 }), m.block("b") }))]])
 	eq(boxes(), { { 0, 0, 60, 2 }, { 2, 0, 0, 1 }, { 0, 1, 60, 1 } })
+end
+
+T["css"]["neighbouring text in a flex is one item"] = function()
+	run([[view:render(m.flex({ width = 10, justify = "between", "ab", "cd", m.block("x") }))]])
+	-- One item "abcd", then "x": not three items spread apart.
+	eq(lines(), { "abcd     x" })
+end
+
+T["css"]["text in a flex that is only white space is not drawn"] = function()
+	run([[view:render(m.flex({ m.inline("a"), "   ", m.inline("b") }))]])
+	eq(lines(), { "ab" })
 end
 
 T["css"]["a closing collapse in a grid is as short as a fresh one"] = function()
@@ -782,7 +796,8 @@ T["grid"]["is as wide as the view when full, inside an inline"] = function()
 	run(
 		[[view:render(m.inline({ m.grid({ columns = 2, width = "full", m.inline("a"), "b", "c" }) }))]]
 	)
-	eq(lines(), { "a" .. (" "):rep(29) .. "b", "c" })
+	-- As CSS: neighbouring text is one item, so "b" and "c" share a cell.
+	eq(lines(), { "a" .. (" "):rep(29) .. "bc" })
 end
 
 T["grid"]["survives clipping a full width grid inside an inline"] = function()
@@ -793,7 +808,8 @@ T["grid"]["survives clipping a full width grid inside an inline"] = function()
 		clip("hidden")
 		reactive.flush()
 	]])
-	eq(lines(), { "a" .. (" "):rep(29) .. "b", "c" })
+	-- As CSS: neighbouring text is one item, so "b" and "c" share a cell.
+	eq(lines(), { "a" .. (" "):rep(29) .. "bc" })
 end
 
 T["grid"]["rejects bad tracks"] = function()

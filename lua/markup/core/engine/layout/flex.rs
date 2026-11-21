@@ -1,6 +1,7 @@
 //! Flexbox, with integer cells instead of fractional pixels.
 
-use super::{Constraints, Space, Strategy, measure, place, share};
+use super::anonymous::{self, Unit};
+use super::{Constraints, Space, Strategy, share};
 use crate::engine::style::{Align, Direction, Distribute, Length};
 use crate::engine::tree::{Index, Size, Tree};
 use std::ops::Range;
@@ -8,7 +9,7 @@ use std::ops::Range;
 pub struct Flex;
 
 struct Item {
-    index: Index,
+    unit: Unit,
     base: i32,
     /// Margin, border and padding along the main axis, which never shrink.
     edges: i32,
@@ -103,11 +104,11 @@ fn collect_items(
     axis: Axis,
     align: Align,
 ) -> Vec<Item> {
-    let mut ordered = Vec::new();
-    tree.for_each_flow_child(node, false, &mut |tree, child| {
-        ordered.push((tree.node(child).style.extra().order, child));
-    });
-    ordered.sort_by_key(|&(order, _)| order);
+    let mut ordered: Vec<(i32, Unit)> = anonymous::items(tree, node)
+        .into_iter()
+        .map(|unit| (unit.style(tree).extra().order, unit))
+        .collect();
+    ordered.sort_by_key(|(order, _)| *order);
 
     let reference = if axis.column {
         space.height.unwrap_or(0)
@@ -117,10 +118,10 @@ fn collect_items(
 
     ordered
         .into_iter()
-        .map(|(_, index)| {
-            let natural = measure(tree, index, axis.natural(space));
+        .map(|(_, unit)| {
+            let natural = unit.measure(tree, axis.natural(space));
 
-            let style = &tree.node(index).style;
+            let style = unit.style(tree);
             let extra = style.extra();
             let edges = if axis.column {
                 style.margin.vertical() + style.inner().vertical()
@@ -163,13 +164,13 @@ fn collect_items(
                 } else if clips {
                     0
                 } else {
-                    let narrowest = measure(tree, index, Constraints::min_content()).width;
+                    let narrowest = unit.measure(tree, Constraints::min_content()).width;
                     specified.map_or(narrowest, |specified| narrowest.min(specified))
                 }
             });
 
             Item {
-                index,
+                unit,
                 base,
                 edges,
                 min,
@@ -368,7 +369,7 @@ impl Strategy for Flex {
         // Cross sizes follow from the main size each item ended up with.
         for line in &mut lines {
             for item in &mut items[line.items.clone()] {
-                let outer = measure(tree, item.index, axis.exact(space, item.main, None));
+                let outer = item.unit.measure(tree, axis.exact(space, item.main, None));
                 item.cross = axis.cross(outer);
                 line.cross = line.cross.max(item.cross);
             }
@@ -432,7 +433,9 @@ impl Strategy for Flex {
                 main_position += spaces[position];
 
                 let stretch = item.stretches.then_some(line.cross);
-                let outer = measure(tree, item.index, axis.exact(space, item.main, stretch));
+                let outer = item
+                    .unit
+                    .measure(tree, axis.exact(space, item.main, stretch));
 
                 let free_cross = line.cross - axis.cross(outer);
                 let inside = match item.align {
@@ -449,7 +452,7 @@ impl Strategy for Flex {
                 };
 
                 let at = axis.size(main_at, cross_position + inside);
-                place(tree, item.index, at.width, at.height);
+                item.unit.place(tree, at.width, at.height);
 
                 main_position += item.main + main_gap;
             }
