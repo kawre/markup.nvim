@@ -1,8 +1,13 @@
 <!doctype html>
 <meta charset="utf-8">
 <style>
-  body { margin: 0; font: 20px/20px monospace; font-size-adjust: ch-width 0.5; font-variant-ligatures: none; }
-  main { display: flow-root; white-space: pre-wrap; overflow-wrap: anywhere; }
+  /* Every character is exactly half an em, 10px: one cell on any machine,
+     whatever monospace font it has. See scripts/browser_font.py. */
+  @font-face { font-family: cell; src: url(data:font/ttf;base64,FONT) format("truetype"); }
+  body { margin: 0; font: 20px/20px cell; font-variant-ligatures: none; }
+  /* As markup.nvim: a word longer than its line breaks, but the narrowest a
+     box can be is its longest word. */
+  main { display: flow-root; white-space: pre-wrap; overflow-wrap: break-word; }
 </style>
 FIXTURES
 <output></output>
@@ -13,7 +18,9 @@ function measure(root) {
   const lineHeight = parseFloat(getComputedStyle(root).lineHeight);
   const boxes = [];
   function visit(parent, path) {
-    Array.from(parent.children).forEach((element, index) => {
+    // What the translation adds, such as what holds a blank line open, is
+    // not authored: it takes no place in paths.
+    Array.from(parent.children).filter(element => !element.hasAttribute("data-line")).forEach((element, index) => {
       const childPath = path + "/" + (index + 1);
       if (element.tagName === "DIV") {
         const rect = element.getBoundingClientRect();
@@ -56,6 +63,8 @@ function measure(root) {
   visit(root, "");
   return {boxes, text: root.hasAttribute("data-text") ? textRows() : undefined};
 }
-const results = Array.from(document.querySelectorAll("main"), measure);
-document.querySelector("output").textContent = btoa(JSON.stringify(results));
+document.fonts.load("20px cell").then(() => {
+  const results = Array.from(document.querySelectorAll("main"), measure);
+  document.querySelector("output").textContent = btoa(JSON.stringify(results));
+});
 </script>

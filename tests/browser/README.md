@@ -2,6 +2,23 @@
 
 Run `make test_browser` with Neovim, Rust and a Chromium-based browser. Set `CHROME_BIN` to select the browser executable.
 
+## Cells
+
+The page uses `tests/browser/cell.ttf`, a font in which every printable ASCII character is exactly half an em wide: 10px at the page's 20px. A cell is then exactly 10px wide and a row 20px tall on any machine, whatever monospace font it has. Lengths are translated to pixels, not `ch`: Chrome rounds `ch` on its own, a little short of the characters, and boxes that fit to the cell in markup.nvim would wrap in the browser. `scripts/browser_font.py` writes the font.
+
+Text breaks as markup.nvim breaks it: a word longer than its line breaks anywhere, but the narrowest a box can be is its longest word. That is CSS `overflow-wrap: break-word`.
+
+## Conventions
+
+A mismatch is a difference from CSS, which markup.nvim fixes. A few things are terminal conventions instead, and the translation gives them the same meaning in the browser:
+
+- A run of inline content that is only empty text is a line, as `m.block("")` makes a blank one. In the browser an empty inline-block holds the line open.
+- Each text of a flex or grid is an item of its own. CSS would join neighbouring text into one anonymous item.
+- An inline given a size (`width`, `height`, `min_width` or `max_width`) is an inline-block.
+- `center` and `end` never push content past the start of its box: a terminal has no column before the first. That is CSS `safe` alignment.
+
+What the translation adds for these is marked `data-line` and takes no place in element paths.
+
 Each fixture supplies one static markup.nvim tree and a viewport width in cells. The runner mounts the tree in Neovim and translates it into HTML and CSS for Chromium. It compares the **border box** of every authored block, flex container and grid container, including empty and nested boxes. Both trees identify each element by its path among element siblings. For example, `/1/2` is the second element child of the first top-level element.
 
 Chromium supplies `getBoundingClientRect()`. The runner converts its viewport-relative coordinates to cells relative to the fixture root. On the engine side it reads the layout inspector and removes margins from the outer rectangle. A mismatch reports the path and the two rectangles in `[x, y, width, height]` order.
