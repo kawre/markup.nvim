@@ -91,3 +91,8 @@ $(LUALS):
 	@mkdir -p .tests/luals
 	curl -fsSL https://github.com/LuaLS/lua-language-server/releases/download/$(LUALS_VERSION)/lua-language-server-$(LUALS_VERSION)-linux-x64.tar.gz \
 		| tar xz -C .tests/luals
+
+# Compare static layout fixtures against headless Chromium.
+.PHONY: test_browser
+test_browser: build
+	nvim -u NONE -l tests/browser/compare.lua $(FILE)
