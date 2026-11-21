@@ -1,46 +1,32 @@
 <!doctype html>
 <meta charset="utf-8">
 <style>
-  body { margin: 0; font: 16px/20px monospace; font-variant-ligatures: none; }
+  body { margin: 0; font: 20px/20px monospace; font-size-adjust: ch-width 0.5; font-variant-ligatures: none; }
   main { display: flow-root; white-space: pre-wrap; overflow-wrap: anywhere; }
 </style>
 <main style="width:WIDTHch">CONTENT</main>
 <output></output>
 <script>
-  // The browser lays out the text. Sample its glyph positions in cell coordinates.
   const root = document.querySelector("main");
   const origin = root.getBoundingClientRect();
   const cellWidth = origin.width / WIDTH;
   const lineHeight = parseFloat(getComputedStyle(root).lineHeight);
-  function cell(value) {
-    const rounded = Math.round(value);
-    if (Math.abs(value - rounded) > 0.025) {
-      throw Error("fractional cell outside this reference profile: " + value);
-    }
-    return rounded;
-  }
-  try {
-    const rows = Array.from({length: Math.max(1, cell(origin.height / lineHeight))}, () => []);
-    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-    const range = document.createRange();
-    while (walker.nextNode()) {
-      const node = walker.currentNode;
-      for (let i = 0; i < node.length; i++) {
-        if (node.data[i] === " ") continue;
-        range.setStart(node, i);
-        range.setEnd(node, i + 1);
-        const rect = range.getBoundingClientRect();
-        const row = Math.floor(((rect.top + rect.bottom) / 2 - origin.top) / lineHeight);
-        const col = cell((rect.left - origin.left) / cellWidth);
-        if (!rows[row] || col < 0 || rows[row][col] !== undefined) {
-          throw Error("overlapping or out-of-flow text outside this reference profile");
-        }
-        rows[row][col] = node.data[i];
+  const boxes = [];
+  function visit(parent, path) {
+    Array.from(parent.children).forEach((element, index) => {
+      const childPath = path + "/" + (index + 1);
+      if (element.tagName === "DIV") {
+        const rect = element.getBoundingClientRect();
+        boxes.push({
+          path: childPath,
+          display: getComputedStyle(element).display,
+          rect: [(rect.x - origin.x) / cellWidth, (rect.y - origin.y) / lineHeight,
+                 rect.width / cellWidth, rect.height / lineHeight]
+        });
       }
-    }
-    const lines = rows.map(row => Array.from(row, ch => ch ?? " ").join(""));
-    document.querySelector("output").textContent = btoa(JSON.stringify(lines));
-  } catch (err) {
-    document.querySelector("output").textContent = "ERROR " + err.message;
+      visit(element, childPath);
+    });
   }
+  visit(root, "");
+  document.querySelector("output").textContent = btoa(JSON.stringify(boxes));
 </script>

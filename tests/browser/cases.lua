@@ -2,6 +2,15 @@ local m = require("markup")
 
 return {
 	{
+		name = "nested empty boxes",
+		width = 16,
+		tree = m.flex({
+			gap = 2,
+			m.block({ width = 4, height = 3 }),
+			m.block({ width = 6, m.block({ width = 3, height = 2 }) }),
+		}),
+	},
+	{
 		name = "block and inline",
 		width = 12,
 		tree = m.block({ m.inline("one "), m.inline("two"), m.block("three") }),

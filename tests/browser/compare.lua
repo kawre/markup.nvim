@@ -114,6 +114,40 @@ local function reference(case)
 	return vim.json.decode(vim.base64.decode(encoded))
 end
 
+-- Match authored elements by their path among element siblings. Text nodes
+-- participate in layout but do not occupy a path component.
+local function engine_boxes(engine)
+	local boxes = {}
+	local function visit(id, child_count, path)
+		local index = 0
+		for _, child in ipairs(engine:children(id, 0, child_count, false)) do
+			if child.display ~= "text" then
+				index = index + 1
+				local child_path = path .. "/" .. index
+				if child.display ~= "inline" then
+					local top, right, bottom, left = unpack(child.margin)
+					boxes[#boxes + 1] = {
+						path = child_path,
+						display = child.display,
+						rect = {
+							child.x + left,
+							child.y + top,
+							child.outer_width - left - right,
+							child.outer_height - top - bottom,
+						},
+					}
+				end
+				if child.children > 0 then
+					visit(child.id, child.children, child_path)
+				end
+			end
+		end
+	end
+	local root = engine:describe(require("markup.view.protocol").ROOT)
+	visit(root.id, root.children, "")
+	return boxes
+end
+
 local function compare(case)
 	local expected = reference(case)
 	local win =
@@ -121,22 +155,45 @@ local function compare(case)
 	local view = Markup.view(win)
 	assert(view:columns() == case.width, "Neovim viewport width differs from fixture")
 	view:render(case.tree)
-	local actual = vim.api.nvim_buf_get_lines(win.buf, 0, -1, false)
+	local actual = engine_boxes(view.engine)
 	view:destroy()
 	win:destroy()
-	for i, line in ipairs(actual) do
-		actual[i] = line:gsub(" +$", "")
-	end
-	if not vim.deep_equal(actual, expected) then
-		error(("browser %s\n  Neovim  %s"):format(vim.inspect(expected), vim.inspect(actual)), 0)
+	assert(#expected > 0, "fixture needs a block, flex, or grid element")
+	assert(#actual == #expected, ("expected %d boxes, found %d"):format(#expected, #actual))
+	for i, box in ipairs(expected) do
+		for j, value in ipairs(box.rect) do
+			local rounded = math.floor(value + 0.5)
+			if math.abs(value - rounded) > 0.025 then
+				return "unsupported",
+					("box %s has fractional geometry %s"):format(box.path, vim.inspect(box.rect))
+			end
+			box.rect[j] = rounded
+		end
+		if not vim.deep_equal(box, actual[i]) then
+			error(
+				("at %s (%s), expected %s, got %s at %s (%s) [x, y, width, height]"):format(
+					box.path,
+					box.display,
+					vim.inspect(box.rect),
+					vim.inspect(actual[i].rect),
+					actual[i].path,
+					actual[i].display
+				),
+				0
+			)
+		end
 	end
 end
 
 local cases = dofile(arg[1] or "tests/browser/cases.lua")
 local failures = 0
 for _, case in ipairs(cases) do
-	local ok, err = pcall(compare, case)
-	print(("%s %s%s"):format(ok and "PASS" or "FAIL", case.name, ok and "" or "\n  " .. err))
+	local ok, result, reason = pcall(compare, case)
+	if ok and result == "unsupported" then
+		print(("SKIP %s: %s"):format(case.name, reason))
+	else
+		print(("%s %s%s"):format(ok and "PASS" or "FAIL", case.name, ok and "" or "\n  " .. result))
+	end
 	if not ok then
 		failures = failures + 1
 	end

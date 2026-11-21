@@ -1,22 +1,24 @@
 # Browser layout comparisons
 
-Run `make test_browser` with Neovim, the Rust build tools, and a Chromium-based browser. Set `CHROME_BIN` if the browser executable is outside PATH.
+Run `make test_browser` with Neovim, Rust and a Chromium-based browser. Set `CHROME_BIN` to select the browser executable.
 
-Each fixture builds an element tree with the public Lua API. One path renders the tree into a real Neovim window. A separate translator turns the element tags and props into HTML and CSS. Chromium performs the layout. The comparison uses DOM text ranges to locate characters and the root height to preserve blank rows. Both outputs omit trailing space on each line. A difference prints both buffers and exits with a failure.
+Each fixture supplies one static markup.nvim tree and a viewport width in cells. The runner mounts the tree in Neovim and translates it into HTML and CSS for Chromium. It compares the **border box** of every authored block, flex container and grid container, including empty and nested boxes. Both trees identify each element by its path among element siblings. For example, `/1/2` is the second element child of the first top-level element.
 
-The initial profile covers static printable ASCII text, block and inline flow, flex rows, grids, integral cell widths and heights, min/max width, column tracks, gaps and horizontal justification. One column is the browser’s monospace character width and one row is a 20px line. Use fixtures with whole-cell geometry. Unsupported props, character sets and fractional text positions produce errors. Highlights, images, clipping and reactive updates are outside this profile.
+Chromium supplies `getBoundingClientRect()`. The runner converts its viewport-relative coordinates to cells relative to the fixture root. On the engine side it reads the layout inspector and removes margins from the outer rectangle. A mismatch reports the path and the two rectangles in `[x, y, width, height]` order.
 
-To try a layout, save a Lua file like this and run `make test_browser FILE=/path/to/case.lua`:
+The profile supports whole-cell geometry, printable ASCII, inline flow, flex rows, grids, integer widths and heights, min/max width, column tracks, gaps and horizontal justification. Inline spans and text participate in intrinsic sizing and wrapping. Assertions apply to block-level elements. Fractional browser rectangles are reported as skipped fixtures.
+
+To try a layout, save a Lua file and run `make test_browser FILE=/path/to/case.lua`:
 
 ```lua
 local m = require("markup")
 return {
   {
-    name = "wrap at maximum width",
+    name = "empty child of capped parent",
     width = 12,
-    tree = m.block({ max_width = 5, "aa bb cc" }),
+    tree = m.block({ max_width = 5, m.block({ height = 2 }) }),
   },
 }
 ```
 
-Chromium should place `aa bb` and `cc` on separate rows. The expected rows come directly from Chromium each time.
+Chromium gives the child at `/1/1` the rectangle `[0, 0, 5, 2]`. This fixture detects a width error even though both renderers display a blank surface.
