@@ -126,8 +126,8 @@ M.style = {
 	column_span = { 42, number },
 	row_span = { 43, number },
 	white_space = { 44, optional_white_space },
-	overflow = { 45, choice({ visible = 0, hidden = 1 }, "overflow") },
-	overflow_x = { 46, choice({ visible = 0, hidden = 1 }, "overflow_x") },
+	overflow_y = { 45, choice({ visible = 0, hidden = 1, clip = 2 }, "overflow_y") },
+	overflow_x = { 46, choice({ visible = 0, hidden = 1, clip = 2 }, "overflow_x") },
 	snap = { 47, optional_flag },
 	inert = { 48, flag },
 }

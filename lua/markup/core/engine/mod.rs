@@ -290,7 +290,15 @@ impl Engine {
                     && col >= x + fragment.x
                     && col < x + fragment.x + fragment.width
             }),
-            None => row >= y && row < y + outer.height && col >= x && col < x + outer.width.max(1),
+            // The margin is space around the node, not part of it: only its
+            // border box takes the cursor and presses.
+            None => {
+                let margin = node.style.margin;
+                let (left, top) = (x + margin.left, y + margin.top);
+                let width = outer.width - margin.left - margin.right;
+                let height = outer.height - margin.top - margin.bottom;
+                row >= top && row < top + height && col >= left && col < left + width.max(1)
+            }
         };
         if !inside {
             return false;
@@ -347,7 +355,8 @@ impl Engine {
 
 #[cfg(test)]
 mod tests {
-    use super::style::Display;
+    use super::protocol::Side;
+    use super::style::{Display, Length};
     use super::*;
 
     fn block(engine: &mut Engine, id: u32, parent: u32, label: &str) {
@@ -454,6 +463,33 @@ mod tests {
         engine.apply(Command::SetStyle { id: 2, property }).unwrap();
         engine.render(|_, _| ());
         assert_eq!(engine.node_at(1, 0), None);
+    }
+
+    #[test]
+    fn node_at_leaves_out_the_margin() {
+        let mut engine = Engine::new(20);
+        block(&mut engine, 2, ROOT, "one");
+        let commands = [
+            StyleProperty::Interactive(true),
+            StyleProperty::Margin(Side::Top, 1),
+            StyleProperty::Margin(Side::Left, 2),
+            StyleProperty::Margin(Side::Right, 3),
+            StyleProperty::Padding(Side::Left, 1),
+            StyleProperty::Width(Length::Cells(4)),
+        ];
+        for property in commands {
+            engine.apply(Command::SetStyle { id: 2, property }).unwrap();
+        }
+        engine.render(|_, _| ());
+
+        // The row above and the cells to either side are margin.
+        assert_eq!(engine.node_at(0, 3), None);
+        assert_eq!(engine.node_at(1, 0), None);
+        assert_eq!(engine.node_at(1, 1), None);
+        assert_eq!(engine.node_at(1, 7), None);
+        // Padding and content are the node.
+        assert_eq!(engine.node_at(1, 2), Some(2));
+        assert_eq!(engine.node_at(1, 6), Some(2));
     }
 
     #[test]

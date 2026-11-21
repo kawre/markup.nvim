@@ -57,6 +57,9 @@ end
 --- with `snap = false` is passed over.
 ---@field hide_cursor? boolean hide the cursor in normal mode while in this window,
 --- for views that show where it is by themselves
+---@field press_key? string|string[]|false the keys that press what is under the
+--- cursor, as a click does: `<CR>` unless set. Over anything without `on_press`
+--- they do what they always do. `false` binds none.
 
 ---@param win markup.window
 ---@param opts? markup.view.opts
@@ -76,6 +79,7 @@ function M:new(win, opts)
 	self.hover_handlers = {}
 	self.images = {} ---@type table<integer, { data: string, width: integer, height: integer, placed?: integer, at?: string }>
 	self.key_stacks = {}
+	self:bind_press(opts.press_key)
 	self.commit_listeners = {}
 	self.next_commit = {}
 	self.fixed = {} ---@type markup.view.fixed[]
@@ -565,6 +569,15 @@ function M:destroy()
 	end
 	self.hide_cursor = false
 	self:release_cursor()
+	-- What presses is bound on the window, which outlives the view: left there,
+	-- it would keep the view alive and press nothing.
+	for _, lhs in ipairs(self.press_keys or {}) do
+		if self.key_stacks["n " .. lhs] then
+			self.key_stacks["n " .. lhs] = nil
+			pcall(self.win.unmap, self.win, "n", lhs)
+		end
+	end
+	self.press_keys = {}
 	self:unmount()
 	self:commit()
 	self.destroyed = true
@@ -833,6 +846,34 @@ vim.on_key(function(key)
 		end)
 	end
 end, api.nvim_create_namespace("markup_clicks"))
+
+--- Binds the keys that press, under whatever `m.use_key` binds to them later:
+--- a component can take one over while it is mounted.
+---@param keys? string|string[]|false
+function M:bind_press(keys)
+	if keys == false then
+		return
+	end
+	keys = keys or "<CR>"
+	for _, lhs in ipairs(type(keys) == "table" and keys or { keys }) do
+		local stack = {
+			{
+				fn = function()
+					if not self:press() then
+						-- Nothing to press: the key keeps its own meaning.
+						api.nvim_feedkeys(vim.keycode(lhs), "n", false)
+					end
+				end,
+			},
+		}
+		self.key_stacks["n " .. lhs] = stack
+		self.win:map("n", lhs, function()
+			stack[#stack].fn()
+		end)
+		self.press_keys = self.press_keys or {}
+		table.insert(self.press_keys, lhs)
+	end
+end
 
 --- Calls the `on_press` handler under the cursor, returning whether there was one.
 ---@return boolean
