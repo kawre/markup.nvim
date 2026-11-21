@@ -84,6 +84,10 @@ local shorthands = {
 		expand_edges(sides, "inset", value)
 		return sides
 	end,
+	-- Both axes, as in CSS. `overflow_x` or `overflow_y` given on its own wins.
+	overflow = function(value)
+		return { overflow_x = value, overflow_y = value }
+	end,
 	gap = function(value)
 		local rows, columns = value, value
 		if type(value) == "table" then
@@ -396,7 +400,8 @@ function Collapse.mount(view, parent, before, props)
 	-- The outer block is what animates, the inner one measures the content.
 	local outer = view:next_id()
 	view.commands:create(outer, DISPLAY.block)
-	view.commands:set_style(outer, "overflow", "hidden")
+	-- Only the rows: what is wider than the collapse stays readable.
+	view.commands:set_style(outer, "overflow_y", "hidden")
 	view.commands:insert(parent, outer, before)
 
 	local inner, inner_owner
