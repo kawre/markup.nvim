@@ -281,6 +281,8 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/download-artifact@v4
         with:
           name: markup_core-Linux-X64
@@ -311,14 +313,22 @@ jobs:
 
       - name: Lua coverage
         shell: bash
+        env:
+          COVERAGE_BASE: ${{ github.event.pull_request.base.sha || github.event.before || 'HEAD^' }}
         run: |
-          make coverage_lua SKIP_BUILD=1 | tee lua-coverage.txt
+          # A newly pushed branch has no previous tip.
+          if [[ "$COVERAGE_BASE" == 0000000000000000000000000000000000000000 ]]; then
+            COVERAGE_BASE=$(git hash-object -w -t tree /dev/null)
+          fi
+          status=0
+          make coverage_lua SKIP_BUILD=1 2>&1 | tee lua-coverage.txt || status=$?
           {
             echo '### Lua coverage'
             echo '```'
-            tail -n 1 lua-coverage.txt
+            awk '/^Diff Coverage$/ { patch=1 } patch || /^ *[0-9.]+%.*total$/' lua-coverage.txt
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+          exit "$status"
 
       - uses: actions/upload-artifact@v4
         with:
@@ -339,6 +349,8 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: llvm-tools-preview
@@ -348,14 +360,22 @@ jobs:
 
       - name: Rust coverage
         shell: bash
+        env:
+          COVERAGE_BASE: ${{ github.event.pull_request.base.sha || github.event.before || 'HEAD^' }}
         run: |
-          make coverage_rust | tee rust-coverage.txt
+          # A newly pushed branch has no previous tip.
+          if [[ "$COVERAGE_BASE" == 0000000000000000000000000000000000000000 ]]; then
+            COVERAGE_BASE=$(git hash-object -w -t tree /dev/null)
+          fi
+          status=0
+          make coverage_rust 2>&1 | tee rust-coverage.txt || status=$?
           {
             echo '### Rust coverage'
             echo '```'
-            grep -E '^(Filename|TOTAL)' rust-coverage.txt
+            awk '/^Diff Coverage$/ { patch=1 } patch || /^(Filename|TOTAL)/' rust-coverage.txt
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+          exit "$status"
 
       - uses: actions/upload-artifact@v4
         with:
