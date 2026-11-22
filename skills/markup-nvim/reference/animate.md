@@ -62,6 +62,17 @@ colors in the form `{ fg = 0xrrggbb, bg = 0xrrggbb }`. Runs without touching
 the layout, so it is the cheapest animation there is.
 group to become at the end, which then follows colorscheme changes
 
+### markup.animate.hold_for_frame()
+
+```lua
+function markup.animate.hold_for_frame(job: function)
+  -> held: boolean
+```
+
+Holds `job` for the next tick, when the clock is due to tick within a frame,
+so what changes between frames is drawn with the frame rather than on its
+own. Returns false when it is not: the caller runs `job` itself.
+
 ### markup.animate.mix()
 
 ```lua

@@ -376,6 +376,13 @@ How long each stage of a commit took, in milliseconds.
 0
 
 ```rust
+pub layouts: usize, pub layout: f64, pub paint: f64, pub diff: f64, }  pub struct Engine
+```
+
+Nodes laid out, not counting those that kept a cached layout.
+0
+
+```rust
 pub fn reset_frame(&mut self)
 ```
 
@@ -456,6 +463,14 @@ frame costs a single boundary crossing however much changed:
 
 The opcodes mirror `lua/markup/view/protocol.lua`. Patches return as tables
 of strings and flat integer arrays, with highlights as interned ids.
+
+```rust
+pub fn paint_only(self) -> bool
+```
+
+Whether the property only changes how a node is painted or answers
+input, never where anything is: the next frame paints it anew anyway.
+0
 
 ```rust
 pub fn decode( ops: &LuaTable, len: usize, mut apply: impl FnMut(Command) -> LuaResult<()>, ) -> LuaResult<()>
@@ -825,7 +840,7 @@ What a measure leaves for its parent, kept so sizing again is free.
 0
 
 ```rust
-pub sizing: bool, /// Layouts done, for tests to count. #[cfg(test)] pub arranged: usize, }  impl Tree
+pub sizing: bool, /// Nodes laid out, counted for the frame stats. pub arranged: usize, }  impl Tree
 ```
 
 Set while a node is only sized, not placed.
@@ -835,7 +850,7 @@ Set while a node is only sized, not placed.
 pub arranged: usize, }  impl Tree
 ```
 
-Layouts done, for tests to count.
+Nodes laid out, counted for the frame stats.
 0
 
 ```rust

@@ -296,5 +296,6 @@ Fields:
 - `diff`: `number` - ms
 - `engine`: `number` - ms spent inside the engine call
 - `layout`: `number` - ms
+- `layouts`: `integer` - nodes the last commit laid out, rather than keeping their cached layout
 - `lines`: `integer` - lines rewritten by the last commit
 - `paint`: `number` - ms

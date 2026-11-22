@@ -47,6 +47,17 @@ function markup.reactive.flush()
 ```
 
 Runs everything pending now instead of waiting for the scheduled flush.
+What it commits is written before it returns, animations or not.
+
+### markup.reactive.forced()
+
+```lua
+function markup.reactive.forced()
+  -> boolean
+```
+
+Whether the flush running was asked for with `flush`, rather than
+scheduled: what it commits must not wait.
 
 ### markup.reactive.inject()
 
