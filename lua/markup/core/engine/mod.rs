@@ -467,7 +467,7 @@ mod tests {
         let mut engine = Engine::new(5);
         let mut apply = |source: &str| {
             let ops: mlua::Table = lua.load(source).eval().unwrap();
-            protocol::decode(&ops, ops.raw_len(), |command| {
+            protocol::decode(&lua, &ops, ops.raw_len(), |command| {
                 engine.apply(command).unwrap();
                 Ok(())
             })

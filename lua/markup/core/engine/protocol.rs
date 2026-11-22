@@ -18,6 +18,7 @@ use super::style::{
     TextOverflow, Track, WhiteSpace,
 };
 use super::tree::ClientId;
+use mlua::ffi;
 use mlua::prelude::*;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -203,30 +204,103 @@ pub enum Command {
 const UNSET: i32 = -1_000_000;
 
 /// Reads values from the flat command array.
+/// A value of the commands, read ahead.
+#[derive(Clone, Copy)]
+enum Slot {
+    Number(f64),
+    /// Where its bytes are in `Reader::bytes`.
+    Text(usize, usize),
+    /// Anything else, read from the table when it is needed.
+    Other,
+}
+
 struct Reader<'a> {
     ops: &'a LuaTable,
     position: usize,
+    slots: Vec<Slot>,
+    bytes: Vec<u8>,
 }
 
-impl Reader<'_> {
-    fn value<T: FromLua>(&mut self) -> LuaResult<T> {
+impl<'a> Reader<'a> {
+    /// Reads every number and string in one go: each read through the table
+    /// on its own takes as long as most commands take to apply.
+    fn new(lua: &Lua, ops: &'a LuaTable, len: usize) -> LuaResult<Self> {
+        let mut slots = Vec::with_capacity(len);
+        let mut bytes = Vec::new();
+        // SAFETY: the table is the only argument, at index 1, and each value
+        // pushed is popped again before the next.
+        unsafe {
+            lua.exec_raw::<()>(ops, |state| {
+                for index in 1..=len {
+                    ffi::lua_rawgeti(state, 1, index as _);
+                    slots.push(match ffi::lua_type(state, -1) {
+                        ffi::LUA_TNUMBER => Slot::Number(ffi::lua_tonumber(state, -1)),
+                        ffi::LUA_TSTRING => {
+                            let mut size = 0;
+                            let pointer = ffi::lua_tolstring(state, -1, &mut size);
+                            let text = std::slice::from_raw_parts(pointer as *const u8, size);
+                            bytes.extend_from_slice(text);
+                            Slot::Text(bytes.len() - size, size)
+                        }
+                        _ => Slot::Other,
+                    });
+                    ffi::lua_pop(state, 1);
+                }
+            })?;
+        }
+        Ok(Reader {
+            ops,
+            position: 0,
+            slots,
+            bytes,
+        })
+    }
+
+    fn next(&mut self) -> Slot {
         self.position += 1;
+        self.slots
+            .get(self.position - 1)
+            .copied()
+            .unwrap_or(Slot::Other)
+    }
+
+    /// What was not read ahead, read from the table as it is.
+    fn value<T: FromLua>(&mut self) -> LuaResult<T> {
+        self.next();
         self.ops.raw_get(self.position)
     }
 
+    fn number(&mut self) -> LuaResult<f64> {
+        match self.next() {
+            Slot::Number(value) => Ok(value),
+            _ => self.ops.raw_get(self.position),
+        }
+    }
+
     fn int(&mut self) -> LuaResult<i32> {
-        self.value()
+        Ok(self.number()? as i32)
     }
 
     fn id(&mut self) -> LuaResult<ClientId> {
-        self.value()
+        Ok(self.number()? as ClientId)
+    }
+
+    fn float(&mut self) -> LuaResult<f32> {
+        Ok(self.number()? as f32)
     }
 
     /// Text that is not UTF-8 comes through with replacement characters, as
     /// one string that cannot be read must not cost the rest of the frame.
     fn string(&mut self) -> LuaResult<String> {
-        let value: LuaString = self.value()?;
-        Ok(String::from_utf8_lossy(&value.as_bytes()).into_owned())
+        match self.next() {
+            Slot::Text(start, size) => {
+                Ok(String::from_utf8_lossy(&self.bytes[start..start + size]).into_owned())
+            }
+            _ => {
+                let value: LuaString = self.ops.raw_get(self.position)?;
+                Ok(String::from_utf8_lossy(&value.as_bytes()).into_owned())
+            }
+        }
     }
 
     /// Text arrives with its width, or `-1` when it is ASCII.
@@ -238,7 +312,7 @@ impl Reader<'_> {
     }
 
     fn length(&mut self) -> LuaResult<Length> {
-        let value: f64 = self.value()?;
+        let value = self.number()?;
         Ok(match value {
             -1.0 => Length::Auto,
             -2.0 => Length::Fit,
@@ -314,7 +388,7 @@ impl Reader<'_> {
         (0..count)
             .map(|_| {
                 let kind = self.int()?;
-                let value: f32 = self.value()?;
+                let value = self.float()?;
                 Ok(match kind {
                     0 => Track::Auto,
                     1 => Track::Cells(value as i32),
@@ -331,7 +405,7 @@ impl Reader<'_> {
     fn border(&mut self) -> LuaResult<Option<Border>> {
         let characters: Vec<char> = self.string()?.chars().collect();
         let sides = self.int()?;
-        let hl = self.value()?;
+        let hl = self.number()? as u32;
         let outside_background = self.int()? != 0;
         let Ok(chars) = <[char; 8]>::try_from(characters) else {
             return Ok(None);
@@ -364,7 +438,7 @@ impl Reader<'_> {
             10 => StyleProperty::Height(self.length()?),
             11 => StyleProperty::Spacing(self.int()?),
             12 => StyleProperty::Reverse(self.int()? != 0),
-            13 => StyleProperty::Highlight(self.value()?),
+            13 => StyleProperty::Highlight(self.number()? as u32),
             14 => StyleProperty::Interactive(self.int()? != 0),
             15 => StyleProperty::Direction(self.direction()?),
             16 => StyleProperty::Wrap(self.int()? != 0),
@@ -374,8 +448,8 @@ impl Reader<'_> {
             20 => StyleProperty::AlignSelf(self.align()?),
             21 => StyleProperty::RowGap(self.int()?),
             22 => StyleProperty::ColumnGap(self.int()?),
-            23 => StyleProperty::Grow(self.value()?),
-            24 => StyleProperty::Shrink(self.value()?),
+            23 => StyleProperty::Grow(self.float()?),
+            24 => StyleProperty::Shrink(self.float()?),
             25 => StyleProperty::Basis(self.length()?),
             26 => StyleProperty::Order(self.int()?),
             27 => StyleProperty::MinWidth(self.length()?),
@@ -490,11 +564,12 @@ impl Reader<'_> {
 
 /// Decodes the first `len` values of `ops` and passes each command to `apply`.
 pub fn decode(
+    lua: &Lua,
     ops: &LuaTable,
     len: usize,
     mut apply: impl FnMut(Command) -> LuaResult<()>,
 ) -> LuaResult<()> {
-    let mut reader = Reader { ops, position: 0 };
+    let mut reader = Reader::new(lua, ops, len)?;
     while reader.position < len {
         apply(reader.command()?)?;
     }

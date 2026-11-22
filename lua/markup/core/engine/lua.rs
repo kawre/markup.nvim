@@ -23,7 +23,7 @@ impl LuaUserData for LuaEngine {
         // what the view thinks it is.
         methods.add_method_mut("commit", |lua, this, (ops, len): (LuaTable, usize)| {
             let mut errors = Vec::new();
-            protocol::decode(&ops, len, |command| {
+            protocol::decode(lua, &ops, len, |command| {
                 if let Err(error) = this.0.apply(command) {
                     errors.push(error.to_string());
                 }
