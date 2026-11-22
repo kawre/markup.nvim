@@ -292,10 +292,7 @@ pub fn measure(tree: &mut Tree, index: Index, constraints: Constraints) -> Size 
     geometry.collapses_through = false;
     geometry.baseline = None;
 
-    #[cfg(test)]
-    {
-        tree.arranged += 1;
-    }
+    tree.arranged += 1;
     let mut content = strategy.arrange(tree, index, space);
 
     let fills = display.fills_width() && width != Length::Fit && !constraints.intrinsic;

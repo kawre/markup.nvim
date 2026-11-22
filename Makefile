@@ -1,4 +1,4 @@
-.PHONY: build docs luals test test_lua test_engine test_file format format_check lint coverage coverage_lua coverage_rust
+.PHONY: bench bench_check bench_update build docs luals test test_lua test_engine test_file format format_check lint coverage coverage_lua coverage_rust
 
 NVIM_TEST = nvim --headless --noplugin -u ./scripts/minimal_init.lua
 ROCKS = .tests/rocks
@@ -104,6 +104,20 @@ $(LUALS):
 # page of what differs in a browser, or of everything with SHOW=all; this also
 # works with `make test BROWSER=1`.
 export SHOW
+# Run every stress test workload for a fixed number of frames and print the
+# work each does, and how long it took
+BENCH = nvim --headless -u NONE -i NONE -c "luafile scripts/bench.lua"
+bench: build
+	$(BENCH)
+
+# Fail when a workload does more work than scripts/bench_counts.json says
+bench_check: $(if $(SKIP_BUILD),,build)
+	MARKUP_BENCH=check $(BENCH)
+
+# Write the counts of this build as the new baseline
+bench_update: build
+	MARKUP_BENCH=update $(BENCH)
+
 .PHONY: test_browser
 test_browser: build
 	nvim -u NONE -l tests/browser/compare.lua $(FILE)

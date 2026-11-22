@@ -1,0 +1,14 @@
+{
+  "accordion": { "commands": 4397, "commits": 121, "layouts": 1628, "lines": 54 },
+  "cards": { "commands": 48483, "commits": 121, "layouts": 789546, "lines": 1922 },
+  "carousel": { "commands": 1875, "commits": 121, "layouts": 421, "lines": 50 },
+  "churn": { "commands": 210530, "commits": 121, "layouts": 169174, "lines": 2572 },
+  "highlights": { "commands": 13814, "commits": 121, "layouts": 5020, "lines": 24 },
+  "insane": { "commands": 2397002, "commits": 121, "layouts": 4309417, "lines": 7200 },
+  "meters": { "commands": 19480, "commits": 121, "layouts": 10763, "lines": 170 },
+  "reflow": { "commands": 1883, "commits": 121, "layouts": 395, "lines": 170 },
+  "spinners": { "commands": 19781, "commits": 121, "layouts": 184189, "lines": 162 },
+  "text": { "commands": 19499, "commits": 121, "layouts": 7947, "lines": 119 },
+  "tree": { "commands": 1332, "commits": 121, "layouts": 652, "lines": 17 },
+  "wave": { "commands": 2058165, "commits": 121, "layouts": 1484085, "lines": 1983 }
+}

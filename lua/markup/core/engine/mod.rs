@@ -23,6 +23,8 @@ pub const ROOT: ClientId = 1;
 /// How long each stage of a commit took, in milliseconds.
 #[derive(Debug, Default, Clone, Copy)]
 pub struct Timings {
+    /// Nodes laid out, not counting those that kept a cached layout.
+    pub layouts: usize,
     pub layout: f64,
     pub paint: f64,
     pub diff: f64,
@@ -152,6 +154,7 @@ impl Engine {
         let mut timings = Timings::default();
 
         let started = Instant::now();
+        self.tree.arranged = 0;
         let size = layout::measure(
             &mut self.tree,
             self.root,
@@ -161,6 +164,7 @@ impl Engine {
         let height =
             self.height_with_absolutes(size.height.max(self.overflow_bottom(self.root, 0)));
         timings.layout = elapsed_ms(started);
+        timings.layouts = self.tree.arranged;
 
         let started = Instant::now();
         // A buffer always has a line, so a frame does too.

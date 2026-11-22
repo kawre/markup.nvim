@@ -558,8 +558,9 @@ pub fn encode(
         list.raw_set(index + 1, entry)?;
     }
 
-    let frame = lua.create_table_with_capacity(0, 4)?;
+    let frame = lua.create_table_with_capacity(0, 5)?;
     frame.raw_set("patches", list)?;
+    frame.raw_set("layouts", timings.layouts)?;
     frame.raw_set("layout", timings.layout)?;
     frame.raw_set("paint", timings.paint)?;
     frame.raw_set("diff", timings.diff)?;

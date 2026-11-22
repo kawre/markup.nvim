@@ -1158,6 +1158,28 @@ T["dynamic text"]["rewrites only the changed line"] = function()
 	eq(child.lua_get("view.stats.lines"), 1)
 end
 
+T["dynamic text"]["counts only the nodes laid out again"] = function()
+	run([[
+		count = m.signal(1)
+		local rows = {}
+		for i = 1, 100 do
+			rows[i] = m.block("row " .. i)
+		end
+		rows[50] = m.block(count)
+		view:render(m.block(rows))
+		mounted = view.stats.layouts
+		-- Wider, so it is laid out again: text that keeps its width is not.
+		count(200)
+		reactive.flush()
+		changed = view.stats.layouts
+	]])
+	-- Mounting lays out every node, a change only its path to the root: the
+	-- text, its block, the block of rows and the engine's root. The other 99
+	-- rows keep their layout.
+	eq(child.lua_get("mounted") >= 200, true)
+	eq(child.lua_get("changed"), 4)
+end
+
 T["dynamic text"]["reflows siblings when the width changes"] = function()
 	run([[
 		name = m.signal("a")

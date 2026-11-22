@@ -20,13 +20,28 @@
 ---
 --- Keys: s settings, + / - next or previous preset, t toggles the frame cap,
 --- <Space> pauses, q closes.
+---
+--- With `manual` set before `open`, nothing moves until `advance` is called:
+--- the test's timers, its clock and the animation clock all wait for it, so a
+--- run does the same work on every machine. `scripts/bench.lua` counts that.
 
 local m = require("markup")
 local reactive = require("markup.reactive")
 
 local api = vim.api
 
-local M = {}
+local M = {
+	--- Timers and clocks wait for `advance` rather than real time.
+	manual = false,
+}
+
+local timers = {} ---@type { ms: number|fun(): number, waited: number, fn: fun() }[] the manual ones
+local elapsed = 0 -- ms advanced in manual mode
+
+--- Milliseconds, advanced by hand in manual mode.
+local function time()
+	return M.manual and elapsed or vim.uv.hrtime() / 1e6
+end
 
 local PALETTE = {
 	"DiagnosticHint",
@@ -95,6 +110,24 @@ local paused = m.signal(false)
 local capped = m.signal(false)
 local fps = 60 ---@type number the rate other views use, restored on close
 
+--- Moves the timers, the clock and every animation `ms` forward, in manual mode.
+---@param ms number
+function M.advance(ms)
+	elapsed = elapsed + ms
+	-- What a timer does can start or stop others.
+	for _, entry in ipairs(vim.list_slice(timers, 1)) do
+		if not entry.stopped and not reactive.untrack(paused) then
+			entry.waited = entry.waited + ms
+			local period = type(entry.ms) == "number" and entry.ms or reactive.untrack(entry.ms)
+			if entry.waited >= period then
+				entry.waited = 0
+				entry.fn()
+			end
+		end
+	end
+	Markup.animate.tick(ms)
+end
+
 ---@type table<string, markup.reactive.signal> the step each slider is at
 local steps = {}
 for _, setting in ipairs(M.settings) do
@@ -153,6 +186,20 @@ end
 --- Calls `fn` every `ms` for as long as the calling scope lives, unless paused.
 --- `ms` may be a function, read on every turn, to follow a setting.
 local function every(ms, fn)
+	if M.manual then
+		local entry = { ms = ms, waited = 0, fn = fn }
+		timers[#timers + 1] = entry
+		reactive.on_cleanup(function()
+			entry.stopped = true
+			for i, other in ipairs(timers) do
+				if other == entry then
+					table.remove(timers, i)
+					break
+				end
+			end
+		end)
+		return
+	end
 	local timer = assert(vim.uv.new_timer())
 	local waited = 0
 	local tick = 15
@@ -218,7 +265,7 @@ local function clock()
 		loop = true,
 		update = function()
 			if not reactive.untrack(paused) then
-				now(vim.uv.hrtime() / 1e6)
+				now(time())
 			end
 		end,
 	})
@@ -631,7 +678,7 @@ local function Spinners(count)
 end
 
 local function Header(now)
-	local started = vim.uv.hrtime() / 1e6
+	local started = time()
 	return m.flex({
 		justify = "between",
 		padding = { 0, 1 },
@@ -888,7 +935,7 @@ function M.close_settings()
 end
 
 --- Opens the stress test in a new tab, with the inspector beside it.
----@param opts? { preset?: string, settings?: boolean } `settings` opens the popup
+---@param opts? { preset?: string, settings?: boolean, inspector?: boolean } `settings` opens the popup, `inspector = false` leaves the inspector closed
 function M.open(opts)
 	opts = opts or {}
 	vim.cmd.tabnew()
@@ -898,6 +945,8 @@ function M.open(opts)
 	vim.bo[win.buf].buftype = "nofile"
 	vim.bo[win.buf].bufhidden = "wipe"
 
+	-- A run moved by hand starts at zero, so each one draws the same.
+	elapsed = 0
 	paused(false)
 	capped(false)
 	M.apply_preset(opts.preset or "medium")
@@ -968,8 +1017,10 @@ function M.open(opts)
 	end)
 
 	api.nvim_set_current_win(win.win)
-	Markup.devkit.tree().toggle(view)
-	api.nvim_set_current_win(win.win)
+	if opts.inspector ~= false then
+		Markup.devkit.tree().toggle(view)
+		api.nvim_set_current_win(win.win)
+	end
 	if opts.settings then
 		open_settings(view)
 	end

@@ -13,6 +13,7 @@ local api = vim.api
 ---@class markup.view.stats
 ---@field commands integer values sent in the last commit
 ---@field lines integer lines rewritten by the last commit
+---@field layouts integer nodes the last commit laid out, rather than keeping their cached layout
 ---@field layout number ms
 ---@field paint number ms
 ---@field diff number ms
@@ -86,7 +87,16 @@ function M:new(win, opts)
 	self.top_row = reactive.signal(0)
 	self.width_cells = reactive.signal(self:width())
 	self.height_cells = reactive.signal(self:height())
-	self.stats = { commands = 0, lines = 0, layout = 0, paint = 0, diff = 0, engine = 0, apply = 0 }
+	self.stats = {
+		commands = 0,
+		lines = 0,
+		layouts = 0,
+		layout = 0,
+		paint = 0,
+		diff = 0,
+		engine = 0,
+		apply = 0,
+	}
 	self.last_id = protocol.ROOT
 	self.commit_job = function()
 		self:commit()
@@ -638,6 +648,7 @@ function M:commit()
 	stats.engine = (vim.uv.hrtime() - started) / 1e6
 	stats.commands = len
 
+	stats.layouts = frame.layouts
 	stats.layout, stats.paint, stats.diff = frame.layout, frame.paint, frame.diff
 
 	-- What the engine left out, each said once, since it is a bug somewhere

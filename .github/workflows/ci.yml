@@ -80,6 +80,9 @@ jobs:
               - "scripts/run_browser_suite.sh"
               - "scripts/run_tests.sh"
               - "scripts/coverage.lua"
+              - "scripts/bench.lua"
+              - "scripts/bench_compare.lua"
+              - "scripts/bench_counts.json"
               - "Makefile"
               - ".stylua.toml"
             ci:
@@ -388,13 +391,99 @@ jobs:
           flags: rust
           fail_ci_if_error: false
 
+  # The work each stress test workload does, counted rather than timed, so it
+  # is the same on every runner: more than scripts/bench_counts.json allows
+  # fails. After a change that does less, `make bench_update` keeps it there.
+  perf:
+    name: Performance counts
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: markup_core-Linux-X64
+          path: target/release
+      - uses: rhysd/action-setup-vim@v1
+        with:
+          neovim: true
+          version: stable
+      - name: Counts against the baseline
+        shell: bash
+        run: |
+          set -o pipefail
+          make bench_check SKIP_BUILD=1 | tee bench.txt
+          {
+            echo '### Performance counts'
+            echo '```'
+            cat bench.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # How long the stress test takes, the base of a pull request against its
+  # head, run in turns on one runner. Times on shared runners wander, so this
+  # only reports, in the job summary, and never fails the run.
+  perf-timing:
+    name: Performance timing
+    needs: [changes, build]
+    if: github.event_name == 'pull_request' && needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@v4
+        with:
+          name: markup_core-Linux-X64
+          path: target/release
+      - uses: rhysd/action-setup-vim@v1
+        with:
+          neovim: true
+          version: stable
+      - name: Check out the base
+        id: base
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+        run: |
+          git worktree add .tests/base "$BASE"
+          # A base from before the stress test could be moved by hand has
+          # nothing to compare.
+          if grep -q "function M.advance" .tests/base/lua/markup/devkit/stress.lua 2>/dev/null; then
+            echo "runs=true" >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.base.outputs.runs == 'true'
+        uses: dtolnay/rust-toolchain@stable
+      - if: steps.base.outputs.runs == 'true'
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: .tests/base
+      - if: steps.base.outputs.runs == 'true'
+        working-directory: .tests/base
+        run: cargo build --release
+      - name: Run both in turns
+        env:
+          BASE_RUNS: ${{ steps.base.outputs.runs }}
+        run: |
+          mkdir -p .tests/bench/base .tests/bench/head
+          bench='nvim --headless -u NONE -i NONE -c "luafile scripts/bench.lua"'
+          for i in 1 2 3 4 5; do
+            if [ "$BASE_RUNS" = true ]; then
+              (cd .tests/base && MARKUP_BENCH_OUT="$GITHUB_WORKSPACE/.tests/bench/base/$i.json" eval "$bench" > /dev/null)
+            fi
+            MARKUP_BENCH_OUT="$GITHUB_WORKSPACE/.tests/bench/head/$i.json" eval "$bench" > /dev/null
+          done
+          nvim -l scripts/bench_compare.lua .tests/bench/base .tests/bench/head | tee -a "$GITHUB_STEP_SUMMARY"
+
   # The one check branch protection requires: every job above passed, or was
   # skipped for having nothing to check. Their
   # names change with the Neovim versions, this one does not.
   ci:
     name: All checks
     if: always()
-    needs: [changes, format, lint, build, versions, test-engine, test, browser, coverage-lua, coverage-rust]
+    needs: [changes, format, lint, build, versions, test-engine, test, browser, perf, coverage-lua, coverage-rust]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
