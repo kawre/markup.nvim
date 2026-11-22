@@ -359,9 +359,24 @@ function M.after_flush(job)
 	schedule()
 end
 
+local forced = false
+
 --- Runs everything pending now instead of waiting for the scheduled flush.
+--- What it commits is written before it returns, animations or not.
 function M.flush()
-	flush()
+	local outer = forced
+	forced = true
+	local ok, err = pcall(flush)
+	forced = outer
+	if not ok then
+		error(err, 0)
+	end
+end
+
+--- Whether the flush running was asked for with `flush`, rather than
+--- scheduled: what it commits must not wait.
+function M.forced()
+	return forced
 end
 
 --- Live effects, memos and scopes, plus totals since startup. Signals have no

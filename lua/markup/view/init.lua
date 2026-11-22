@@ -99,6 +99,12 @@ function M:new(win, opts)
 	}
 	self.last_id = protocol.ROOT
 	self.commit_job = function()
+		-- While animations move, what changes between their frames is drawn
+		-- with the next one: a commit of its own would only take the time the
+		-- frames need.
+		if Markup.animate.hold_for_frame(self.commit_job) then
+			return
+		end
 		self:commit()
 	end
 
