@@ -117,6 +117,16 @@ markup.view:height()
 
 Height to lay out for, which hidden windows can only estimate.
 
+### markup.view:highlights()
+
+```lua
+markup.view:highlights()
+  -> table[]
+```
+
+The highlights drawn on the buffer, as `nvim_buf_get_extmarks` with
+`details` would list them, for tests and tools.
+
 ### markup.view:hold_cursor()
 
 ```lua

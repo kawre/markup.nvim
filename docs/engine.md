@@ -473,7 +473,7 @@ input, never where anything is: the next frame paints it anew anyway.
 0
 
 ```rust
-pub fn decode( ops: &LuaTable, len: usize, mut apply: impl FnMut(Command) -> LuaResult<()>, ) -> LuaResult<()>
+pub fn decode( lua: &Lua, ops: &LuaTable, len: usize, mut apply: impl FnMut(Command) -> LuaResult<()>, ) -> LuaResult<()>
 ```
 
 Decodes the first `len` values of `ops` and passes each command to `apply`.
@@ -494,7 +494,7 @@ Builds the frame table returned to Lua.
 
 ```lua
 {
-  patches = { { first, last, lines = { ... }, marks = { row, start, end, hl, ... } } },
+  patches = { { first, last, lines = { ... }, marks = { "start end hl ..." or false, ... } } },
   layout = 0.1, paint = 0.2, diff = 0.3,
 }
 ```
