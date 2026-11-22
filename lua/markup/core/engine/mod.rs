@@ -452,7 +452,7 @@ mod tests {
     }
 
     #[test]
-    fn overflow_marker_uses_measured_cells_and_changes_without_layout() {
+    fn text_overflow_uses_measured_cells_and_changes_without_layout() {
         let lua = mlua::Lua::new();
         let mut engine = Engine::new(5);
         let mut apply = |source: &str| {

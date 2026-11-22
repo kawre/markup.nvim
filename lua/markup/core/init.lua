@@ -1,6 +1,5 @@
 ---@class markup.core
 ---@field create_engine fun(width: integer): markup.core.engine
----@field overflow_marker boolean
 
 ---@class markup.core.engine
 ---@field commit fun(self: markup.core.engine, ops: any[], len: integer): table

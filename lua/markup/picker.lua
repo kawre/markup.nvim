@@ -136,43 +136,6 @@ function M.highlight(label, positions)
 	return spans
 end
 
---- Spans cut to `width` display cells, ending in "…" when anything was cut.
----@param spans markup.picker.span[]
----@param width integer
----@return markup.picker.span[]
-function M.truncate(spans, width)
-	local total = 0
-	for _, span in ipairs(spans) do
-		total = total + vim.fn.strdisplaywidth(span[1])
-	end
-	if total <= width then
-		return spans
-	end
-
-	local result, used = {}, 0
-	local room = math.max(width - 1, 0)
-	for _, span in ipairs(spans) do
-		local text = ""
-		for _, char in ipairs(vim.fn.split(span[1], "\\zs")) do
-			local cells = vim.fn.strdisplaywidth(char)
-			if used + cells > room then
-				break
-			end
-			text, used = text .. char, used + cells
-		end
-		if text ~= "" then
-			result[#result + 1] = { text, span[2] }
-		end
-		if used >= room or text ~= span[1] then
-			break
-		end
-	end
-	if width > 0 then
-		result[#result + 1] = { "…", "MarkupPickerEmpty" }
-	end
-	return result
-end
-
 --- Items matching a query, best first, with the positions that matched.
 ---@param items markup.picker.item[]
 ---@param query string
@@ -623,7 +586,7 @@ function M.row(entry, ctx)
 		m.inline({
 			shrink = 1,
 			overflow_x = "hidden",
-			overflow_marker = true,
+			text_overflow = "ellipsis",
 			m.inline(ctx.selected and "▌" or " ", "MarkupPickerMarker"),
 			m.inline({ margin_left = 1, spans_of(label) }),
 		}),

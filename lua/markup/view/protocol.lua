@@ -256,21 +256,22 @@ end
 --- what is drawn holds it.
 M.valid_utf8 = valid_utf8
 
--- The marker uses the same cell measurements as regular text.
-M.style.overflow_marker = {
+-- As CSS `text-overflow`: "clip", "ellipsis", or the string to end in, where
+-- "" clips as "clip" does. The marker uses the same cell measurements as text.
+M.style.text_overflow = {
 	49,
 	function(value)
-		if value == nil or value == false or value == "clip" then
+		if value == nil or value == "clip" or value == "" then
 			return false
 		end
-		local marker = (value == true or value == "ellipsis") and "…" or value
+		local marker = value == "ellipsis" and "…" or value
 		if type(marker) ~= "string" or marker:find("%c") then
-			error("overflow_marker needs a non-empty, single-line marker", 0)
+			error("text_overflow needs \"clip\", \"ellipsis\" or a single-line string", 0)
 		end
 		marker = valid_utf8(marker)
 		local width = vim_fn.strdisplaywidth(marker)
 		if width < 1 then
-			error("overflow_marker needs a non-empty, single-line marker", 0)
+			return false
 		end
 		return { marker, width, cell_digits(marker) }
 	end,

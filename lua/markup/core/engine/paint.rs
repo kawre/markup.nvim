@@ -543,7 +543,7 @@ impl<'a> Painter<'a> {
         let content_y = y + margin.top + padding.top;
         let content_right = content_x + geometry.content.width;
         let columns = self.columns.clone();
-        let ellipsis = style.extra().overflow_marker.as_ref().filter(|marker| {
+        let ellipsis = style.extra().text_overflow.as_ref().filter(|marker| {
             style.extra().clip_x
                 && geometry.content.height == 1
                 && !tree.text_wraps(index)
@@ -561,7 +561,6 @@ impl<'a> Painter<'a> {
                 .columns
                 .as_mut()
                 .expect("horizontal clipping has columns");
-            clip.start = clip.start.max(content_x);
             clip.end = right;
         }
         for &child in &node.children {

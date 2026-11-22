@@ -14,8 +14,8 @@ use super::Timings;
 use super::diff::Patch;
 use super::inspect::NodeInfo;
 use super::style::{
-    Align, Border, Direction, Display, Distribute, Edges, Length, Overflow, OverflowMarker,
-    Position, Style, Track, WhiteSpace,
+    Align, Border, Direction, Display, Distribute, Edges, Length, Overflow, Position, Style,
+    TextOverflow, Track, WhiteSpace,
 };
 use super::tree::ClientId;
 use mlua::prelude::*;
@@ -64,7 +64,7 @@ pub enum StyleProperty {
     OverflowX(Overflow),
     Snap(Option<bool>),
     Inert(bool),
-    OverflowMarker(Option<OverflowMarker>),
+    TextOverflow(Option<TextOverflow>),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -96,7 +96,7 @@ impl StyleProperty {
                 | StyleProperty::Interactive(_)
                 | StyleProperty::Inert(_)
                 | StyleProperty::Snap(_)
-                | StyleProperty::OverflowMarker(_)
+                | StyleProperty::TextOverflow(_)
         )
     }
 
@@ -144,7 +144,7 @@ impl StyleProperty {
             StyleProperty::OverflowX(value) => style.extra_mut().set_overflow(Some(value), None),
             StyleProperty::Snap(value) => style.extra_mut().snap = value,
             StyleProperty::Inert(value) => style.extra_mut().inert = value,
-            StyleProperty::OverflowMarker(value) => style.extra_mut().overflow_marker = value,
+            StyleProperty::TextOverflow(value) => style.extra_mut().text_overflow = value,
         }
     }
 }
@@ -404,7 +404,7 @@ impl Reader<'_> {
             46 => StyleProperty::OverflowX(self.overflow()?),
             47 => StyleProperty::Snap(self.optional()?.map(|value| value != 0)),
             48 => StyleProperty::Inert(self.int()? != 0),
-            49 => StyleProperty::OverflowMarker(match self.value::<LuaValue>()? {
+            49 => StyleProperty::TextOverflow(match self.value::<LuaValue>()? {
                 LuaValue::Table(marker) => {
                     let text: String = marker.raw_get(1)?;
                     let width = marker.raw_get(2)?;
@@ -413,7 +413,7 @@ impl Reader<'_> {
                         .bytes()
                         .map(|digit| digit.saturating_sub(b'0'))
                         .collect();
-                    Some(OverflowMarker { text, width, cells })
+                    Some(TextOverflow { text, width, cells })
                 }
                 _ => None,
             }),

@@ -29,7 +29,6 @@ fn markup_core(lua: &Lua) -> LuaResult<LuaTable> {
     // The version this engine was built as, to tell whether it is the one the
     // Lua side expects.
     exports.set("version", env!("CARGO_PKG_VERSION"))?;
-    exports.set("overflow_marker", true)?;
     exports.set(
         "create_engine",
         lua.create_function(engine::lua::create_engine)?,
