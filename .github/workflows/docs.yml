@@ -17,9 +17,11 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  group: ${{ github.workflow }}
-  cancel-in-progress: true
+# No concurrency group: a run that one cancels, or that waits in one and is
+# cancelled for a newer run, marks its commit as failed, although nothing
+# failed. Every run starts, and each one only writes the docs while its commit
+# is still the newest on master: an older run finds that out and has nothing
+# to do, so the docs always come from the newest code.
 
 jobs:
   docs:
@@ -31,27 +33,36 @@ jobs:
         with:
           fetch-depth: 0
           ssh-key: ${{ secrets.DOCS_DEPLOY_KEY }}
+      - name: Still the newest commit on master
+        id: newest
+        run: |
+          git fetch --quiet origin master
+          if [ "$(git rev-parse origin/master)" = "$GITHUB_SHA" ]; then
+            echo "newest=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "A newer commit is on master: its run writes the docs." >> "$GITHUB_STEP_SUMMARY"
+          fi
       - name: Check release metadata
         id: release
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' && steps.newest.outputs.newest == 'true'
         env:
           BASE: ${{ github.event.before }}
         run: |
           only=$(python3 scripts/release_only.py "$BASE" "$GITHUB_SHA")
           echo "only=$only" >> "$GITHUB_OUTPUT"
       - uses: rhysd/action-setup-vim@v1
-        if: steps.release.outputs.only != 'true'
+        if: steps.newest.outputs.newest == 'true' && steps.release.outputs.only != 'true'
         with:
           neovim: true
           version: stable
       - name: lua-language-server
-        if: steps.release.outputs.only != 'true'
+        if: steps.newest.outputs.newest == 'true' && steps.release.outputs.only != 'true'
         run: make luals
       - name: Write the docs
-        if: steps.release.outputs.only != 'true'
+        if: steps.newest.outputs.newest == 'true' && steps.release.outputs.only != 'true'
         run: make docs
       - name: Commit what changed
-        if: steps.release.outputs.only != 'true'
+        if: steps.newest.outputs.newest == 'true' && steps.release.outputs.only != 'true'
         run: |
           git add --all docs doc llms.txt skills
           if git diff --cached --quiet; then
@@ -62,4 +73,20 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git commit -m "docs: update from the comments in the code"
-          git push
+          # Written for this commit: once a newer one is on master, its own run
+          # writes them, so these would only come in over newer ones.
+          git fetch --quiet origin master
+          if [ "$(git rev-parse origin/master)" != "$GITHUB_SHA" ]; then
+            echo "A newer commit came while writing: its run writes the docs." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          # A commit that lands between that check and the push makes the push
+          # fail: the same case, so its run writes them.
+          if ! git push; then
+            git fetch --quiet origin master
+            if [ "$(git rev-parse origin/master)" != "$GITHUB_SHA" ]; then
+              echo "A newer commit came while pushing: its run writes the docs." >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            exit 1
+          fi

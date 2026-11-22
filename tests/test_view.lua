@@ -3487,6 +3487,48 @@ T["resize"]["follows the window on the next frame even if Neovim never said"] = 
 	eq(child.lua_get("after"), 20)
 end
 
+T["resize"]["a window dragged wider is laid out a few times, and last at its size"] = function()
+	local Screen = dofile("tests/helpers/screen.lua")
+	-- A UI, so that Neovim says the window resized, as a terminal's would.
+	local screen = Screen.attach(child)
+	child.lua([[
+		vim.cmd("vsplit")
+		view = Markup.view(win)
+		view:render(m.block({ white_space = "normal", ("word "):rep(40) }))
+		reactive.flush()
+		commits = 0
+		view:on_commit(function() commits = commits + 1 end)
+	]])
+	-- A step of the drag at a time, each with its redraw, as the mouse sends them.
+	for width = 10, 39 do
+		child.lua(("vim.api.nvim_win_set_width(win.win, %d); vim.cmd('redraw')"):format(width))
+	end
+	child.lua("vim.wait(200, function() return false end, 5)")
+	screen:detach()
+	-- 30 steps, a handful of layouts, the last for the width the drag ended at.
+	eq(child.lua_get("commits") <= 8, true)
+	eq(child.lua_get("commits") >= 1, true)
+	eq(child.lua_get("view.engine:describe(1).outer_width"), 39)
+end
+
+T["resize"]["throttle answers at once, then the last of a burst"] = function()
+	child.lua([[
+		util = require("markup.util")
+		calls = {}
+		throttled = util.throttle(function() calls[#calls + 1] = vim.uv.hrtime() end, 30)
+		for _ = 1, 10 do throttled() end
+		first = #calls
+		vim.wait(100, function() return false end, 5)
+		after = #calls
+		-- Quiet for longer than the wait: the next is at once again.
+		throttled()
+		again = #calls
+	]])
+	eq(child.lua_get("first"), 1)
+	eq(child.lua_get("after"), 2)
+	eq(child.lua_get("again"), 3)
+end
+
 T["snap"] = T["snap"] or new_set()
 
 T["snap"]["waits for rows the buffer does not have yet"] = function()
