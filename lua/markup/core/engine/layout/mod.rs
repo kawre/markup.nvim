@@ -17,7 +17,7 @@ use super::style::{Display, Length, Style};
 use super::tree::{Collapse, Index, Memo, Size, Tree};
 
 /// How many sizes a node keeps for constraints other than its last.
-const MEMO: usize = 8;
+const MEMO: usize = 16;
 
 /// What a parent asks of a child. Sizes are of the margin box.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

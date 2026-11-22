@@ -1180,6 +1180,33 @@ T["dynamic text"]["counts only the nodes laid out again"] = function()
 	eq(child.lua_get("changed"), 4)
 end
 
+T["dynamic text"]["lays nothing out for what only changes how it is painted"] = function()
+	run([[
+		group = m.signal("String")
+		level = m.signal("▁▂")
+		view:render(m.block({
+			m.inline("label ", group),
+			m.inline(level, "Number"),
+		}))
+		group("Comment")
+		reactive.flush()
+		highlight = view.stats.layouts
+		-- Other characters, each as wide as before.
+		level("▃▄")
+		reactive.flush()
+		same_cells = view.stats.layouts
+		first_line = vim.api.nvim_buf_get_lines(view.win.buf, 0, 1, false)[1]
+		-- As wide in all, but in other cells: laid out anew.
+		level("語")
+		reactive.flush()
+		other_cells = view.stats.layouts
+	]])
+	eq(child.lua_get("highlight"), 0)
+	eq(child.lua_get("same_cells"), 0)
+	eq(child.lua_get("first_line"), "label ▃▄")
+	eq(child.lua_get("other_cells") > 0, true)
+end
+
 T["dynamic text"]["reflows siblings when the width changes"] = function()
 	run([[
 		name = m.signal("a")

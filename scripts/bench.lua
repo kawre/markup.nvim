@@ -84,7 +84,17 @@ local function run(workload)
 	local view = stress.open({ preset = "idle", inspector = false })
 	reactive.flush()
 
-	local result = { layouts = 0, commands = 0, lines = 0, commits = 0, engine = 0, apply = 0 }
+	local result = {
+		layouts = 0,
+		commands = 0,
+		lines = 0,
+		commits = 0,
+		engine = 0,
+		apply = 0,
+		layout = 0,
+		paint = 0,
+		diff = 0,
+	}
 	local counting = false
 	view:on_commit(function()
 		if counting then
@@ -95,6 +105,9 @@ local function run(workload)
 			result.lines = result.lines + stats.lines
 			result.engine = result.engine + stats.engine
 			result.apply = result.apply + stats.apply
+			result.layout = result.layout + stats.layout
+			result.paint = result.paint + stats.paint
+			result.diff = result.diff + stats.diff
 		end
 	end)
 
@@ -259,6 +272,9 @@ if vim.env.MARKUP_BENCH_OUT then
 			mount_ms = r.mount_ms,
 			engine = r.engine,
 			apply = r.apply,
+			layout = r.layout,
+			paint = r.paint,
+			diff = r.diff,
 		}
 	end
 	write_json(vim.env.MARKUP_BENCH_OUT, all)

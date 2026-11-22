@@ -86,6 +86,18 @@ impl Side {
 }
 
 impl StyleProperty {
+    /// Whether the property only changes how a node is painted or answers
+    /// input, never where anything is: the next frame paints it anew anyway.
+    pub fn paint_only(self) -> bool {
+        matches!(
+            self,
+            StyleProperty::Highlight(_)
+                | StyleProperty::Interactive(_)
+                | StyleProperty::Inert(_)
+                | StyleProperty::Snap(_)
+        )
+    }
+
     pub fn apply(self, style: &mut Style) {
         match self {
             StyleProperty::Margin(side, value) => *side.of(&mut style.margin) = value,

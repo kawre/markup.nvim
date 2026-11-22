@@ -14,6 +14,9 @@ struct Item {
     /// Margin, border and padding along the main axis, which never shrink.
     edges: i32,
     min: i32,
+    /// Set while `min` is the automatic one and not measured yet: it only
+    /// matters once the line has to shrink. Holds the item's own width.
+    pending_min: Option<Option<i32>>,
     max: i32,
     grow: f32,
     shrink: f32,
@@ -183,21 +186,24 @@ fn collect_items(
             // reflow vertically, so a column item keeps its rows. A row item
             // may wrap, but not below its longest word: past that, its text
             // would run out of it. What clips its overflow may shrink freely.
+            //
+            // Its natural size is never below it, so it changes nothing until
+            // the line has to shrink, and is only measured then. Unless the
+            // size may already be below it: a `basis`, a `max_width`, or a
+            // natural size that reached what the line has, as a word too
+            // long for it would.
+            let auto_basis = extra.basis == Length::Auto;
+            let mut pending_min = None;
             let min = min.unwrap_or_else(|| {
                 if axis.column {
                     axis.main(natural)
                 } else if clips {
                     0
+                } else if auto_basis && max == i32::MAX && base < reference {
+                    pending_min = Some(specified);
+                    0
                 } else {
-                    // What its content needs: a share of the container, such
-                    // as `width = "full"`, is `auto` here, as in CSS.
-                    let constraints = Constraints {
-                        ignore_own_width: !space.whole_words,
-                        shares_as_auto: true,
-                        ..Constraints::min_content()
-                    };
-                    let narrowest = unit.size(tree, constraints).width;
-                    specified.map_or(narrowest, |specified| narrowest.min(specified))
+                    narrowest(tree, &unit, space, specified)
                 }
             });
 
@@ -206,6 +212,7 @@ fn collect_items(
                 base,
                 edges,
                 min,
+                pending_min,
                 max,
                 grow,
                 shrink,
@@ -217,6 +224,30 @@ fn collect_items(
             }
         })
         .collect()
+}
+
+/// The automatic minimum of a row item: what its content needs at its
+/// narrowest, but no more than its own width.
+fn narrowest(tree: &mut Tree, unit: &Unit, space: Space, specified: Option<i32>) -> i32 {
+    // A share of the container, such as `width = "full"`, is `auto` here, as
+    // in CSS.
+    let constraints = Constraints {
+        ignore_own_width: !space.whole_words,
+        shares_as_auto: true,
+        ..Constraints::min_content()
+    };
+    let narrowest = unit.size(tree, constraints).width;
+    specified.map_or(narrowest, |specified| narrowest.min(specified))
+}
+
+/// Measures the minimums left for when a line has to shrink. They are no
+/// more than the base sizes, so the sizes found so far stay as they are.
+fn settle_mins(tree: &mut Tree, items: &mut [Item], space: Space) {
+    for item in items {
+        if let Some(specified) = item.pending_min.take() {
+            item.min = narrowest(tree, &item.unit, space, specified);
+        }
+    }
 }
 
 fn break_lines(items: &[Item], limit: Option<i32>, gap: i32) -> Vec<Line> {
@@ -394,13 +425,17 @@ impl Strategy for Flex {
             let line_items = &mut items[line.items.clone()];
             let gaps = main_gap * (line_items.len() as i32 - 1);
 
+            let natural: i32 = line_items.iter().map(|item| item.base).sum();
             if let Some(main) = definite_main {
-                resolve_flexible(line_items, main - gaps);
-            } else if let Some(limit) = fit_limit {
-                let natural: i32 = line_items.iter().map(|item| item.base).sum();
-                if natural + gaps > limit {
-                    resolve_flexible(line_items, limit - gaps);
+                if natural + gaps > main {
+                    settle_mins(tree, line_items, space);
                 }
+                resolve_flexible(line_items, main - gaps);
+            } else if let Some(limit) = fit_limit
+                && natural + gaps > limit
+            {
+                settle_mins(tree, line_items, space);
+                resolve_flexible(line_items, limit - gaps);
             }
         }
 
@@ -1005,6 +1040,52 @@ mod tests {
 
         assert_eq!(width(&tree, a), 10);
         assert_eq!(width(&tree, b), 4);
+    }
+
+    #[test]
+    fn items_that_fit_are_not_measured_at_their_narrowest() {
+        let mut tree = Tree::default();
+        let (a, b) = (item(&mut tree, 1, "aaaa bbbb"), item(&mut tree, 2, "cc dd"));
+        let root = row(&mut tree, &[a, b]);
+        measure(&mut tree, root, 40);
+        let fitting = tree.arranged;
+
+        // The same row with less room has to shrink, and measures them.
+        let mut other = Tree::default();
+        let (a, b) = (
+            item(&mut other, 1, "aaaa bbbb"),
+            item(&mut other, 2, "cc dd"),
+        );
+        let root = row(&mut other, &[a, b]);
+        measure(&mut other, root, 10);
+        assert!(fitting < other.arranged, "{fitting} and {}", other.arranged);
+        // Shrunk by their sizes, 9 to 5, and above their longest words.
+        assert_eq!((width(&other, a), width(&other, b)), (6, 4));
+    }
+
+    #[test]
+    fn a_basis_below_the_longest_word_still_keeps_it_whole() {
+        let mut tree = Tree::default();
+        let a = item(&mut tree, 1, "aaaaaa");
+        tree.node_mut(a).style.extra_mut().basis = Length::Cells(2);
+        let root = row(&mut tree, &[a]);
+
+        // As CSS `min-width: auto`: the basis is below the word, which wins.
+        measure(&mut tree, root, 20);
+        assert_eq!(width(&tree, a), 6);
+    }
+
+    #[test]
+    fn a_max_width_below_the_longest_word_caps_it() {
+        let mut tree = Tree::default();
+        let a = item(&mut tree, 1, "aaaaaa");
+        tree.node_mut(a).style.extra_mut().max_width = Length::Cells(3);
+        let root = row(&mut tree, &[a]);
+
+        // As CSS: the automatic minimum is clamped by the maximum, so the
+        // word runs past the item rather than widening it.
+        measure(&mut tree, root, 20);
+        assert_eq!(width(&tree, a), 3);
     }
 
     #[test]
