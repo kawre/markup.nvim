@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.7.0](https://github.com/kawre/markup.nvim/compare/v0.6.0...v0.7.0) (2026-11-22)
+
+
+### Features
+
+* add text_overflow for clipped text ([9fd942f](https://github.com/kawre/markup.nvim/commit/9fd942f81bce3055007b82778198bd6633f539f6))
+
+
+### Performance Improvements
+
+* flex items that keep their layout, and keyed lists that move only what changed ([#47](https://github.com/kawre/markup.nvim/issues/47)) ([ab15148](https://github.com/kawre/markup.nvim/commit/ab15148840a2e9d91a9e718f72b703ed6ec7f34d))
+
 ## [0.6.0](https://github.com/kawre/markup.nvim/compare/v0.5.0...v0.6.0) (2026-11-22)
 
 
