@@ -32,6 +32,9 @@ struct Slot {
 
 pub struct FuzzyMatcher {
     candidates: Arc<Vec<Utf32String>>,
+    /// How many characters of each candidate, from the start, are its label,
+    /// where a match is lit: the rest, such as keywords, is matched but not lit.
+    shown: Vec<u32>,
     /// The search running now, which older ones compare against to stop.
     generation: Arc<AtomicU64>,
     slot: Arc<(Mutex<Slot>, Condvar)>,
@@ -94,13 +97,16 @@ fn search(
 }
 
 impl FuzzyMatcher {
-    pub fn new(candidates: Vec<String>) -> Self {
+    /// `shown` says how much of each candidate is its label; all of it for a
+    /// candidate it leaves out.
+    pub fn new(candidates: Vec<String>, shown: Vec<u32>) -> Self {
         let candidates = candidates
             .iter()
             .map(|text| Utf32String::from(text.as_str()))
             .collect();
         FuzzyMatcher {
             candidates: Arc::new(candidates),
+            shown,
             generation: Arc::new(AtomicU64::new(0)),
             slot: Arc::new((Mutex::new(Slot::default()), Condvar::new())),
             last: None,
@@ -208,13 +214,29 @@ impl FuzzyMatcher {
     }
 
     /// The characters of candidate `index` that `query` matched, from zero.
+    /// Each word of the query is matched in the label if it can be: matched
+    /// anywhere, `two` in `Two Sum two-sum` scores best in the slug, which is
+    /// not lit, and the label it is in would show nothing lit.
     pub fn positions(&mut self, index: usize, query: &str) -> Vec<u32> {
         let Some(candidate) = self.candidates.get(index) else {
             return Vec::new();
         };
+        let shown = self.shown.get(index).map_or(candidate.len(), |&shown| {
+            (shown as usize).min(candidate.len())
+        });
         let pattern = Pattern::parse(query, CaseMatching::Smart, Normalization::Smart);
         let mut positions = Vec::new();
-        pattern.indices(candidate.slice(..), &mut self.matcher, &mut positions);
+        for atom in &pattern.atoms {
+            let mut found = Vec::new();
+            if atom
+                .indices(candidate.slice(..shown), &mut self.matcher, &mut found)
+                .is_none()
+            {
+                found.clear();
+                atom.indices(candidate.slice(..), &mut self.matcher, &mut found);
+            }
+            positions.extend(found);
+        }
         positions.sort_unstable();
         positions.dedup();
         positions
@@ -241,9 +263,13 @@ impl LuaUserData for FuzzyMatcher {
     }
 }
 
-/// `create_matcher(candidates)`, the strings to match, one per item.
-pub fn create_matcher(_: &Lua, candidates: Vec<String>) -> LuaResult<FuzzyMatcher> {
-    Ok(FuzzyMatcher::new(candidates))
+/// `create_matcher(candidates, labels?)`: the strings to match, one per item,
+/// and how many characters of each are its label, where a match is lit.
+pub fn create_matcher(
+    _: &Lua,
+    (candidates, shown): (Vec<String>, Option<Vec<u32>>),
+) -> LuaResult<FuzzyMatcher> {
+    Ok(FuzzyMatcher::new(candidates, shown.unwrap_or_default()))
 }
 
 #[cfg(test)]
@@ -251,7 +277,10 @@ mod tests {
     use super::*;
 
     fn matcher(candidates: &[&str]) -> FuzzyMatcher {
-        FuzzyMatcher::new(candidates.iter().map(|text| text.to_string()).collect())
+        FuzzyMatcher::new(
+            candidates.iter().map(|text| text.to_string()).collect(),
+            Vec::new(),
+        )
     }
 
     fn find(matcher: &mut FuzzyMatcher, query: &str) -> Vec<u32> {
@@ -350,6 +379,20 @@ mod tests {
         assert_eq!(result.1[0], 1);
         assert_eq!(result.2, vec![0, 4, 6]);
         assert_eq!(result.3, Some(vec![1, 2]));
+    }
+
+    #[test]
+    fn positions_are_in_the_label_when_they_can_be() {
+        // A label, then keywords the row does not show.
+        let mut m = FuzzyMatcher::new(vec!["Two Sum 1 two-sum ".to_string()], vec![7]);
+        // Matched anywhere, `two` would score best in the slug.
+        assert_eq!(m.positions(0, "two sum"), vec![0, 1, 2, 4, 5, 6]);
+        assert_eq!(m.positions(0, "Two Sum"), vec![0, 1, 2, 4, 5, 6]);
+        // What only the keywords have is matched there.
+        assert_eq!(m.positions(0, "two-sum"), vec![10, 11, 12, 13, 14, 15, 16]);
+        // Without a length, all of it is shown.
+        let mut m = matcher(&["Two Sum 1 two-sum "]);
+        assert_eq!(m.positions(0, "two sum"), vec![4, 5, 6, 10, 11, 12]);
     }
 
     #[test]

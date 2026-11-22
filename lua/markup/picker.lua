@@ -136,6 +136,25 @@ function M.highlight(label, positions)
 	return spans
 end
 
+--- What an item is searched by: its label first, so `^` anchors to it, then
+--- what its row shows before the label, such as a number, so the row can be
+--- found as it reads, then its keywords. With how many characters the label
+--- has, the part a match is lit in.
+---@param item markup.picker.item|any
+---@return string text, integer label
+local function search_text(item)
+	if type(item) ~= "table" then
+		local text = tostring(item)
+		return text, vim.fn.strchars(text, 1)
+	end
+	local parts = { item.label }
+	for _, span in ipairs(item.prefix or {}) do
+		parts[#parts + 1] = span[1]
+	end
+	parts[#parts + 1] = item.keywords
+	return table.concat(parts, " "), vim.fn.strchars(item.label, 1)
+end
+
 --- Items matching a query, best first, with the positions that matched.
 ---@param items markup.picker.item[]
 ---@param query string
@@ -149,8 +168,7 @@ function M.filter(items, query)
 
 	local candidates = {}
 	for index, item in ipairs(items) do
-		local text = item.keywords and (item.label .. " " .. item.keywords) or item.label
-		candidates[index] = { text = text, index = index }
+		candidates[index] = { text = (search_text(item)), index = index }
 	end
 
 	local found = vim.fn.matchfuzzypos(candidates, query, { key = "text" })
@@ -213,15 +231,11 @@ end
 ---@param items any[]
 function Picker:matcher_for(items)
 	if self.native_items ~= items then
-		local candidates = {}
+		local candidates, labels = {}, {}
 		for index, item in ipairs(items) do
-			local text = type(item) == "table" and item.label or tostring(item)
-			if type(item) == "table" and item.keywords then
-				text = text .. " " .. item.keywords
-			end
-			candidates[index] = text
+			candidates[index], labels[index] = search_text(item)
 		end
-		self.native = native.create_matcher(candidates)
+		self.native = native.create_matcher(candidates, labels)
 		self.native_items = items
 		self.searched = nil
 	end
