@@ -826,17 +826,26 @@ Width of each non ASCII character, for line breaking.
 0
 
 ```rust
-pub fragments: Option<Vec<Fragment>>, pub parent: Option<Index>, pub children: Vec<Index>, pub dirty: bool, pub geometry: Geometry, /// Sizes found for other constraints since the node was last dirty. pub memo: Vec<(Constraints, Memo)>, }
+pub fragments: Option<Vec<Fragment>>, pub parent: Option<Index>, pub children: Vec<Index>, pub dirty: bool, pub geometry: Geometry, /// Sizes found for other constraints since the node was last dirty. pub memo: Vec<(Constraints, Memo)>, /// How the node was last placed, put aside while a sizing pass answers /// from `memo`: nothing under it moved, so placing it the same way again
 ```
 
 Set when line breaking cut this node into pieces.
 0
 
 ```rust
-pub memo: Vec<(Constraints, Memo)>, }  /// What a measure leaves for its parent, kept so sizing again is free. #[derive(Debug, Clone, Copy)] pub struct Memo
+pub memo: Vec<(Constraints, Memo)>, /// How the node was last placed, put aside while a sizing pass answers /// from `memo`: nothing under it moved, so placing it the same way again /// takes this back rather than laying it all out anew. pub placed: Option<(Constraints, Memo)>, }  /// What a measure leaves for its parent, kept so sizing again is free. #[derive(Debug, Clone, Copy)]
 ```
 
 Sizes found for other constraints since the node was last dirty.
+0
+
+```rust
+pub placed: Option<(Constraints, Memo)>, }  /// What a measure leaves for its parent, kept so sizing again is free. #[derive(Debug, Clone, Copy)] pub struct Memo
+```
+
+How the node was last placed, put aside while a sizing pass answers
+from `memo`: nothing under it moved, so placing it the same way again
+takes this back rather than laying it all out anew.
 0
 
 ```rust
@@ -844,6 +853,20 @@ pub struct Memo
 ```
 
 What a measure leaves for its parent, kept so sizing again is free.
+0
+
+```rust
+pub fn of(geometry: &Geometry) -> Self
+```
+
+What `geometry` leaves for the parent.
+0
+
+```rust
+pub fn restore(&mut self, memo: &Memo)
+```
+
+Leaves what `memo` kept for the parent, as a measure would.
 0
 
 ```rust
