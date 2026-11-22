@@ -130,6 +130,15 @@ function M:new(opts)
 		end
 	end)
 
+	-- Placed again as the editor or its split resizes: at once, then at most
+	-- once every `RESIZE_MS` while it keeps resizing, as when dragging an edge.
+	local update
+	update, self.stop_update = require("markup.util").throttle(function()
+		if not self.closed then
+			self:update()
+		end
+	end, require("markup.view").RESIZE_MS)
+
 	self.root:on("WinResized", function(_, ev)
 		if self.closed then
 			return true
@@ -140,9 +149,9 @@ function M:new(opts)
 		local sp = vim.fn.screenpos(self.root.win, 1, 1)
 		if not vim.deep_equal(sp, self.screenpos) then
 			self.screenpos = sp
-			return self:update()
+			update()
 		elseif vim.tbl_contains(vim.v.event.windows, self.root.win) then
-			return self:update()
+			update()
 		end
 	end)
 
@@ -151,7 +160,7 @@ function M:new(opts)
 		if not self.root:on_current_tab() then
 			return
 		end
-		self:update()
+		update()
 	end)
 	if self.opts.show ~= false then
 		vim.schedule(function()
@@ -490,6 +499,9 @@ function M:close(opts)
 	end
 	opts = opts or {}
 	self.closed = true
+	if self.stop_update then
+		self.stop_update()
+	end
 	for w, win in pairs(self.wins) do
 		if opts.wins ~= false then
 			win:destroy()

@@ -7,6 +7,7 @@ local protocol = require("markup.view.protocol")
 local reactive = require("markup.reactive")
 local mount = require("markup.view.mount")
 local hl = require("markup.view.hl")
+local util = require("markup.util")
 
 local api = vim.api
 
@@ -35,6 +36,10 @@ local MARK = { end_col = 0, hl_group = "", hl_mode = "combine", hl_eol = true }
 -- When Neovim last drew the screen. It draws once its queue of events runs dry,
 -- which a busy enough UI never lets happen: frames would keep coming and none
 -- would show. Views then ask for the screen themselves.
+--- How often a window being resized, as when dragging its edge, is laid out
+--- again: at once, then at most once in this many ms, and once more at the end.
+M.RESIZE_MS = 40
+
 local last_redraw = 0
 api.nvim_set_decoration_provider(api.nvim_create_namespace("markup_redraws"), {
 	on_start = function()
@@ -113,13 +118,23 @@ function M:new(win, opts)
 		table.insert(self.subscriptions, win:on(event, callback, options))
 	end
 
+	-- Dragging an edge resizes on every step, and each step laid out again would
+	-- fall behind the mouse: the first is at once, the rest at most once every
+	-- `RESIZE_MS`, and the last always.
+	local resize, stop_resize = util.throttle(function()
+		if self.destroyed or not win:valid() then
+			return
+		end
+		self.height_cells(self:height())
+		-- Laid out again whatever changed, which also keeps the scroll where
+		-- it was when only the height did.
+		self:sync_width(true)
+		self:request_commit()
+	end, M.RESIZE_MS)
+	self.stop_resize = stop_resize
 	on("WinResized", function()
 		if win:valid() and vim.tbl_contains(vim.v.event.windows, win.win) then
-			self.height_cells(self:height())
-			-- Laid out again whatever changed, which also keeps the scroll where
-			-- it was when only the height did.
-			self:sync_width(true)
-			self:request_commit()
+			resize()
 		end
 	end, { pattern = "*" })
 
@@ -595,6 +610,7 @@ function M:destroy()
 		unsubscribe()
 	end
 	self.subscriptions = {}
+	self.stop_resize()
 	for id in pairs(self.images) do
 		self:set_image(id, nil)
 	end

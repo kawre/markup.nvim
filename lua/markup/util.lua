@@ -59,6 +59,49 @@ function M.wo(win, bo)
 		vim.api.nvim_set_option_value(k, v, { win = win, scope = "local" })
 	end
 end
+--- Calls `fn` at once, and then at most once every `ms` while it keeps being
+--- asked for, with the last ask always answered: for what fires many times in a
+--- row, such as each step of dragging a window's edge.
+---@param fn function
+---@param ms integer
+---@return function throttled
+---@return function cancel
+function M.throttle(fn, ms)
+	local timer ---@type uv.uv_timer_t?
+	local again = false
+
+	local function stop()
+		if timer and not timer:is_closing() then
+			timer:stop()
+			timer:close()
+		end
+		timer = nil
+	end
+
+	local function wait()
+		timer = assert(vim.uv.new_timer())
+		timer:start(ms, 0, function()
+			vim.schedule(function()
+				stop()
+				if again then
+					again = false
+					fn()
+					wait()
+				end
+			end)
+		end)
+	end
+
+	return function()
+		if timer then
+			again = true
+			return
+		end
+		fn()
+		wait()
+	end, stop
+end
+
 function M.benchmark(fn)
 	local start_time = vim.uv.hrtime()
 	fn()
