@@ -1685,7 +1685,7 @@ markup.node.props.style                              *markup.node.props.style*
 
 markup.node.props.text_overflow              *markup.node.props.text_overflow*
     (string|"clip"|"ellipsis"|fun():string|"clip"|"ellipsis")?
-    as CSS `text-overflow`, what single-line text cut off by `overflow_x` ends in: "clip" (default) or "" cuts it, "ellipsis" ends it in …, and any other string ends it in that string. The marker takes the style of this element
+    as CSS `text-overflow`, what single-line text ends in where its width is cut off, by `overflow_x` or by `hidden` on either axis: "clip" (default) or "" cuts it, "ellipsis" ends it in …, and any other string ends it in that string. Needs `white_space = "nowrap"`, or text wraps and nothing is cut. The marker takes the style of this element
 
 markup.node.props.top                                  *markup.node.props.top*
     (integer|fun():integer)?
