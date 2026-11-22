@@ -777,6 +777,117 @@ T["core"]["it can stay open, and let the focus go elsewhere"] = function()
 	eq(child.lua_get("floats()"), 0)
 end
 
+T["core"]["a move draws the two rows it moves between"] = function()
+	child.lua([[
+		open_many(400, 15)
+		local all = 0
+		picker.view:on_commit(function() last = picker.view.stats.commands end)
+		reactive.flush()
+		picker:move(1)
+		reactive.flush()
+		move = last
+		-- The whole list, drawn again, for the size of a row.
+		picker.query("item"); picker:to_top()
+		reactive.flush()
+		redraw = last
+	]])
+	-- Two rows of fifteen: far less than all of them.
+	eq(child.lua_get("move") * 4 < child.lua_get("redraw"), true)
+end
+
+T["core"]["closing stops what the list computes"] = function()
+	child.lua([[
+		base = reactive.stats().effects
+		open_many(400, 15)
+		picker:close()
+		reactive.flush()
+	]])
+	eq(child.lua_get("reactive.stats().effects"), child.lua_get("base"))
+end
+
+T["matching"] = new_set()
+
+T["matching"]["the engine matches, with fzf's syntax"] = function()
+	child.lua("open()")
+	eq(child.lua_get("picker.uses_native"), true)
+	-- Exact, at the start, and left out.
+	local function labels()
+		return vim.tbl_map(function(line)
+			return vim.trim(line:match("%d+%. (.-)%s%s+%d+%%"))
+		end, child.lua_get("list_lines()"))
+	end
+	type("'two")
+	eq(labels(), { "Two Sum", "Add Two Numbers" })
+	type("<C-w><C-w>^add")
+	eq(labels(), { "Add Two Numbers" })
+	child.lua("vim.api.nvim_buf_set_lines(0, 0, -1, false, { '' })")
+	type("sum !three")
+	eq(labels(), { "Two Sum" })
+	type("<CR>")
+	eq(child.lua_get("picked"), 1)
+end
+
+T["matching"]["a long list is matched on a thread, and picked from the newest query"] = function()
+	child.lua([[
+		local items = {}
+		for i = 1, 30000 do items[i] = { label = ("item %05d"):format(i), value = i } end
+		picker = Markup.picker({ items = items, height = 8, on_select = function(v) picked = v end })
+		reactive.flush()
+		picker.query("item 12345")
+		reactive.flush()
+		-- Typing goes on while it matches.
+		pending = picker.pending
+	]])
+	eq(child.lua_get("pending"), true)
+	child.lua("vim.wait(2000, function() return not picker.pending end, 2)")
+	eq(child.lua_get("#picker.filtered()"), 1)
+	eq(child.lua_get("selection().selected"), "item 12345")
+
+	-- Picked at once after typing: what the newest query found.
+	child.lua([[
+		picker.query("item 22222")
+		reactive.flush()
+		picker:confirm()
+	]])
+	eq(child.lua_get("picked"), 22222)
+end
+
+T["matching"]["what matched is worked out for the rows that show"] = function()
+	child.lua([[
+		local items = {}
+		for i = 1, 500 do items[i] = { label = ("two sum %03d"):format(i), value = i } end
+		picker = Markup.picker({ items = items, height = 5, on_select = function() end })
+		reactive.flush()
+		picker.query("tsm")
+		reactive.flush()
+		local worked = 0
+		for _, entry in ipairs(picker.filtered()) do
+			if entry.positions then worked = worked + 1 end
+		end
+		worked_out = worked
+	]])
+	eq(child.lua_get("worked_out"), 5)
+end
+
+T["matching"]["without the engine's matcher it matches in Lua"] = function()
+	child.lua([[
+		local core = require("markup.core")
+		saved = core.create_matcher
+		core.create_matcher = nil
+		package.loaded["markup.picker"] = nil
+		Markup.picker = require("markup.picker")
+		open()
+		uses = picker.uses_native
+	]])
+	type("reverse<CR>")
+	child.lua([[
+		require("markup.core").create_matcher = saved
+		package.loaded["markup.picker"] = nil
+	]])
+	eq(child.lua_get("uses"), false)
+	eq(child.lua_get("picked"), 4)
+end
+
 T["layouts"] = new_set()
 
 T["layouts"]["a column on the right"] = function()

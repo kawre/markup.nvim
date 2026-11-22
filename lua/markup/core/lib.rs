@@ -12,6 +12,7 @@
 //! 8000 live handles under LuaJIT cannot be reached.
 
 pub mod engine;
+pub mod matcher;
 
 // Neovim provides the Lua symbols at runtime, only test binaries need them linked.
 #[cfg(test)]
@@ -31,6 +32,10 @@ fn markup_core(lua: &Lua) -> LuaResult<LuaTable> {
     exports.set(
         "create_engine",
         lua.create_function(engine::lua::create_engine)?,
+    )?;
+    exports.set(
+        "create_matcher",
+        lua.create_function(matcher::create_matcher)?,
     )?;
     Ok(exports)
 }

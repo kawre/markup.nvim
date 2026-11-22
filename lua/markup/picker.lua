@@ -6,9 +6,12 @@
 --- matches, the selection and every key, and draws into whatever windows it
 --- is given: a plugin with a look of its own keeps all of the behaviour.
 ---
---- Matching is Neovim's own fuzzy matching unless `filter` says otherwise, and
---- only the rows that fit the list are ever mounted, so thousands of items
---- are fine.
+--- Matching is nucleo's, the matcher of the Helix editor, in the engine, with
+--- fzf's syntax: `^start`, `end$`, `'exact` and `!not`. A long list is matched
+--- on a thread of its own, so typing never waits for it, and a query that
+--- only adds to the last one searches what that one found. Without the engine,
+--- or with `filter` of the caller's own, it matches in Lua. Only the rows that
+--- fit the list are ever mounted, so many thousands of items are fine.
 ---
 --- Keys, as the Snacks picker has them. In insert mode: <CR> picks;
 --- <Down>/<Up>, <C-j>/<C-k>, <C-n>/<C-p> and <Tab>/<S-Tab> move, going round at
@@ -27,6 +30,12 @@
 local reactive = require("markup.reactive")
 
 local api = vim.api
+
+-- The engine, for its matcher, when it is there.
+local native = (function()
+	local ok, core = pcall(require, "markup.core")
+	return ok and type(core) == "table" and core or nil
+end)()
 
 ---@class markup.picker.span
 ---@field [1] string text
@@ -215,10 +224,149 @@ function Picker:sync()
 		return
 	end
 	local text = api.nvim_buf_get_lines(buf, 0, 1, false)[1] or ""
-	if text ~= reactive.untrack(self.query) then
+	-- Only what was typed since: a query set from code stays until then.
+	if text ~= self.typed and text ~= reactive.untrack(self.query) then
+		self.typed = text
 		self.query(text)
+		self:search(text)
 		self:to_top()
 	end
+end
+
+--- Every item as an entry, for a query that matches all of them.
+---@param items any[]
+function Picker:everything(items)
+	if self.all_items ~= items then
+		self.all_items = items
+		self.all_entries = {}
+		for index, item in ipairs(items) do
+			self.all_entries[index] = { item = item, native = index }
+		end
+	end
+	return self.all_entries
+end
+
+--- The engine's matcher for `items`, made again when they change.
+---@param items any[]
+function Picker:matcher_for(items)
+	if self.native_items ~= items then
+		local candidates = {}
+		for index, item in ipairs(items) do
+			local text = type(item) == "table" and item.label or tostring(item)
+			if type(item) == "table" and item.keywords then
+				text = text .. " " .. item.keywords
+			end
+			candidates[index] = text
+		end
+		self.native = native.create_matcher(candidates)
+		self.native_items = items
+		self.searched = nil
+	end
+	return self.native
+end
+
+--- Starts matching `query` in the engine. What it finds comes in `found`, at
+--- once for a short list, from a thread for a long one.
+---@param query string
+function Picker:search(query)
+	if not self.uses_native then
+		return
+	end
+	local items = reactive.untrack(function()
+		return self:items()
+	end)
+	local matcher = self:matcher_for(items)
+	if self.searched == query then
+		return
+	end
+	self.searched = query
+	if query:match("^%s*$") then
+		self.pending = false
+		self.found({ items = items, query = query })
+		return
+	end
+
+	local function take(indices)
+		self.pending = false
+		self.found({ items = items, query = query, indices = indices })
+	end
+	if matcher:start(query) then
+		return take(matcher:poll())
+	end
+
+	self.pending = true
+	if not self.poll_timer then
+		self.poll_timer = assert(vim.uv.new_timer())
+		self.poll_timer:start(
+			2,
+			2,
+			vim.schedule_wrap(function()
+				if self.closed or not self.pending then
+					return self:stop_polling()
+				end
+				local indices = self.native:poll()
+				if indices then
+					self:stop_polling()
+					take(indices)
+					reactive.flush()
+				end
+			end)
+		)
+	end
+end
+
+function Picker:stop_polling()
+	if self.poll_timer and not self.poll_timer:is_closing() then
+		self.poll_timer:stop()
+		self.poll_timer:close()
+	end
+	self.poll_timer = nil
+end
+
+--- What the engine found, as entries, best first.
+function Picker:native_entries()
+	local items = self:items()
+	local found = self.found()
+	if not found or found.items ~= items then
+		-- Changed items, matched again; meanwhile, what was found before.
+		reactive.untrack(function()
+			self:search(self.query())
+		end)
+		found = reactive.untrack(self.found)
+		if not found or found.items ~= items then
+			return self.last_entries or {}
+		end
+	end
+	if not found.indices then
+		return self:everything(items)
+	end
+	if self.last_found ~= found then
+		local entries = {}
+		for i, index in ipairs(found.indices) do
+			entries[i] = { item = items[index], native = index }
+		end
+		self.last_found, self.last_entries = found, entries
+	end
+	return self.last_entries
+end
+
+--- The characters of `entry` the query matched, from zero, worked out only
+--- for the rows that show.
+---@param entry markup.picker.entry
+---@return integer[]?
+function Picker:positions(entry)
+	if entry.positions or not (self.uses_native and entry.native and self.native) then
+		return entry.positions
+	end
+	local query = reactive.untrack(self.query)
+	if query:match("^%s*$") then
+		return nil
+	end
+	if entry.positions_for ~= query then
+		entry.positions_for = query
+		entry.positions = self.native:positions(entry.native, query)
+	end
+	return entry.positions
 end
 
 --- Back to the first row, for matches that are new.
@@ -335,6 +483,15 @@ end
 function Picker:current()
 	self:follow_cursor()
 	self:sync()
+	-- What the newest query finds, not what the one before did.
+	if self.pending and self.native then
+		local indices = self.native:wait()
+		self:stop_polling()
+		self.pending = false
+		if indices then
+			self.found({ items = self:items(), query = self.searched, indices = indices })
+		end
+	end
 	return self.filtered()[self.selected()]
 end
 
@@ -374,6 +531,7 @@ function Picker:close()
 	self.closed = true
 
 	pcall(api.nvim_del_augroup_by_id, self.group)
+	self:stop_polling()
 	if vim.fn.mode() == "i" then
 		vim.cmd.stopinsert()
 	end
@@ -461,7 +619,11 @@ function M.row(entry, ctx)
 	local item = entry.item
 	local label = {}
 	vim.list_extend(label, item.prefix or {})
-	vim.list_extend(label, M.highlight(item.label, entry.positions))
+	local positions = entry.positions
+	if ctx.picker then
+		positions = ctx.picker:positions(entry)
+	end
+	vim.list_extend(label, M.highlight(item.label, positions))
 	-- The marker and the space after it, and the suffix with a cell either side.
 	local suffix = item.suffix and cells(item.suffix) + 2 or 0
 	label = M.truncate(label, ctx.width - 2 - suffix)
@@ -502,14 +664,81 @@ function Picker:scrollbar(count, height)
 	return m.block({ width = 1, shrink = 0, lines })
 end
 
+--- `fn` kept in a signal, which tells what reads it only when its value
+--- changes: a memo tells them whenever anything it read did.
+---@generic T
+---@param fn fun(): T
+---@return fun(): T
+local function settled(fn)
+	local value = reactive.signal(nil)
+	reactive.effect(function()
+		value(fn())
+	end)
+	return value
+end
+
 --- What the list shows: the rows that fit, and a scrollbar when not all do.
+---
+--- A row stays mounted for as long as its item shows, so moving the selection
+--- draws the two rows it moves between, and scrolling by one adds a row and
+--- takes one away, rather than every row being made again.
 function Picker:element()
 	local m = require("markup")
 	local render = self.opts.render or {}
 	local row = render.row or M.row
-	return m.block(function()
+
+	-- The rows that show, each the same table for as long as its item shows at
+	-- the same place in the same matches: a row with nothing new draws nothing.
+	local shown = {} ---@type table<any, { entry: markup.picker.entry, index: integer }>
+	local visible = reactive.memo(function()
 		local entries = self.filtered()
-		if #entries == 0 then
+		local first = self.offset() + 1
+		local list, now = {}, {}
+		for index = first, math.min(first + self.rows() - 1, #entries) do
+			local entry = entries[index]
+			local key = entry.item
+			local last = shown[key]
+			local value = last and last.entry == entry and last.index == index and last
+				or { entry = entry, index = index }
+			now[key] = value
+			list[#list + 1] = value
+		end
+		shown = now
+		return list
+	end)
+	local bar = settled(function()
+		return #self.filtered() > self.rows()
+	end)
+	local empty = settled(function()
+		return #self.filtered() == 0
+	end)
+
+	local function Row(get)
+		-- Its own answer, so only the rows whose answer changed draw again.
+		local active = settled(function()
+			return self.selected() == get().index
+		end)
+		return m.block({
+			-- Clicking a row picks it.
+			click = self.opts.click,
+			on_press = function()
+				self.selected(get().index)
+				self:confirm()
+			end,
+			function()
+				local value = get()
+				return row(value.entry, {
+					index = value.index,
+					selected = active(),
+					width = self.width() - (bar() and 1 or 0),
+					picker = self,
+				})
+			end,
+		})
+	end
+
+	return m.block(function()
+		if empty() then
 			if render.empty then
 				return render.empty(self)
 			end
@@ -518,35 +747,21 @@ function Picker:element()
 				m.inline(self.opts.empty or "No matches", "MarkupPickerEmpty"),
 			})
 		end
-
-		local height = self.rows()
-		local bar = #entries > height
-		local room = self.width() - (bar and 1 or 0)
-		local shown = {}
-		local first = self.offset() + 1
-		local selected = self.selected()
-		for index = first, math.min(first + height - 1, #entries) do
-			shown[#shown + 1] = m.block({
-				-- Clicking a row picks it.
-				click = self.opts.click,
-				on_press = function()
-					self.selected(index)
-					self:confirm()
-				end,
-				row(entries[index], {
-					index = index,
-					selected = index == selected,
-					width = room,
-					picker = self,
-				}),
-			})
-		end
-		if not bar then
-			return shown
-		end
 		return m.flex({
-			m.block({ grow = 1, shrink = 1, shown }),
-			self:scrollbar(#entries, height),
+			m.block({
+				grow = 1,
+				shrink = 1,
+				m.each(visible, Row, {
+					key = function(value)
+						return value.entry.item
+					end,
+				}),
+			}),
+			m.show(bar, function()
+				return m.block(function()
+					return self:scrollbar(#self.filtered(), self.rows())
+				end)
+			end),
 		})
 	end)
 end
@@ -723,6 +938,7 @@ end
 ---@param win? integer
 function Picker:attach_input(buf, win)
 	self.input_buf, self.input_win = buf, win
+	self.typed = api.nvim_buf_get_lines(buf, 0, 1, false)[1] or ""
 	self:own(win)
 	self:bind(buf, "input")
 
@@ -789,7 +1005,11 @@ function Picker:attach_list(win)
 	end)
 	self:bind(win.buf, "list")
 	self:measure()
-	self.view:render(self:element())
+	-- Made in the picker's scope, so what the list computes stops with it.
+	local element = reactive.scope(function()
+		return self:element()
+	end, self.owner)
+	self.view:render(element)
 
 	api.nvim_create_autocmd("CursorMoved", {
 		group = self.group,
@@ -812,15 +1032,18 @@ function Picker:attach_list(win)
 			end
 		end,
 	})
+	-- Measured again as it resizes, as often as a view lays out again for it.
+	local measure, stop_measure = require("markup.util").throttle(function()
+		if not self.closed then
+			self:measure()
+			reactive.flush()
+		end
+	end, require("markup.view").RESIZE_MS)
+	self:on_cleanup(stop_measure)
 	api.nvim_create_autocmd({ "WinResized", "VimResized" }, {
 		group = self.group,
 		callback = function()
-			vim.schedule(function()
-				if not self.closed then
-					self:measure()
-					reactive.flush()
-				end
-			end)
+			vim.schedule(measure)
 		end,
 	})
 end
@@ -853,12 +1076,29 @@ function M.new(opts)
 		clear = true,
 	})
 
+	-- The engine's matcher unless the caller matches, or the engine has none.
+	self.uses_native = not opts.filter and native ~= nil and native.create_matcher ~= nil
+	self.found = reactive.signal(nil)
+
 	-- Owns what the picker computes, so closing it stops all of that.
 	self.filtered, self.owner = reactive.scope(function()
 		return reactive.memo(function()
+			if self.uses_native then
+				self.query()
+				return self:native_entries()
+			end
 			return (opts.filter or M.filter)(self:items(), self.query())
 		end)
 	end)
+	reactive.scope(function()
+		-- A query set from code, rather than typed, is matched too.
+		reactive.effect(function()
+			local query = self.query()
+			reactive.untrack(function()
+				self:search(query)
+			end)
+		end)
+	end, self.owner)
 	self.seen = reactive.untrack(self.filtered)
 	reactive.scope(function()
 		-- Matches that change for anything but the query, such as a filter the
