@@ -166,7 +166,7 @@ local function is_inline(child)
 	return type(child) ~= "table" or child.type == "inline" or not child.type
 end
 
-local tags = { block = "div", inline = "span", flex = "div", grid = "div" }
+local tags = { block = "div", inline = "span", flex = "div", grid = "div", canvas = "div" }
 local escape_widths
 --- Runs of code points of one width, as the page's font has them: Neovim's
 --- widths with the options it starts with.
@@ -241,7 +241,7 @@ local function html(node, profile)
 	end
 	local tag = assert(tags[node.type], "unsupported element: " .. tostring(node.type))
 	local props = node.props
-	local display = node.type
+	local display = node.type == "canvas" and "block" or node.type
 	if display == "inline" and sized_inline(props) then
 		-- markup.nvim sizes an inline that has a width; CSS sizes only an
 		-- inline-block.
@@ -251,7 +251,8 @@ local function html(node, profile)
 	if
 		profile
 		and (
-			props.border_sides
+			node.type == "canvas"
+			or props.border_sides
 			or props.border_cells
 			or (props.overflow or "visible") ~= "visible"
 			or (props.overflow_x or "visible") ~= "visible"
@@ -436,7 +437,7 @@ local function snapshot(engine, styles, text)
 					local top, right, bottom, left = unpack(child.margin)
 					boxes[#boxes + 1] = {
 						path = child_path,
-						display = child.display,
+						display = child.display == "canvas" and "block" or child.display,
 						rect = {
 							child.x + left,
 							child.y + top,

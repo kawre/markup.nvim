@@ -511,7 +511,9 @@ impl<'a> Reader<'a> {
 
     fn canvas_ranges(&mut self) -> LuaResult<Vec<(i32, i32, u32)>> {
         let decode = |raw: &[u8]| -> Vec<(i32, i32, u32)> {
-            raw.chunks_exact(12)
+            raw.as_chunks::<12>()
+                .0
+                .iter()
                 .map(|chunk| {
                     let start = u32::from_ne_bytes(chunk[0..4].try_into().unwrap()) as i32;
                     let end = u32::from_ne_bytes(chunk[4..8].try_into().unwrap()) as i32;
