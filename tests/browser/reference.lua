@@ -241,6 +241,18 @@ local function html(node, profile)
 	end
 	local tag = assert(tags[node.type], "unsupported element: " .. tostring(node.type))
 	local props = node.props
+	if node.type == "canvas" then
+		-- A side markup.nvim takes from what the canvas drew has no CSS.
+		for _, axis in ipairs({ "width", "height" }) do
+			local value = props[axis]
+			assert(
+				props["min_" .. axis] ~= nil
+					or value ~= "fit"
+						and (axis == "width" or (value ~= nil and value ~= "auto")),
+				"unsupported: canvas " .. axis .. " sized by its surface"
+			)
+		end
+	end
 	local display = node.type == "canvas" and "block" or node.type
 	if display == "inline" and sized_inline(props) then
 		-- markup.nvim sizes an inline that has a width; CSS sizes only an
