@@ -1695,6 +1695,10 @@ markup.node.props.style                              *markup.node.props.style*
     (fun():(markup.factory.element.style)?|markup.factory.element.style)?
     highlight group, or attributes of one
 
+markup.node.props.text_overflow              *markup.node.props.text_overflow*
+    (string|"clip"|"ellipsis"|fun():string|"clip"|"ellipsis")?
+    as CSS `text-overflow`, what single-line text ends in where its width is cut off, by `overflow_x` or by `hidden` on either axis: "clip" (default) or "" cuts it, "ellipsis" ends it in …, and any other string ends it in that string. Needs `white_space = "nowrap"`, or text wraps and nothing is cut. The marker takes the style of this element
+
 markup.node.props.top                                  *markup.node.props.top*
     (integer|fun():integer)?
 
@@ -1780,11 +1784,6 @@ markup.picker.row()                                      *markup.picker.row()*
       -> markup.element
     A row of a `markup.picker.item`: its prefix, the label with what matched
     lit, and its suffix at the end.
-
-markup.picker.truncate()                            *markup.picker.truncate()*
-    function markup.picker.truncate(spans: markup.picker.span[], width: integer)
-      -> markup.picker.span[]
-    Spans cut to `width` display cells, ending in "…" when anything was cut.
 
 ==============================================================================
 markup.picker.core_opts                              *markup.picker.core_opts*

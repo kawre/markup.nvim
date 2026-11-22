@@ -78,7 +78,8 @@ Props (all of them are in `reference/elements.md` under `markup.node.props`):
 - Box: `width`, `height`, `min_*`, `max_*` (cells, `"auto"`, `"fit"`, `"full"`),
   `margin`, `padding` (one number, or CSS order such as `{ y, x }`),
   `border` (`"single"`, `"rounded"`, `"double"`, `"heavy"`, `"half"`),
-  `border_style`, `border_sides`, `overflow`, `overflow_x`, `overflow_y`, `white_space`.
+  `border_style`, `border_sides`, `overflow`, `overflow_x`, `overflow_y`,
+  `text_overflow`, `white_space`.
 - Flex and grid: `direction`, `vertical`, `reverse`, `wrap`, `justify`,
   `align`, `align_self`, `gap`, `grow`, `shrink`, `basis`, `columns`, `rows`,
   `column`, `row`, `column_span`, `row_span`.
@@ -168,6 +169,10 @@ windows relative to others. See `reference/window.md`.
   over while mounted. Do not bind `<CR>` to `view:press()` yourself.
 - **`width` is the content box.** Padding and border are added around it, as
   in CSS `box-sizing: content-box`. `width = 8, padding = { 0, 2 }` takes 12 cells.
+- **`text_overflow` needs the text cut off.** As in CSS, it marks single-line
+  text where its width is cut off: give `white_space = "nowrap"` and
+  `overflow_x = "hidden"`, or `"clip"` for a box whose width is fixed.
+  `hidden` on either axis cuts off both and lets a flex item shrink.
 - **The API changes between releases** before 1.0. When code written for
   another version does not work, `reference/migration.md` lists the breaking
   changes of each release.

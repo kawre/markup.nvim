@@ -14,13 +14,13 @@ use super::Timings;
 use super::diff::Patch;
 use super::inspect::NodeInfo;
 use super::style::{
-    Align, Border, Direction, Display, Distribute, Edges, Length, Overflow, Position, Style, Track,
-    WhiteSpace,
+    Align, Border, Direction, Display, Distribute, Edges, Length, Overflow, Position, Style,
+    TextOverflow, Track, WhiteSpace,
 };
 use super::tree::ClientId;
 use mlua::prelude::*;
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum StyleProperty {
     Margin(Side, i32),
     Padding(Side, i32),
@@ -64,6 +64,7 @@ pub enum StyleProperty {
     OverflowX(Overflow),
     Snap(Option<bool>),
     Inert(bool),
+    TextOverflow(Option<TextOverflow>),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -88,13 +89,14 @@ impl Side {
 impl StyleProperty {
     /// Whether the property only changes how a node is painted or answers
     /// input, never where anything is: the next frame paints it anew anyway.
-    pub fn paint_only(self) -> bool {
+    pub fn paint_only(&self) -> bool {
         matches!(
             self,
             StyleProperty::Highlight(_)
                 | StyleProperty::Interactive(_)
                 | StyleProperty::Inert(_)
                 | StyleProperty::Snap(_)
+                | StyleProperty::TextOverflow(_)
         )
     }
 
@@ -142,6 +144,7 @@ impl StyleProperty {
             StyleProperty::OverflowX(value) => style.extra_mut().set_overflow(Some(value), None),
             StyleProperty::Snap(value) => style.extra_mut().snap = value,
             StyleProperty::Inert(value) => style.extra_mut().inert = value,
+            StyleProperty::TextOverflow(value) => style.extra_mut().text_overflow = value,
         }
     }
 }
@@ -401,6 +404,19 @@ impl Reader<'_> {
             46 => StyleProperty::OverflowX(self.overflow()?),
             47 => StyleProperty::Snap(self.optional()?.map(|value| value != 0)),
             48 => StyleProperty::Inert(self.int()? != 0),
+            49 => StyleProperty::TextOverflow(match self.value::<LuaValue>()? {
+                LuaValue::Table(marker) => {
+                    let text: String = marker.raw_get(1)?;
+                    let width = marker.raw_get(2)?;
+                    let digits: String = marker.raw_get(3)?;
+                    let cells = digits
+                        .bytes()
+                        .map(|digit| digit.saturating_sub(b'0'))
+                        .collect();
+                    Some(TextOverflow { text, width, cells })
+                }
+                _ => None,
+            }),
             other => return Err(LuaError::runtime(format!("unknown style property {other}"))),
         })
     }

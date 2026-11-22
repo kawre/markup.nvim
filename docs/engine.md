@@ -465,7 +465,7 @@ The opcodes mirror `lua/markup/view/protocol.lua`. Patches return as tables
 of strings and flat integer arrays, with highlights as interned ids.
 
 ```rust
-pub fn paint_only(self) -> bool
+pub fn paint_only(&self) -> bool
 ```
 
 Whether the property only changes how a node is painted or answers
@@ -598,6 +598,13 @@ Whether text may break onto new lines. Inherited, like in CSS.
 0
 
 ```rust
+pub struct TextOverflow
+```
+
+A marker and its cell widths, measured by the client.
+0
+
+```rust
 pub enum Track
 ```
 
@@ -620,7 +627,7 @@ behind a box that plain nodes never allocate.
 0
 
 ```rust
-pub white_space: Option<WhiteSpace>, /// Whether text is a place a snapping cursor lands on. Unset inherits. pub snap: Option<bool>, /// The node and everything under it take no cursor: no snapping onto them, /// no hover and no press, such as a page on its way out. pub inert: bool,  pub border: Option<Border>,
+pub white_space: Option<WhiteSpace>, pub text_overflow: Option<TextOverflow>, /// Whether text is a place a snapping cursor lands on. Unset inherits. pub snap: Option<bool>, /// The node and everything under it take no cursor: no snapping onto them, /// no hover and no press, such as a page on its way out. pub inert: bool,  pub border: Option<Border>,
 ```
 
 Unset inherits from the parent.
