@@ -100,11 +100,13 @@ impl Engine {
             }
             Command::SetStyle { id, property } => {
                 let index = tree.index_of(id)?;
+                let inherited = matches!(property, StyleProperty::WhiteSpace(_));
+                let paint_only = property.paint_only();
                 property.apply(&mut tree.node_mut(index).style);
                 tree.sync_position(index);
-                if matches!(property, StyleProperty::WhiteSpace(_)) {
+                if inherited {
                     tree.mark_subtree_dirty(index);
-                } else if !property.paint_only() {
+                } else if !paint_only {
                     tree.mark_dirty(index);
                 }
             }
@@ -447,6 +449,43 @@ mod tests {
 
     fn layouts(engine: &mut Engine) -> usize {
         engine.render(|_, timings| timings.layouts)
+    }
+
+    #[test]
+    fn text_overflow_uses_measured_cells_and_changes_without_layout() {
+        let lua = mlua::Lua::new();
+        let mut engine = Engine::new(5);
+        let mut apply = |source: &str| {
+            let ops: mlua::Table = lua.load(source).eval().unwrap();
+            protocol::decode(&ops, ops.raw_len(), |command| {
+                engine.apply(command).unwrap();
+                Ok(())
+            })
+            .unwrap();
+            let arranged = layouts(&mut engine);
+            (engine.lines[0].text.clone(), arranged)
+        };
+
+        let (text, arranged) = apply(
+            r#"return {
+                4, 1, 44, 1,
+                4, 1, 46, 2,
+                4, 1, 49, { "󰇘", 1, "1" },
+                1, 2, 3,
+                2, 3, "é界xyz", 6,
+                10, 3, "02",
+                5, 1, 2, 0,
+                5, 2, 3, 0,
+            }"#,
+        );
+        assert!(arranged > 0);
+        assert_eq!(text, "é界x󰇘");
+        assert_eq!(
+            apply(r#"return { 4, 1, 49, { ">>", 2, "" } }"#),
+            ("é界>>".into(), 0)
+        );
+        assert_eq!(apply("return { 4, 1, 49, false }"), ("é界xy".into(), 0));
+        assert_eq!(apply("return { 8, 7 }").0, "é界xyz");
     }
 
     #[test]

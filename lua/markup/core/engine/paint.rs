@@ -59,13 +59,23 @@ impl<'a> Segment<'a> {
         let mut text = String::new();
         let mut cells = Vec::new();
 
+        let mut kept_base = false;
         for (_, character, cell, width) in self.characters() {
+            if width == 0 {
+                if kept_base {
+                    text.push(character);
+                    cells.push(0);
+                }
+                continue;
+            }
+
             let overlap = cell.max(from)..(cell + width).min(to);
+            kept_base = overlap.len() as i32 == width;
             if overlap.is_empty() {
                 continue;
             }
 
-            if overlap.len() as i32 == width {
+            if kept_base {
                 text.push(character);
                 if !character.is_ascii() {
                     cells.push(width as u8);
@@ -315,6 +325,57 @@ fn snaps(tree: &Tree, index: Index) -> bool {
     true
 }
 
+/// Whether in-flow text on this line reaches beyond the clipping edge.
+fn text_overflows(
+    tree: &Tree,
+    index: Index,
+    mut x: i32,
+    mut y: i32,
+    line: i32,
+    right: i32,
+) -> bool {
+    let node = tree.node(index);
+    if node.display == Display::Contents {
+        return node
+            .children
+            .iter()
+            .any(|&child| text_overflows(tree, child, x, y, line, right));
+    }
+    if node.style.position() == Position::Absolute {
+        return false;
+    }
+
+    let (shift_x, shift_y) = node.style.relative_offset();
+    x += node.geometry.x + shift_x;
+    y += node.geometry.y + shift_y;
+
+    if node.display == Display::Text {
+        return match &node.fragments {
+            Some(fragments) => fragments.iter().any(|fragment| {
+                y + fragment.y == line
+                    && fragment.width > 0
+                    && x + fragment.x + fragment.width > right
+            }),
+            None => y == line && node.text_width > 0 && x + node.text_width > right,
+        };
+    }
+
+    let style = &node.style;
+    let padding = style.inner();
+    x += style.margin.left;
+    y += style.margin.top;
+    let size = node.geometry.content;
+    if (style.extra().clip_x && x + padding.horizontal() + size.width <= right)
+        || (style.extra().clip && !(y..y + padding.vertical() + size.height).contains(&line))
+    {
+        return false;
+    }
+
+    node.children
+        .iter()
+        .any(|&child| text_overflows(tree, child, x + padding.left, y + padding.top, line, right))
+}
+
 struct Painter<'a> {
     tree: &'a Tree,
     rows: Vec<Row<'a>>,
@@ -480,8 +541,46 @@ impl<'a> Painter<'a> {
 
         let content_x = x + margin.left + padding.left;
         let content_y = y + margin.top + padding.top;
+        let content_right = content_x + geometry.content.width;
+        let columns = self.columns.clone();
+        let ellipsis = style.extra().text_overflow.as_ref().filter(|marker| {
+            style.extra().clip_x
+                && geometry.content.height == 1
+                && !tree.text_wraps(index)
+                && columns
+                    .as_ref()
+                    .is_some_and(|clip| clip.end >= content_right)
+                && (1..=geometry.content.width).contains(&marker.width)
+                && node.children.iter().any(|&child| {
+                    text_overflows(tree, child, content_x, content_y, content_y, content_right)
+                })
+        });
+        if let Some(marker) = ellipsis {
+            let right = content_right - marker.width;
+            let clip = self
+                .columns
+                .as_mut()
+                .expect("horizontal clipping has columns");
+            clip.start = clip.start.max(content_x);
+            clip.end = right;
+        }
         for &child in &node.children {
             self.visit(child, content_x, content_y);
+        }
+
+        if let Some(marker) = ellipsis {
+            self.columns = columns;
+            let start = content_right - marker.width;
+            if let Some(row) = self.row(content_y)
+                && row.clipped(start, content_right) == (start, content_right)
+            {
+                row.write_text(
+                    start,
+                    Cow::Borrowed(&marker.text),
+                    marker.width,
+                    Cow::Borrowed(&marker.cells),
+                );
+            }
         }
 
         self.visible = outer_visible;

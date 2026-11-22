@@ -344,6 +344,62 @@ T["overflow"]["hidden cuts off what is too wide, too"] = function()
 	eq(lines(), { "abcd" })
 end
 
+T["overflow"]["ellipsis follows the actual flex width and preserves highlights"] = function()
+	run([[
+		vim.api.nvim_set_hl(0, "Match", { bold = true })
+		width = m.signal(12)
+		view:render(m.flex({
+			width = width, white_space = "nowrap",
+			m.inline({ overflow_x = "hidden", text_overflow = "ellipsis",
+				m.inline("long title", "Match"),
+			}),
+			m.inline({ shrink = 0, " 42" }),
+		}))
+		before = lines()
+		width(8)
+		reactive.flush()
+	]])
+	eq(child.lua_get("before"), { "long tit… 42" })
+	eq(lines(), { "long… 42" })
+	eq(marks(), { { 0, 0, 4, "Match" } })
+end
+
+T["overflow"]["uses a custom marker only when clipped"] = function()
+	run([[
+		marker = m.signal("󰇘")
+		view:render(m.block({
+			m.block({ width = 5, overflow_x = "clip", white_space = "nowrap",
+				text_overflow = marker, "字字符" }),
+			m.block({ width = 5, overflow_x = "clip", white_space = "nowrap",
+				text_overflow = marker, "short" }),
+			m.block({ width = 2, overflow_x = "clip", white_space = "nowrap",
+				text_overflow = "...", "long" }),
+			m.block({ width = 4, white_space = "nowrap", text_overflow = marker, "unclipped" }),
+		}))
+		before = lines()
+		marker("clip")
+		reactive.flush()
+	]])
+	eq(child.lua_get("before"), { "字字󰇘", "short", "lo", "unclipped" })
+	eq(lines(), { "字字", "short", "lo", "unclipped" })
+end
+
+T["overflow"]["ellipsis keeps a combining mark on a visible character"] = function()
+	run([[view:render(m.block({
+		width = 2, overflow_x = "clip", white_space = "nowrap", text_overflow = "ellipsis",
+		"e\u{301}bc",
+	}))]])
+	eq(lines(), { "e\u{301}…" })
+end
+
+T["overflow"]["rejects empty and multiline markers"] = function()
+	for _, marker in ipairs({ "", "first\nsecond" }) do
+		expect.error(function()
+			child.lua([[view:render(m.block({ text_overflow = ... }))]], { marker })
+		end, "text_overflow needs a non%-empty, single%-line marker")
+	end
+end
+
 T["overflow"]["hidden cuts off what is too tall"] = function()
 	run([[view:render(m.block({
 		m.block({ height = 1, overflow = "hidden", m.block("a"), m.block("b") }),

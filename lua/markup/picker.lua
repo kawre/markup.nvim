@@ -594,15 +594,6 @@ function Picker:measure()
 	end
 end
 
---- Display cells of a list of spans.
-local function cells(spans)
-	local total = 0
-	for _, span in ipairs(spans or {}) do
-		total = total + vim.fn.strdisplaywidth(span[1])
-	end
-	return total
-end
-
 local function spans_of(spans)
 	local m = require("markup")
 	return vim.tbl_map(function(span)
@@ -624,9 +615,6 @@ function M.row(entry, ctx)
 		positions = ctx.picker:positions(entry)
 	end
 	vim.list_extend(label, M.highlight(item.label, positions))
-	-- The marker and the space after it, and the suffix with a cell either side.
-	local suffix = item.suffix and cells(item.suffix) + 2 or 0
-	label = M.truncate(label, ctx.width - 2 - suffix)
 
 	return m.flex({
 		white_space = "nowrap",
@@ -634,8 +622,8 @@ function M.row(entry, ctx)
 		style = ctx.selected and "MarkupPickerSelected" or nil,
 		m.inline({
 			shrink = 1,
-			-- Cut where it no longer fits, rather than run under the suffix.
 			overflow_x = "hidden",
+			text_overflow = "ellipsis",
 			m.inline(ctx.selected and "▌" or " ", "MarkupPickerMarker"),
 			m.inline({ margin_left = 1, spans_of(label) }),
 		}),
@@ -751,6 +739,7 @@ function Picker:element()
 			m.block({
 				grow = 1,
 				shrink = 1,
+				min_width = 0,
 				m.each(visible, Row, {
 					key = function(value)
 						return value.entry.item
