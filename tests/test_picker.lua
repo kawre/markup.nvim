@@ -130,7 +130,7 @@ T["highlights what matched"] = function()
 		for _, view in pairs(vim.tbl_keys(Markup.views)) do
 			local buf = view.win.buf
 			if buf and vim.api.nvim_buf_is_valid(buf) then
-				for _, mark in ipairs(vim.api.nvim_buf_get_extmarks(buf, view.ns, 0, -1, { details = true })) do
+				for _, mark in ipairs(view:highlights()) do
 					if mark[4].hl_group == "MarkupPickerMatch" then
 						matched[#matched + 1] = vim.api.nvim_buf_get_text(buf, mark[2], mark[3], mark[2], mark[4].end_col, {})[1]
 					end
@@ -572,8 +572,11 @@ T["display"]["a scrollbar shows where the list is, when it does not all fit"] = 
 			for _, win in ipairs(vim.api.nvim_list_wins()) do
 				if win ~= vim.api.nvim_get_current_win() and vim.api.nvim_win_get_config(win).relative ~= "" then
 					local buf = vim.api.nvim_win_get_buf(win)
-					local thumb = {}
-					for _, mark in ipairs(vim.api.nvim_buf_get_extmarks(buf, -1, 0, -1, { details = true })) do
+					local thumb, view = {}, nil
+					for other in pairs(Markup.views) do
+						if other.win.buf == buf then view = other end
+					end
+					for _, mark in ipairs(view and view:highlights() or {}) do
 						if mark[4].hl_group == "MarkupPickerThumb" then thumb[#thumb + 1] = mark[2] end
 					end
 					return thumb

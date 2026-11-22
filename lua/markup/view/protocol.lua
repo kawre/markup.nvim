@@ -150,24 +150,27 @@ end
 
 local vim_fn = vim.fn
 
---- Width of a text, or -1 when the engine can use its byte length. Neovim
---- measures everything else, so `ambiwidth` and `setcellwidths()` are honoured.
-local function text_width(text)
-	if text:find("[\128-\255]") then
-		return vim_fn.strdisplaywidth(text)
-	end
-	return -1
-end
-
 local char_widths = {} ---@type table<string, integer>
 local known_cell_widths
+
+--- Widths of texts that are not ASCII, as Neovim measures them, so `ambiwidth`
+--- and `setcellwidths()` are honoured: the engine measures ASCII by its length.
+--- Kept per text, as most come again on every frame: the levels of a meter,
+--- the frames of a spinner. Forgotten with `char_widths`, and when full.
+local MEASURED_MAX = 4096
+local measured, measured_count = {}, 0 ---@type table<string, { [1]: integer, [2]: string }>, integer
+
+local function forget_widths()
+	char_widths = {}
+	measured, measured_count = {}, 0
+end
 
 --- Forgets measured characters after `setcellwidths()`, which has no event.
 function M.check_cell_widths()
 	local current = vim.inspect(vim_fn.getcellwidths())
 	if current ~= known_cell_widths then
 		known_cell_widths = current
-		char_widths = {}
+		forget_widths()
 	end
 end
 
@@ -191,9 +194,7 @@ end
 vim.api.nvim_create_autocmd("OptionSet", {
 	group = vim.api.nvim_create_augroup("markup.view.widths", { clear = true }),
 	pattern = "ambiwidth",
-	callback = function()
-		char_widths = {}
-	end,
+	callback = forget_widths,
 })
 
 ---@class markup.view.commands
@@ -291,12 +292,23 @@ local function write_text(self, opcode, id, text)
 	end
 
 	local ops, n = self.ops, self.len
-	local width = text_width(text)
+	local width, digits = -1, nil
+	if text:find("[\128-\255]") then
+		local known = measured[text]
+		if not known then
+			if measured_count >= MEASURED_MAX then
+				measured, measured_count = {}, 0
+			end
+			known = { vim_fn.strdisplaywidth(text), cell_digits(text) }
+			measured[text], measured_count = known, measured_count + 1
+		end
+		width, digits = known[1], known[2]
+	end
 	ops[n + 1], ops[n + 2], ops[n + 3], ops[n + 4] = opcode, id, text, width
 	n = n + 4
 
-	if width >= 0 then
-		ops[n + 1], ops[n + 2], ops[n + 3] = OP.set_cells, id, cell_digits(text)
+	if digits then
+		ops[n + 1], ops[n + 2], ops[n + 3] = OP.set_cells, id, digits
 		n = n + 3
 	end
 	self.len = n

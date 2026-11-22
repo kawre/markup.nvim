@@ -41,7 +41,7 @@ end
 local function marks()
 	return child.lua_get([[vim.tbl_map(function(mark)
 		return { mark[2], mark[3], mark[4].end_col, mark[4].hl_group }
-	end, vim.api.nvim_buf_get_extmarks(win.buf, view.ns, 0, -1, { details = true }))]])
+	end, view:highlights())]])
 end
 
 T["static"] = new_set()
@@ -675,7 +675,7 @@ T["css"]["no longer wrapping paints a box where it is"] = function()
 		view:render(m.flex({ m.inline({ white_space = white_space, m.block({ padding = 1, style = "Search" }) }) }))
 		white_space("nowrap")
 		reactive.flush()
-		ids = vim.api.nvim_buf_get_extmarks(win.buf, view.ns, 0, -1, { details = true })
+		ids = view:highlights()
 		rows = {}
 		for _, mark in ipairs(ids) do
 			if mark[4].hl_group == "Search" then rows[#rows + 1] = mark[2] end
@@ -1219,6 +1219,53 @@ end
 
 T["highlights"] = new_set()
 
+T["highlights"]["are drawn with the lines, not kept on the buffer"] = function()
+	child.o.lines, child.o.columns = 10, 20
+	run([[
+		vim.o.laststatus, vim.o.ruler, vim.o.showmode = 0, false, false
+		vim.api.nvim_set_hl(0, "Lit", { bg = "#ff0000" })
+		vim.api.nvim_set_hl(0, "Other", { bg = "#00ff00" })
+		group = m.signal("Lit")
+		local rows = {}
+		for i = 1, 30 do
+			rows[i] = m.block("row " .. i)
+		end
+		rows[1] = m.block({ "lit", style = group })
+		rows[2] = m.block({ "lit", style = "Lit" })
+		rows[30] = m.block({ "last", style = "Lit" })
+		view:render(m.block(rows))
+		vim.cmd("redraw")
+		placed = #vim.api.nvim_buf_get_extmarks(win.buf, view.ns, 0, -1, {})
+	]])
+	-- None placed on the buffer, however many lines there are.
+	eq(child.lua_get("placed"), 0)
+	-- A screenshot names its attributes in the order they show, so cells are
+	-- only compared within one.
+	local screen = child.get_screenshot()
+	eq(screen.attr[1][1] == screen.attr[2][1], true)
+	eq(screen.attr[1][1] ~= screen.attr[3][1], true)
+
+	-- A change of style alone is drawn too.
+	run([[group("Other"); reactive.flush(); vim.cmd("redraw")]])
+	screen = child.get_screenshot()
+	eq(screen.attr[1][1] ~= screen.attr[2][1], true)
+	eq(screen.attr[1][1] ~= screen.attr[3][1], true)
+
+	-- A line out of the window shows its highlight once it scrolls in.
+	run([[vim.cmd("normal! G"); vim.cmd("redraw")]])
+	screen = child.get_screenshot()
+	local last, plain
+	for i, text in ipairs(screen.text) do
+		local line = table.concat(text)
+		if line:find("^last") then
+			last = i
+		elseif line:find("^row") then
+			plain = i
+		end
+	end
+	eq(screen.attr[last][1] ~= screen.attr[plain][1], true)
+end
+
 T["highlights"]["uses byte columns after wide text"] = function()
 	run([[view:render(m.block({ m.inline("你", "Label"), m.inline("ab", "String") }))]])
 	eq(marks(), { { 0, 0, 3, "Label" }, { 0, 3, 5, "String" } })
@@ -1319,6 +1366,25 @@ T["dynamic text"]["a change in a flex item lays out only its path"] = function()
 	-- and placing it then laid all of them out again: 322 layouts, 23 now.
 	eq(child.lua_get("changed") <= 30, true)
 	eq(child.lua_get("text"), "    row200")
+end
+
+T["dynamic text"]["a spinner in wrapped text lays nothing out"] = function()
+	run([[
+		frame = m.signal("⠋")
+		view:render(m.block({ width = 8, "loading ", m.inline(frame), " the list of problems" }))
+		first = lines()
+		frame("⠙")
+		reactive.flush()
+		same = view.stats.layouts
+		-- A frame that breaks elsewhere wraps anew.
+		frame("a b")
+		reactive.flush()
+		other = view.stats.layouts
+	]])
+	eq(child.lua_get("first"), { "loading", "⠋ the", "list of", "problems" })
+	eq(child.lua_get("same"), 0)
+	eq(child.lua_get("other") > 0, true)
+	eq(lines(), { "loading", "a b the", "list of", "problems" })
 end
 
 T["dynamic text"]["lays nothing out for what only changes how it is painted"] = function()
@@ -1869,7 +1935,7 @@ T["updates match a fresh render"] = function()
 		local function snapshot(target)
 			local marks = vim.tbl_map(function(mark)
 				return { mark[2], mark[3], mark[4].end_col, mark[4].hl_group }
-			end, vim.api.nvim_buf_get_extmarks(target.win.buf, target.ns, 0, -1, { details = true }))
+			end, target:highlights())
 			table.sort(marks, function(a, b)
 				if a[1] ~= b[1] then return a[1] < b[1] end
 				if a[2] ~= b[2] then return a[2] < b[2] end
@@ -1973,7 +2039,7 @@ T["updates of flex cards in a grid match a fresh render"] = function()
 		local function snapshot(target)
 			local marks = vim.tbl_map(function(mark)
 				return { mark[2], mark[3], mark[4].end_col, mark[4].hl_group }
-			end, vim.api.nvim_buf_get_extmarks(target.win.buf, target.ns, 0, -1, { details = true }))
+			end, target:highlights())
 			table.sort(marks, function(a, b)
 				if a[1] ~= b[1] then return a[1] < b[1] end
 				if a[2] ~= b[2] then return a[2] < b[2] end
@@ -2596,6 +2662,61 @@ local function click(row, col, times)
 	child.lua("vim.wait(20, function() return false end, 5)")
 end
 
+T["click"]["a link far down a long view presses as its highlights are drawn"] = function()
+	-- As leetcode.nvim makes its links: styled pieces in an inline that
+	-- presses on one click, found by `gx` through the node under the cursor.
+	child.o.lines, child.o.columns = 10, 40
+	run([[
+		vim.o.laststatus, vim.o.ruler, vim.o.showmode = 0, false, false
+		vim.api.nvim_set_hl(0, "Link", { fg = "#0000ff", underline = true })
+		opened = 0
+		open = function() opened = opened + 1 end
+		local rows = {}
+		for i = 1, 40 do
+			rows[i] = m.block({ "line " .. i, style = i % 2 == 0 and "Comment" or nil })
+		end
+		rows[35] = m.block({
+			"see ",
+			m.inline({
+				click = "single",
+				on_press = open,
+				m.inline("the docs", "Link"),
+				" ",
+				m.inline("#", "Comment"),
+			}),
+		})
+		view:render(m.block(rows))
+		vim.api.nvim_win_set_cursor(0, { 35, 6 })
+		vim.cmd("normal! zz")
+		vim.cmd("redraw")
+	]])
+
+	-- Drawn where it is, without a mark on the buffer.
+	eq(child.lua_get("#vim.api.nvim_buf_get_extmarks(win.buf, view.ns, 0, -1, {})"), 0)
+	local screen = child.get_screenshot()
+	local row
+	for i, text in ipairs(screen.text) do
+		if table.concat(text):find("^see the docs") then
+			row = i
+		end
+	end
+	eq(screen.attr[row][5] ~= screen.attr[row][1], true)
+
+	-- The key that presses, as leetcode.nvim binds it.
+	eq(child.lua_get("view:press()"), true)
+	eq(child.lua_get("opened"), 1)
+	-- `gx`: the handler of the node under the cursor.
+	eq(child.lua_get("view.handlers[view:node_at_cursor()] == open"), true)
+	-- One click, on the label and on the icon.
+	click(34, 5, 1)
+	eq(child.lua_get("opened"), 2)
+	click(34, 13, 1)
+	eq(child.lua_get("opened"), 3)
+	-- Beside it, nothing.
+	click(34, 1, 1)
+	eq(child.lua_get("opened"), 3)
+end
+
 T["click"]["a single click presses by default"] = function()
 	click_view()
 	click(3, 1, 1)
@@ -2770,7 +2891,7 @@ local function marked_text()
 	return child.lua_get([[vim.tbl_map(function(mark)
 		local line = vim.api.nvim_buf_get_lines(win.buf, mark[2], mark[2] + 1, false)[1]
 		return { mark[4].hl_group, line:sub(mark[3] + 1, mark[4].end_col) }
-	end, vim.api.nvim_buf_get_extmarks(win.buf, view.ns, 0, -1, { details = true }))]])
+	end, view:highlights())]])
 end
 
 local samples = {
@@ -2862,6 +2983,22 @@ T["wide text"]["follows setcellwidths"] = function()
 		view:render(m.block({ width = 4, "\u{f07b}\u{f07b}\u{f07b}\u{f07b}\u{f07b}" }))
 	]])
 	eq(lines(), { "\u{f07b}\u{f07b}", "\u{f07b}\u{f07b}", "\u{f07b}" })
+end
+
+T["wide text"]["measures text again after ambiwidth changes"] = function()
+	run([[
+		text = m.signal("≤≤≤≤")
+		view:render(m.block({ width = 4, text }))
+		first = lines()
+		vim.o.ambiwidth = "double"
+		text("x")
+		reactive.flush()
+		-- The same text as before, measured again rather than remembered.
+		text("≤≤≤≤")
+		reactive.flush()
+	]])
+	eq(child.lua_get("first"), { "≤≤≤≤" })
+	eq(lines(), { "≤≤", "≤≤" })
 end
 
 T["wide text"]["updates keep rows aligned"] = function()

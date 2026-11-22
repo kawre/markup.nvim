@@ -4,10 +4,10 @@
   "carousel": { "commands": 3195, "commits": 121, "layouts": 1168, "lines": 584 },
   "churn": { "commands": 280522, "commits": 121, "layouts": 124412, "lines": 117555 },
   "highlights": { "commands": 13814, "commits": 121, "layouts": 4871, "lines": 42 },
-  "insane": { "commands": 2707419, "commits": 121, "layouts": 655661, "lines": 168274 },
+  "insane": { "commands": 2707419, "commits": 121, "layouts": 414643, "lines": 168274 },
   "meters": { "commands": 151975, "commits": 121, "layouts": 54130, "lines": 9408 },
   "reflow": { "commands": 2271, "commits": 121, "layouts": 1021, "lines": 663 },
-  "spinners": { "commands": 19781, "commits": 121, "layouts": 183746, "lines": 180 },
+  "spinners": { "commands": 19781, "commits": 121, "layouts": 2471, "lines": 180 },
   "text": { "commands": 69419, "commits": 121, "layouts": 3913, "lines": 1319 },
   "tree": { "commands": 4215, "commits": 121, "layouts": 5984, "lines": 135 },
   "wave": { "commands": 2058618, "commits": 121, "layouts": 7821, "lines": 2928 }
