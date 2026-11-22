@@ -1,6 +1,9 @@
 -- Loaded only by the browser-suite runner. Delay instrumentation until a test
 -- actually loads View, so module-loading tests run in the same environment.
 local dir = vim.env.MARKUP_BROWSER_DIR
+-- Where the suite runs from, as View loads only when a test first needs it,
+-- by when a test may have changed the directory, as the playground does.
+local root = vim.fn.getcwd()
 local log = dir .. "/" .. vim.fn.getpid() .. ".jsonl"
 local seen = {}
 local function record(frame)
@@ -14,8 +17,8 @@ local function record(frame)
 end
 
 package.preload["markup.view"] = function()
-	local View = dofile("lua/markup/view/init.lua")
-	local ref = dofile("tests/browser/reference.lua")
+	local View = dofile(root .. "/lua/markup/view/init.lua")
+	local ref = dofile(root .. "/tests/browser/reference.lua")
 	local new, apply, commit = View.new, View.apply, View.commit
 	local buffer_owner = setmetatable({}, { __mode = "v" })
 	function View:new(...)

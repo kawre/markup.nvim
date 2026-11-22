@@ -1,3 +1,7 @@
+-- The folder of this file, for what it reads beside it: a test may have
+-- changed the directory by the time it loads, as the playground does.
+local here = vim.fn.fnamemodify(debug.getinfo(1, "S").source:sub(2), ":p:h")
+
 --- One cell along a row and one along a column, in pixels. The page's font
 --- makes every character exactly one cell wide. CSS `ch` would not do: Chrome
 --- rounds it on its own, a little short of the characters.
@@ -166,8 +170,7 @@ local tags = { block = "div", inline = "span", flex = "div", grid = "div" }
 local escape_widths
 --- Runs of code points of one width, as the page's font has them: Neovim's
 --- widths with the options it starts with.
-local font_widths =
-	vim.json.decode(table.concat(vim.fn.readfile("tests/browser/cell-widths.json"), ""))
+local font_widths = vim.json.decode(table.concat(vim.fn.readfile(here .. "/cell-widths.json"), ""))
 
 local function font_width(code)
 	local low, high = 1, #font_widths
@@ -363,9 +366,9 @@ if not browser then
 	end
 end
 local directory
-local template = table.concat(vim.fn.readfile("tests/browser/grid.html"), "\n")
+local template = table.concat(vim.fn.readfile(here .. "/grid.html"), "\n")
 local font = (function()
-	local file = assert(io.open("tests/browser/cell.ttf", "rb"))
+	local file = assert(io.open(here .. "/cell.ttf", "rb"))
 	local bytes = file:read("*a")
 	file:close()
 	return vim.base64.encode(bytes)
