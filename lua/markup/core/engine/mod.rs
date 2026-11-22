@@ -40,6 +40,29 @@ pub struct Engine {
     changed: bool,
 }
 
+/// Whether `new` breaks into lines as `old` does, given the same widths: every
+/// character at the same byte, and of the same kind to line breaking, so the
+/// pieces a wrap cut `old` into fit `new` as they are. The widths of what is
+/// not ASCII come with `SetCells`, which lays out anew when they differ.
+fn breaks_alike(old: &str, new: &str) -> bool {
+    fn kind(character: char) -> u8 {
+        match character {
+            '\n' => 0,
+            ' ' | '\t' => 1,
+            '-' | '\u{2010}' | '\u{2013}' => 2,
+            '0'..='9' => 3,
+            _ if character.is_ascii() => 4,
+            _ => 5,
+        }
+    }
+    old.len() == new.len()
+        && old.chars().count() == new.chars().count()
+        && old
+            .chars()
+            .zip(new.chars())
+            .all(|(a, b)| a.len_utf8() == b.len_utf8() && kind(a) == kind(b))
+}
+
 fn elapsed_ms(since: Instant) -> f64 {
     since.elapsed().as_secs_f64() * 1e3
 }
@@ -91,8 +114,10 @@ impl Engine {
             Command::SetText { id, text, width } => {
                 let index = tree.index_of(id)?;
                 let node = tree.node_mut(index);
-                // Wrapped text can break differently at the same total width.
-                let relayout = node.text_width != width || node.fragments.is_some();
+                // Wrapped text can break differently at the same total width,
+                // unless each character is where it was and breaks as it did.
+                let relayout = node.text_width != width
+                    || (node.fragments.is_some() && !breaks_alike(&node.text, &text));
                 // Text that is not ASCII comes with its cells next, which keep
                 // what it was laid out with when they are the same.
                 if text.is_ascii() {
@@ -125,9 +150,9 @@ impl Engine {
                 let index = tree.index_of(id)?;
                 let node = tree.node_mut(index);
                 // The same widths lay out the same, as `SetText` keeps a
-                // layout for the same width: what was wrapped is laid out anew.
-                let relayout =
-                    node.cells.as_deref() != Some(&cells[..]) || node.fragments.is_some();
+                // layout for the same width: wrapped text too, as `SetText` has
+                // laid out anew what no longer breaks the same way.
+                let relayout = node.cells.as_deref() != Some(&cells[..]);
                 node.cells = Some(cells.into_boxed_slice());
                 if relayout {
                     tree.mark_dirty(index);
@@ -591,6 +616,55 @@ mod tests {
         // Other widths are laid out anew, even at the same total.
         set(&mut engine, "語", vec![2]);
         assert!(layouts(&mut engine) > 0);
+    }
+
+    #[test]
+    fn wrapped_text_that_breaks_alike_lays_nothing_out_again() {
+        let mut engine = Engine::new(6);
+        block(&mut engine, 2, ROOT, "x");
+        let set = |engine: &mut Engine, text: &str, cells: Vec<u8>| {
+            let ascii = text.chars().filter(char::is_ascii).count() as i32;
+            let width = ascii + cells.iter().map(|&cell| cell as i32).sum::<i32>();
+            let text = text.to_string();
+            engine
+                .apply(Command::SetText {
+                    id: 1002,
+                    text,
+                    width,
+                })
+                .unwrap();
+            engine.apply(Command::SetCells { id: 1002, cells }).unwrap();
+        };
+        let lines = |engine: &Engine| -> Vec<String> {
+            engine
+                .lines
+                .iter()
+                .map(|line| line.text.trim_end().to_string())
+                .collect()
+        };
+        set(&mut engine, "load ⠋ ok go", vec![1]);
+        layouts(&mut engine);
+        assert_eq!(lines(&engine), ["load ⠋", "ok go"]);
+
+        // A spinner's next frame: each character where it was, as wide, and
+        // breaking as it did, so the wrap stays and only its text is new.
+        set(&mut engine, "load ⠙ ok go", vec![1]);
+        assert_eq!(layouts(&mut engine), 0);
+        assert_eq!(lines(&engine), ["load ⠙", "ok go"]);
+
+        // A space somewhere else breaks elsewhere, and a character as long in
+        // bytes but wider takes more room: each is laid out anew, and wraps
+        // as a fresh engine given only that text does.
+        for (text, cells) in [("lo ad⠹ okgo", vec![1]), ("lo ad語okgo", vec![2])] {
+            set(&mut engine, text, cells.clone());
+            assert!(layouts(&mut engine) > 0, "{text}");
+
+            let mut fresh = Engine::new(6);
+            block(&mut fresh, 2, ROOT, "x");
+            set(&mut fresh, text, cells);
+            layouts(&mut fresh);
+            assert_eq!(lines(&engine), lines(&fresh), "{text}");
+        }
     }
 
     fn patched_lines(engine: &mut Engine) -> usize {

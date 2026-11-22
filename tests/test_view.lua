@@ -1368,6 +1368,25 @@ T["dynamic text"]["a change in a flex item lays out only its path"] = function()
 	eq(child.lua_get("text"), "    row200")
 end
 
+T["dynamic text"]["a spinner in wrapped text lays nothing out"] = function()
+	run([[
+		frame = m.signal("⠋")
+		view:render(m.block({ width = 8, "loading ", m.inline(frame), " the list of problems" }))
+		first = lines()
+		frame("⠙")
+		reactive.flush()
+		same = view.stats.layouts
+		-- A frame that breaks elsewhere wraps anew.
+		frame("a b")
+		reactive.flush()
+		other = view.stats.layouts
+	]])
+	eq(child.lua_get("first"), { "loading", "⠋ the", "list of", "problems" })
+	eq(child.lua_get("same"), 0)
+	eq(child.lua_get("other") > 0, true)
+	eq(lines(), { "loading", "a b the", "list of", "problems" })
+end
+
 T["dynamic text"]["lays nothing out for what only changes how it is painted"] = function()
 	run([[
 		group = m.signal("String")
