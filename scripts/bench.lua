@@ -31,6 +31,11 @@ require("markup").setup({})
 local reactive = require("markup.reactive")
 local stress = require("markup.devkit.stress")
 
+-- Nothing moves on its own: the test's timers, its clock and every animation
+-- wait for `advance`, so a run does the same work on any machine.
+Markup.animate.manual = true
+stress.manual = true
+
 --- The workloads: each setting on its own at the `insane` preset's step, and
 --- that preset whole.
 local function workloads()

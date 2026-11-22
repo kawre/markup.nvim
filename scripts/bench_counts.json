@@ -1,14 +1,14 @@
 {
-  "accordion": { "commands": 4397, "commits": 121, "layouts": 1628, "lines": 54 },
-  "cards": { "commands": 48483, "commits": 121, "layouts": 789546, "lines": 1922 },
-  "carousel": { "commands": 1875, "commits": 121, "layouts": 421, "lines": 50 },
-  "churn": { "commands": 210530, "commits": 121, "layouts": 169174, "lines": 2572 },
-  "highlights": { "commands": 13814, "commits": 121, "layouts": 5020, "lines": 24 },
-  "insane": { "commands": 2397002, "commits": 121, "layouts": 4309417, "lines": 7200 },
-  "meters": { "commands": 19480, "commits": 121, "layouts": 10763, "lines": 170 },
-  "reflow": { "commands": 1883, "commits": 121, "layouts": 395, "lines": 170 },
-  "spinners": { "commands": 19781, "commits": 121, "layouts": 184189, "lines": 162 },
-  "text": { "commands": 19499, "commits": 121, "layouts": 7947, "lines": 119 },
-  "tree": { "commands": 1332, "commits": 121, "layouts": 652, "lines": 17 },
-  "wave": { "commands": 2058165, "commits": 121, "layouts": 1484085, "lines": 1983 }
+  "accordion": { "commands": 6779, "commits": 121, "layouts": 11365, "lines": 127 },
+  "cards": { "commands": 104077, "commits": 121, "layouts": 1188322, "lines": 4800 },
+  "carousel": { "commands": 3195, "commits": 121, "layouts": 1745, "lines": 584 },
+  "churn": { "commands": 1429106, "commits": 121, "layouts": 4205908, "lines": 117555 },
+  "highlights": { "commands": 13814, "commits": 121, "layouts": 4997, "lines": 42 },
+  "insane": { "commands": 3856431, "commits": 121, "layouts": 11521230, "lines": 168274 },
+  "meters": { "commands": 151975, "commits": 121, "layouts": 633605, "lines": 9408 },
+  "reflow": { "commands": 2271, "commits": 121, "layouts": 2773, "lines": 663 },
+  "spinners": { "commands": 19781, "commits": 121, "layouts": 184166, "lines": 180 },
+  "text": { "commands": 69419, "commits": 121, "layouts": 108762, "lines": 1319 },
+  "tree": { "commands": 4215, "commits": 121, "layouts": 14511, "lines": 135 },
+  "wave": { "commands": 2058618, "commits": 121, "layouts": 1484339, "lines": 2928 }
 }

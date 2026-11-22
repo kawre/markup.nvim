@@ -1245,10 +1245,7 @@ T["stress test"]["manual"]["does the same work every run"] = function()
 	]])
 	local first, second = child.lua_get("first"), child.lua_get("second")
 	eq(first.layouts > 0, true)
-	-- Effects run in the order of a table of their own, which can move a
-	-- command or two from one flush to the next. Counts stay within a hair.
-	eq(math.abs(first.layouts - second.layouts) <= first.layouts * 0.01, true)
-	eq(math.abs(first.commands - second.commands) <= first.commands * 0.01, true)
+	eq(first, second)
 	eq(child.lua_get("first_text == second_text"), true)
 end
 
