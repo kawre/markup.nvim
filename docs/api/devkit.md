@@ -312,17 +312,29 @@ The tree's title, with the flags, stays put while the tree scrolls.
 
 Source: `lua/markup/playground.lua`
 
+Fields:
+
+- `file`: `string?` - the playground file the tab shows, which `run` runs
+- `preview`: `(markup.view)?` - the view below the file, for it to render into
+- `shown`: `string?` - the file the preview shows, the one saved last
+
 ### markup.playground.open()
 
 ```lua
 function markup.playground.open(opts?: markup.playground.opts)
 ```
 
+Opens a file of the playground in a tab, with a preview below it, and runs
+it. Saving a playground file runs it into the preview: switching to one
+only makes it the one `run` runs, so nothing runs before it is saved.
+
 ### markup.playground.run()
 
 ```lua
 function markup.playground.run()
 ```
+
+Runs the playground file the tab shows.
 
 ### markup.playground.stress_test()
 
