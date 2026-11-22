@@ -141,6 +141,75 @@ T["highlights what matched"] = function()
 	eq(child.lua_get("table.concat(matched)"):lower():find("tw", 1, true) ~= nil, true)
 end
 
+--- What the first row of the list highlights as matched.
+local function first_row_matched()
+	return child.lua_get([[(function()
+		for view in pairs(Markup.views) do
+			local buf = view.win.buf
+			local win = view.win.win
+			-- The list, which is taller than the prompt.
+			if win and vim.api.nvim_win_is_valid(win) and vim.api.nvim_win_get_config(win).height > 1 then
+				local matched = {}
+				for _, mark in ipairs(view:highlights()) do
+					if mark[2] == 0 and mark[4].hl_group == "MarkupPickerMatch" then
+						matched[#matched + 1] = vim.api.nvim_buf_get_text(buf, 0, mark[3], 0, mark[4].end_col, {})[1]
+					end
+				end
+				return table.concat(matched)
+			end
+		end
+	end)()]])
+end
+
+T["highlights every word of the query, typed a key at a time"] = function()
+	child.lua("open()")
+	type("Two Sum")
+	eq(child.lua_get("list_lines()[1]"):find("Two Sum", 1, true) ~= nil, true)
+	eq(first_row_matched(), "TwoSum")
+	-- Words taken away again.
+	type("<BS><BS><BS>")
+	eq(first_row_matched(), "Two")
+end
+
+T["matches what a row shows before its label"] = function()
+	child.lua("open()")
+	-- As the row shows it: the number and its dot, then the label.
+	type("1. Two sum")
+	local lines = child.lua_get("list_lines()")
+	eq(#lines >= 1 and lines[1]:find("Two Sum", 1, true) ~= nil, true)
+	eq(first_row_matched(), "TwoSum")
+end
+
+T["lights the label, not keywords that hold the same words"] = function()
+	-- As leetcode.nvim makes its items: the slug repeats the words, and the
+	-- number shows before the label.
+	child.lua([[
+		picker = Markup.picker({
+			items = {
+				{
+					label = "Two Sum",
+					keywords = "1 two-sum",
+					prefix = { { "    1. ", "Comment" } },
+					value = 1,
+				},
+				{ label = "Add Two Numbers", keywords = "2 add-two-numbers", prefix = { { "    2. " } }, value = 2 },
+			},
+			on_select = function() end,
+		})
+		reactive.flush()
+	]])
+	type("two sum")
+	eq(first_row_matched(), "TwoSum")
+	child.lua("vim.api.nvim_buf_set_lines(0, 0, -1, false, { '' })")
+	type("1. two sum")
+	eq(#child.lua_get("list_lines()"), 1)
+	eq(first_row_matched(), "TwoSum")
+	-- `^` still anchors to the label.
+	child.lua("vim.api.nvim_buf_set_lines(0, 0, -1, false, { '' })")
+	type("^two")
+	eq(child.lua_get("list_lines()[1]"):find("Two Sum", 1, true) ~= nil, true)
+end
+
 T["shows a count"] = function()
 	child.lua("open()")
 	type("sum")
