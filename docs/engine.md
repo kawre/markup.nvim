@@ -130,6 +130,13 @@ An item of a flex or grid container.
 0
 
 ```rust
+pub fn size(&self, tree: &mut Tree, constraints: Constraints) -> Size
+```
+
+The size the unit would be, without placing what it holds.
+0
+
+```rust
 pub fn baseline(&self, tree: &Tree, height: i32) -> i32
 ```
 
@@ -295,6 +302,13 @@ pub fn measure(tree: &mut Tree, index: Index, constraints: Constraints) -> Size
 
 Lays out a node and returns its margin box size. A clean node asked the same
 thing keeps its cached result, so only dirty paths do any work.
+
+Flex and grid ask an item for its size in several ways before placing it.
+While `tree.sizing` is set only the size matters, so a clean node answers
+from the sizes it found since it was last dirty, rather than the one cached
+layout each way would otherwise throw out for the next. What a sizing
+pass lays out keeps no cached layout, so the placing pass that follows
+places it again.
 0
 
 ## `engine/layout/wrap.rs`
@@ -783,17 +797,45 @@ Display width of `text`, measured by Neovim when it is not ASCII.
 0
 
 ```rust
-pub cells: Option<Box<[u8]>>, /// Set when line breaking cut this node into pieces. pub fragments: Option<Vec<Fragment>>, pub parent: Option<Index>, pub children: Vec<Index>, pub dirty: bool, pub geometry: Geometry, }
+pub cells: Option<Box<[u8]>>, /// Set when line breaking cut this node into pieces. pub fragments: Option<Vec<Fragment>>, pub parent: Option<Index>, pub children: Vec<Index>, pub dirty: bool, pub geometry: Geometry, /// Sizes found for other constraints since the node was last dirty. pub memo: Vec<(Constraints, Memo)>,
 ```
 
 Width of each non ASCII character, for line breaking.
 0
 
 ```rust
-pub fragments: Option<Vec<Fragment>>, pub parent: Option<Index>, pub children: Vec<Index>, pub dirty: bool, pub geometry: Geometry, }  #[derive(Debug, PartialEq, Eq)] pub enum TreeError
+pub fragments: Option<Vec<Fragment>>, pub parent: Option<Index>, pub children: Vec<Index>, pub dirty: bool, pub geometry: Geometry, /// Sizes found for other constraints since the node was last dirty. pub memo: Vec<(Constraints, Memo)>, }
 ```
 
 Set when line breaking cut this node into pieces.
+0
+
+```rust
+pub memo: Vec<(Constraints, Memo)>, }  /// What a measure leaves for its parent, kept so sizing again is free. #[derive(Debug, Clone, Copy)] pub struct Memo
+```
+
+Sizes found for other constraints since the node was last dirty.
+0
+
+```rust
+pub struct Memo
+```
+
+What a measure leaves for its parent, kept so sizing again is free.
+0
+
+```rust
+pub sizing: bool, /// Layouts done, for tests to count. #[cfg(test)] pub arranged: usize, }  impl Tree
+```
+
+Set while a node is only sized, not placed.
+0
+
+```rust
+pub arranged: usize, }  impl Tree
+```
+
+Layouts done, for tests to count.
 0
 
 ```rust
