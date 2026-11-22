@@ -1190,4 +1190,95 @@ T["stress test"]["settings"]["the popup closes with q and with the test"] = func
 	eq(child.lua_get("vim.api.nvim_win_is_valid(popup)"), false)
 end
 
+T["stress test"]["a timer keeps one turn waiting at most"] = function()
+	run([[
+		stress_module = require("markup.devkit.stress")
+		-- Turns are kept rather than run, as when the main loop is too busy
+		-- to get to them.
+		waiting = {}
+		local schedule = vim.schedule
+		vim.schedule = function(fn)
+			waiting[#waiting + 1] = fn
+		end
+		runs = 0
+		local scope
+		reactive.scope(function(owner)
+			scope = owner
+			stress_module.every(1, function()
+				runs = runs + 1
+			end)
+		end)
+		vim.wait(60)
+		queued = #waiting
+		-- Once the waiting turn runs, the timer queues the next.
+		waiting[1]()
+		vim.wait(20)
+		after = #waiting
+		vim.schedule = schedule
+		reactive.dispose(scope)
+	]])
+	eq(child.lua_get("queued"), 1)
+	eq(child.lua_get("runs"), 1)
+	eq(child.lua_get("after"), 2)
+end
+
+T["stress test"]["manual"] = new_set()
+
+T["stress test"]["manual"]["stands still until it is advanced"] = function()
+	run([[
+		Markup.animate.manual = true
+		stress_module = require("markup.devkit.stress")
+		stress_module.manual = true
+		stress = stress_module.open({ preset = "medium", inspector = false })
+		reactive.flush()
+		local function lines()
+			return table.concat(vim.api.nvim_buf_get_lines(stress.win.buf, 0, -1, false), "\n")
+		end
+		before = lines()
+		vim.wait(100)
+		reactive.flush()
+		still = lines() == before
+		stress_module.advance(500)
+		reactive.flush()
+		moved = lines() ~= before
+		inspector = Markup.devkit.tree().get(stress) ~= nil
+	]])
+	eq(child.lua_get("still"), true)
+	eq(child.lua_get("moved"), true)
+	eq(child.lua_get("inspector"), false)
+end
+
+T["stress test"]["manual"]["does the same work every run"] = function()
+	run([[
+		Markup.animate.manual = true
+		stress_module = require("markup.devkit.stress")
+		stress_module.manual = true
+		local function work()
+			math.randomseed(1)
+			local view = stress_module.open({ preset = "medium", inspector = false })
+			reactive.flush()
+			local total = { layouts = 0, commands = 0 }
+			view:on_commit(function()
+				total.layouts = total.layouts + view.stats.layouts
+				total.commands = total.commands + view.stats.commands
+			end)
+			for _ = 1, 30 do
+				stress_module.advance(16)
+				reactive.flush()
+			end
+			local text = table.concat(vim.api.nvim_buf_get_lines(view.win.buf, 0, -1, false), "\n")
+			view:destroy()
+			vim.cmd("silent! tabclose")
+			reactive.flush()
+			return total, text
+		end
+		first, first_text = work()
+		second, second_text = work()
+	]])
+	local first, second = child.lua_get("first"), child.lua_get("second")
+	eq(first.layouts > 0, true)
+	eq(first, second)
+	eq(child.lua_get("first_text == second_text"), true)
+end
+
 return T

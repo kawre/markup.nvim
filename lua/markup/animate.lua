@@ -83,6 +83,8 @@ end
 
 local due = 0 -- when the clock wakes next
 local schedule
+local in_tick = false
+local deferred, deferred_order = {}, {} -- jobs waiting for the next tick
 
 --- How long until `animation` could look different, or nil when it can change
 --- on any tick.
@@ -209,6 +211,7 @@ end
 ---@param ms number
 function M.tick(ms)
 	M.ticks = M.ticks + 1
+	in_tick = true
 	local finished = {}
 
 	for animation in pairs(active) do
@@ -247,9 +250,38 @@ function M.tick(ms)
 
 	reactive.flush()
 
+	-- What waited for this frame goes with it.
+	local jobs = deferred_order
+	deferred, deferred_order = {}, {}
+	for _, job in ipairs(jobs) do
+		job()
+	end
+	in_tick = false
+
 	if next(active) == nil then
 		stop_clock()
 	end
+end
+
+--- Holds `job` for the next tick, when the clock is due to tick within a frame,
+--- so what changes between frames is drawn with the frame rather than on its
+--- own. Returns false when it is not: the caller runs `job` itself.
+---@param job function
+---@return boolean held
+function M.hold_for_frame(job)
+	if in_tick or M.manual or not timer or reactive.forced() then
+		return false
+	end
+	-- A frame away, with room for the timer's own lateness: a clock that sleeps
+	-- longer, waiting for a loader's next frame, does not hold anything up.
+	if not ticking and due - now() > math.max(interval(), 16) + 4 then
+		return false
+	end
+	if not deferred[job] then
+		deferred[job] = true
+		deferred_order[#deferred_order + 1] = job
+	end
+	return true
 end
 
 --- Whether anything is moving.

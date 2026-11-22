@@ -86,6 +86,18 @@ impl Side {
 }
 
 impl StyleProperty {
+    /// Whether the property only changes how a node is painted or answers
+    /// input, never where anything is: the next frame paints it anew anyway.
+    pub fn paint_only(self) -> bool {
+        matches!(
+            self,
+            StyleProperty::Highlight(_)
+                | StyleProperty::Interactive(_)
+                | StyleProperty::Inert(_)
+                | StyleProperty::Snap(_)
+        )
+    }
+
     pub fn apply(self, style: &mut Style) {
         match self {
             StyleProperty::Margin(side, value) => *side.of(&mut style.margin) = value,
@@ -558,8 +570,9 @@ pub fn encode(
         list.raw_set(index + 1, entry)?;
     }
 
-    let frame = lua.create_table_with_capacity(0, 4)?;
+    let frame = lua.create_table_with_capacity(0, 5)?;
     frame.raw_set("patches", list)?;
+    frame.raw_set("layouts", timings.layouts)?;
     frame.raw_set("layout", timings.layout)?;
     frame.raw_set("paint", timings.paint)?;
     frame.raw_set("diff", timings.diff)?;

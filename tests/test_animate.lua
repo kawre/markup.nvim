@@ -53,6 +53,78 @@ T["clock"]["runs as fast as the main loop allows when uncapped"] = function()
 	eq(get("ticks") > 30, true)
 end
 
+T["clock"]["a change between frames is drawn with the next one"] = function()
+	run([[
+		animate.manual = false
+		animate.set_fps(60)
+		-- Something moving keeps the clock ticking.
+		animate.run({ duration = 10000, update = function() end })
+		count = m.signal(0)
+		view:render(m.block(count))
+		reactive.flush()
+		local tick = animate.tick
+		in_tick, outside, inside = false, 0, 0
+		animate.tick = function(...)
+			in_tick = true
+			tick(...)
+			in_tick = false
+		end
+		view:on_commit(function()
+			if in_tick then
+				inside = inside + 1
+			else
+				outside = outside + 1
+			end
+		end)
+		-- Changes from a timer, between frames, as the stress test makes them.
+		local timer = vim.uv.new_timer()
+		timer:start(3, 3, vim.schedule_wrap(function()
+			count(count() + 1)
+		end))
+		vim.wait(200, function() return false end, 1)
+		timer:stop()
+		timer:close()
+		-- The last change goes out with the frame after it.
+		shown = vim.wait(100, function()
+			return lines()[1] == tostring(count())
+		end, 1)
+		animate.tick = tick
+	]])
+	eq(get("outside"), 0)
+	eq(get("inside") > 0, true)
+	eq(get("shown"), true)
+end
+
+T["clock"]["a flush asked for is drawn at once, animations or not"] = function()
+	run([[
+		animate.manual = false
+		animate.run({ duration = 10000, update = function() end })
+		text = m.signal("one")
+		view:render(m.block(text))
+		reactive.flush()
+		text("two")
+		reactive.flush()
+		drawn = lines()[1]
+	]])
+	eq(get("drawn"), "two")
+end
+
+T["clock"]["nothing waits for a clock that does not tick soon"] = function()
+	run([[
+		animate.manual = false
+		text = m.signal("one")
+		view:render(m.block(text))
+		reactive.flush()
+		-- No animation runs: a scheduled change is drawn with its own flush.
+		held = animate.hold_for_frame(function() end)
+		text("two")
+		vim.wait(100, function() return lines()[1] == "two" end, 1)
+		drawn = lines()[1]
+	]])
+	eq(get("held"), false)
+	eq(get("drawn"), "two")
+end
+
 T["clock"]["drops ticks the main loop cannot keep up with"] = function()
 	run([[
 		animate.manual = false

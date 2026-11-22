@@ -23,6 +23,8 @@ pub const ROOT: ClientId = 1;
 /// How long each stage of a commit took, in milliseconds.
 #[derive(Debug, Default, Clone, Copy)]
 pub struct Timings {
+    /// Nodes laid out, not counting those that kept a cached layout.
+    pub layouts: usize,
     pub layout: f64,
     pub paint: f64,
     pub diff: f64,
@@ -85,9 +87,13 @@ impl Engine {
                 let node = tree.node_mut(index);
                 // Wrapped text can break differently at the same total width.
                 let relayout = node.text_width != width || node.fragments.is_some();
+                // Text that is not ASCII comes with its cells next, which keep
+                // what it was laid out with when they are the same.
+                if text.is_ascii() {
+                    node.cells = None;
+                }
                 node.text = text;
                 node.text_width = width;
-                node.cells = None;
                 if relayout {
                     tree.mark_dirty(index);
                 }
@@ -98,7 +104,7 @@ impl Engine {
                 tree.sync_position(index);
                 if matches!(property, StyleProperty::WhiteSpace(_)) {
                     tree.mark_subtree_dirty(index);
-                } else {
+                } else if !property.paint_only() {
                     tree.mark_dirty(index);
                 }
             }
@@ -109,8 +115,15 @@ impl Engine {
             }
             Command::SetCells { id, cells } => {
                 let index = tree.index_of(id)?;
-                tree.node_mut(index).cells = Some(cells.into_boxed_slice());
-                tree.mark_dirty(index);
+                let node = tree.node_mut(index);
+                // The same widths lay out the same, as `SetText` keeps a
+                // layout for the same width: what was wrapped is laid out anew.
+                let relayout =
+                    node.cells.as_deref() != Some(&cells[..]) || node.fragments.is_some();
+                node.cells = Some(cells.into_boxed_slice());
+                if relayout {
+                    tree.mark_dirty(index);
+                }
             }
             Command::Insert {
                 parent,
@@ -152,6 +165,7 @@ impl Engine {
         let mut timings = Timings::default();
 
         let started = Instant::now();
+        self.tree.arranged = 0;
         let size = layout::measure(
             &mut self.tree,
             self.root,
@@ -161,6 +175,7 @@ impl Engine {
         let height =
             self.height_with_absolutes(size.height.max(self.overflow_bottom(self.root, 0)));
         timings.layout = elapsed_ms(started);
+        timings.layouts = self.tree.arranged;
 
         let started = Instant::now();
         // A buffer always has a line, so a frame does too.
@@ -428,6 +443,53 @@ mod tests {
         for command in commands {
             engine.apply(command).unwrap();
         }
+    }
+
+    fn layouts(engine: &mut Engine) -> usize {
+        engine.render(|_, timings| timings.layouts)
+    }
+
+    #[test]
+    fn a_highlight_lays_nothing_out_again() {
+        let mut engine = Engine::new(20);
+        block(&mut engine, 2, ROOT, "one");
+        assert!(layouts(&mut engine) > 0);
+
+        let property = StyleProperty::Highlight(7);
+        engine.apply(Command::SetStyle { id: 2, property }).unwrap();
+        assert_eq!(layouts(&mut engine), 0);
+
+        // What can move something still lays it out.
+        let property = StyleProperty::Padding(Side::Left, 1);
+        engine.apply(Command::SetStyle { id: 2, property }).unwrap();
+        assert!(layouts(&mut engine) > 0);
+    }
+
+    #[test]
+    fn text_with_the_same_cells_lays_nothing_out_again() {
+        let mut engine = Engine::new(20);
+        block(&mut engine, 2, ROOT, "x");
+        let set = |engine: &mut Engine, text: &str, cells: Vec<u8>| {
+            let width = cells.iter().map(|&cell| cell as i32).sum();
+            let text = text.to_string();
+            engine
+                .apply(Command::SetText {
+                    id: 1002,
+                    text,
+                    width,
+                })
+                .unwrap();
+            engine.apply(Command::SetCells { id: 1002, cells }).unwrap();
+        };
+        set(&mut engine, "▁▂", vec![1, 1]);
+        layouts(&mut engine);
+
+        set(&mut engine, "▃▄", vec![1, 1]);
+        assert_eq!(layouts(&mut engine), 0);
+
+        // Other widths are laid out anew, even at the same total.
+        set(&mut engine, "語", vec![2]);
+        assert!(layouts(&mut engine) > 0);
     }
 
     fn patched_lines(engine: &mut Engine) -> usize {

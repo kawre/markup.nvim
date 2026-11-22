@@ -135,8 +135,7 @@ pub struct Tree {
     absolutes: BTreeSet<Index>,
     /// Set while a node is only sized, not placed.
     pub sizing: bool,
-    /// Layouts done, for tests to count.
-    #[cfg(test)]
+    /// Nodes laid out, counted for the frame stats.
     pub arranged: usize,
 }
 
