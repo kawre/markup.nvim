@@ -8,7 +8,8 @@
 --   docs/engine.md        the engine, from the `//!` and `///` comments in Rust
 --   skills/markup-nvim/   an Agent Skill, the format Claude, Codex and others
 --                         read: SKILL.md from scripts/skill.md, and
---                         docs/api/*.md and CHANGELOG.md as reference/
+--                         docs/api/*.md as reference/, and the breaking
+--                         changes of CHANGELOG.md as reference/migration.md
 --
 --   nvim -l scripts/docs.lua
 --
@@ -638,6 +639,43 @@ local function version()
 	return found
 end
 
+--- The breaking changes of every release, newest first, from CHANGELOG.md:
+--- what code written against an older version has to change. The rest of the
+--- changelog is in the reference already, as the API is now. release-please
+--- writes CHANGELOG.md in the release commit, and the docs run after it on
+--- master, so this follows every release.
+local function migration()
+	local out = {
+		"<!-- " .. GENERATED .. " -->",
+		"",
+		"# Migrating between versions",
+		"",
+		"The breaking changes of each release of markup.nvim, from CHANGELOG.md.",
+		"Releases without any are left out.",
+	}
+	local release, breaking = nil, false
+	local found = false
+	for line in read(root .. "/CHANGELOG.md"):gmatch("[^\n]*") do
+		local version, date = line:match("^##+ %[([^%]]+)%]%b() %(([^)]+)%)")
+		if version then
+			release, breaking = ("## %s (%s)"):format(version, date), false
+		elseif line:match("^### ") then
+			breaking = line:match("BREAKING CHANGES") ~= nil
+		elseif breaking and line:match("^%* ") then
+			if release then
+				vim.list_extend(out, { "", release, "" })
+				release = nil
+			end
+			table.insert(out, line)
+			found = true
+		end
+	end
+	if not found then
+		vim.list_extend(out, { "", "No release has broken anything yet." })
+	end
+	return table.concat(out, "\n") .. "\n"
+end
+
 local function skills(api)
 	local dir = root .. "/skills/markup-nvim"
 	vim.fn.delete(dir, "rf")
@@ -646,16 +684,7 @@ local function skills(api)
 	for name, text in pairs(api) do
 		write(dir .. "/reference/" .. name, text)
 	end
-	-- What changed, for code written against another version. release-please
-	-- writes CHANGELOG.md in the release commit, and the docs run after it on
-	-- master copies it here.
-	local changelog = read(root .. "/CHANGELOG.md")
-	write(
-		dir .. "/reference/changelog.md",
-		("<!-- Copied from CHANGELOG.md by scripts/docs.lua. Do not edit. -->\n\n%s"):format(
-			changelog
-		)
-	)
+	write(dir .. "/reference/migration.md", migration())
 end
 
 local LLMS = [[
@@ -672,7 +701,6 @@ Start with the skill, then the topic of the API you need.
 ## Guide
 
 - [skills/markup-nvim/SKILL.md](skills/markup-nvim/SKILL.md): how to build UIs with markup.nvim, with examples and pitfalls
-- [CHANGELOG.md](CHANGELOG.md): what changed in every release, breaking changes first
 
 ## API
 
