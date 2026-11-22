@@ -173,6 +173,9 @@ windows relative to others. See `reference/window.md`.
   text where its width is cut off: give `white_space = "nowrap"` and
   `overflow_x = "hidden"`, or `"clip"` for a box whose width is fixed.
   `hidden` on either axis cuts off both and lets a flex item shrink.
+- **The API changes between releases** before 1.0. When code written for
+  another version does not work, `reference/migration.md` lists the breaking
+  changes of each release.
 - **Render once.** Change signals to update the UI. Do not call
   `view:render()` again for every change.
 - **A view's window is drawn in `NormalFloat`**, through `MarkupNormal`, even
@@ -200,3 +203,4 @@ with its full signature. Read only the file for what you are working on;
 | `reference/misc.md` | config, commands, logging, utilities |
 | `reference/devkit.md` | the inspector and stress test, for working on markup.nvim |
 | `reference/internals.md` | engine bindings and view internals, rarely needed |
+| `reference/migration.md` | the breaking changes of each release, for code written against an older one |

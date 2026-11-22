@@ -13,7 +13,7 @@ local Element = require("markup.element")
 ---@alias markup.justify "start"|"end"|"center"|"between"|"around"|"evenly"|"stretch"
 ---@alias markup.track integer|"auto"|string cells, as wide as the content, or a share such as `"1fr"`
 ---@alias markup.border "single"|"rounded"|"double"|"heavy"|"half"|{ chars: string }
----@alias markup.overflow "visible"|"hidden"|"clip" `hidden` cuts off, `clip` cuts off along one axis alone
+---@alias markup.overflow "visible"|"hidden"|"clip" `visible` shows what does not fit, `hidden` cuts it off and makes the box a scroll container, `clip` cuts it off along one axis alone
 
 --- Props every element takes. When a prop accepts a value or a function, the
 --- function is read again whenever a signal it reads changes.
@@ -42,8 +42,8 @@ local Element = require("markup.element")
 ---@field border_style? string highlight of the border
 ---@field border_sides? ("top"|"right"|"bottom"|"left")[] the sides to draw, all by default
 ---@field overflow? markup.overflow|fun(): markup.overflow sets `overflow_x` and `overflow_y`, as in CSS
----@field overflow_x? markup.overflow|fun(): markup.overflow cuts off what is too wide. As in CSS, `hidden` cuts off what is too tall too, unless `overflow_y` says otherwise, and `clip` cuts off only this axis
----@field overflow_y? markup.overflow|fun(): markup.overflow cuts off what is too tall. As in CSS, `hidden` cuts off what is too wide too, unless `overflow_x` says otherwise, and `clip` cuts off only this axis
+---@field overflow_x? markup.overflow|fun(): markup.overflow cuts off what is too wide. As in CSS, `hidden` on either axis cuts off both, whatever the other one says, and makes the box a scroll container: as a flex or grid item, it may shrink below its content. `clip` cuts off only this axis, unless `overflow_y` is `hidden`
+---@field overflow_y? markup.overflow|fun(): markup.overflow cuts off what is too tall. As in CSS, `hidden` on either axis cuts off both, whatever the other one says, and makes the box a scroll container: as a flex or grid item, it may shrink below its content. `clip` cuts off only this axis, unless `overflow_x` is `hidden`
 ---@field text_overflow? "clip"|"ellipsis"|string|fun(): "clip"|"ellipsis"|string as CSS `text-overflow`, what single-line text ends in where its width is cut off, by `overflow_x` or by `hidden` on either axis: "clip" (default) or "" cuts it, "ellipsis" ends it in …, and any other string ends it in that string. Needs `white_space = "nowrap"`, or text wraps and nothing is cut. The marker takes the style of this element
 ---@field white_space? "normal"|"nowrap"|fun(): "normal"|"nowrap" whether text wraps, inherited
 --- Flex and grid

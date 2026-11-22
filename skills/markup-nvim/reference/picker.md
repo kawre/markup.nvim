@@ -424,7 +424,7 @@ Fields:
 Source: `lua/markup/picker.lua`
 
 ```lua
----@alias markup.picker.key markup.picker.key
+---@alias markup.picker.key fun(picker: markup.picker.instance)|{ [1]: fun(picker: markup.picker.instance), mode?: string|string[] }|false
 ```
 
 ## markup.picker.opts

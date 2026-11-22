@@ -166,5 +166,5 @@ Fields:
 Source: `lua/markup/animate.lua`
 
 ```lua
----@alias markup.easing markup.easing
+---@alias markup.easing fun(t: number): number
 ```

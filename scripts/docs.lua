@@ -8,7 +8,8 @@
 --   docs/engine.md        the engine, from the `//!` and `///` comments in Rust
 --   skills/markup-nvim/   an Agent Skill, the format Claude, Codex and others
 --                         read: SKILL.md from scripts/skill.md, and
---                         docs/api/*.md as reference/
+--                         docs/api/*.md as reference/, and the breaking
+--                         changes of CHANGELOG.md as reference/migration.md
 --
 --   nvim -l scripts/docs.lua
 --
@@ -107,6 +108,52 @@ end
 ---@field alias? string
 ---@field members docs.member[]
 
+--- Where the type of a one-line alias ends and its description starts. A
+--- space ends the type, unless it is inside brackets or next to a `|` or a `:`,
+--- as in `a | b` and `fun(t: number): number`.
+local function split_alias(text)
+	local depth = 0
+	for i = 1, #text do
+		local char = text:sub(i, i)
+		if char:match("[%(%[{<]") then
+			depth = depth + 1
+		elseif char:match("[%)%]}>]") then
+			depth = depth - 1
+		elseif char == " " and depth == 0 then
+			local before = text:sub(1, i - 1):match("(%S)%s*$")
+			local after = text:sub(i):match("^%s*(%S)")
+			if before ~= "|" and before ~= ":" and after ~= "|" then
+				return trim(text:sub(1, i - 1)), trim(text:sub(i))
+			end
+		end
+	end
+	return trim(text), ""
+end
+
+--- An alias as written, read from its source: lua-language-server gives back
+--- only its name, as `hover.expandAlias` is off, and drops its description.
+--- A union written as `---|` lines keeps one line for each.
+---@return string type, string desc
+local function alias_source(file, line)
+	local lines = vim.split(read(root .. "/lua/" .. file), "\n", { plain = true })
+	local rest = lines[line]:match("^%-%-%-@alias%s+%S+%s*(.*)$")
+	if not rest then
+		return "", ""
+	end
+	if rest ~= "" then
+		return split_alias(rest)
+	end
+	local union = {}
+	for i = line + 1, #lines do
+		local option = lines[i]:match("^%-%-%-|%s*(.*)$")
+		if not option then
+			break
+		end
+		table.insert(union, "| " .. option)
+	end
+	return table.concat(union, "\n"), ""
+end
+
 --- Classes and aliases of lua/markup, each with what it documents.
 ---@return docs.class[]
 local function lua_classes()
@@ -129,7 +176,11 @@ local function lua_classes()
 			}
 			for _, d in ipairs(entry.defines) do
 				if d.type == "doc.alias" then
-					class.alias = d.view
+					local alias, desc = alias_source(d.file, d.start[1] + 1)
+					class.alias = alias ~= "" and alias or d.view
+					if desc ~= "" then
+						class.desc = desc
+					end
 				elseif d.rawdesc and d.rawdesc ~= "" and class.desc == "" then
 					class.desc = clean(d.rawdesc)
 				end
@@ -319,10 +370,15 @@ local function class_markdown(class)
 		vim.list_extend(out, { "", class.desc })
 	end
 	if class.alias then
-		vim.list_extend(
-			out,
-			{ "", "```lua", "---@alias " .. class.name .. " " .. class.alias, "```" }
-		)
+		vim.list_extend(out, {
+			"",
+			"```lua",
+			"---@alias "
+				.. class.name
+				.. (class.alias:match("^| ") and "\n---" or " ")
+				.. (class.alias:gsub("\n", "\n---")),
+			"```",
+		})
 	end
 	local fields = vim.tbl_filter(function(m)
 		return m.kind == "field"
@@ -474,7 +530,8 @@ local function vimdoc(classes)
 			vim.list_extend(out, help_text(class.desc, ""))
 		end
 		if class.alias then
-			vim.list_extend(out, { "", ">lua", "    " .. class.name .. " = " .. class.alias, "<" })
+			local alias = class.alias:gsub("\n", "\n    " .. (" "):rep(#class.name + 1))
+			vim.list_extend(out, { "", ">lua", "    " .. class.name .. " = " .. alias, "<" })
 		end
 		for _, m in ipairs(class.members) do
 			local title = member_title(class, m)
@@ -582,6 +639,43 @@ local function version()
 	return found
 end
 
+--- The breaking changes of every release, newest first, from CHANGELOG.md:
+--- what code written against an older version has to change. The rest of the
+--- changelog is in the reference already, as the API is now. release-please
+--- writes CHANGELOG.md in the release commit, and the docs run after it on
+--- master, so this follows every release.
+local function migration()
+	local out = {
+		"<!-- " .. GENERATED .. " -->",
+		"",
+		"# Migrating between versions",
+		"",
+		"The breaking changes of each release of markup.nvim, from CHANGELOG.md.",
+		"Releases without any are left out.",
+	}
+	local release, breaking = nil, false
+	local found = false
+	for line in read(root .. "/CHANGELOG.md"):gmatch("[^\n]*") do
+		local version, date = line:match("^##+ %[([^%]]+)%]%b() %(([^)]+)%)")
+		if version then
+			release, breaking = ("## %s (%s)"):format(version, date), false
+		elseif line:match("^### ") then
+			breaking = line:match("BREAKING CHANGES") ~= nil
+		elseif breaking and line:match("^%* ") then
+			if release then
+				vim.list_extend(out, { "", release, "" })
+				release = nil
+			end
+			table.insert(out, line)
+			found = true
+		end
+	end
+	if not found then
+		vim.list_extend(out, { "", "No release has broken anything yet." })
+	end
+	return table.concat(out, "\n") .. "\n"
+end
+
 local function skills(api)
 	local dir = root .. "/skills/markup-nvim"
 	vim.fn.delete(dir, "rf")
@@ -590,6 +684,7 @@ local function skills(api)
 	for name, text in pairs(api) do
 		write(dir .. "/reference/" .. name, text)
 	end
+	write(dir .. "/reference/migration.md", migration())
 end
 
 local LLMS = [[

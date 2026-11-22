@@ -258,7 +258,7 @@ Fields:
 Source: `lua/markup/window/init.lua`
 
 ```lua
----@alias markup.window.Action.fn markup.window.Action.fn
+---@alias markup.window.Action.fn fun(self: markup.window):(boolean|string?)
 ```
 
 ## markup.window.Action.spec
@@ -266,7 +266,7 @@ Source: `lua/markup/window/init.lua`
 Source: `lua/markup/window/init.lua`
 
 ```lua
----@alias markup.window.Action.spec markup.window.Action.spec
+---@alias markup.window.Action.spec markup.window.Action|markup.window.Action.fn
 ```
 
 ## markup.window.Backdrop
