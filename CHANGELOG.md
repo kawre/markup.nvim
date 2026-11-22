@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.7.1](https://github.com/kawre/markup.nvim/compare/v0.7.0...v0.7.1) (2026-11-22)
+
+
+### Bug Fixes
+
+* **picker:** light every word of a match, and match what a row shows ([#50](https://github.com/kawre/markup.nvim/issues/50)) ([36b76b2](https://github.com/kawre/markup.nvim/commit/36b76b26dc75881cfb11939185bc3f3a830cc272))
+
+
+### Performance Improvements
+
+* highlights drawn only where Neovim draws, and engine frames that cost less ([#48](https://github.com/kawre/markup.nvim/issues/48)) ([11145a9](https://github.com/kawre/markup.nvim/commit/11145a92135c507ccfc7963a7a3427a04f48f408))
+
 ## [0.7.0](https://github.com/kawre/markup.nvim/compare/v0.6.0...v0.7.0) (2026-11-22)
 
 

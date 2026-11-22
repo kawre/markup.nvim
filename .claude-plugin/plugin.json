@@ -1,6 +1,6 @@
 {
   "name": "markup-nvim",
-  "version": "0.7.0",
+  "version": "0.7.1",
   "description": "A skill for building reactive user interfaces inside Neovim with markup.nvim: elements with CSS-like props, signals, views, windows, animations, pickers and images.",
   "author": {
     "name": "kawre"
