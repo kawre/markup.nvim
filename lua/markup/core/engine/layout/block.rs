@@ -400,6 +400,7 @@ impl Strategy for Block {
             entry.geometry.outer = size;
             entry.geometry.constraints = None;
             entry.dirty = false;
+            entry.memo.clear();
         }
 
         let own = tree.node(node).style.margin;

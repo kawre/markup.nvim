@@ -14,7 +14,10 @@ mod text;
 mod wrap;
 
 use super::style::{Display, Length, Style};
-use super::tree::{Collapse, Index, Size, Tree};
+use super::tree::{Collapse, Index, Memo, Size, Tree};
+
+/// How many sizes a node keeps for constraints other than its last.
+const MEMO: usize = 8;
 
 /// What a parent asks of a child. Sizes are of the margin box.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -197,11 +200,36 @@ fn content_space(style: &Style, constraints: Constraints) -> Space {
 
 /// Lays out a node and returns its margin box size. A clean node asked the same
 /// thing keeps its cached result, so only dirty paths do any work.
+///
+/// Flex and grid ask an item for its size in several ways before placing it.
+/// While `tree.sizing` is set only the size matters, so a clean node answers
+/// from the sizes it found since it was last dirty, rather than the one cached
+/// layout each way would otherwise throw out for the next. What a sizing
+/// pass lays out keeps no cached layout, so the placing pass that follows
+/// places it again.
 pub fn measure(tree: &mut Tree, index: Index, constraints: Constraints) -> Size {
     let node = tree.node(index);
     if !node.dirty && node.geometry.constraints == Some(constraints) {
         return node.geometry.outer;
     }
+    if node.dirty {
+        tree.node_mut(index).memo.clear();
+    } else if tree.sizing {
+        // Sized before in this way: what it leaves for its parent is restored.
+        if let Some(&(_, memo)) = node.memo.iter().find(|(c, _)| *c == constraints) {
+            let geometry = &mut tree.node_mut(index).geometry;
+            geometry.content = memo.content;
+            geometry.outer = memo.outer;
+            geometry.baseline = memo.baseline;
+            geometry.margin_top = memo.margin_top;
+            geometry.margin_bottom = memo.margin_bottom;
+            geometry.collapses_through = memo.collapses_through;
+            // Its own box no longer matches how what it holds was placed.
+            geometry.constraints = None;
+            return memo.outer;
+        }
+    }
+    let node = tree.node(index);
 
     let display = node.display;
     let style = &node.style;
@@ -226,6 +254,7 @@ pub fn measure(tree: &mut Tree, index: Index, constraints: Constraints) -> Size 
         && !space.whole_words
         && (display.fills_width() || lays_out_as_block(tree, index));
     if fit_box {
+        let sizing = std::mem::replace(&mut tree.sizing, true);
         let preferred = strategy
             .arrange(
                 tree,
@@ -248,6 +277,7 @@ pub fn measure(tree: &mut Tree, index: Index, constraints: Constraints) -> Size 
             let minimum = measure(tree, index, minimum).width - edges_x;
             width = space.width.max(minimum);
         }
+        tree.sizing = sizing;
         space.width = limit(width, min_width, max_width, constraints.width);
         space.intrinsic = false;
         space.fit = false;
@@ -262,6 +292,10 @@ pub fn measure(tree: &mut Tree, index: Index, constraints: Constraints) -> Size 
     geometry.collapses_through = false;
     geometry.baseline = None;
 
+    #[cfg(test)]
+    {
+        tree.arranged += 1;
+    }
     let mut content = strategy.arrange(tree, index, space);
 
     let fills = display.fills_width() && width != Length::Fit && !constraints.intrinsic;
@@ -310,11 +344,26 @@ pub fn measure(tree: &mut Tree, index: Index, constraints: Constraints) -> Size 
         height: content.height + edges_y,
     };
 
+    let sizing = tree.sizing;
     let node = tree.node_mut(index);
     node.geometry.content = content;
     node.geometry.outer = outer;
-    node.geometry.constraints = Some(constraints);
+    // Only a placing pass leaves what the node holds where its box says.
+    node.geometry.constraints = (!sizing).then_some(constraints);
     node.dirty = false;
+    let geometry = &node.geometry;
+    let memo = Memo {
+        content,
+        outer,
+        baseline: geometry.baseline,
+        margin_top: geometry.margin_top,
+        margin_bottom: geometry.margin_bottom,
+        collapses_through: geometry.collapses_through,
+    };
+    if node.memo.len() >= MEMO {
+        node.memo.remove(0);
+    }
+    node.memo.push((constraints, memo));
     outer
 }
 
@@ -398,9 +447,133 @@ pub(super) mod testing {
 
 #[cfg(test)]
 mod tests {
-    use super::super::style::{Display, Edges, Length, WhiteSpace};
-    use super::super::tree::{Size, Tree};
+    use super::super::style::{Display, Distribute, Edges, Length, Track, WhiteSpace};
+    use super::super::tree::{Index, Size, Tree};
     use super::testing::*;
+
+    /// A card as the stress test has them: a bordered block holding flex rows.
+    fn cards(tree: &mut Tree) -> Index {
+        let mut items = Vec::new();
+        for card in 0..3 {
+            let id = 100 + card * 10;
+            let (name, value) = (text(tree, id, "card"), text(tree, id + 1, "42%"));
+            let left = element(tree, id + 2, Display::Block, &[name]);
+            let right = element(tree, id + 3, Display::Block, &[value]);
+            let row = element(tree, id + 4, Display::Flex, &[left, right]);
+            tree.node_mut(row).style.extra_mut().justify = Distribute::Between;
+            let words = text(tree, id + 5, "signal effect memo");
+            let line = element(tree, id + 6, Display::Flex, &[words]);
+            let item = element(tree, id + 7, Display::Block, &[row, line]);
+            tree.node_mut(item).style.padding = Edges {
+                top: 1,
+                right: 1,
+                bottom: 1,
+                left: 1,
+            };
+            items.push(item);
+        }
+        let grid = element(tree, 1, Display::Grid, &items);
+        tree.node_mut(grid).style.extra_mut().columns = vec![Track::Fr(1.0); 3];
+        grid
+    }
+
+    #[test]
+    fn sizing_again_in_a_way_seen_before_lays_nothing_out() {
+        let mut tree = Tree::default();
+        let root = cards(&mut tree);
+        let intrinsic = super::Constraints::intrinsic(60);
+        let narrowest = super::Constraints::min_content();
+        let size = |tree: &mut Tree, constraints| {
+            tree.sizing = true;
+            let size = super::measure(tree, root, constraints);
+            tree.sizing = false;
+            size
+        };
+
+        let wide = size(&mut tree, intrinsic);
+        let narrow = size(&mut tree, narrowest);
+        let arranged = tree.arranged;
+        assert_eq!(size(&mut tree, intrinsic), wide);
+        assert_eq!(size(&mut tree, narrowest), narrow);
+        assert_eq!(tree.arranged, arranged);
+    }
+
+    #[test]
+    fn a_grid_of_flex_cards_sizes_each_way_once() {
+        let mut tree = Tree::default();
+        let root = cards(&mut tree);
+        measure(&mut tree, root, 60);
+        let nodes = tree.len();
+        // Each sizing used to throw out the size the one before it found, and
+        // nesting multiplied that: these 25 nodes took 409 layouts, 277 now.
+        // Deeper trees, such as the stress test's, gain far more.
+        assert!(
+            tree.arranged <= nodes * 12,
+            "{} layouts of {nodes} nodes",
+            tree.arranged
+        );
+    }
+
+    #[test]
+    fn placing_after_sizing_leaves_children_where_a_fresh_layout_does() {
+        let fresh = {
+            let mut tree = Tree::default();
+            let root = cards(&mut tree);
+            measure(&mut tree, root, 60);
+            geometry(&tree)
+        };
+
+        let mut tree = Tree::default();
+        let root = cards(&mut tree);
+        measure(&mut tree, root, 60);
+        // Sized other ways, as a parent flex would, then placed again.
+        tree.sizing = true;
+        super::measure(&mut tree, root, super::Constraints::min_content());
+        super::measure(&mut tree, root, super::Constraints::intrinsic(20));
+        tree.sizing = false;
+        measure(&mut tree, root, 60);
+        assert_eq!(geometry(&tree), fresh);
+
+        // A change deep inside is laid out anew, however it was sized before.
+        let words = tree.index_of(105).unwrap();
+        tree.node_mut(words).text = "a much longer line of words".to_string();
+        tree.node_mut(words).text_width = 27;
+        tree.mark_dirty(words);
+        tree.sizing = true;
+        super::measure(&mut tree, root, super::Constraints::intrinsic(60));
+        tree.sizing = false;
+        measure(&mut tree, root, 60);
+        let changed = geometry(&tree);
+
+        let mut other = Tree::default();
+        let root = cards(&mut other);
+        let words = other.index_of(105).unwrap();
+        other.node_mut(words).text = "a much longer line of words".to_string();
+        other.node_mut(words).text_width = 27;
+        measure(&mut other, root, 60);
+        assert_eq!(changed, geometry(&other));
+    }
+
+    /// Where every node is, by client id.
+    fn geometry(tree: &Tree) -> Vec<(u32, i32, i32, i32, i32)> {
+        let mut all: Vec<_> = (100..130)
+            .chain([1])
+            .filter_map(|id| tree.index_of(id).ok())
+            .map(|index| {
+                let node = tree.node(index);
+                let geometry = node.geometry;
+                (
+                    node.client,
+                    geometry.x,
+                    geometry.y,
+                    geometry.outer.width,
+                    geometry.outer.height,
+                )
+            })
+            .collect();
+        all.sort();
+        all
+    }
 
     #[test]
     fn clipped_nodes_take_exactly_their_height() {

@@ -32,6 +32,14 @@ impl Unit {
         }
     }
 
+    /// The size the unit would be, without placing what it holds.
+    pub fn size(&self, tree: &mut Tree, constraints: Constraints) -> Size {
+        let sizing = std::mem::replace(&mut tree.sizing, true);
+        let size = self.measure(tree, constraints);
+        tree.sizing = sizing;
+        size
+    }
+
     /// Baseline relative to the top of the margin box.
     pub fn baseline(&self, tree: &Tree, height: i32) -> i32 {
         match self {
@@ -95,6 +103,7 @@ fn close(tree: &mut Tree, texts: &mut Vec<Index>, units: &mut Vec<Unit>) {
             node.geometry.outer = Size::default();
             node.fragments = Some(Vec::new());
             node.dirty = false;
+            node.memo.clear();
         }
         texts.clear();
     } else {
