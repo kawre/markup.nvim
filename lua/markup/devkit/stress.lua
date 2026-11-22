@@ -201,27 +201,36 @@ local function every(ms, fn)
 		return
 	end
 	local timer = assert(vim.uv.new_timer())
-	local waited = 0
 	local tick = 15
 	local fixed = type(ms) == "number" and ms
-	timer:start(
-		fixed or tick,
-		fixed or tick,
-		vim.schedule_wrap(function()
-			if reactive.untrack(paused) then
+	local last = time()
+	-- At most one turn waits for the main loop. A timer that queued a turn each
+	-- time it fired would, once the loop fell behind, queue more than it ever
+	-- runs: everything scheduled, the animation clock's ticks too, would wait
+	-- behind a backlog that only grows, and animations would all but stop.
+	local queued = false
+	local function turn()
+		queued = false
+		if reactive.untrack(paused) then
+			return
+		end
+		-- Turns can be skipped, so a rate that follows a setting goes by the
+		-- clock rather than by how often the timer woke.
+		if not fixed then
+			local current = time()
+			if current - last < reactive.untrack(ms) then
 				return
 			end
-			if fixed then
-				fn()
-				return
-			end
-			waited = waited + tick
-			if waited >= reactive.untrack(ms) then
-				waited = 0
-				fn()
-			end
-		end)
-	)
+			last = current
+		end
+		fn()
+	end
+	timer:start(fixed or tick, fixed or tick, function()
+		if not queued then
+			queued = true
+			vim.schedule(turn)
+		end
+	end)
 	reactive.on_cleanup(function()
 		if not timer:is_closing() then
 			timer:stop()
@@ -229,6 +238,8 @@ local function every(ms, fn)
 		end
 	end)
 end
+
+M.every = every
 
 --- 1..n as a list, for `m.each`.
 local function range(n)
