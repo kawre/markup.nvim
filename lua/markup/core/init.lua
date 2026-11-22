@@ -17,6 +17,7 @@
 ---@field id integer
 ---@field parent? integer
 ---@field display string
+---@field canvas boolean whether it holds a canvas surface
 ---@field text? string
 ---@field children integer
 ---@field x? integer

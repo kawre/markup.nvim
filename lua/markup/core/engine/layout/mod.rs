@@ -7,7 +7,6 @@
 pub mod absolute;
 mod anonymous;
 mod block;
-mod canvas;
 mod flex;
 mod grid;
 mod inline;
@@ -133,7 +132,6 @@ fn strategy(tree: &Tree, index: Index) -> &'static dyn Strategy {
         Display::Flex => &flex::Flex,
         Display::Grid => &grid::Grid,
         Display::Text => &text::Text,
-        Display::Canvas => &canvas::Canvas,
         Display::Contents => unreachable!("contents nodes are skipped by flow iteration"),
     }
 }

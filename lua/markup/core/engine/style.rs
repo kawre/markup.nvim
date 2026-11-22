@@ -16,8 +16,6 @@ pub enum Display {
     Grid,
     /// Transparent group: its children flow as if they belonged to its parent.
     Contents,
-    /// A 2D cell grid painted directly, independent of layout for its contents.
-    Canvas,
 }
 
 impl Display {
@@ -28,10 +26,7 @@ impl Display {
 
     /// Whether an `auto` width takes all the available space.
     pub fn fills_width(self) -> bool {
-        matches!(
-            self,
-            Display::Block | Display::Flex | Display::Grid | Display::Canvas
-        )
+        matches!(self, Display::Block | Display::Flex | Display::Grid)
     }
 }
 

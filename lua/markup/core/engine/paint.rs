@@ -1380,7 +1380,7 @@ mod tests {
         use crate::engine::tree::{Canvas, CanvasRow};
 
         let mut tree = Tree::default();
-        let canvas = tree.create(2, Display::Canvas).unwrap();
+        let canvas = tree.create(2, Display::Block).unwrap();
         {
             let node = tree.node_mut(canvas);
             node.style.width = Length::Cells(4);
@@ -1424,7 +1424,7 @@ mod tests {
         let mut tree = Tree::default();
         let root = tree.create(1, Display::Block).unwrap();
 
-        let bg = tree.create(2, Display::Canvas).unwrap();
+        let bg = tree.create(2, Display::Block).unwrap();
         {
             let node = tree.node_mut(bg);
             node.style.width = Length::Cells(10);

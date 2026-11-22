@@ -250,7 +250,7 @@ T["layout"]["composes with border, padding, flex siblings and interaction"] = fu
 	eq(child.lua_get("pressed"), true)
 end
 
-T["layout"]["auto width tracks container size and cleans up on unmount"] = function()
+T["layout"]["a full width tracks container size and cleans up on unmount"] = function()
 	run([[
 		box_width = m.signal(8)
 		shown = m.signal(true)
@@ -258,6 +258,7 @@ T["layout"]["auto width tracks container size and cleans up on unmount"] = funct
 			return m.block({
 				width = box_width,
 				m.canvas({
+					width = "full",
 					height = 1,
 					draw = function(ctx)
 						ctx:fill(0, 0, ctx.width, 1, "=", "Comment")
@@ -462,7 +463,13 @@ T["layout"]["sides with nothing to size them error"] = function()
 		mount_error({ width = "fit", height = 2 }),
 		"canvas width `fit` has nothing to size it: give cells, `full`, a share or `min_width`"
 	)
-	eq(mount_error({ height = 2 }), vim.NIL)
+	eq(
+		mount_error({ height = 2 }),
+		"canvas width `auto` has nothing to size it: give cells, `full`, a share or `min_width`"
+	)
+	eq(mount_error({ width = "full", height = 2 }), vim.NIL)
+	eq(mount_error({ width = 0.5, height = 2 }), vim.NIL)
+	eq(mount_error({ height = 2, min_width = 3 }), vim.NIL)
 	eq(mount_error({ width = 4, min_height = 2 }), vim.NIL)
 end
 
@@ -552,6 +559,7 @@ T["with blocks"]["fills a grid cell"] = function()
 			columns = { 3, 4 },
 			m.block("abc"),
 			m.canvas({
+				width = "full",
 				height = 2,
 				draw = function(ctx)
 					ctx:fill(0, 0, ctx.width, ctx.height, "*")
@@ -1011,6 +1019,119 @@ T["drawing"]["a style table changed between draws is seen again"] = function()
 	eq(child.lua_get("second_fg"), 0x00ff00)
 	-- Both cells share one highlight.
 	eq(#child.lua_get("view:highlights()"), 1)
+end
+
+T["display"] = new_set()
+
+--- The display the engine gave the canvas node.
+local function canvas_display()
+	return child.lua([[
+		for id = 1, view.engine:node_count() + 1 do
+			local ok, node = pcall(view.engine.describe, view.engine, id)
+			if ok and node.canvas then
+				return node.display
+			end
+		end
+	]])
+end
+
+local function grid(width, height, char)
+	return ([[m.canvas({
+		width = %d,
+		height = %d,
+		draw = function(ctx)
+			ctx:fill(0, 0, ctx.width, ctx.height, %q)
+		end,
+	})]]):format(width, height, char)
+end
+
+T["display"]["is inline by default and sits on the line's baseline"] = function()
+	run(([[view:render(m.block({ "aa", %s, "bb" }))]]):format(grid(3, 2, "#")))
+	eq(lines(), { "  ###", "aa###bb" })
+end
+
+T["display"]["inline canvases sit side by side and wrap"] = function()
+	run(
+		([[view:render(m.block({ width = 8, %s, %s, %s }))]]):format(
+			grid(3, 1, "a"),
+			grid(3, 1, "b"),
+			grid(3, 1, "c")
+		)
+	)
+	eq(lines(), { "aaabbb", "ccc" })
+end
+
+T["display"]["block takes lines of its own"] = function()
+	run([[view:render(m.block({ "aa", m.canvas({
+		display = "block",
+		width = 3,
+		height = 1,
+		draw = function(ctx) ctx:fill(0, 0, 3, 1, "#") end,
+	}), "bb" }))]])
+	eq(lines(), { "aa", "###", "bb" })
+	eq(canvas_display(), "block")
+end
+
+T["display"]["an inline canvas takes presses as a box"] = function()
+	run([[
+		pressed = false
+		view:render(m.block({
+			"aa",
+			m.canvas({
+				width = 2,
+				height = 2,
+				on_press = function() pressed = true end,
+				draw = function(ctx) ctx:fill(0, 0, 2, 2, "#") end,
+			}),
+		}))
+		-- The row above the text is still the canvas.
+		vim.api.nvim_win_set_cursor(win.win, { 1, 2 })
+		did_press = view:press()
+	]])
+	eq(lines(), { "  ##", "aa##" })
+	eq(child.lua_get("did_press"), true)
+	eq(child.lua_get("pressed"), true)
+end
+
+T["display"]["an absolute canvas is a block"] = function()
+	run([[
+		view:render(m.block({
+			position = "relative",
+			"text",
+			m.canvas({
+				position = "absolute",
+				top = 0,
+				left = 6,
+				width = 2,
+				height = 1,
+				draw = function(ctx) ctx:fill(0, 0, 2, 1, "#") end,
+			}),
+		}))
+	]])
+	eq(lines(), { "text  ##" })
+	eq(canvas_display(), "block")
+end
+
+T["display"]["rejects what a canvas cannot be"] = function()
+	local err = child.lua([[
+		local ok, err = pcall(view.render, view, m.canvas({ display = "flex", width = 2, height = 1 }))
+		return not ok and err:match("^[^\n]*") or nil
+	]])
+	eq(err, "canvas display `flex` must be `inline` or `block`")
+end
+
+T["display"]["a canvas with no rows sits at the bottom of its line"] = function()
+	-- As in CSS, the line's strut puts its baseline a row down.
+	local y = child.lua([[
+		view:render(m.block({ m.canvas({ width = 4, height = 0, draw = function() end }) }))
+		for id = 1, view.engine:node_count() + 1 do
+			local ok, node = pcall(view.engine.describe, view.engine, id)
+			if ok and node.canvas then
+				return node.y
+			end
+		end
+	]])
+	eq(y, 1)
 end
 
 return T

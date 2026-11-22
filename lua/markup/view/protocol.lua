@@ -22,7 +22,7 @@ local OP = {
 	set_canvas = 12,
 }
 
-M.display = { block = 1, inline = 2, contents = 3, flex = 4, grid = 5, canvas = 6 }
+M.display = { block = 1, inline = 2, contents = 3, flex = 4, grid = 5 }
 
 M.ROOT = 1
 

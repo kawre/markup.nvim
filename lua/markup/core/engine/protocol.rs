@@ -198,7 +198,8 @@ pub enum Command {
         id: ClientId,
         cells: Vec<u8>,
     },
-    /// Replaces a canvas node's cell surface without laying out its contents.
+    /// Replaces a canvas node's cell surface. Its size is its style's, so this
+    /// never lays anything out.
     SetCanvas {
         id: ClientId,
         canvas: Canvas,
@@ -334,7 +335,6 @@ impl<'a> Reader<'a> {
             3 => Display::Contents,
             4 => Display::Flex,
             5 => Display::Grid,
-            6 => Display::Canvas,
             other => return Err(LuaError::runtime(format!("unknown display {other}"))),
         })
     }
@@ -692,6 +692,7 @@ pub fn encode_node(lua: &Lua, info: &NodeInfo) -> LuaResult<LuaTable> {
     node.raw_set("reverse", info.reverse)?;
     node.raw_set("hl", info.hl)?;
     node.raw_set("interactive", info.interactive)?;
+    node.raw_set("canvas", info.canvas)?;
     node.raw_set("dirty", info.dirty)?;
     node.raw_set("position", info.position)?;
     Ok(node)

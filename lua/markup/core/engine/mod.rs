@@ -190,15 +190,7 @@ impl Engine {
             }
             Command::SetCanvas { id, canvas } => {
                 let index = tree.index_of(id)?;
-                let node = tree.node_mut(index);
-                let same_size = node
-                    .canvas
-                    .as_deref()
-                    .is_some_and(|old| old.width == canvas.width && old.height == canvas.height);
-                node.canvas = Some(Box::new(canvas));
-                if !same_size {
-                    tree.mark_dirty(index);
-                }
+                tree.node_mut(index).canvas = Some(Box::new(canvas));
             }
         }
         Ok(())
@@ -831,7 +823,7 @@ mod tests {
     }
 
     #[test]
-    fn canvas_updates_without_layout_and_decodes_binary_ranges() {
+    fn canvas_surfaces_never_lay_out_and_decode_binary_ranges() {
         let lua = mlua::Lua::new();
         let mut engine = Engine::new(20);
         let num = mlua::Value::Integer;
@@ -859,14 +851,18 @@ mod tests {
             layouts(engine)
         };
 
-        // create canvas #2, insert into ROOT, set_canvas 6x2
+        // create block #2 two rows tall, insert into ROOT, set_canvas 6x2
         assert!(
             apply_ops(
                 &mut engine,
                 vec![
                     num(1),
                     num(2),
-                    num(6),
+                    num(1),
+                    num(4),
+                    num(2),
+                    num(10),
+                    num(2),
                     num(5),
                     num(1),
                     num(2),
@@ -888,7 +884,7 @@ mod tests {
                 ],
             ) > 0
         );
-        assert_eq!(engine.describe(2).unwrap().display, "canvas");
+        assert_eq!(engine.describe(2).unwrap().display, "block");
         assert_eq!(engine.lines.len(), 2);
         assert_eq!(engine.lines[0].text, "abcd");
         assert_eq!(
@@ -966,13 +962,35 @@ mod tests {
         );
         assert_eq!(engine.lines[1].text, "o  k");
 
-        // Changing canvas dimensions triggers layout again.
-        assert!(
+        // The surface never sizes the node: a taller one lays nothing out, and
+        // the box cuts it off.
+        assert_eq!(
             apply_ops(
                 &mut engine,
-                vec![num(12), num(2), num(6), num(3), num(0), num(0)],
-            ) > 0
+                vec![
+                    num(12),
+                    num(2),
+                    num(6),
+                    num(3),
+                    num(0),
+                    num(3),
+                    text("a"),
+                    num(-1),
+                    text(""),
+                    text(""),
+                    text("b"),
+                    num(-1),
+                    text(""),
+                    text(""),
+                    text("c"),
+                    num(-1),
+                    text(""),
+                    text(""),
+                ],
+            ),
+            0
         );
-        assert_eq!(engine.lines.len(), 3);
+        let texts: Vec<&str> = engine.lines.iter().map(|line| line.text.as_str()).collect();
+        assert_eq!(texts, vec!["a", "b"]);
     }
 }

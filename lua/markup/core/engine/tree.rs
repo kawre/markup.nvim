@@ -152,7 +152,7 @@ pub struct Node {
     pub cells: Option<Box<[u8]>>,
     /// Set when line breaking cut this node into pieces.
     pub fragments: Option<Vec<Fragment>>,
-    /// Pre-drawn cell surface for `Display::Canvas` nodes.
+    /// The cell surface of a canvas, a block or inline sized by its style.
     pub canvas: Option<Box<Canvas>>,
     pub parent: Option<Index>,
     pub children: Vec<Index>,

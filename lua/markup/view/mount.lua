@@ -634,13 +634,14 @@ local function cell_size(value)
 	end
 end
 
---- Errors when a canvas side would lay out from its own surface, which starts
---- empty and so never grows: `auto` or `fit`, with nothing else to size it.
+--- Errors when nothing sizes a canvas side. A CSS canvas without a size
+--- takes its bitmap's; this one has none, so `auto` and `fit` need a min,
+--- grow or basis to go on.
 ---@param axis "width"|"height"
 ---@param value any
 ---@param props markup.canvas.props
 local function check_side(axis, value, props)
-	local unsized = value == "fit" or (axis == "height" and (value == nil or value == "auto"))
+	local unsized = value == nil or value == "auto" or value == "fit"
 	if unsized and props["min_" .. axis] == nil and props.grow == nil and props.basis == nil then
 		error(
 			("canvas %s `%s` has nothing to size it: give cells, `full`, a share or `min_%s`"):format(
@@ -659,8 +660,17 @@ function Canvas.mount(view, parent, before, props)
 	end
 
 	local canvas = require("markup.view.canvas")
+	-- As in CSS: inline unless told otherwise, and a positioned box is a block.
+	-- A flex or grid item is a box either way.
+	local display = props.display or "inline"
+	if display ~= "inline" and display ~= "block" then
+		error(("canvas display `%s` must be `inline` or `block`"):format(tostring(display)), 0)
+	end
+	if props.position == "absolute" then
+		display = "block"
+	end
 	local id = view:next_id()
-	view.commands:create(id, DISPLAY.canvas)
+	view.commands:create(id, DISPLAY[display])
 	view.commands:insert(parent, id, before)
 
 	apply_props(view, id, "canvas", props)
@@ -755,13 +765,16 @@ function Canvas.mount(view, parent, before, props)
 end
 
 ---@class markup.canvas.props: markup.node.props
+---@field display? "inline"|"block" `inline` (the default) sits in a line, as an inline-block; `block` takes lines of its own
 ---@field draw? fun(ctx: markup.canvas.context) called inside a reactive effect to paint the surface; redrawing runs no layout
 ---@field retain? boolean keep previous cells between redraws instead of clearing first
 ---@field transparent? boolean cells left blank with no style show what is under the canvas, and let presses through to it
 
---- A 2D cell surface drawn directly by `draw(ctx)`, independent of the layout
---- engine for its contents. Takes all standard box props (`width`, `height`,
---- `border`, `padding`, `margin`, `style`, `on_press`, ...).
+--- A 2D cell surface drawn directly by `draw(ctx)`, which never lays anything
+--- out. As a CSS `<canvas>`, it is inline unless `display = "block"`, and its
+--- size is what `width` and `height` say: cells, `"full"`, a share, or `auto`
+--- with a min, `grow` or `basis`. Takes all standard box props (`border`,
+--- `padding`, `margin`, `style`, `on_press`, ...).
 ---@param props markup.canvas.props
 function M.canvas(props)
 	return element(Canvas, props)

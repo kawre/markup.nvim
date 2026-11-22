@@ -264,10 +264,13 @@ struct Breaker {
 }
 
 impl Breaker {
-    /// Puts each piece of the line on its baseline.
+    /// Puts each piece of the line on its baseline. As CSS's strut, the
+    /// parent's own text, the baseline is at least a row down, so a box with
+    /// no height sits at the bottom of the row, not its top.
     fn finish_line(&mut self) {
+        let ascent = self.ascent.max(1);
         for placed in &mut self.placed[self.line_start..] {
-            placed.y = self.y + (self.ascent - placed.baseline).max(0);
+            placed.y = self.y + (ascent - placed.baseline).max(0);
         }
         self.line_start = self.placed.len();
     }
