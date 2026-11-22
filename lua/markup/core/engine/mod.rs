@@ -35,6 +35,9 @@ pub struct Engine {
     root: Index,
     width: i32,
     lines: Vec<Line>,
+    /// Whether a command came since the last frame. Without one the next is
+    /// the same, so it is not laid out, painted or diffed at all.
+    changed: bool,
 }
 
 fn elapsed_ms(since: Instant) -> f64 {
@@ -53,6 +56,7 @@ impl Engine {
             root,
             width,
             lines: vec![Line::default()],
+            changed: true,
         }
     }
 
@@ -68,9 +72,11 @@ impl Engine {
     /// buffer it was written to is gone or has not been written to at all.
     pub fn reset_frame(&mut self) {
         self.lines = vec![Line::default()];
+        self.changed = true;
     }
 
     pub fn apply(&mut self, command: Command) -> Result<(), TreeError> {
+        self.changed = true;
         let tree = &mut self.tree;
         match command {
             Command::Create { id, display } => {
@@ -165,6 +171,10 @@ impl Engine {
     /// new frame replaces the old one.
     pub fn render<T>(&mut self, emit: impl FnOnce(&[diff::Patch], Timings) -> T) -> T {
         let mut timings = Timings::default();
+        if !self.changed {
+            return emit(&[], timings);
+        }
+        self.changed = false;
 
         let started = Instant::now();
         self.tree.arranged = 0;
@@ -486,6 +496,58 @@ mod tests {
         );
         assert_eq!(apply("return { 4, 1, 49, false }"), ("é界xy".into(), 0));
         assert_eq!(apply("return { 8, 7 }").0, "é界xyz");
+    }
+
+    #[test]
+    fn a_frame_without_commands_does_nothing() {
+        let mut engine = Engine::new(20);
+        engine
+            .apply(Command::Create {
+                id: 2,
+                display: Display::Block,
+            })
+            .unwrap();
+        engine
+            .apply(Command::CreateText {
+                id: 3,
+                text: "words".into(),
+                width: 5,
+            })
+            .unwrap();
+        engine
+            .apply(Command::Insert {
+                parent: 2,
+                child: 3,
+                before: None,
+            })
+            .unwrap();
+        engine
+            .apply(Command::Insert {
+                parent: ROOT,
+                child: 2,
+                before: None,
+            })
+            .unwrap();
+        assert_eq!(engine.render(|patches, _| patches.len()), 1);
+
+        // Nothing came, so nothing is laid out, painted or sent.
+        let (patches, timings) = engine.render(|patches, timings| (patches.len(), timings));
+        assert_eq!(patches, 0);
+        assert_eq!((timings.layouts, timings.paint), (0, 0.0));
+        assert_eq!(engine.lines[0].text, "words");
+
+        // A command that changes nothing still gets a frame, which sends nothing.
+        engine.apply(Command::Resize { width: 20 }).unwrap();
+        assert_eq!(engine.render(|patches, _| patches.len()), 0);
+        engine
+            .apply(Command::SetText {
+                id: 3,
+                text: "other".into(),
+                width: 5,
+            })
+            .unwrap();
+        assert_eq!(engine.render(|patches, _| patches.len()), 1);
+        assert_eq!(engine.lines[0].text, "other");
     }
 
     #[test]
