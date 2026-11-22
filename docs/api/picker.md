@@ -54,15 +54,6 @@ function markup.picker.row(entry: markup.picker.entry, ctx: markup.picker.row_co
 A row of a `markup.picker.item`: its prefix, the label with what matched
 lit, and its suffix at the end.
 
-### markup.picker.truncate()
-
-```lua
-function markup.picker.truncate(spans: markup.picker.span[], width: integer)
-  -> markup.picker.span[]
-```
-
-Spans cut to `width` display cells, ending in "…" when anything was cut.
-
 ## markup.picker.core_opts
 
 Source: `lua/markup/picker.lua`

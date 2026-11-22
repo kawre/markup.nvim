@@ -435,6 +435,7 @@ Fields:
 - `snap`: `(boolean|fun():boolean)?` - with `false`, a view with `snap = "text"` moves the cursor
 - `spacing`: `(integer|fun():integer)?` - the least gap between children
 - `style`: `(fun():(markup.factory.element.style)?|markup.factory.element.style)?` - highlight group, or attributes of one
+- `text_overflow`: `(string|"clip"|"ellipsis"|fun():string|"clip"|"ellipsis")?` - as CSS `text-overflow`, what single-line text ends in where its width is cut off, by `overflow_x` or by `hidden` on either axis: "clip" (default) or "" cuts it, "ellipsis" ends it in …, and any other string ends it in that string. Needs `white_space = "nowrap"`, or text wraps and nothing is cut. The marker takes the style of this element
 - `top`: `(integer|fun():integer)?`
 - `vertical`: `(boolean|fun():boolean)?` - shorthand for `direction = "column"`
 - `white_space`: `("normal"|"nowrap"|fun():"normal"|"nowrap")?` - whether text wraps, inherited

@@ -146,6 +146,14 @@ pub enum WhiteSpace {
     Nowrap,
 }
 
+/// A marker and its cell widths, measured by the client.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TextOverflow {
+    pub text: String,
+    pub width: i32,
+    pub cells: Vec<u8>,
+}
+
 /// Size of a grid track.
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub enum Track {
@@ -170,6 +178,7 @@ pub struct Inset {
 pub struct Extra {
     /// Unset inherits from the parent.
     pub white_space: Option<WhiteSpace>,
+    pub text_overflow: Option<TextOverflow>,
     /// Whether text is a place a snapping cursor lands on. Unset inherits.
     pub snap: Option<bool>,
     /// The node and everything under it take no cursor: no snapping onto them,
@@ -259,6 +268,7 @@ impl Default for Extra {
     fn default() -> Self {
         Extra {
             white_space: None,
+            text_overflow: None,
             snap: None,
             inert: false,
             border: None,
