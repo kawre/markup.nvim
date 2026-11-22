@@ -623,7 +623,7 @@ function M.row(entry, ctx)
 		m.inline({
 			shrink = 1,
 			overflow_x = "hidden",
-			text_overflow = true,
+			overflow_marker = true,
 			m.inline(ctx.selected and "▌" or " ", "MarkupPickerMarker"),
 			m.inline({ margin_left = 1, spans_of(label) }),
 		}),

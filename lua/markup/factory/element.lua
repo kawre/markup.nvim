@@ -44,7 +44,7 @@ local Element = require("markup.element")
 ---@field overflow? markup.overflow|fun(): markup.overflow sets `overflow_x` and `overflow_y`, as in CSS
 ---@field overflow_x? markup.overflow|fun(): markup.overflow cuts off what is too wide. As in CSS, `hidden` cuts off what is too tall too, unless `overflow_y` says otherwise, and `clip` cuts off only this axis
 ---@field overflow_y? markup.overflow|fun(): markup.overflow cuts off what is too tall. As in CSS, `hidden` cuts off what is too wide too, unless `overflow_x` says otherwise, and `clip` cuts off only this axis
----@field text_overflow? boolean|string|fun(): boolean|string|nil marks clipped single-line text: true or "ellipsis" adds …, false or "clip" (default) clips without a marker, and any other string is a custom marker. Use with white_space = "nowrap" and horizontal clipping
+---@field overflow_marker? boolean|string|fun(): boolean|string|nil marks clipped single-line text: true or "ellipsis" adds …, false or "clip" (default) clips without a marker, and any other string is a custom marker. Use with white_space = "nowrap" and horizontal clipping
 ---@field white_space? "normal"|"nowrap"|fun(): "normal"|"nowrap" whether text wraps, inherited
 --- Flex and grid
 ---@field direction? "row"|"column"|fun(): "row"|"column"

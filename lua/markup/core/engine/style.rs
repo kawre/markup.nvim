@@ -148,7 +148,7 @@ pub enum WhiteSpace {
 
 /// A marker and its cell widths, measured by the client.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Ellipsis {
+pub struct OverflowMarker {
     pub text: String,
     pub width: i32,
     pub cells: Vec<u8>,
@@ -178,7 +178,7 @@ pub struct Inset {
 pub struct Extra {
     /// Unset inherits from the parent.
     pub white_space: Option<WhiteSpace>,
-    pub text_overflow: Option<Ellipsis>,
+    pub overflow_marker: Option<OverflowMarker>,
     /// Whether text is a place a snapping cursor lands on. Unset inherits.
     pub snap: Option<bool>,
     /// The node and everything under it take no cursor: no snapping onto them,
@@ -268,7 +268,7 @@ impl Default for Extra {
     fn default() -> Self {
         Extra {
             white_space: None,
-            text_overflow: None,
+            overflow_marker: None,
             snap: None,
             inert: false,
             border: None,
