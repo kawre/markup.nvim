@@ -2643,6 +2643,61 @@ local function click(row, col, times)
 	child.lua("vim.wait(20, function() return false end, 5)")
 end
 
+T["click"]["a link far down a long view presses as its highlights are drawn"] = function()
+	-- As leetcode.nvim makes its links: styled pieces in an inline that
+	-- presses on one click, found by `gx` through the node under the cursor.
+	child.o.lines, child.o.columns = 10, 40
+	run([[
+		vim.o.laststatus, vim.o.ruler, vim.o.showmode = 0, false, false
+		vim.api.nvim_set_hl(0, "Link", { fg = "#0000ff", underline = true })
+		opened = 0
+		open = function() opened = opened + 1 end
+		local rows = {}
+		for i = 1, 40 do
+			rows[i] = m.block({ "line " .. i, style = i % 2 == 0 and "Comment" or nil })
+		end
+		rows[35] = m.block({
+			"see ",
+			m.inline({
+				click = "single",
+				on_press = open,
+				m.inline("the docs", "Link"),
+				" ",
+				m.inline("#", "Comment"),
+			}),
+		})
+		view:render(m.block(rows))
+		vim.api.nvim_win_set_cursor(0, { 35, 6 })
+		vim.cmd("normal! zz")
+		vim.cmd("redraw")
+	]])
+
+	-- Drawn where it is, without a mark on the buffer.
+	eq(child.lua_get("#vim.api.nvim_buf_get_extmarks(win.buf, view.ns, 0, -1, {})"), 0)
+	local screen = child.get_screenshot()
+	local row
+	for i, text in ipairs(screen.text) do
+		if table.concat(text):find("^see the docs") then
+			row = i
+		end
+	end
+	eq(screen.attr[row][5] ~= screen.attr[row][1], true)
+
+	-- The key that presses, as leetcode.nvim binds it.
+	eq(child.lua_get("view:press()"), true)
+	eq(child.lua_get("opened"), 1)
+	-- `gx`: the handler of the node under the cursor.
+	eq(child.lua_get("view.handlers[view:node_at_cursor()] == open"), true)
+	-- One click, on the label and on the icon.
+	click(34, 5, 1)
+	eq(child.lua_get("opened"), 2)
+	click(34, 13, 1)
+	eq(child.lua_get("opened"), 3)
+	-- Beside it, nothing.
+	click(34, 1, 1)
+	eq(child.lua_get("opened"), 3)
+end
+
 T["click"]["a single click presses by default"] = function()
 	click_view()
 	click(3, 1, 1)
