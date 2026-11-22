@@ -623,7 +623,7 @@ pub fn encode_node(lua: &Lua, info: &NodeInfo) -> LuaResult<LuaTable> {
 ///
 /// ```lua
 /// {
-///   patches = { { first, last, lines = { ... }, marks = { row, start, end, hl, ... } } },
+///   patches = { { first, last, lines = { ... }, marks = { "start end hl ..." or false, ... } } },
 ///   layout = 0.1, paint = 0.2, diff = 0.3,
 /// }
 /// ```
@@ -636,20 +636,27 @@ pub fn encode(
     errors: &[String],
 ) -> LuaResult<LuaTable> {
     let list = lua.create_table_with_capacity(patches.len(), 0)?;
+    let mut packed = Vec::new();
 
     for (index, patch) in patches.iter().enumerate() {
         let lines = lua.create_table_with_capacity(patch.lines.len(), 0)?;
-        let marks = lua.create_table()?;
-        let mut position = 0;
+        let marks = lua.create_table_with_capacity(patch.lines.len(), 0)?;
 
         for (offset, line) in patch.lines.iter().enumerate() {
             lines.raw_set(offset + 1, lua.create_string(&line.text)?)?;
-            for mark in &line.marks {
-                let row = (patch.first + offset) as u32;
-                for value in [row, mark.start, mark.end, mark.hl] {
-                    position += 1;
-                    marks.raw_set(position, value)?;
+            // Each line's own, kept by the view as they come and read only
+            // when the line is drawn: one string of start, end and highlight,
+            // each a u32 in native order, rather than a table of them.
+            if line.marks.is_empty() {
+                marks.raw_set(offset + 1, false)?;
+            } else {
+                packed.clear();
+                for mark in &line.marks {
+                    for value in [mark.start, mark.end, mark.hl] {
+                        packed.extend_from_slice(&value.to_ne_bytes());
+                    }
                 }
+                marks.raw_set(offset + 1, lua.create_string(&packed)?)?;
             }
         }
 

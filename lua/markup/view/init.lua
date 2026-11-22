@@ -31,7 +31,7 @@ local M = Markup.object()
 --- Context key that holds the view of the current component.
 M.CONTEXT = "markup.view"
 
-local MARK = { end_col = 0, hl_group = "", hl_mode = "combine", hl_eol = true }
+local MARK = { end_col = 0, hl_group = "", hl_mode = "combine", hl_eol = true, ephemeral = true }
 
 -- When Neovim last drew the screen. It draws once its queue of events runs dry,
 -- which a busy enough UI never lets happen: frames would keep coming and none
@@ -46,6 +46,73 @@ api.nvim_set_decoration_provider(api.nvim_create_namespace("markup_redraws"), {
 		last_redraw = vim.uv.hrtime()
 	end,
 })
+
+local ffi = require("ffi")
+--- How the engine packs the highlights of a line: start, end and highlight.
+local U32 = ffi.typeof("const uint32_t *")
+
+--- Views by the buffer they write, for drawing their highlights.
+local drawn = setmetatable({}, { __mode = "v" }) ---@type table<integer, markup.view>
+
+-- A frame rewrites hundreds of lines with thousands of highlights, of which a
+-- window shows a few dozen. Placed on the buffer, each would cost a call on
+-- every frame, seen or not. They are kept per line instead, and drawn as
+-- Neovim draws each line, which it does again whenever the line changes.
+api.nvim_set_decoration_provider(api.nvim_create_namespace("markup_view_marks"), {
+	on_win = function(_, _, buf)
+		return drawn[buf] ~= nil
+	end,
+	on_line = function(_, _, buf, row)
+		local view = drawn[buf]
+		local marks = view and view.row_marks[row + 1]
+		if not marks then
+			return
+		end
+		local name, values = hl.name, ffi.cast(U32, marks)
+		for j = 0, #marks / 4 - 1, 3 do
+			MARK.end_col = values[j + 1]
+			MARK.hl_group = name(values[j + 2])
+			api.nvim_buf_set_extmark(buf, view.ns, row, values[j], MARK)
+		end
+	end,
+})
+
+--- The highlights drawn on the buffer, as `nvim_buf_get_extmarks` with
+--- `details` would list them, for tests and tools.
+---@return table[]
+function M:highlights()
+	local result = {}
+	if not self.row_marks then
+		return result
+	end
+	local name = hl.name
+	for row = 1, self.row_count do
+		local marks = self.row_marks[row]
+		if marks then
+			local line, values = {}, ffi.cast(U32, marks)
+			for j = 0, #marks / 4 - 1, 3 do
+				line[#line + 1] = {
+					0,
+					row - 1,
+					values[j],
+					{ end_col = values[j + 1], hl_group = name(values[j + 2]) },
+				}
+			end
+			-- In order of where they start, as Neovim lists them.
+			for k, mark in ipairs(line) do
+				mark[1] = k
+			end
+			table.sort(line, function(a, b)
+				if a[3] ~= b[3] then
+					return a[3] < b[3]
+				end
+				return a[1] < b[1]
+			end)
+			vim.list_extend(result, line)
+		end
+	end
+	return result
+end
 
 --- Draws the screen if it has not been drawn for longer than a frame.
 local function keep_drawing()
@@ -719,7 +786,7 @@ end
 ---@param patches table[]
 ---@return integer lines rewritten
 function M:apply(patches)
-	local buf, ns = self.win.buf, self.ns
+	local buf = self.win.buf
 	-- A closed window lets go of its buffer, though what is still running keeps
 	-- committing. Opening it again starts over from a blank buffer.
 	if #patches == 0 or not buf or not api.nvim_buf_is_valid(buf) then
@@ -758,23 +825,40 @@ function M:apply(patches)
 	local modifiable = vim.bo[buf].modifiable
 	vim.bo[buf].modifiable = true
 
+	-- The highlights of each line, drawn only where Neovim draws: see
+	-- `drawn`. A buffer of its own starts with none.
+	if self.marks_buf ~= buf then
+		self.marks_buf, self.row_marks, self.row_count = buf, {}, api.nvim_buf_line_count(buf)
+	end
+	drawn[buf] = self
+	local rows, count = self.row_marks, self.row_count
+
 	local total = 0
-	local set_extmark = api.nvim_buf_set_extmark
-	local name = hl.name
 	for i = #patches, 1, -1 do
 		local patch = patches[i]
-		local first, last, marks = patch[1], patch[2], patch.marks
+		local first, last, lines, marks = patch[1], patch[2], patch.lines, patch.marks
+		if last < 0 then
+			last = count
+		end
 
-		api.nvim_buf_clear_namespace(buf, ns, first, last)
-		api.nvim_buf_set_lines(buf, first, last, false, patch.lines)
-		total = total + #patch.lines
+		api.nvim_buf_set_lines(buf, first, last, false, lines)
+		total = total + #lines
 
-		for j = 1, #marks, 4 do
-			MARK.end_col = marks[j + 2]
-			MARK.hl_group = name(marks[j + 3])
-			set_extmark(buf, ns, marks[j], marks[j + 1], MARK)
+		-- The same rows as the lines, moving what is after them along.
+		local added = #lines - (last - first)
+		if added ~= 0 then
+			table.move(rows, last + 1, count, last + 1 + added)
+			for row = count + added + 1, count do
+				rows[row] = nil
+			end
+			-- A buffer always keeps a line, empty when all of them went.
+			count = math.max(count + added, 1)
+		end
+		for row = 1, #lines do
+			rows[first + row] = marks[row]
 		end
 	end
+	self.row_count = count
 
 	vim.bo[buf].modifiable = modifiable
 

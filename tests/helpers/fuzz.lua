@@ -348,7 +348,7 @@ end
 function F.snapshot(view)
 	local marks = vim.tbl_map(function(mark)
 		return { mark[2], mark[3], mark[4].end_col, mark[4].hl_group }
-	end, vim.api.nvim_buf_get_extmarks(view.win.buf, view.ns, 0, -1, { details = true }))
+	end, view:highlights())
 	table.sort(marks, function(a, b)
 		for i = 1, 3 do
 			if a[i] ~= b[i] then

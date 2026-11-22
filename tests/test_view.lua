@@ -41,7 +41,7 @@ end
 local function marks()
 	return child.lua_get([[vim.tbl_map(function(mark)
 		return { mark[2], mark[3], mark[4].end_col, mark[4].hl_group }
-	end, vim.api.nvim_buf_get_extmarks(win.buf, view.ns, 0, -1, { details = true }))]])
+	end, view:highlights())]])
 end
 
 T["static"] = new_set()
@@ -675,7 +675,7 @@ T["css"]["no longer wrapping paints a box where it is"] = function()
 		view:render(m.flex({ m.inline({ white_space = white_space, m.block({ padding = 1, style = "Search" }) }) }))
 		white_space("nowrap")
 		reactive.flush()
-		ids = vim.api.nvim_buf_get_extmarks(win.buf, view.ns, 0, -1, { details = true })
+		ids = view:highlights()
 		rows = {}
 		for _, mark in ipairs(ids) do
 			if mark[4].hl_group == "Search" then rows[#rows + 1] = mark[2] end
@@ -1218,6 +1218,53 @@ T["relative"] = function()
 end
 
 T["highlights"] = new_set()
+
+T["highlights"]["are drawn with the lines, not kept on the buffer"] = function()
+	child.o.lines, child.o.columns = 10, 20
+	run([[
+		vim.o.laststatus, vim.o.ruler, vim.o.showmode = 0, false, false
+		vim.api.nvim_set_hl(0, "Lit", { bg = "#ff0000" })
+		vim.api.nvim_set_hl(0, "Other", { bg = "#00ff00" })
+		group = m.signal("Lit")
+		local rows = {}
+		for i = 1, 30 do
+			rows[i] = m.block("row " .. i)
+		end
+		rows[1] = m.block({ "lit", style = group })
+		rows[2] = m.block({ "lit", style = "Lit" })
+		rows[30] = m.block({ "last", style = "Lit" })
+		view:render(m.block(rows))
+		vim.cmd("redraw")
+		placed = #vim.api.nvim_buf_get_extmarks(win.buf, view.ns, 0, -1, {})
+	]])
+	-- None placed on the buffer, however many lines there are.
+	eq(child.lua_get("placed"), 0)
+	-- A screenshot names its attributes in the order they show, so cells are
+	-- only compared within one.
+	local screen = child.get_screenshot()
+	eq(screen.attr[1][1] == screen.attr[2][1], true)
+	eq(screen.attr[1][1] ~= screen.attr[3][1], true)
+
+	-- A change of style alone is drawn too.
+	run([[group("Other"); reactive.flush(); vim.cmd("redraw")]])
+	screen = child.get_screenshot()
+	eq(screen.attr[1][1] ~= screen.attr[2][1], true)
+	eq(screen.attr[1][1] ~= screen.attr[3][1], true)
+
+	-- A line out of the window shows its highlight once it scrolls in.
+	run([[vim.cmd("normal! G"); vim.cmd("redraw")]])
+	screen = child.get_screenshot()
+	local last, plain
+	for i, text in ipairs(screen.text) do
+		local line = table.concat(text)
+		if line:find("^last") then
+			last = i
+		elseif line:find("^row") then
+			plain = i
+		end
+	end
+	eq(screen.attr[last][1] ~= screen.attr[plain][1], true)
+end
 
 T["highlights"]["uses byte columns after wide text"] = function()
 	run([[view:render(m.block({ m.inline("你", "Label"), m.inline("ab", "String") }))]])
@@ -1869,7 +1916,7 @@ T["updates match a fresh render"] = function()
 		local function snapshot(target)
 			local marks = vim.tbl_map(function(mark)
 				return { mark[2], mark[3], mark[4].end_col, mark[4].hl_group }
-			end, vim.api.nvim_buf_get_extmarks(target.win.buf, target.ns, 0, -1, { details = true }))
+			end, target:highlights())
 			table.sort(marks, function(a, b)
 				if a[1] ~= b[1] then return a[1] < b[1] end
 				if a[2] ~= b[2] then return a[2] < b[2] end
@@ -1973,7 +2020,7 @@ T["updates of flex cards in a grid match a fresh render"] = function()
 		local function snapshot(target)
 			local marks = vim.tbl_map(function(mark)
 				return { mark[2], mark[3], mark[4].end_col, mark[4].hl_group }
-			end, vim.api.nvim_buf_get_extmarks(target.win.buf, target.ns, 0, -1, { details = true }))
+			end, target:highlights())
 			table.sort(marks, function(a, b)
 				if a[1] ~= b[1] then return a[1] < b[1] end
 				if a[2] ~= b[2] then return a[2] < b[2] end
@@ -2770,7 +2817,7 @@ local function marked_text()
 	return child.lua_get([[vim.tbl_map(function(mark)
 		local line = vim.api.nvim_buf_get_lines(win.buf, mark[2], mark[2] + 1, false)[1]
 		return { mark[4].hl_group, line:sub(mark[3] + 1, mark[4].end_col) }
-	end, vim.api.nvim_buf_get_extmarks(win.buf, view.ns, 0, -1, { details = true }))]])
+	end, view:highlights())]])
 end
 
 local samples = {

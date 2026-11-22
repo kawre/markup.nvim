@@ -354,11 +354,9 @@ T["layout"]["draws highlight names in their own highlight"] = function()
 		reactive.flush()
 	]])
 	eq(contains(" Label"), true)
-	local groups = child.lua_get(
-		[[vim.tbl_map(function(mark)
+	local groups = child.lua_get([[vim.tbl_map(function(mark)
 		return mark[4].hl_group
-	end, vim.api.nvim_buf_get_extmarks(inspector.win.buf, inspector.view.ns, 0, -1, { details = true }))]]
-	)
+	end, inspector.view:highlights())]])
 	eq(vim.tbl_contains(groups, "Label"), true)
 end
 
