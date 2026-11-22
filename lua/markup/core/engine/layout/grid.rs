@@ -352,7 +352,7 @@ impl Strategy for Grid {
                 span: item.column_span,
                 size: item
                     .unit
-                    .measure(
+                    .size(
                         tree,
                         Constraints {
                             shares_as_auto: true,
@@ -367,7 +367,7 @@ impl Strategy for Grid {
                         shares_as_auto: true,
                         ..Constraints::min_content()
                     };
-                    item.unit.measure(tree, constraints).width
+                    item.unit.size(tree, constraints).width
                 },
             })
             .collect();
@@ -419,7 +419,7 @@ impl Strategy for Grid {
                     shares_as_auto: space.shares_as_auto,
                     ..Constraints::available(width)
                 };
-                let height = item.unit.measure(tree, constraints).height;
+                let height = item.unit.size(tree, constraints).height;
                 Contribution {
                     start: item.row,
                     span: item.row_span,

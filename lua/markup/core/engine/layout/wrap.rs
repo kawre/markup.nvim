@@ -633,6 +633,7 @@ pub fn flow_items(
         entry.geometry.outer = size;
         entry.geometry.constraints = None;
         entry.dirty = false;
+        entry.memo.clear();
         entry.fragments = Some(Vec::new());
     }
 

@@ -139,7 +139,7 @@ fn collect_items(
     ordered
         .into_iter()
         .map(|(_, unit)| {
-            let natural = unit.measure(tree, axis.natural(space));
+            let natural = unit.size(tree, axis.natural(space));
 
             let style = unit.style(tree);
             let extra = style.extra();
@@ -196,7 +196,7 @@ fn collect_items(
                         shares_as_auto: true,
                         ..Constraints::min_content()
                     };
-                    let narrowest = unit.measure(tree, constraints).width;
+                    let narrowest = unit.size(tree, constraints).width;
                     specified.map_or(narrowest, |specified| narrowest.min(specified))
                 }
             });
@@ -409,7 +409,7 @@ impl Strategy for Flex {
             for item in &mut items[line.items.clone()] {
                 let outer = item
                     .unit
-                    .measure(tree, axis.exact(space, item.measured_main(axis), None));
+                    .size(tree, axis.exact(space, item.measured_main(axis), None));
                 item.cross = axis.cross(outer);
                 line.cross = line.cross.max(item.cross);
             }

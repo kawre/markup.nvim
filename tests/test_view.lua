@@ -1670,6 +1670,101 @@ T["updates match a fresh render"] = function()
 	eq(child.lua_get("steps"), 250)
 end
 
+T["updates of flex cards in a grid match a fresh render"] = function()
+	run([[
+		-- Flex and grid size what they hold several ways before placing it, and
+		-- keep those sizes while nothing changes: what changes must be placed anew.
+		local seed = 4242
+		local function rnd(n)
+			seed = (seed * 16807) % 2147483647
+			return seed % n + 1
+		end
+		local words = { "signal", "a longer label", "x", "effect memo", "" }
+
+		local names, values, widths = {}, {}, {}
+		for i = 1, 6 do
+			names[i] = m.signal(words[i % #words + 1])
+			values[i] = m.signal(("%d%%"):format(i * 10))
+			widths[i] = m.signal(10 + i)
+		end
+
+		local function Cards()
+			local cards = {}
+			for i = 1, 6 do
+				cards[i] = m.block({
+					border = "rounded",
+					padding = { 0, 1 },
+					m.flex({
+						justify = "between",
+						m.block({ m.inline("card "), m.inline(names[i], "String") }),
+						m.inline(values[i], "Number"),
+					}),
+					m.flex({
+						gap = 1,
+						m.inline(names[i], "Comment"),
+						m.block({
+							width = function() return widths[i]() end,
+							-- Shrinking by a fraction of a cell would wrap the text where
+							-- no terminal can: what this checks is the sizes kept.
+							shrink = 0,
+							white_space = "normal",
+							"wraps at the width it is given",
+						}),
+					}),
+				})
+			end
+			return m.grid({ columns = 3, gap = { 0, 1 }, cards })
+		end
+
+		local function snapshot(target)
+			local marks = vim.tbl_map(function(mark)
+				return { mark[2], mark[3], mark[4].end_col, mark[4].hl_group }
+			end, vim.api.nvim_buf_get_extmarks(target.win.buf, target.ns, 0, -1, { details = true }))
+			table.sort(marks, function(a, b)
+				if a[1] ~= b[1] then return a[1] < b[1] end
+				if a[2] ~= b[2] then return a[2] < b[2] end
+				return a[4] < b[4]
+			end)
+			return vim.inspect({ vim.api.nvim_buf_get_lines(target.win.buf, 0, -1, false), marks })
+		end
+
+		local function fresh()
+			local buf = vim.api.nvim_create_buf(false, true)
+			local other = Markup.window({ buf = buf, position = "float", show = true, enter = false, width = 40, height = 5 })
+			local target = Markup.view(other)
+			target.commands:resize(vim.api.nvim_win_get_width(win.win))
+			target:render(Cards())
+			local result = snapshot(target)
+			target:unmount()
+			reactive.flush()
+			other:close()
+			return result
+		end
+
+		view:render(Cards())
+		failures, steps = {}, 0
+		for step = 1, 150 do
+			local i = rnd(6)
+			local action = rnd(3)
+			if action == 1 then
+				names[i](words[rnd(#words)])
+			elseif action == 2 then
+				values[i](("%d%%"):format(rnd(100)))
+			else
+				widths[i](rnd(20))
+			end
+			reactive.flush()
+			steps = step
+			if snapshot(view) ~= fresh() then
+				failures[#failures + 1] = step
+				break
+			end
+		end
+	]])
+	eq(child.lua_get("failures"), {})
+	eq(child.lua_get("steps"), 150)
+end
+
 T["hidden windows"] = new_set()
 
 T["hidden windows"]["fill when they open"] = function()

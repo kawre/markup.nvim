@@ -94,6 +94,19 @@ pub struct Node {
     pub children: Vec<Index>,
     pub dirty: bool,
     pub geometry: Geometry,
+    /// Sizes found for other constraints since the node was last dirty.
+    pub memo: Vec<(Constraints, Memo)>,
+}
+
+/// What a measure leaves for its parent, kept so sizing again is free.
+#[derive(Debug, Clone, Copy)]
+pub struct Memo {
+    pub content: Size,
+    pub outer: Size,
+    pub baseline: Option<i32>,
+    pub margin_top: Collapse,
+    pub margin_bottom: Collapse,
+    pub collapses_through: bool,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -120,6 +133,11 @@ pub struct Tree {
     ids: HashMap<ClientId, Index>,
     /// Out of flow nodes, kept apart so plain trees never look for them.
     absolutes: BTreeSet<Index>,
+    /// Set while a node is only sized, not placed.
+    pub sizing: bool,
+    /// Layouts done, for tests to count.
+    #[cfg(test)]
+    pub arranged: usize,
 }
 
 impl Tree {
@@ -205,6 +223,7 @@ impl Tree {
             children: Vec::new(),
             dirty: true,
             geometry: Geometry::default(),
+            memo: Vec::new(),
         };
 
         let index = match self.free.pop() {
