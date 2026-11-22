@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.6.0](https://github.com/kawre/markup.nvim/compare/v0.5.0...v0.6.0) (2026-11-22)
+
+
+### Features
+
+* a picker core for any look, that moves like a buffer and like Snacks ([#40](https://github.com/kawre/markup.nvim/issues/40)) ([71456e4](https://github.com/kawre/markup.nvim/commit/71456e4c552cc74e480caf27e326d77dd5a64c9f))
+* add display overrides to elements ([#41](https://github.com/kawre/markup.nvim/issues/41)) ([1754e47](https://github.com/kawre/markup.nvim/commit/1754e47e0d486781de890a47d47ae730896ccfe9))
+
+
+### Performance Improvements
+
+* picker rows that stay, Rust matching off the main thread, and resizes that keep up ([#43](https://github.com/kawre/markup.nvim/issues/43)) ([7a74223](https://github.com/kawre/markup.nvim/commit/7a742238afab9c64bcc10ec3cff205b7002884a3))
+* size flex and grid items without throwing out their layout ([#38](https://github.com/kawre/markup.nvim/issues/38)) ([99e3fb9](https://github.com/kawre/markup.nvim/commit/99e3fb9bb04ccc9ad5d84d137f9532a1e51efad9))
+
 ## [0.5.0](https://github.com/kawre/markup.nvim/compare/v0.4.0...v0.5.0) (2026-11-21)
 
 
