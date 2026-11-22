@@ -95,7 +95,8 @@ function M:highlights()
 					0,
 					row - 1,
 					values[j],
-					{ end_col = values[j + 1], hl_group = name(values[j + 2]) },
+					-- Each is on the one row it starts on.
+					{ end_row = row - 1, end_col = values[j + 1], hl_group = name(values[j + 2]) },
 				}
 			end
 			-- In order of where they start, as Neovim lists them.

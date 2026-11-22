@@ -1219,6 +1219,22 @@ end
 
 T["highlights"] = new_set()
 
+T["highlights"]["are listed as nvim_buf_get_extmarks lists them, end_row too"] = function()
+	run([[
+		vim.api.nvim_set_hl(0, "Lit", { bold = true })
+		view:render(m.block({ m.block("one"), m.block({ "two ", m.inline("lit", "Lit") }) }))
+		texts = {}
+		for _, mark in ipairs(view:highlights()) do
+			texts[#texts + 1] = {
+				mark[2],
+				mark[4].end_row,
+				vim.api.nvim_buf_get_text(win.buf, mark[2], mark[3], mark[4].end_row, mark[4].end_col, {})[1],
+			}
+		end
+	]])
+	eq(child.lua_get("texts"), { { 1, 1, "lit" } })
+end
+
 T["highlights"]["are drawn with the lines, not kept on the buffer"] = function()
 	child.o.lines, child.o.columns = 10, 20
 	run([[
