@@ -11,6 +11,7 @@ Source: `lua/markup/view/init.lua`
 Fields:
 
 - `CONTEXT`: `string` - Context key that holds the view of the current component.
+- `RESIZE_MS`: `integer` - When Neovim last drew the screen. It draws once its queue of events runs dry, which a busy enough UI never lets happen: frames would keep coming and none would show. Views then ask for the screen themselves. How often a window being resized, as when dragging its edge, is laid out again: at once, then at most once in this many ms, and once more at the end.
 
 ### markup.view:after_commit()
 

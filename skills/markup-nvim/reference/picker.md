@@ -191,6 +191,19 @@ markup.picker.instance:element()
 
 What the list shows: the rows that fit, and a scrollbar when not all do.
 
+A row stays mounted for as long as its item shows, so moving the selection
+draws the two rows it moves between, and scrolling by one adds a row and
+takes one away, rather than every row being made again.
+
+### markup.picker.instance:everything()
+
+```lua
+markup.picker.instance:everything(items: any[])
+  -> table
+```
+
+Every item as an entry, for a query that matches all of them.
+
 ### markup.picker.instance:focus_input()
 
 ```lua
@@ -253,6 +266,15 @@ markup.picker.instance:margin()
 Rows kept between the selection and the edges of the list, as
 'scrolloff' keeps them around the cursor.
 
+### markup.picker.instance:matcher_for()
+
+```lua
+markup.picker.instance:matcher_for(items: any[])
+  -> unknown
+```
+
+The engine's matcher for `items`, made again when they change.
+
 ### markup.picker.instance:max_offset()
 
 ```lua
@@ -277,6 +299,15 @@ markup.picker.instance:move(by: any)
 ```
 
 Moves by `by` rows, going round past either end, counts too.
+
+### markup.picker.instance:native_entries()
+
+```lua
+markup.picker.instance:native_entries()
+  -> table
+```
+
+What the engine found, as entries, best first.
 
 ### markup.picker.instance:on_cleanup()
 
@@ -310,6 +341,16 @@ markup.picker.instance:place_cursor()
 
 Keeps the list's cursor on the selection, for when it has the focus.
 
+### markup.picker.instance:positions()
+
+```lua
+markup.picker.instance:positions(entry: markup.picker.entry)
+  -> integer[]?
+```
+
+The characters of `entry` the query matched, from zero, worked out only
+for the rows that show.
+
 ### markup.picker.instance:reveal()
 
 ```lua
@@ -335,6 +376,15 @@ markup.picker.instance:scrollbar(count: any, height: any)
 
 A column as tall as the list, with a thumb for the part that shows.
 
+### markup.picker.instance:search()
+
+```lua
+markup.picker.instance:search(query: string)
+```
+
+Starts matching `query` in the engine. What it finds comes in `found`, at
+once for a short list, from a thread for a long one.
+
 ### markup.picker.instance:select()
 
 ```lua
@@ -342,6 +392,12 @@ markup.picker.instance:select(index: any)
 ```
 
 Selects row `index`, kept inside the list, and shows it.
+
+### markup.picker.instance:stop_polling()
+
+```lua
+markup.picker.instance:stop_polling()
+```
 
 ### markup.picker.instance:sync()
 

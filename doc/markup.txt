@@ -1919,6 +1919,15 @@ markup.picker.instance:element()            *markup.picker.instance:element()*
       -> markup.element
     What the list shows: the rows that fit, and a scrollbar when not all do.
 
+    A row stays mounted for as long as its item shows, so moving the selection
+    draws the two rows it moves between, and scrolling by one adds a row and
+    takes one away, rather than every row being made again.
+
+markup.picker.instance:everything()      *markup.picker.instance:everything()*
+    markup.picker.instance:everything(items: any[])
+      -> table
+    Every item as an entry, for a query that matches all of them.
+
 markup.picker.instance:focus_input()    *markup.picker.instance:focus_input()*
     markup.picker.instance:focus_input()
     Starts typing: in the input, or as `on_focus_input` says.
@@ -1958,6 +1967,11 @@ markup.picker.instance:margin()              *markup.picker.instance:margin()*
     Rows kept between the selection and the edges of the list, as
     'scrolloff' keeps them around the cursor.
 
+markup.picker.instance:matcher_for()    *markup.picker.instance:matcher_for()*
+    markup.picker.instance:matcher_for(items: any[])
+      -> unknown
+    The engine's matcher for `items`, made again when they change.
+
 markup.picker.instance:max_offset()      *markup.picker.instance:max_offset()*
     markup.picker.instance:max_offset()
       -> integer
@@ -1970,6 +1984,12 @@ markup.picker.instance:measure()            *markup.picker.instance:measure()*
 markup.picker.instance:move()                  *markup.picker.instance:move()*
     markup.picker.instance:move(by: any)
     Moves by `by` rows, going round past either end, counts too.
+
+markup.picker.instance:native_entries()
+                                     *markup.picker.instance:native_entries()*
+    markup.picker.instance:native_entries()
+      -> table
+    What the engine found, as entries, best first.
 
 markup.picker.instance:on_cleanup()      *markup.picker.instance:on_cleanup()*
     markup.picker.instance:on_cleanup(fn: any)
@@ -1987,6 +2007,12 @@ markup.picker.instance:place_cursor()  *markup.picker.instance:place_cursor()*
     markup.picker.instance:place_cursor()
     Keeps the list's cursor on the selection, for when it has the focus.
 
+markup.picker.instance:positions()        *markup.picker.instance:positions()*
+    markup.picker.instance:positions(entry: markup.picker.entry)
+      -> integer[]?
+    The characters of `entry` the query matched, from zero, worked out only
+    for the rows that show.
+
 markup.picker.instance:reveal()              *markup.picker.instance:reveal()*
     markup.picker.instance:reveal()
     Scrolls just enough for the selection to show, its margin with it.
@@ -2000,9 +2026,17 @@ markup.picker.instance:scrollbar()        *markup.picker.instance:scrollbar()*
       -> markup.element
     A column as tall as the list, with a thumb for the part that shows.
 
+markup.picker.instance:search()              *markup.picker.instance:search()*
+    markup.picker.instance:search(query: string)
+    Starts matching `query` in the engine. What it finds comes in `found`, at
+    once for a short list, from a thread for a long one.
+
 markup.picker.instance:select()              *markup.picker.instance:select()*
     markup.picker.instance:select(index: any)
     Selects row `index`, kept inside the list, and shows it.
+
+markup.picker.instance:stop_polling()  *markup.picker.instance:stop_polling()*
+    markup.picker.instance:stop_polling()
 
 markup.picker.instance:sync()                  *markup.picker.instance:sync()*
     markup.picker.instance:sync()
@@ -2384,6 +2418,14 @@ markup.util.set_hl()                                    *markup.util.set_hl()*
     function markup.util.set_hl(groups: table<string, string|vim.api.keyset.highlight>, opts?: { prefix: string, default: boolean, managed: boolean, ns: integer })
     Ensures the hl groups are always set, even after a colorscheme change.
 
+markup.util.throttle()                                *markup.util.throttle()*
+    function markup.util.throttle(fn: function, ms: integer)
+      -> throttled: function
+      2. cancel: function
+    Calls `fn` at once, and then at most once every `ms` while it keeps being
+    asked for, with the last ask always answered: for what fires many times in a
+    row, such as each step of dragging a window's edge.
+
 markup.util.typeof()                                    *markup.util.typeof()*
     function markup.util.typeof(obj: table, type: markup.object.type)
       -> boolean
@@ -2408,6 +2450,14 @@ markup.view                                                      *markup.view*
 markup.view.CONTEXT                                      *markup.view.CONTEXT*
     string
     Context key that holds the view of the current component.
+
+markup.view.RESIZE_MS                                  *markup.view.RESIZE_MS*
+    integer
+    When Neovim last drew the screen. It draws once its queue of events runs dry,
+    which a busy enough UI never lets happen: frames would keep coming and none
+    would show. Views then ask for the screen themselves.
+    How often a window being resized, as when dragging its edge, is laid out
+    again: at once, then at most once in this many ms, and once more at the end.
 
 markup.view:after_commit()                        *markup.view:after_commit()*
     markup.view:after_commit(listener: function)

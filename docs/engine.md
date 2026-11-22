@@ -945,3 +945,54 @@ pub fn visible_rect(&self, id: ClientId) -> Result<Option<(Rect, bool)>, TreeErr
 The part of a node that clipping ancestors leave visible, and whether
 that is all of it. Nothing when they hide it entirely.
 0
+
+## `matcher.rs`
+
+*lua/markup/core/matcher.rs*
+
+Fuzzy matching for pickers, with nucleo, the matcher of the Helix editor.
+
+The candidates are handed over once. A search over a few thousand of them
+takes well under a millisecond, so it runs at once; a larger one runs on a
+thread of its own, and Lua polls for what it found, so typing never waits.
+A newer search makes an older one stop where it is.
+
+A query that only adds to the last one searches what that one found: nothing
+the last one left out can match more. What it finds is sorted the same as a
+search of everything, by score and then by where the candidate is.
+
+```rust
+pub fn start(&mut self, query: &str) -> bool
+```
+
+Starts a search for `query`. Returns whether it is done already, which
+a small one is: `poll` then has it.
+0
+
+```rust
+pub fn poll(&mut self) -> Option<Found>
+```
+
+What the newest search found, once it has.
+0
+
+```rust
+pub fn wait(&mut self) -> Option<Found>
+```
+
+Waits for the newest search, for when what it finds is needed now.
+0
+
+```rust
+pub fn positions(&mut self, index: usize, query: &str) -> Vec<u32>
+```
+
+The characters of candidate `index` that `query` matched, from zero.
+0
+
+```rust
+pub fn create_matcher(_: &Lua, candidates: Vec<String>) -> LuaResult<FuzzyMatcher>
+```
+
+`create_matcher(candidates)`, the strings to match, one per item.
+0

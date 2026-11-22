@@ -355,6 +355,18 @@ function markup.util.set_hl(groups: table<string, string|vim.api.keyset.highligh
 
 Ensures the hl groups are always set, even after a colorscheme change.
 
+### markup.util.throttle()
+
+```lua
+function markup.util.throttle(fn: function, ms: integer)
+  -> throttled: function
+  2. cancel: function
+```
+
+Calls `fn` at once, and then at most once every `ms` while it keeps being
+asked for, with the last ask always answered: for what fires many times in a
+row, such as each step of dragging a window's edge.
+
 ### markup.util.typeof()
 
 ```lua
