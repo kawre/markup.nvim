@@ -2864,6 +2864,22 @@ T["wide text"]["follows setcellwidths"] = function()
 	eq(lines(), { "\u{f07b}\u{f07b}", "\u{f07b}\u{f07b}", "\u{f07b}" })
 end
 
+T["wide text"]["measures text again after ambiwidth changes"] = function()
+	run([[
+		text = m.signal("≤≤≤≤")
+		view:render(m.block({ width = 4, text }))
+		first = lines()
+		vim.o.ambiwidth = "double"
+		text("x")
+		reactive.flush()
+		-- The same text as before, measured again rather than remembered.
+		text("≤≤≤≤")
+		reactive.flush()
+	]])
+	eq(child.lua_get("first"), { "≤≤≤≤" })
+	eq(lines(), { "≤≤", "≤≤" })
+end
+
 T["wide text"]["updates keep rows aligned"] = function()
 	run([[
 		name = m.signal("ab")
