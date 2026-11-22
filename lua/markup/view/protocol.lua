@@ -260,10 +260,10 @@ M.valid_utf8 = valid_utf8
 M.style.text_overflow = {
 	49,
 	function(value)
-		if value == nil or value == "clip" then
+		if value == nil or value == false or value == "clip" then
 			return false
 		end
-		local marker = value == "ellipsis" and "…" or value
+		local marker = (value == true or value == "ellipsis") and "…" or value
 		if type(marker) ~= "string" or marker:find("%c") then
 			error("text_overflow needs a non-empty, single-line marker", 0)
 		end

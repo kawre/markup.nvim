@@ -364,6 +364,23 @@ T["overflow"]["ellipsis follows the actual flex width and preserves highlights"]
 	eq(marks(), { { 0, 0, 4, "Match" } })
 end
 
+T["overflow"]["accepts booleans for the default marker and plain clipping"] = function()
+	run([[
+		marker = m.signal(false)
+		view:render(m.block({
+			width = 4, white_space = "nowrap", overflow_x = "clip", text_overflow = marker,
+			"long label",
+		}))
+		first = lines()
+		marker(true)
+		reactive.flush()
+	]])
+	eq(child.lua_get("first"), { "long" })
+	eq(lines(), { "lon…" })
+	run("marker(false); reactive.flush()")
+	eq(lines(), { "long" })
+end
+
 T["overflow"]["uses a custom marker only when clipped"] = function()
 	run([[
 		marker = m.signal("󰇘")
