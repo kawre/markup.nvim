@@ -297,18 +297,22 @@ local function mount_fixed(view, parent, before, element)
 end
 
 local function mount_host(view, parent, before, element)
-	if element.props and element.props.position == "fixed" then
+	local props = element.props or {}
+	if props.position == "fixed" then
 		return mount_fixed(view, parent, before, element)
 	end
 
 	local tag = element.type
-	local display = tags[tag]
+	if unsupported[tag] then
+		error(("`%s` is not implemented by the engine yet"):format(tag), 0)
+	end
 
-	if not display then
-		if unsupported[tag] then
-			error(("`%s` is not implemented by the engine yet"):format(tag), 0)
+	local display = tags[tag] or DISPLAY.block
+	if props.display ~= nil then
+		display = DISPLAY[props.display]
+		if not display or display == DISPLAY.contents then
+			error(("invalid display `%s`"):format(tostring(props.display)), 0)
 		end
-		display = DISPLAY.block
 	end
 
 	local id = view:next_id()
@@ -317,7 +321,6 @@ local function mount_host(view, parent, before, element)
 	-- leaves what it made where the next clear of the parent frees it.
 	view.commands:insert(parent, id, before)
 
-	local props = element.props or {}
 	apply_props(view, id, tag, props)
 	if props.children ~= nil then
 		mount(view, props.children, id)

@@ -69,6 +69,30 @@ T["static"]["keeps inline runs on one line"] = function()
 	eq(lines(), { "a b", "c" })
 end
 
+T["static"]["display can make a block inline and an inline block-level"] = function()
+	run([[view:render(m.block({
+		m.inline("a "),
+		m.block({ display = "inline", "b" }),
+		m.inline({ display = "block", "c" }),
+		m.inline("d"),
+	}))]])
+	eq(lines(), { "a b", "c", "d" })
+end
+
+T["static"]["display enables flex and grid layout on a block"] = function()
+	run([[view:render(m.block({
+		m.block({ display = "flex", gap = 1, m.block("a"), m.block("b") }),
+		m.block({ display = "grid", columns = { 3, 3 }, m.block("c"), m.block("d") }),
+	}))]])
+	eq(lines(), { "a b", "c  d" })
+end
+
+T["static"]["rejects an invalid display"] = function()
+	expect.error(function()
+		run([[view:render(m.block({ display = "unknown", "a" }))]])
+	end, "invalid display `unknown`")
+end
+
 T["static"]["applies margin, padding and spacing"] = function()
 	run([[view:render(m.block({
 		spacing = 1,
