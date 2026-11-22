@@ -481,4 +481,307 @@ T["layout"]["a reactive side with nothing to size it errors"] = function()
 	eq(err:find("canvas height `auto` has nothing to size it", 1, true) ~= nil, true)
 end
 
+T["with blocks"] = new_set()
+
+T["with blocks"]["stacks between blocks in flow"] = function()
+	run([[
+		view:render(m.block({
+			m.block("above"),
+			m.canvas({
+				width = 3,
+				height = 2,
+				draw = function(ctx)
+					ctx:fill(0, 0, 3, 2, "#", "Comment")
+				end,
+			}),
+			m.block("below"),
+		}))
+	]])
+	eq(lines(), { "above", "###", "###", "below" })
+end
+
+T["with blocks"]["moves with its siblings without redrawing"] = function()
+	run([[
+		draws = 0
+		top_rows = m.signal(1)
+		view:render(m.block({
+			m.block({ height = top_rows, "top" }),
+			m.canvas({
+				width = 3,
+				height = 1,
+				draw = function(ctx)
+					draws = draws + 1
+					ctx:text(0, 0, "abc", "Title")
+				end,
+			}),
+		}))
+		before = lines()
+		top_rows(3)
+		reactive.flush()
+		after = lines()
+	]])
+	eq(child.lua_get("before"), { "top", "abc" })
+	eq(child.lua_get("after"), { "top", "", "", "abc" })
+	eq(child.lua_get("draws"), 1)
+	eq(marks(), { { 3, 0, 3, "Title" } })
+end
+
+T["with blocks"]["sits beside blocks in a flex row and takes what grows"] = function()
+	run([[
+		view:render(m.flex({
+			width = 20,
+			gap = 1,
+			m.block({ width = 4, "left" }),
+			m.canvas({
+				grow = 1,
+				height = 1,
+				draw = function(ctx)
+					ctx:fill(0, 0, ctx.width, 1, "=")
+					ctx:text(0, 0, tostring(ctx.width))
+				end,
+			}),
+			m.block({ width = 5, "right" }),
+		}))
+	]])
+	eq(lines(), { "left 9======== right" })
+end
+
+T["with blocks"]["fills a grid cell"] = function()
+	run([[
+		view:render(m.grid({
+			columns = { 3, 4 },
+			m.block("abc"),
+			m.canvas({
+				height = 2,
+				draw = function(ctx)
+					ctx:fill(0, 0, ctx.width, ctx.height, "*")
+				end,
+			}),
+		}))
+	]])
+	eq(lines(), { "abc****", "   ****" })
+end
+
+T["with blocks"]["is cut off by a block that clips"] = function()
+	run([[
+		view:render(m.block({
+			width = 4,
+			overflow = "hidden",
+			m.canvas({
+				width = 8,
+				height = 1,
+				draw = function(ctx)
+					ctx:text(0, 0, "abcdefgh", "Title")
+				end,
+			}),
+			m.block("next"),
+		}))
+	]])
+	eq(lines(), { "abcd", "next" })
+	eq(marks(), { { 0, 0, 4, "Title" } })
+end
+
+T["with blocks"]["an absolute canvas above flow hides what it covers"] = function()
+	run([[
+		view:render(m.block({
+			m.block({ style = "CursorLine", "0123456789" }),
+			m.block("second line"),
+			m.canvas({
+				position = "absolute",
+				top = 0,
+				left = 2,
+				width = 3,
+				height = 2,
+				draw = function(ctx)
+					ctx:text(0, 0, "AB", "Title")
+				end,
+			}),
+		}))
+	]])
+	-- The canvas hides text and highlights under all its cells, even the ones
+	-- it leaves blank.
+	eq(lines(), { "01AB 56789", "se   d line" })
+	eq(marks(), {
+		{ 0, 0, 2, "CursorLine" },
+		{ 0, 2, 4, "Title" },
+		{ 0, 5, 60, "CursorLine" },
+	})
+end
+
+T["with blocks"]["an absolute canvas above flow takes its presses"] = function()
+	run([[
+		pressed = nil
+		view:render(m.block({
+			m.block({ on_press = function() pressed = "block" end, "press me here" }),
+			m.canvas({
+				position = "absolute",
+				top = 0,
+				left = 6,
+				width = 2,
+				height = 1,
+				on_press = function() pressed = "canvas" end,
+				draw = function(ctx)
+					ctx:text(0, 0, "[]")
+				end,
+			}),
+		}))
+		vim.api.nvim_win_set_cursor(win.win, { 1, 6 })
+		view:press()
+		on_canvas = pressed
+		vim.api.nvim_win_set_cursor(win.win, { 1, 0 })
+		view:press()
+		on_block = pressed
+	]])
+	eq(lines(), { "press [] here" })
+	eq(child.lua_get("on_canvas"), "canvas")
+	eq(child.lua_get("on_block"), "block")
+end
+
+T["with blocks"]["an absolute block above a canvas hides its cells"] = function()
+	run([[
+		view:render(m.block({
+			position = "relative",
+			m.canvas({
+				width = 8,
+				height = 2,
+				draw = function(ctx)
+					ctx:fill(0, 0, 8, 2, "#", "Comment")
+				end,
+			}),
+			m.block({
+				position = "absolute",
+				top = 1,
+				left = 2,
+				width = 4,
+				style = "Title",
+				"pop",
+			}),
+		}))
+	]])
+	eq(lines(), { "########", "##pop ##" })
+	eq(marks(), {
+		{ 0, 0, 8, "Comment" },
+		{ 1, 0, 2, "Comment" },
+		{ 1, 2, 6, "Title" },
+		{ 1, 6, 8, "Comment" },
+	})
+end
+
+T["with blocks"]["a styled block above a negative z canvas hides its highlights"] = function()
+	run([[
+		view:render(m.block({
+			m.canvas({
+				position = "absolute",
+				top = 0,
+				left = 0,
+				z = -1,
+				inert = true,
+				width = 10,
+				height = 3,
+				draw = function(ctx)
+					ctx:fill(0, 0, 10, 3, ".", "Comment")
+				end,
+			}),
+			m.block({
+				margin_left = 2,
+				width = 5,
+				padding = { 0, 1 },
+				style = "CursorLine",
+				"ab",
+			}),
+		}))
+	]])
+	-- Its whole box hides the canvas, padding and blanks included: the width
+	-- is the content's, so the box is 7 cells.
+	eq(lines(), { ".. ab    .", "..........", ".........." })
+	eq(marks(), {
+		{ 0, 0, 2, "Comment" },
+		{ 0, 2, 9, "CursorLine" },
+		{ 0, 9, 10, "Comment" },
+		{ 1, 0, 10, "Comment" },
+		{ 2, 0, 10, "Comment" },
+	})
+end
+
+T["with blocks"]["plain text above a negative z canvas leaves its highlight around words"] = function()
+	run([[
+		view:render(m.block({
+			m.canvas({
+				position = "absolute",
+				top = 0,
+				left = 0,
+				z = -1,
+				inert = true,
+				width = 10,
+				height = 1,
+				draw = function(ctx)
+					ctx:fill(0, 0, 10, 1, ".", "Comment")
+				end,
+			}),
+			"hi",
+		}))
+	]])
+	eq(lines(), { "hi........" })
+	eq(marks(), { { 0, 2, 10, "Comment" } })
+end
+
+T["with blocks"]["negative z canvases stack by z behind flow"] = function()
+	run([[
+		local function layer(z, char, width)
+			return m.canvas({
+				position = "absolute",
+				top = 0,
+				left = 0,
+				z = z,
+				inert = true,
+				width = width,
+				height = 1,
+				draw = function(ctx)
+					ctx:fill(0, 0, width, 1, char)
+				end,
+			})
+		end
+		view:render(m.block({
+			layer(-1, "b", 6),
+			layer(-2, "a", 10),
+			"x",
+		}))
+	]])
+	eq(lines(), { "xbbbbbaaaa" })
+end
+
+T["with blocks"]["an overlay covers both flow and a negative z canvas"] = function()
+	run([[
+		view:render(m.block({
+			m.canvas({
+				position = "absolute",
+				top = 0,
+				left = 0,
+				z = -1,
+				inert = true,
+				width = 10,
+				height = 1,
+				draw = function(ctx)
+					ctx:fill(0, 0, 10, 1, ".", "Comment")
+				end,
+			}),
+			"text",
+			m.block({
+				position = "absolute",
+				top = 0,
+				left = 2,
+				width = 5,
+				style = "Title",
+				"top",
+			}),
+		}))
+	]])
+	-- Flow text hides the canvas under it, and the overlay hides both.
+	eq(lines(), { "tetop  ..." })
+	eq(marks(), {
+		{ 0, 2, 7, "Title" },
+		{ 0, 7, 10, "Comment" },
+	})
+end
+
 return T
