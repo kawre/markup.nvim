@@ -805,6 +805,38 @@ end
 
 local Each = { typeof = "control" }
 
+--- Which of `keys` stay where they are: the longest run whose `position`
+--- before only goes up. Keys with no position are new.
+---@param keys any[]
+---@param position table<any, integer>
+---@return table<integer, true> indexes into `keys`
+local function stable(keys, position)
+	-- For each length, the index of the run of that length ending lowest.
+	local tails, previous = {}, {}
+	for i, key in ipairs(keys) do
+		local at = position[key]
+		if at then
+			local low, high = 1, #tails + 1
+			while low < high do
+				local middle = math.floor((low + high) / 2)
+				if position[keys[tails[middle]]] < at then
+					low = middle + 1
+				else
+					high = middle
+				end
+			end
+			tails[low] = i
+			previous[i] = tails[low - 1]
+		end
+	end
+	local stays, i = {}, tails[#tails]
+	while i do
+		stays[i] = true
+		i = previous[i]
+	end
+	return stays
+end
+
 function Each.mount(view, parent, before, props)
 	local list, render = props.list, props.render
 	local key_of = props.key or function(item)
@@ -851,17 +883,25 @@ function Each.mount(view, parent, before, props)
 			end
 		end
 
-		-- Walk both orders. Items already in sequence need no command at all.
-		local placed = {}
-		local cursor = 1
-		local function current()
-			while remaining[cursor] ~= nil and placed[remaining[cursor]] do
-				cursor = cursor + 1
-			end
-			return remaining[cursor]
+		-- The longest run of items already in order stays where it is, and only
+		-- the rest moves: swapping two rows moves two, not every row between.
+		local position = {}
+		for i, key in ipairs(remaining) do
+			position[key] = i
 		end
+		local stays = stable(keys, position)
 
 		untrack(function()
+			-- Each item that moves or is new goes in before the next that stays,
+			-- in list order, so what moves before the same one keeps its order.
+			local anchors, anchor = {}, nil
+			for i = #keys, 1, -1 do
+				anchors[i] = anchor
+				if stays[i] then
+					anchor = entries[keys[i]].id
+				end
+			end
+
 			for i, key in ipairs(keys) do
 				local entry = entries[key]
 				if entry then
@@ -875,19 +915,12 @@ function Each.mount(view, parent, before, props)
 						entry.item(item)
 					end
 					entry.index(i)
-				end
-				local expected = current()
-				if key == expected then
-					cursor = cursor + 1
-				else
-					local next_id = expected ~= nil and entries[expected].id or nil
-					if entry then
-						view.commands:insert(group, entry.id, next_id)
-					else
-						entries[key] = create(items[i], i, next_id)
+					if not stays[i] then
+						view.commands:insert(group, entry.id, anchors[i])
 					end
+				else
+					entries[key] = create(items[i], i, anchors[i])
 				end
-				placed[key] = true
 			end
 		end)
 

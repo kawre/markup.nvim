@@ -104,6 +104,7 @@ fn close(tree: &mut Tree, texts: &mut Vec<Index>, units: &mut Vec<Unit>) {
             node.fragments = Some(Vec::new());
             node.dirty = false;
             node.memo.clear();
+            node.placed = None;
         }
         texts.clear();
     } else {

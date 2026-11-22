@@ -1301,6 +1301,26 @@ T["dynamic text"]["counts only the nodes laid out again"] = function()
 	eq(child.lua_get("changed"), 4)
 end
 
+T["dynamic text"]["a change in a flex item lays out only its path"] = function()
+	run([[
+		count = m.signal(1)
+		local rows = {}
+		for i = 1, 100 do
+			rows[i] = m.flex({ m.inline("row"), m.inline(" " .. i) })
+		end
+		rows[50] = m.flex({ m.inline("row"), m.inline(count) })
+		view:render(m.flex({ m.block("side"), m.block({ grow = 1, rows }) }))
+		count(200)
+		reactive.flush()
+		changed = view.stats.layouts
+		text = vim.api.nvim_buf_get_lines(view.win.buf, 49, 50, false)[1]
+	]])
+	-- Sizing the flex item used to throw out the layout of every row in it,
+	-- and placing it then laid all of them out again: 322 layouts, 23 now.
+	eq(child.lua_get("changed") <= 30, true)
+	eq(child.lua_get("text"), "    row200")
+end
+
 T["dynamic text"]["lays nothing out for what only changes how it is painted"] = function()
 	run([[
 		group = m.signal("String")
@@ -1601,6 +1621,70 @@ T["each"]["rejects duplicate keys"] = function()
 		vim.wait(10)
 	]])
 	eq(child.lua_get("errors[1]:find('twice') ~= nil"), true)
+end
+
+T["each"]["moves only what left its order"] = function()
+	run([[
+		local list = {}
+		for i = 1, 100 do
+			list[i] = i
+		end
+		items = m.signal(list)
+		view:render(m.each(items, function(item) return m.block("row " .. item()) end))
+		local swapped = vim.list_slice(list, 1)
+		swapped[10], swapped[90] = swapped[90], swapped[10]
+		items(swapped)
+		reactive.flush()
+		commands = view.stats.commands
+		row10, row90 = lines()[10], lines()[90]
+	]])
+	-- Two moves of four values each. Every row between the two used to move.
+	eq(child.lua_get("commands"), 8)
+	eq(child.lua_get("{ row10, row90 }"), { "row 90", "row 10" })
+end
+
+T["each"]["keeps any reorder, insert and removal in order"] = function()
+	run([[
+		math.randomseed(7)
+		local next_key, list = 0, {}
+		local function new()
+			next_key = next_key + 1
+			return next_key
+		end
+		for i = 1, 30 do
+			list[i] = new()
+		end
+		items = m.signal(list)
+		view:render(m.each(items, function(item) return m.block("row " .. item()) end))
+		wrong = nil
+		for round = 1, 200 do
+			list = vim.list_slice(list, 1)
+			for _ = 1, math.random(0, 4) do
+				local i, j = math.random(#list), math.random(#list)
+				list[i], list[j] = list[j], list[i]
+			end
+			for _ = 1, math.random(0, 3) do
+				if #list > 0 then
+					table.remove(list, math.random(#list))
+				end
+			end
+			for _ = 1, math.random(0, 3) do
+				table.insert(list, math.random(#list + 1), new())
+			end
+			if round % 50 == 0 then
+				-- Every row elsewhere, the case the run that stays is shortest.
+				list = vim.fn.reverse(list)
+			end
+			items(list)
+			reactive.flush()
+			local expected = vim.tbl_map(function(key) return "row " .. key end, list)
+			if not vim.deep_equal(lines(), #expected > 0 and expected or { "" }) then
+				wrong = round
+				break
+			end
+		end
+	]])
+	eq(child.lua_get("wrong"), vim.NIL)
 end
 
 T["each"]["frees engine nodes of removed items"] = function()
