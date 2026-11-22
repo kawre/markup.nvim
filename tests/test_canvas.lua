@@ -345,4 +345,140 @@ T["layout"]["negative z canvas paints behind flow without blocking presses"] = f
 	eq(child.lua_get("pressed"), true)
 end
 
+T["layout"]["negative z canvas takes presses where flow has nothing interactive"] = function()
+	run([[
+		pressed = nil
+		view:render(m.block({
+			m.canvas({
+				position = "absolute",
+				top = 0,
+				left = 0,
+				z = -1,
+				width = 10,
+				height = 2,
+				on_press = function() pressed = "canvas" end,
+				draw = function(ctx)
+					ctx:fill(0, 0, 10, 2, ".", "Comment")
+				end,
+			}),
+			m.block({ width = 4, on_press = function() pressed = "card" end, "card" }),
+			"plain",
+		}))
+		-- Beside the card, only text that takes no presses is in flow.
+		vim.api.nvim_win_set_cursor(win.win, { 2, 2 })
+		view:press()
+		over_text = pressed
+		vim.api.nvim_win_set_cursor(win.win, { 1, 7 })
+		view:press()
+		beside_card = pressed
+		vim.api.nvim_win_set_cursor(win.win, { 1, 1 })
+		view:press()
+		on_card = pressed
+	]])
+	eq(child.lua_get("over_text"), "canvas")
+	eq(child.lua_get("beside_card"), "canvas")
+	eq(child.lua_get("on_card"), "card")
+end
+
+T["layout"]["inert flow keeps presses from a negative z canvas"] = function()
+	run([[
+		pressed = false
+		view:render(m.block({
+			inert = true,
+			m.canvas({
+				position = "absolute",
+				top = 0,
+				left = 0,
+				z = -1,
+				width = 6,
+				height = 1,
+				on_press = function() pressed = true end,
+				draw = function(ctx)
+					ctx:fill(0, 0, 6, 1, ".")
+				end,
+			}),
+			"x",
+		}))
+		vim.api.nvim_win_set_cursor(win.win, { 1, 3 })
+		did_press = view:press()
+	]])
+	eq(child.lua_get("did_press"), false)
+	eq(child.lua_get("pressed"), false)
+end
+
+T["layout"]["canvas over a negative z canvas hides its highlights"] = function()
+	run([[
+		view:render(m.block({
+			m.canvas({
+				position = "absolute",
+				top = 0,
+				left = 0,
+				z = -1,
+				inert = true,
+				width = 10,
+				height = 1,
+				draw = function(ctx)
+					ctx:fill(0, 0, 10, 1, "#", "Comment")
+				end,
+			}),
+			m.canvas({
+				width = 6,
+				height = 1,
+				margin_left = 2,
+				draw = function(ctx)
+					ctx:text(0, 0, "ab")
+				end,
+			}),
+		}))
+	]])
+	eq(lines(), { "##ab######" })
+	eq(marks(), {
+		{ 0, 0, 2, "Comment" },
+		{ 0, 4, 10, "Comment" },
+	})
+end
+
+T["layout"]["sides with nothing to size them error"] = function()
+	local function mount_error(props)
+		return child.lua(
+			[[
+			local props = ...
+			props.draw = function() end
+			local ok, err = pcall(view.render, view, m.canvas(props))
+			return not ok and err:match("^[^\n]*") or nil
+		]],
+			{ props }
+		)
+	end
+	eq(
+		mount_error({ width = 4 }),
+		"canvas height `auto` has nothing to size it: give cells, `full`, a share or `min_height`"
+	)
+	eq(
+		mount_error({ width = 4, height = "fit" }),
+		"canvas height `fit` has nothing to size it: give cells, `full`, a share or `min_height`"
+	)
+	eq(
+		mount_error({ width = "fit", height = 2 }),
+		"canvas width `fit` has nothing to size it: give cells, `full`, a share or `min_width`"
+	)
+	eq(mount_error({ height = 2 }), vim.NIL)
+	eq(mount_error({ width = 4, min_height = 2 }), vim.NIL)
+end
+
+T["layout"]["a reactive side with nothing to size it errors"] = function()
+	child.lua([[
+		local height = m.signal(2)
+		view:render(m.canvas({ width = 4, height = height, draw = function() end }))
+		vim.notify = function(msg) _G.reported = msg end
+		height("auto")
+		reactive.flush()
+	]])
+	-- Effect errors are reported on the next tick.
+	child.lua("vim.wait(1000, function() return _G.reported ~= nil end)")
+	local err = child.lua_get("_G.reported")
+	eq(type(err), "string")
+	eq(err:find("canvas height `auto` has nothing to size it", 1, true) ~= nil, true)
+end
+
 return T

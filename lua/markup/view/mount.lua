@@ -634,6 +634,25 @@ local function cell_size(value)
 	end
 end
 
+--- Errors when a canvas side would lay out from its own surface, which starts
+--- empty and so never grows: `auto` or `fit`, with nothing else to size it.
+---@param axis "width"|"height"
+---@param value any
+---@param props markup.canvas.props
+local function check_side(axis, value, props)
+	local unsized = value == "fit" or (axis == "height" and (value == nil or value == "auto"))
+	if unsized and props["min_" .. axis] == nil and props.grow == nil and props.basis == nil then
+		error(
+			("canvas %s `%s` has nothing to size it: give cells, `full`, a share or `min_%s`"):format(
+				axis,
+				tostring(value or "auto"),
+				axis
+			),
+			0
+		)
+	end
+end
+
 function Canvas.mount(view, parent, before, props)
 	if props.position == "fixed" then
 		return mount_fixed(view, parent, before, element(Canvas, props))
@@ -649,6 +668,12 @@ function Canvas.mount(view, parent, before, props)
 	local draw = props.draw
 	if not draw then
 		return
+	end
+
+	for _, axis in ipairs({ "width", "height" }) do
+		if type(props[axis]) ~= "function" then
+			check_side(axis, props[axis], props)
+		end
 	end
 
 	local constrained = props.min_width ~= nil
@@ -688,6 +713,12 @@ function Canvas.mount(view, parent, before, props)
 	effect(function()
 		local raw_w = type(props.width) == "function" and props.width() or props.width
 		local raw_h = type(props.height) == "function" and props.height() or props.height
+		if type(props.width) == "function" then
+			check_side("width", raw_w, props)
+		end
+		if type(props.height) == "function" then
+			check_side("height", raw_h, props)
+		end
 		local w = cell_size(raw_w)
 		local h = cell_size(raw_h)
 

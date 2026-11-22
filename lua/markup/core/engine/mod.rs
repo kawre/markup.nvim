@@ -304,8 +304,9 @@ impl Engine {
     }
 
     /// Every node on a cell, from the root down to the innermost one. Absolute
-    /// boxes with non-negative `z` sit on top, highest `z` first; negative `z`
-    /// sits behind flow.
+    /// boxes with non-negative `z` sit on top, highest `z` first. Negative `z`
+    /// sits behind flow, and takes the cell when nothing in flow there is
+    /// interactive or inert.
     pub fn path_at(&self, row: i32, col: i32) -> Vec<ClientId> {
         let tree = &self.tree;
 
@@ -324,7 +325,7 @@ impl Engine {
         }
 
         let mut path = Vec::new();
-        if self.descend(self.root, 0, 0, row, col, &mut path) {
+        if self.descend(self.root, 0, 0, row, col, &mut path) && self.claims(&path) {
             return path;
         }
 
@@ -340,6 +341,17 @@ impl Engine {
         }
 
         path
+    }
+
+    /// Whether a flow path keeps a cell from the `z < 0` layers behind it: it
+    /// holds a node that takes presses, or an inert one that stops them.
+    fn claims(&self, path: &[ClientId]) -> bool {
+        path.iter().any(|&id| {
+            self.tree.index_of(id).is_ok_and(|index| {
+                let style = &self.tree.node(index).style;
+                style.interactive || style.extra().inert
+            })
+        })
     }
 
     fn ancestors(&self, index: Index) -> Vec<ClientId> {

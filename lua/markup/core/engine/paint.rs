@@ -630,6 +630,14 @@ impl<'a> Painter<'a> {
             for (offset, line) in canvas.rows.iter().enumerate() {
                 if let Some(row) = self.row(content_y + offset as i32) {
                     if !line.text.is_empty() {
+                        // Like flow text, what the canvas draws hides a
+                        // `z < 0` layer's highlights under it.
+                        if row.backdrop_ranges > 0 {
+                            let (from, to) = row.clipped(content_x, content_x + line.width);
+                            if from < to {
+                                row.cut_backdrop_ranges(from, to);
+                            }
+                        }
                         let cells = line.cells.as_deref().unwrap_or(&[]);
                         row.write(
                             content_x,
