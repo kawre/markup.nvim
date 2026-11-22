@@ -8,7 +8,7 @@
 --   docs/engine.md        the engine, from the `//!` and `///` comments in Rust
 --   skills/markup-nvim/   an Agent Skill, the format Claude, Codex and others
 --                         read: SKILL.md from scripts/skill.md, and
---                         docs/api/*.md as reference/
+--                         docs/api/*.md and CHANGELOG.md as reference/
 --
 --   nvim -l scripts/docs.lua
 --
@@ -107,6 +107,52 @@ end
 ---@field alias? string
 ---@field members docs.member[]
 
+--- Where the type of a one-line alias ends and its description starts. A
+--- space ends the type, unless it is inside brackets or next to a `|` or a `:`,
+--- as in `a | b` and `fun(t: number): number`.
+local function split_alias(text)
+	local depth = 0
+	for i = 1, #text do
+		local char = text:sub(i, i)
+		if char:match("[%(%[{<]") then
+			depth = depth + 1
+		elseif char:match("[%)%]}>]") then
+			depth = depth - 1
+		elseif char == " " and depth == 0 then
+			local before = text:sub(1, i - 1):match("(%S)%s*$")
+			local after = text:sub(i):match("^%s*(%S)")
+			if before ~= "|" and before ~= ":" and after ~= "|" then
+				return trim(text:sub(1, i - 1)), trim(text:sub(i))
+			end
+		end
+	end
+	return trim(text), ""
+end
+
+--- An alias as written, read from its source: lua-language-server gives back
+--- only its name, as `hover.expandAlias` is off, and drops its description.
+--- A union written as `---|` lines keeps one line for each.
+---@return string type, string desc
+local function alias_source(file, line)
+	local lines = vim.split(read(root .. "/lua/" .. file), "\n", { plain = true })
+	local rest = lines[line]:match("^%-%-%-@alias%s+%S+%s*(.*)$")
+	if not rest then
+		return "", ""
+	end
+	if rest ~= "" then
+		return split_alias(rest)
+	end
+	local union = {}
+	for i = line + 1, #lines do
+		local option = lines[i]:match("^%-%-%-|%s*(.*)$")
+		if not option then
+			break
+		end
+		table.insert(union, "| " .. option)
+	end
+	return table.concat(union, "\n"), ""
+end
+
 --- Classes and aliases of lua/markup, each with what it documents.
 ---@return docs.class[]
 local function lua_classes()
@@ -129,7 +175,11 @@ local function lua_classes()
 			}
 			for _, d in ipairs(entry.defines) do
 				if d.type == "doc.alias" then
-					class.alias = d.view
+					local alias, desc = alias_source(d.file, d.start[1] + 1)
+					class.alias = alias ~= "" and alias or d.view
+					if desc ~= "" then
+						class.desc = desc
+					end
 				elseif d.rawdesc and d.rawdesc ~= "" and class.desc == "" then
 					class.desc = clean(d.rawdesc)
 				end
@@ -319,10 +369,15 @@ local function class_markdown(class)
 		vim.list_extend(out, { "", class.desc })
 	end
 	if class.alias then
-		vim.list_extend(
-			out,
-			{ "", "```lua", "---@alias " .. class.name .. " " .. class.alias, "```" }
-		)
+		vim.list_extend(out, {
+			"",
+			"```lua",
+			"---@alias "
+				.. class.name
+				.. (class.alias:match("^| ") and "\n---" or " ")
+				.. (class.alias:gsub("\n", "\n---")),
+			"```",
+		})
 	end
 	local fields = vim.tbl_filter(function(m)
 		return m.kind == "field"
@@ -474,7 +529,8 @@ local function vimdoc(classes)
 			vim.list_extend(out, help_text(class.desc, ""))
 		end
 		if class.alias then
-			vim.list_extend(out, { "", ">lua", "    " .. class.name .. " = " .. class.alias, "<" })
+			local alias = class.alias:gsub("\n", "\n    " .. (" "):rep(#class.name + 1))
+			vim.list_extend(out, { "", ">lua", "    " .. class.name .. " = " .. alias, "<" })
 		end
 		for _, m in ipairs(class.members) do
 			local title = member_title(class, m)
@@ -590,6 +646,16 @@ local function skills(api)
 	for name, text in pairs(api) do
 		write(dir .. "/reference/" .. name, text)
 	end
+	-- What changed, for code written against another version. release-please
+	-- writes CHANGELOG.md in the release commit, and the docs run after it on
+	-- master copies it here.
+	local changelog = read(root .. "/CHANGELOG.md")
+	write(
+		dir .. "/reference/changelog.md",
+		("<!-- Copied from CHANGELOG.md by scripts/docs.lua. Do not edit. -->\n\n%s"):format(
+			changelog
+		)
+	)
 end
 
 local LLMS = [[
@@ -606,6 +672,7 @@ Start with the skill, then the topic of the API you need.
 ## Guide
 
 - [skills/markup-nvim/SKILL.md](skills/markup-nvim/SKILL.md): how to build UIs with markup.nvim, with examples and pitfalls
+- [CHANGELOG.md](CHANGELOG.md): what changed in every release, breaking changes first
 
 ## API
 

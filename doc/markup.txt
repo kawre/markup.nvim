@@ -192,7 +192,7 @@ markup.align                                                    *markup.align*
     lua/markup/factory/element.lua
 
 >lua
-    markup.align = markup.align
+    markup.align = "start"|"end"|"center"|"stretch"
 <
 
 ==============================================================================
@@ -324,7 +324,7 @@ markup.border                                                  *markup.border*
     lua/markup/factory/element.lua
 
 >lua
-    markup.border = markup.border
+    markup.border = "single"|"rounded"|"double"|"heavy"|"half"|{ chars: string }
 <
 
 ==============================================================================
@@ -503,7 +503,7 @@ markup.devkit.part                                        *markup.devkit.part*
     lua/markup/devkit/tree.lua
 
 >lua
-    markup.devkit.part = markup.devkit.part
+    markup.devkit.part = [string, string?]
 <
 
 ==============================================================================
@@ -683,7 +683,7 @@ markup.easing                                                  *markup.easing*
     lua/markup/animate.lua
 
 >lua
-    markup.easing = markup.easing
+    markup.easing = fun(t: number): number
 <
 
 ==============================================================================
@@ -691,8 +691,10 @@ markup.edges                                                    *markup.edges*
 
     lua/markup/factory/element.lua
 
+one value for every side, or CSS order: `{ y, x }`, `{ top, x, bottom }`, `{ top, right, bottom, left }`
+
 >lua
-    markup.edges = markup.edges
+    markup.edges = integer|integer[]
 <
 
 ==============================================================================
@@ -723,7 +725,12 @@ markup.element.typeof
     lua/markup/element/init.lua
 
 >lua
-    markup.element.typeof = markup.element.typeof
+    markup.element.typeof = | "function"
+                          | "class"
+                          | "fragment"
+                          | "element"
+                          | "root"
+                          | "context"
 <
 
 ==============================================================================
@@ -785,7 +792,7 @@ markup.factory.element.children              *markup.factory.element.children*
     lua/markup/factory/element.lua
 
 >lua
-    markup.factory.element.children = markup.factory.element.children
+    markup.factory.element.children = number|string|table|markup.factory.element.children.dynamic
 <
 
 ==============================================================================
@@ -804,7 +811,8 @@ markup.factory.element.fragment.props  *markup.factory.element.fragment.props*
     lua/markup/factory/element.lua
 
 >lua
-    markup.factory.element.fragment.props = markup.factory.element.fragment.props
+    markup.factory.element.fragment.props = | { children?: markup.factory.element.children }
+                                          | markup.factory.element.children
 <
 
 ==============================================================================
@@ -813,7 +821,7 @@ markup.factory.element.new                        *markup.factory.element.new*
     lua/markup/factory/element.lua
 
 >lua
-    markup.factory.element.new = markup.factory.element.new
+    markup.factory.element.new = | fun(props?: markup.factory.element.props, style?: markup.factory.element.style): markup.element
 <
 
 ==============================================================================
@@ -822,7 +830,9 @@ markup.factory.element.props                    *markup.factory.element.props*
     lua/markup/factory/element.lua
 
 >lua
-    markup.factory.element.props = markup.factory.element.props
+    markup.factory.element.props = | { children?: markup.factory.element.children }
+                                 | markup.factory.element.children
+                                 | markup.node.props
 <
 
 ==============================================================================
@@ -831,7 +841,7 @@ markup.factory.element.style                    *markup.factory.element.style*
     lua/markup/factory/element.lua
 
 >lua
-    markup.factory.element.style = markup.factory.element.style
+    markup.factory.element.style = string|vim.api.keyset.highlight
 <
 
 ==============================================================================
@@ -955,7 +965,7 @@ markup.justify                                                *markup.justify*
     lua/markup/factory/element.lua
 
 >lua
-    markup.justify = markup.justify
+    markup.justify = "start"|"end"|"center"|"between"|"around"|"evenly"|"stretch"
 <
 
 ==============================================================================
@@ -1188,7 +1198,7 @@ markup.layout.widget                                    *markup.layout.widget*
     lua/markup/layout.lua
 
 >lua
-    markup.layout.widget = markup.layout.widget
+    markup.layout.widget = markup.layout.window | markup.layout.box
 <
 
 ==============================================================================
@@ -1334,8 +1344,10 @@ markup.length                                                  *markup.length*
 
     lua/markup/factory/element.lua
 
+cells, or as wide as there is room, the content, or the parent
+
 >lua
-    markup.length = markup.length
+    markup.length = integer|"auto"|"fit"|"full"
 <
 
 ==============================================================================
@@ -1619,11 +1631,11 @@ markup.node.props.overflow                        *markup.node.props.overflow*
 
 markup.node.props.overflow_x                    *markup.node.props.overflow_x*
     (fun():markup.overflow|markup.overflow)?
-    cuts off what is too wide. As in CSS, `hidden` cuts off what is too tall too, unless `overflow_y` says otherwise, and `clip` cuts off only this axis
+    cuts off what is too wide. As in CSS, `hidden` on either axis cuts off both, whatever the other one says, and makes the box a scroll container: as a flex or grid item, it may shrink below its content. `clip` cuts off only this axis, unless `overflow_y` is `hidden`
 
 markup.node.props.overflow_y                    *markup.node.props.overflow_y*
     (fun():markup.overflow|markup.overflow)?
-    cuts off what is too tall. As in CSS, `hidden` cuts off what is too wide too, unless `overflow_x` says otherwise, and `clip` cuts off only this axis
+    cuts off what is too tall. As in CSS, `hidden` on either axis cuts off both, whatever the other one says, and makes the box a scroll container: as a flex or grid item, it may shrink below its content. `clip` cuts off only this axis, unless `overflow_x` is `hidden`
 
 markup.node.props.overlay                          *markup.node.props.overlay*
     boolean?
@@ -1709,7 +1721,7 @@ markup.object                                                  *markup.object*
     lua/markup/object.lua
 
 >lua
-    markup.object = markup.object
+    markup.object = | fun(type?: string): {}
 <
 
 ==============================================================================
@@ -1718,7 +1730,12 @@ markup.object.type                                        *markup.object.type*
     lua/markup/util.lua
 
 >lua
-    markup.object.type = markup.object.type
+    markup.object.type = | "element"
+                       | "fiber"
+                       | "node"
+                       | "box"
+                       | "list"
+                       | "stack"
 <
 
 ==============================================================================
@@ -1726,8 +1743,10 @@ markup.overflow                                              *markup.overflow*
 
     lua/markup/factory/element.lua
 
+`visible` shows what does not fit, `hidden` cuts it off and makes the box a scroll container, `clip` cuts it off along one axis alone
+
 >lua
-    markup.overflow = markup.overflow
+    markup.overflow = "visible"|"hidden"|"clip"
 <
 
 ==============================================================================
@@ -2077,7 +2096,7 @@ markup.picker.key                                          *markup.picker.key*
     lua/markup/picker.lua
 
 >lua
-    markup.picker.key = markup.picker.key
+    markup.picker.key = fun(picker: markup.picker.instance)|{ [1]: fun(picker: markup.picker.instance), mode?: string|string[] }|false
 <
 
 ==============================================================================
@@ -2369,8 +2388,10 @@ markup.track                                                    *markup.track*
 
     lua/markup/factory/element.lua
 
+cells, as wide as the content, or a share such as `"1fr"`
+
 >lua
-    markup.track = markup.track
+    markup.track = integer|"auto"|string
 <
 
 ==============================================================================
@@ -3124,7 +3145,7 @@ markup.window.Action.fn                              *markup.window.Action.fn*
     lua/markup/window/init.lua
 
 >lua
-    markup.window.Action.fn = markup.window.Action.fn
+    markup.window.Action.fn = fun(self: markup.window):(boolean|string?)
 <
 
 ==============================================================================
@@ -3133,7 +3154,7 @@ markup.window.Action.spec                          *markup.window.Action.spec*
     lua/markup/window/init.lua
 
 >lua
-    markup.window.Action.spec = markup.window.Action.spec
+    markup.window.Action.spec = markup.window.Action|markup.window.Action.fn
 <
 
 ==============================================================================

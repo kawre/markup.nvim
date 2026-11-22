@@ -30,7 +30,7 @@ The inspector. Loaded on first use, because it needs the native core.
 Source: `lua/markup/devkit/tree.lua`
 
 ```lua
----@alias markup.devkit.part markup.devkit.part
+---@alias markup.devkit.part [string, string?]
 ```
 
 ## markup.devkit.tree

@@ -274,8 +274,10 @@ function markup.logger.inspect(...any)
 
 Source: `lua/markup/factory/element.lua`
 
+`visible` shows what does not fit, `hidden` cuts it off and makes the box a scroll container, `clip` cuts it off along one axis alone
+
 ```lua
----@alias markup.overflow markup.overflow
+---@alias markup.overflow "visible"|"hidden"|"clip"
 ```
 
 ## markup.util

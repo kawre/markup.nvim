@@ -177,7 +177,7 @@ The view a component is rendered in.
 Source: `lua/markup/factory/element.lua`
 
 ```lua
----@alias markup.align markup.align
+---@alias markup.align "start"|"end"|"center"|"stretch"
 ```
 
 ## markup.border
@@ -185,15 +185,17 @@ Source: `lua/markup/factory/element.lua`
 Source: `lua/markup/factory/element.lua`
 
 ```lua
----@alias markup.border markup.border
+---@alias markup.border "single"|"rounded"|"double"|"heavy"|"half"|{ chars: string }
 ```
 
 ## markup.edges
 
 Source: `lua/markup/factory/element.lua`
 
+one value for every side, or CSS order: `{ y, x }`, `{ top, x, bottom }`, `{ top, right, bottom, left }`
+
 ```lua
----@alias markup.edges markup.edges
+---@alias markup.edges integer|integer[]
 ```
 
 ## markup.element
@@ -218,7 +220,13 @@ function markup.element.new(type: any, props: any)
 Source: `lua/markup/element/init.lua`
 
 ```lua
----@alias markup.element.typeof markup.element.typeof
+---@alias markup.element.typeof
+---| "function"
+---| "class"
+---| "fragment"
+---| "element"
+---| "root"
+---| "context"
 ```
 
 ## markup.factory
@@ -308,7 +316,7 @@ function markup.factory.element.text(props: markup.factory.element.props, style:
 Source: `lua/markup/factory/element.lua`
 
 ```lua
----@alias markup.factory.element.children markup.factory.element.children
+---@alias markup.factory.element.children number|string|table|markup.factory.element.children.dynamic
 ```
 
 ## markup.factory.element.children.dynamic
@@ -324,7 +332,9 @@ Fields:
 Source: `lua/markup/factory/element.lua`
 
 ```lua
----@alias markup.factory.element.fragment.props markup.factory.element.fragment.props
+---@alias markup.factory.element.fragment.props
+---| { children?: markup.factory.element.children }
+---| markup.factory.element.children
 ```
 
 ## markup.factory.element.new
@@ -332,7 +342,8 @@ Source: `lua/markup/factory/element.lua`
 Source: `lua/markup/factory/element.lua`
 
 ```lua
----@alias markup.factory.element.new markup.factory.element.new
+---@alias markup.factory.element.new
+---| fun(props?: markup.factory.element.props, style?: markup.factory.element.style): markup.element
 ```
 
 ## markup.factory.element.props
@@ -340,7 +351,10 @@ Source: `lua/markup/factory/element.lua`
 Source: `lua/markup/factory/element.lua`
 
 ```lua
----@alias markup.factory.element.props markup.factory.element.props
+---@alias markup.factory.element.props
+---| { children?: markup.factory.element.children }
+---| markup.factory.element.children
+---| markup.node.props
 ```
 
 ## markup.factory.element.style
@@ -348,7 +362,7 @@ Source: `lua/markup/factory/element.lua`
 Source: `lua/markup/factory/element.lua`
 
 ```lua
----@alias markup.factory.element.style markup.factory.element.style
+---@alias markup.factory.element.style string|vim.api.keyset.highlight
 ```
 
 ## markup.justify
@@ -356,15 +370,17 @@ Source: `lua/markup/factory/element.lua`
 Source: `lua/markup/factory/element.lua`
 
 ```lua
----@alias markup.justify markup.justify
+---@alias markup.justify "start"|"end"|"center"|"between"|"around"|"evenly"|"stretch"
 ```
 
 ## markup.length
 
 Source: `lua/markup/factory/element.lua`
 
+cells, or as wide as there is room, the content, or the parent
+
 ```lua
----@alias markup.length markup.length
+---@alias markup.length integer|"auto"|"fit"|"full"
 ```
 
 ## markup.node.props
@@ -416,8 +432,8 @@ Fields:
 - `on_press`: `fun()?` - called on <CR>, or on a click, which makes the element a place the cursor can land
 - `order`: `(integer|fun():integer)?`
 - `overflow`: `(fun():markup.overflow|markup.overflow)?` - sets `overflow_x` and `overflow_y`, as in CSS
-- `overflow_x`: `(fun():markup.overflow|markup.overflow)?` - cuts off what is too wide. As in CSS, `hidden` cuts off what is too tall too, unless `overflow_y` says otherwise, and `clip` cuts off only this axis
-- `overflow_y`: `(fun():markup.overflow|markup.overflow)?` - cuts off what is too tall. As in CSS, `hidden` cuts off what is too wide too, unless `overflow_x` says otherwise, and `clip` cuts off only this axis
+- `overflow_x`: `(fun():markup.overflow|markup.overflow)?` - cuts off what is too wide. As in CSS, `hidden` on either axis cuts off both, whatever the other one says, and makes the box a scroll container: as a flex or grid item, it may shrink below its content. `clip` cuts off only this axis, unless `overflow_y` is `hidden`
+- `overflow_y`: `(fun():markup.overflow|markup.overflow)?` - cuts off what is too tall. As in CSS, `hidden` on either axis cuts off both, whatever the other one says, and makes the box a scroll container: as a flex or grid item, it may shrink below its content. `clip` cuts off only this axis, unless `overflow_x` is `hidden`
 - `overlay`: `boolean?` - with `fixed`, float over the content rather than pushing it down
 - `padding`: `(fun():markup.edges|markup.edges)?`
 - `padding_bottom`: `(integer|fun():integer)?`
@@ -446,6 +462,8 @@ Fields:
 
 Source: `lua/markup/factory/element.lua`
 
+cells, as wide as the content, or a share such as `"1fr"`
+
 ```lua
----@alias markup.track markup.track
+---@alias markup.track integer|"auto"|string
 ```

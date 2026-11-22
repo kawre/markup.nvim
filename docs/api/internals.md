@@ -84,7 +84,8 @@ Fields:
 Source: `lua/markup/object.lua`
 
 ```lua
----@alias markup.object markup.object
+---@alias markup.object
+---| fun(type?: string): {}
 ```
 
 ## markup.object.type
@@ -92,7 +93,13 @@ Source: `lua/markup/object.lua`
 Source: `lua/markup/util.lua`
 
 ```lua
----@alias markup.object.type markup.object.type
+---@alias markup.object.type
+---| "element"
+---| "fiber"
+---| "node"
+---| "box"
+---| "list"
+---| "stack"
 ```
 
 ## markup.view.commands

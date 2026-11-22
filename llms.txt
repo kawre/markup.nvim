@@ -11,6 +11,7 @@ Start with the skill, then the topic of the API you need.
 ## Guide
 
 - [skills/markup-nvim/SKILL.md](skills/markup-nvim/SKILL.md): how to build UIs with markup.nvim, with examples and pitfalls
+- [CHANGELOG.md](CHANGELOG.md): what changed in every release, breaking changes first
 
 ## API
 

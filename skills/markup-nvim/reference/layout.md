@@ -147,7 +147,7 @@ Fields:
 Source: `lua/markup/layout.lua`
 
 ```lua
----@alias markup.layout.widget markup.layout.widget
+---@alias markup.layout.widget markup.layout.window | markup.layout.box
 ```
 
 ## markup.layout.window

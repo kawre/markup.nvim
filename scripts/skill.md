@@ -168,6 +168,9 @@ windows relative to others. See `reference/window.md`.
   over while mounted. Do not bind `<CR>` to `view:press()` yourself.
 - **`width` is the content box.** Padding and border are added around it, as
   in CSS `box-sizing: content-box`. `width = 8, padding = { 0, 2 }` takes 12 cells.
+- **The API changes between releases** before 1.0. When code written for
+  another version does not work, `reference/changelog.md` says what changed,
+  breaking changes first in each release.
 - **Render once.** Change signals to update the UI. Do not call
   `view:render()` again for every change.
 - **A view's window is drawn in `NormalFloat`**, through `MarkupNormal`, even
@@ -195,3 +198,4 @@ with its full signature. Read only the file for what you are working on;
 | `reference/misc.md` | config, commands, logging, utilities |
 | `reference/devkit.md` | the inspector and stress test, for working on markup.nvim |
 | `reference/internals.md` | engine bindings and view internals, rarely needed |
+| `reference/changelog.md` | every release: features, fixes and breaking changes |
