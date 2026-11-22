@@ -1301,6 +1301,26 @@ T["dynamic text"]["counts only the nodes laid out again"] = function()
 	eq(child.lua_get("changed"), 4)
 end
 
+T["dynamic text"]["a change in a flex item lays out only its path"] = function()
+	run([[
+		count = m.signal(1)
+		local rows = {}
+		for i = 1, 100 do
+			rows[i] = m.flex({ m.inline("row"), m.inline(" " .. i) })
+		end
+		rows[50] = m.flex({ m.inline("row"), m.inline(count) })
+		view:render(m.flex({ m.block("side"), m.block({ grow = 1, rows }) }))
+		count(200)
+		reactive.flush()
+		changed = view.stats.layouts
+		text = vim.api.nvim_buf_get_lines(view.win.buf, 49, 50, false)[1]
+	]])
+	-- Sizing the flex item used to throw out the layout of every row in it,
+	-- and placing it then laid all of them out again: 322 layouts, 23 now.
+	eq(child.lua_get("changed") <= 30, true)
+	eq(child.lua_get("text"), "    row200")
+end
+
 T["dynamic text"]["lays nothing out for what only changes how it is painted"] = function()
 	run([[
 		group = m.signal("String")

@@ -634,6 +634,7 @@ pub fn flow_items(
         entry.geometry.constraints = None;
         entry.dirty = false;
         entry.memo.clear();
+        entry.placed = None;
         entry.fragments = Some(Vec::new());
     }
 

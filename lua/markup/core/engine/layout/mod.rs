@@ -213,21 +213,30 @@ pub fn measure(tree: &mut Tree, index: Index, constraints: Constraints) -> Size 
         return node.geometry.outer;
     }
     if node.dirty {
-        tree.node_mut(index).memo.clear();
+        let node = tree.node_mut(index);
+        node.memo.clear();
+        node.placed = None;
     } else if tree.sizing {
         // Sized before in this way: what it leaves for its parent is restored.
         if let Some(&(_, memo)) = node.memo.iter().find(|(c, _)| *c == constraints) {
-            let geometry = &mut tree.node_mut(index).geometry;
-            geometry.content = memo.content;
-            geometry.outer = memo.outer;
-            geometry.baseline = memo.baseline;
-            geometry.margin_top = memo.margin_top;
-            geometry.margin_bottom = memo.margin_bottom;
-            geometry.collapses_through = memo.collapses_through;
-            // Its own box no longer matches how what it holds was placed.
-            geometry.constraints = None;
+            let node = tree.node_mut(index);
+            // Its own box no longer matches how what it holds was placed, so
+            // that is put aside, for a placing pass that asks the same again.
+            if let Some(placed) = node.geometry.constraints.take() {
+                node.placed = Some((placed, Memo::of(&node.geometry)));
+            }
+            node.geometry.restore(&memo);
             return memo.outer;
         }
+    } else if let Some((placed, memo)) = node.placed
+        && placed == constraints
+    {
+        // Only sized since it was placed this way, and nothing under it moved.
+        let node = tree.node_mut(index);
+        node.geometry.restore(&memo);
+        node.geometry.constraints = Some(constraints);
+        node.placed = None;
+        return memo.outer;
     }
     let node = tree.node(index);
 
@@ -348,15 +357,9 @@ pub fn measure(tree: &mut Tree, index: Index, constraints: Constraints) -> Size 
     // Only a placing pass leaves what the node holds where its box says.
     node.geometry.constraints = (!sizing).then_some(constraints);
     node.dirty = false;
-    let geometry = &node.geometry;
-    let memo = Memo {
-        content,
-        outer,
-        baseline: geometry.baseline,
-        margin_top: geometry.margin_top,
-        margin_bottom: geometry.margin_bottom,
-        collapses_through: geometry.collapses_through,
-    };
+    // Laid out anew, so what it holds moved: an earlier placing is gone.
+    node.placed = None;
+    let memo = Memo::of(&node.geometry);
     if node.memo.len() >= MEMO {
         node.memo.remove(0);
     }
@@ -549,6 +552,73 @@ mod tests {
         other.node_mut(words).text_width = 27;
         measure(&mut other, root, 60);
         assert_eq!(changed, geometry(&other));
+    }
+
+    /// A long list of flex rows in a flex item that grows, beside another: the
+    /// stress test's churn list in its column.
+    fn list_in_flex(tree: &mut Tree) -> Index {
+        let mut rows = Vec::new();
+        for row in 0..100 {
+            let id = 1000 + row * 10;
+            let cells: Vec<Index> = (0..3)
+                .map(|cell| text(tree, id + cell, &format!("r{row}c{cell}")))
+                .collect();
+            let cells: Vec<Index> = cells
+                .iter()
+                .enumerate()
+                .map(|(n, &cell)| element(tree, id + 5 + n as u32, Display::Inline, &[cell]))
+                .collect();
+            let flex = element(tree, id + 8, Display::Flex, &cells);
+            tree.node_mut(flex).style.extra_mut().column_gap = 1;
+            rows.push(flex);
+        }
+        let list = element(tree, 3, Display::Block, &rows);
+        tree.node_mut(list).style.extra_mut().grow = 1.0;
+        let other = text(tree, 4, "beside");
+        let other = element(tree, 5, Display::Block, &[other]);
+        element(tree, 1, Display::Flex, &[other, list])
+    }
+
+    /// Where every node of `list_in_flex` is.
+    fn list_geometry(tree: &Tree) -> Vec<(i32, i32, i32, i32)> {
+        (0..tree.len())
+            .filter_map(|n| tree.index_of(n as u32).ok())
+            .chain((1000..2000).filter_map(|id| tree.index_of(id).ok()))
+            .map(|index| {
+                let geometry = &tree.node(index).geometry;
+                (
+                    geometry.x,
+                    geometry.y,
+                    geometry.outer.width,
+                    geometry.outer.height,
+                )
+            })
+            .collect()
+    }
+
+    #[test]
+    fn a_change_in_a_flex_item_lays_out_only_its_path() {
+        let mut tree = Tree::default();
+        let root = list_in_flex(&mut tree);
+        measure(&mut tree, root, 80);
+
+        // The same width, so only the row it is in has anything to do.
+        let cell = tree.index_of(1500).unwrap();
+        tree.node_mut(cell).text = "R50C0".to_string();
+        tree.mark_dirty(cell);
+        let before = tree.arranged;
+        measure(&mut tree, root, 80);
+        let arranged = tree.arranged - before;
+        // Sizing the item used to throw out the layout of every row in it,
+        // so placing it laid all 100 out again: 421 layouts, 22 now.
+        assert!(arranged <= 30, "{arranged} layouts for one changed row");
+
+        let mut fresh = Tree::default();
+        let root = list_in_flex(&mut fresh);
+        let cell = fresh.index_of(1500).unwrap();
+        fresh.node_mut(cell).text = "R50C0".to_string();
+        measure(&mut fresh, root, 80);
+        assert_eq!(list_geometry(&tree), list_geometry(&fresh));
     }
 
     /// Where every node is, by client id.

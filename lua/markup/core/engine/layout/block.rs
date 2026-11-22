@@ -401,6 +401,7 @@ impl Strategy for Block {
             entry.geometry.constraints = None;
             entry.dirty = false;
             entry.memo.clear();
+            entry.placed = None;
         }
 
         let own = tree.node(node).style.margin;

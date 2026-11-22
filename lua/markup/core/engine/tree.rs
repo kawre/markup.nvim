@@ -96,6 +96,10 @@ pub struct Node {
     pub geometry: Geometry,
     /// Sizes found for other constraints since the node was last dirty.
     pub memo: Vec<(Constraints, Memo)>,
+    /// How the node was last placed, put aside while a sizing pass answers
+    /// from `memo`: nothing under it moved, so placing it the same way again
+    /// takes this back rather than laying it all out anew.
+    pub placed: Option<(Constraints, Memo)>,
 }
 
 /// What a measure leaves for its parent, kept so sizing again is free.
@@ -107,6 +111,32 @@ pub struct Memo {
     pub margin_top: Collapse,
     pub margin_bottom: Collapse,
     pub collapses_through: bool,
+}
+
+impl Memo {
+    /// What `geometry` leaves for the parent.
+    pub fn of(geometry: &Geometry) -> Self {
+        Memo {
+            content: geometry.content,
+            outer: geometry.outer,
+            baseline: geometry.baseline,
+            margin_top: geometry.margin_top,
+            margin_bottom: geometry.margin_bottom,
+            collapses_through: geometry.collapses_through,
+        }
+    }
+}
+
+impl Geometry {
+    /// Leaves what `memo` kept for the parent, as a measure would.
+    pub fn restore(&mut self, memo: &Memo) {
+        self.content = memo.content;
+        self.outer = memo.outer;
+        self.baseline = memo.baseline;
+        self.margin_top = memo.margin_top;
+        self.margin_bottom = memo.margin_bottom;
+        self.collapses_through = memo.collapses_through;
+    }
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -223,6 +253,7 @@ impl Tree {
             dirty: true,
             geometry: Geometry::default(),
             memo: Vec::new(),
+            placed: None,
         };
 
         let index = match self.free.pop() {
