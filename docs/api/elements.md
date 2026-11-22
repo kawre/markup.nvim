@@ -202,7 +202,7 @@ Source: `lua/markup/element/init.lua`
 
 Fields:
 
-- `props`: `markup.node.props` - Props every element takes. Each value can also be a function, which is read again whenever a signal it reads changes, updating only that property.
+- `props`: `markup.node.props` - Props every element takes. When a prop accepts a value or a function, the function is read again whenever a signal it reads changes.
 - `type`: `string` - basically a tag name or a function/class
 - `typeof`: `markup.element.typeof` - more specific type of the element
 
@@ -371,8 +371,8 @@ Source: `lua/markup/factory/element.lua`
 
 Source: `lua/markup/factory/element.lua`
 
-Props every element takes. Each value can also be a function, which is read
-again whenever a signal it reads changes, updating only that property.
+Props every element takes. When a prop accepts a value or a function, the
+function is read again whenever a signal it reads changes.
 
 Fields:
 
@@ -392,6 +392,7 @@ Fields:
 - `column_span`: `(integer|fun():integer)?`
 - `columns`: `(integer|markup.track[])?` - grid columns, or how many equal ones
 - `direction`: `("column"|"row"|fun():"column"|"row")?` - Flex and grid
+- `display`: `("block"|"flex"|"grid"|"inline")?` - overrides the tag's layout mode when the element mounts
 - `gap`: `(integer|fun():integer|integer[]|integer[])?` - between children, or `{ rows, columns }`
 - `grow`: `(number|fun():number)?`
 - `height`: `(fun():markup.length|markup.length)?` - as in CSS, the box keeps it, and what is taller shows below it; `min_height` grows with the content
@@ -437,7 +438,7 @@ Fields:
 - `top`: `(integer|fun():integer)?`
 - `vertical`: `(boolean|fun():boolean)?` - shorthand for `direction = "column"`
 - `white_space`: `("normal"|"nowrap"|fun():"normal"|"nowrap")?` - whether text wraps, inherited
-- `width`: `(fun():markup.length|markup.length)?` - Box
+- `width`: `(fun():markup.length|markup.length)?`
 - `wrap`: `(boolean|fun():boolean)?`
 - `z`: `(integer|fun():integer)?`
 

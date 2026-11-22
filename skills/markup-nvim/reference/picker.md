@@ -26,12 +26,339 @@ function markup.picker.highlight(label: string, positions?: integer[])
 
 Splits a label into runs, marking the characters a query matched.
 
+### markup.picker.new()
+
+```lua
+function markup.picker.new(opts: markup.picker.core_opts)
+  -> markup.picker.instance
+```
+
+A picker that draws into windows it is given, with `attach_input` and
+`attach_list`, and `own` for any others that belong to it. `Markup.picker`
+makes the windows for you.
+
 ### markup.picker.open()
 
 ```lua
 function markup.picker.open(opts: markup.picker.opts)
-  -> { close: function }
+  -> markup.picker.instance
 ```
+
+### markup.picker.row()
+
+```lua
+function markup.picker.row(entry: markup.picker.entry, ctx: markup.picker.row_context)
+  -> markup.element
+```
+
+A row of a `markup.picker.item`: its prefix, the label with what matched
+lit, and its suffix at the end.
+
+### markup.picker.truncate()
+
+```lua
+function markup.picker.truncate(spans: markup.picker.span[], width: integer)
+  -> markup.picker.span[]
+```
+
+Spans cut to `width` display cells, ending in "…" when anything was cut.
+
+## markup.picker.core_opts
+
+Source: `lua/markup/picker.lua`
+
+Fields:
+
+- `auto_close`: `boolean?` - close when the focus moves to a window that is not the picker's, true by default
+- `click`: `("double"|"single"|false)?` - which click picks a row, single by default
+- `close_on_select`: `boolean?` - close once something is picked, true by default
+- `empty`: `string?` - shown when nothing matches
+- `esc`: `("close"|"normal")?` - what <Esc> does while typing, "normal" by default
+- `filter`: `fun(items: any[], query: string):markup.picker.entry[]?` - matches, best first, fuzzy by `label` by default; signals it reads filter again when they change
+- `items`: `any[]|fun():any[]` - read in an effect, so a signal can change them
+- `keys`: `table<string, markup.picker.key>?` - more keys, or `false` to take one away; normal mode unless `mode` says otherwise
+- `on_close`: `fun()?` - when it closes without anything picked
+- `on_focus_input`: `fun(picker: markup.picker.instance)?` - how to start typing, for an input that is not always there
+- `on_input_leave`: `fun(picker: markup.picker.instance)?` - when typing ends, however it ends: for an input that only shows while typing
+- `on_select`: `fun(value: any, item: any)` - with the item's `value`, or the item when it has none
+- `render`: `(markup.picker.render)?`
+
+## markup.picker.entry
+
+Source: `lua/markup/picker.lua`
+
+Fields:
+
+- `item`: `any` - an item, as `items` has it
+- `positions`: `integer[]?` - characters of its label that matched, from zero
+
+## markup.picker.instance
+
+Source: `lua/markup/picker.lua`
+
+Fields:
+
+- `filtered`: `fun():markup.picker.entry[]` - what matches now
+- `offset`: `fun(value?: integer):integer` - rows scrolled past
+- `rows`: `fun(value?: integer):integer` - rows the list shows
+- `selected`: `fun(value?: integer):integer` - the row selected, from one
+- `view`: `unknown` - The list shows where the selection is by itself, so its cursor is hidden.
+- `width`: `fun(value?: integer):integer` - cells the list has
+
+### markup.picker.instance:align()
+
+```lua
+markup.picker.instance:align(where: "bottom"|"middle"|"top")
+```
+
+Puts the selection at the top, middle or bottom of the list.
+
+```lua
+where:
+   | "top"
+   | "middle"
+   | "bottom"
+```
+
+### markup.picker.instance:attach_input()
+
+```lua
+markup.picker.instance:attach_input(buf: integer, win?: integer)
+```
+
+Types into `buf`, shown in `win`: the query follows its first line.
+
+### markup.picker.instance:attach_list()
+
+```lua
+markup.picker.instance:attach_list(win: markup.window)
+```
+
+Draws the list into `win`, a `markup.window`.
+
+### markup.picker.instance:bind()
+
+```lua
+markup.picker.instance:bind(buf: integer, kind: "input"|"list"|"other")
+```
+
+Puts the picker's keys on `buf`, for `kind` of window.
+
+```lua
+kind:
+   | "input"
+   | "list"
+   | "other"
+```
+
+### markup.picker.instance:close()
+
+```lua
+markup.picker.instance:close()
+```
+
+### markup.picker.instance:confirm()
+
+```lua
+markup.picker.instance:confirm()
+```
+
+Picks the selected entry, and closes.
+
+### markup.picker.instance:current()
+
+```lua
+markup.picker.instance:current()
+  -> (markup.picker.entry)?
+```
+
+The entry selected, if anything matches.
+
+### markup.picker.instance:detach_input()
+
+```lua
+markup.picker.instance:detach_input()
+```
+
+Lets go of the input, for one that only shows while typing.
+
+### markup.picker.instance:element()
+
+```lua
+markup.picker.instance:element()
+  -> markup.element
+```
+
+What the list shows: the rows that fit, and a scrollbar when not all do.
+
+### markup.picker.instance:focus_input()
+
+```lua
+markup.picker.instance:focus_input()
+```
+
+Starts typing: in the input, or as `on_focus_input` says.
+
+### markup.picker.instance:focus_list()
+
+```lua
+markup.picker.instance:focus_list()
+```
+
+Takes the focus to the list, where the cursor follows the selection.
+
+### markup.picker.instance:follow_cursor()
+
+```lua
+markup.picker.instance:follow_cursor()
+```
+
+Selects the row the list's cursor is on, while the list has the focus:
+whatever moved the cursor, a click or a motion of Vim's own, moved the
+selection too.
+
+### markup.picker.instance:items()
+
+```lua
+markup.picker.instance:items()
+  -> any[]|fun():any[]
+```
+
+The items, read now.
+
+### markup.picker.instance:keys()
+
+```lua
+markup.picker.instance:keys(kind: "input"|"list"|"other")
+  -> table
+```
+
+Every key the picker answers, as `{ mode, lhs, action }` by mode and lhs,
+for `kind` of window: the input, the list, or another that is part of it.
+
+```lua
+kind:
+   | "input"
+   | "list"
+   | "other"
+```
+
+### markup.picker.instance:margin()
+
+```lua
+markup.picker.instance:margin()
+  -> unknown
+```
+
+Rows kept between the selection and the edges of the list, as
+'scrolloff' keeps them around the cursor.
+
+### markup.picker.instance:max_offset()
+
+```lua
+markup.picker.instance:max_offset()
+  -> integer
+```
+
+The furthest the list scrolls: its last row at the bottom.
+
+### markup.picker.instance:measure()
+
+```lua
+markup.picker.instance:measure()
+```
+
+The size the list has, read from its window.
+
+### markup.picker.instance:move()
+
+```lua
+markup.picker.instance:move(by: any)
+```
+
+Moves by `by` rows, going round past either end, counts too.
+
+### markup.picker.instance:on_cleanup()
+
+```lua
+markup.picker.instance:on_cleanup(fn: any)
+```
+
+Runs `fn` when the picker closes, for the windows a layout made.
+
+### markup.picker.instance:own()
+
+```lua
+markup.picker.instance:own(win: any)
+```
+
+Makes `win` part of the picker: moving to any other window closes it.
+
+### markup.picker.instance:page()
+
+```lua
+markup.picker.instance:page(by: any)
+```
+
+Scrolls and moves together, as <C-d> and <C-f> do in a buffer.
+
+### markup.picker.instance:place_cursor()
+
+```lua
+markup.picker.instance:place_cursor()
+```
+
+Keeps the list's cursor on the selection, for when it has the focus.
+
+### markup.picker.instance:reveal()
+
+```lua
+markup.picker.instance:reveal()
+```
+
+Scrolls just enough for the selection to show, its margin with it.
+
+### markup.picker.instance:scroll()
+
+```lua
+markup.picker.instance:scroll(by: any)
+```
+
+Scrolls the list by `by` rows, keeping the selection inside what shows.
+
+### markup.picker.instance:scrollbar()
+
+```lua
+markup.picker.instance:scrollbar(count: any, height: any)
+  -> markup.element
+```
+
+A column as tall as the list, with a thumb for the part that shows.
+
+### markup.picker.instance:select()
+
+```lua
+markup.picker.instance:select(index: any)
+```
+
+Selects row `index`, kept inside the list, and shows it.
+
+### markup.picker.instance:sync()
+
+```lua
+markup.picker.instance:sync()
+```
+
+Neovim holds back TextChangedI while keys are still queued, as when typing
+fast or pasting, so whatever acts on the query reads it first.
+
+### markup.picker.instance:to_top()
+
+```lua
+markup.picker.instance:to_top()
+```
+
+Back to the first row, for matches that are new.
 
 ## markup.picker.item
 
@@ -45,19 +372,59 @@ Fields:
 - `suffix`: `markup.picker.span[]?` - at the end of the row
 - `value`: `any`
 
+## markup.picker.key
+
+Source: `lua/markup/picker.lua`
+
+```lua
+---@alias markup.picker.key markup.picker.key
+```
+
 ## markup.picker.opts
 
 Source: `lua/markup/picker.lua`
 
 Fields:
 
+- `auto_close`: `boolean?` - close when the focus moves to a window that is not the picker's, true by default
 - `click`: `("double"|"single"|false)?` - which click picks a row, single by default
+- `close_on_select`: `boolean?` - close once something is picked, true by default
+- `count`: `boolean?` - show how many match, true by default
 - `empty`: `string?` - shown when nothing matches
-- `height`: `integer?` - rows of the list, 15 by default
-- `items`: `markup.picker.item[]`
-- `on_select`: `fun(value: any, item: markup.picker.item)`
+- `esc`: `("close"|"normal")?` - what <Esc> does while typing, "normal" by default
+- `filter`: `fun(items: any[], query: string):markup.picker.entry[]?` - matches, best first, fuzzy by `label` by default; signals it reads filter again when they change
+- `height`: `number?` - rows of the list, or a fraction of the editor: 15 by default, 0.4 above or below
+- `items`: `any[]|fun():any[]` - read in an effect, so a signal can change them
+- `keys`: `table<string, markup.picker.key>?` - more keys, or `false` to take one away; normal mode unless `mode` says otherwise
+- `layout`: `("bottom"|"float"|"left"|"right"|"top"|fun(picker: markup.picker.instance))?` - where it goes, or a function that makes its windows and attaches them
+- `on_close`: `fun()?` - when it closes without anything picked
+- `on_focus_input`: `fun(picker: markup.picker.instance)?` - how to start typing, for an input that is not always there
+- `on_input_leave`: `fun(picker: markup.picker.instance)?` - when typing ends, however it ends: for an input that only shows while typing
+- `on_select`: `fun(value: any, item: any)` - with the item's `value`, or the item when it has none
+- `prompt`: `string?` - before the query, "> " by default
+- `render`: `(markup.picker.render)?`
 - `title`: `string?`
-- `width`: `integer?` - 80 by default
+- `width`: `number?` - cells, or a fraction of the editor: 80 by default, 0.4 beside it
+
+## markup.picker.render
+
+Source: `lua/markup/picker.lua`
+
+Fields:
+
+- `empty`: `(fun(picker: markup.picker.instance):markup.element)?` - shown when nothing matches
+- `row`: `(fun(entry: markup.picker.entry, ctx: markup.picker.row_context):markup.element)?` - a row of the list, for items of any shape
+
+## markup.picker.row_context
+
+Source: `lua/markup/picker.lua`
+
+Fields:
+
+- `index`: `integer` - where the row is in the matches
+- `picker`: `markup.picker.instance`
+- `selected`: `boolean` - whether it is the selected row
+- `width`: `integer` - cells the row has
 
 ## markup.picker.span
 

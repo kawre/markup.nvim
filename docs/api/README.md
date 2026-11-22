@@ -16,7 +16,7 @@ signatures and types, from the LuaCATS annotations in `lua/`.
 - [animate.md](animate.md): `Markup.animate`: animated values, frames, the clock and easings.
   Classes: `markup.animate`, `markup.animate.opts`, `markup.animation`, `markup.easing`
 - [picker.md](picker.md): `Markup.picker`: a fuzzy picker in a popup.
-  Classes: `markup.picker`, `markup.picker.item`, `markup.picker.opts`, `markup.picker.span`
+  Classes: `markup.picker`, `markup.picker.core_opts`, `markup.picker.entry`, `markup.picker.instance`, `markup.picker.item`, `markup.picker.key`, `markup.picker.opts`, `markup.picker.render`, `markup.picker.row_context`, `markup.picker.span`
 - [image.md](image.md): Images in views, and the backends that draw them.
   Classes: `markup.image`, `markup.image.backend`, `markup.image.frame`
 - [layout.md](layout.md): `Markup.layout`: windows arranged in boxes.
