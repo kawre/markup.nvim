@@ -15,12 +15,13 @@ local Element = require("markup.element")
 ---@alias markup.border "single"|"rounded"|"double"|"heavy"|"half"|{ chars: string }
 ---@alias markup.overflow "visible"|"hidden"|"clip" `hidden` cuts off, `clip` cuts off along one axis alone
 
---- Props every element takes. Each value can also be a function, which is read
---- again whenever a signal it reads changes, updating only that property.
+--- Props every element takes. When a prop accepts a value or a function, the
+--- function is read again whenever a signal it reads changes.
 ---@class markup.node.props
 ---@field children? markup.factory.element.children
 ---@field style? markup.factory.element.style|fun(): markup.factory.element.style? highlight group, or attributes of one
 --- Box
+---@field display? "block"|"inline"|"flex"|"grid" overrides the tag's layout mode when the element mounts
 ---@field width? markup.length|fun(): markup.length
 ---@field height? markup.length|fun(): markup.length as in CSS, the box keeps it, and what is taller shows below it; `min_height` grows with the content
 ---@field min_width? markup.length|fun(): markup.length
