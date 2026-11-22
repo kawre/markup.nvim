@@ -992,6 +992,14 @@ the last one left out can match more. What it finds is sorted the same as a
 search of everything, by score and then by where the candidate is.
 
 ```rust
+pub fn new(candidates: Vec<String>, shown: Vec<u32>) -> Self
+```
+
+`shown` says how much of each candidate is its label; all of it for a
+candidate it leaves out.
+0
+
+```rust
 pub fn start(&mut self, query: &str) -> bool
 ```
 
@@ -1018,11 +1026,15 @@ pub fn positions(&mut self, index: usize, query: &str) -> Vec<u32>
 ```
 
 The characters of candidate `index` that `query` matched, from zero.
+Each word of the query is matched in the label if it can be: matched
+anywhere, `two` in `Two Sum two-sum` scores best in the slug, which is
+not lit, and the label it is in would show nothing lit.
 0
 
 ```rust
-pub fn create_matcher(_: &Lua, candidates: Vec<String>) -> LuaResult<FuzzyMatcher>
+pub fn create_matcher( _: &Lua, (candidates, shown): (Vec<String>, Option<Vec<u32>>), ) -> LuaResult<FuzzyMatcher>
 ```
 
-`create_matcher(candidates)`, the strings to match, one per item.
+`create_matcher(candidates, labels?)`: the strings to match, one per item,
+and how many characters of each are its label, where a match is lit.
 0
