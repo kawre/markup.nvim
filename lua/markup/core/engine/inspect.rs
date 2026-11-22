@@ -45,6 +45,7 @@ fn display_name(display: Display) -> &'static str {
         Display::Flex => "flex",
         Display::Grid => "grid",
         Display::Contents => "contents",
+        Display::Canvas => "canvas",
     }
 }
 

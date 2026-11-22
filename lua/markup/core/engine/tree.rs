@@ -78,6 +78,26 @@ pub struct Fragment {
     pub end: u32,
 }
 
+/// One row of a canvas, painted straight onto the frame without layout.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct CanvasRow {
+    pub text: String,
+    pub width: i32,
+    /// Width of each non ASCII character, when any differs from one.
+    pub cells: Option<Box<[u8]>>,
+    /// Highlight ranges `(start, end, hl)` in cells, relative to the canvas's content left.
+    pub ranges: Vec<(i32, i32, u32)>,
+}
+
+/// A 2D cell surface owned by a canvas node. Updating its contents never runs
+/// layout as long as its dimensions stay the same.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Canvas {
+    pub width: i32,
+    pub height: i32,
+    pub rows: Vec<CanvasRow>,
+}
+
 #[derive(Debug)]
 pub struct Node {
     pub client: ClientId,
@@ -90,6 +110,8 @@ pub struct Node {
     pub cells: Option<Box<[u8]>>,
     /// Set when line breaking cut this node into pieces.
     pub fragments: Option<Vec<Fragment>>,
+    /// Pre-drawn cell surface for `Display::Canvas` nodes.
+    pub canvas: Option<Box<Canvas>>,
     pub parent: Option<Index>,
     pub children: Vec<Index>,
     pub dirty: bool,
@@ -235,6 +257,37 @@ impl Tree {
         current
     }
 
+    /// Top left of a node's margin box, in buffer cells.
+    pub fn origin(&self, index: Index) -> (i32, i32) {
+        let node = self.node(index);
+        let geometry = &node.geometry;
+
+        if node.style.position() == Position::Absolute {
+            let block = self.containing_block(index);
+            let (x, y) = self.origin(block);
+            let margin = self.node(block).style.margin;
+            return (x + margin.left + geometry.x, y + margin.top + geometry.y);
+        }
+
+        let own_shift = node.style.relative_offset();
+        let mut parent = node.parent;
+        while let Some(index) = parent {
+            let node = self.node(index);
+            if node.display != Display::Contents {
+                let (x, y) = self.origin(index);
+                let style = &node.style;
+                let (shift_x, shift_y) = own_shift;
+                return (
+                    x + style.margin.left + style.inner().left + geometry.x + shift_x,
+                    y + style.margin.top + style.inner().top + geometry.y + shift_y,
+                );
+            }
+            parent = node.parent;
+        }
+
+        (geometry.x, geometry.y)
+    }
+
     pub fn create(&mut self, client: ClientId, display: Display) -> Result<Index, TreeError> {
         if self.ids.contains_key(&client) {
             return Err(TreeError::DuplicateNode(client));
@@ -248,6 +301,7 @@ impl Tree {
             text_width: 0,
             cells: None,
             fragments: None,
+            canvas: None,
             parent: None,
             children: Vec::new(),
             dirty: true,

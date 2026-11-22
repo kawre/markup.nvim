@@ -19,9 +19,10 @@ local OP = {
 	set_tracks = 9,
 	set_cells = 10,
 	set_border = 11,
+	set_canvas = 12,
 }
 
-M.display = { block = 1, inline = 2, contents = 3, flex = 4, grid = 5 }
+M.display = { block = 1, inline = 2, contents = 3, flex = 4, grid = 5, canvas = 6 }
 
 M.ROOT = 1
 
@@ -174,6 +175,24 @@ function M.check_cell_widths()
 	end
 end
 
+--- Display width of one UTF-8 character, cached until `ambiwidth` or cell widths change.
+---@param character string
+---@return integer
+function M.char_width(character)
+	if #character == 1 and character:byte(1) < 128 then
+		return 1
+	end
+	if not known_cell_widths then
+		M.check_cell_widths()
+	end
+	local width = char_widths[character]
+	if not width then
+		width = vim_fn.strdisplaywidth("a" .. character) - 1
+		char_widths[character] = width
+	end
+	return width
+end
+
 --- Measured once per character, and only for text that is not ASCII.
 local function cell_digits(text)
 	local digits, n = {}, 0
@@ -190,6 +209,8 @@ local function cell_digits(text)
 	end
 	return table.concat(digits)
 end
+
+M.cell_digits = cell_digits
 
 vim.api.nvim_create_autocmd("OptionSet", {
 	group = vim.api.nvim_create_augroup("markup.view.widths", { clear = true }),
@@ -408,6 +429,19 @@ function Commands:set_border(id, preset, sides, hl_id)
 	ops[n + 1], ops[n + 2], ops[n + 3], ops[n + 4] = OP.set_border, id, border.chars, mask
 	ops[n + 5], ops[n + 6] = hl_id, flag(border.outside_background)
 	self.len = n + 6
+end
+
+function Commands:set_canvas(id, width, height, texts, row_widths, cells, ranges, count)
+	local ops, n = self.ops, self.len
+	ops[n + 1], ops[n + 2], ops[n + 3], ops[n + 4], ops[n + 5] =
+		OP.set_canvas, id, width, height, count
+	n = n + 5
+	for i = 1, count do
+		ops[n + 1], ops[n + 2], ops[n + 3], ops[n + 4] =
+			texts[i], row_widths[i], cells[i], ranges[i]
+		n = n + 4
+	end
+	self.len = n
 end
 
 function Commands:resize(width)

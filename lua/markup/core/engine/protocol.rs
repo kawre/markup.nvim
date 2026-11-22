@@ -17,7 +17,7 @@ use super::style::{
     Align, Border, Direction, Display, Distribute, Edges, Length, Overflow, Position, Style,
     TextOverflow, Track, WhiteSpace,
 };
-use super::tree::ClientId;
+use super::tree::{Canvas, CanvasRow, ClientId};
 use mlua::ffi;
 use mlua::prelude::*;
 
@@ -198,6 +198,11 @@ pub enum Command {
         id: ClientId,
         cells: Vec<u8>,
     },
+    /// Replaces a canvas node's cell surface without laying out its contents.
+    SetCanvas {
+        id: ClientId,
+        canvas: Canvas,
+    },
 }
 
 /// Stands for "unset" in optional values, because the array cannot hold nil.
@@ -329,6 +334,7 @@ impl<'a> Reader<'a> {
             3 => Display::Contents,
             4 => Display::Flex,
             5 => Display::Grid,
+            6 => Display::Canvas,
             other => return Err(LuaError::runtime(format!("unknown display {other}"))),
         })
     }
@@ -503,6 +509,55 @@ impl<'a> Reader<'a> {
         })
     }
 
+    fn canvas_ranges(&mut self) -> LuaResult<Vec<(i32, i32, u32)>> {
+        let decode = |raw: &[u8]| -> Vec<(i32, i32, u32)> {
+            raw.chunks_exact(12)
+                .map(|chunk| {
+                    let start = u32::from_ne_bytes(chunk[0..4].try_into().unwrap()) as i32;
+                    let end = u32::from_ne_bytes(chunk[4..8].try_into().unwrap()) as i32;
+                    let hl = u32::from_ne_bytes(chunk[8..12].try_into().unwrap());
+                    (start, end, hl)
+                })
+                .collect()
+        };
+        match self.next() {
+            Slot::Text(start, size) => Ok(decode(&self.bytes[start..start + size])),
+            _ => {
+                let value: LuaString = self.ops.raw_get(self.position)?;
+                Ok(decode(&value.as_bytes()))
+            }
+        }
+    }
+
+    fn canvas(&mut self) -> LuaResult<Canvas> {
+        let width = self.int()?.max(0);
+        let height = self.int()?.max(0);
+        let count = self.int()?.max(0) as usize;
+        let mut rows = Vec::with_capacity(count);
+        for _ in 0..count {
+            let (text, row_width) = self.text()?;
+            let digits = self.string()?;
+            let cells = (!digits.is_empty()).then(|| {
+                digits
+                    .bytes()
+                    .map(|digit| digit.saturating_sub(b'0'))
+                    .collect()
+            });
+            let ranges = self.canvas_ranges()?;
+            rows.push(CanvasRow {
+                text,
+                width: row_width,
+                cells,
+                ranges,
+            });
+        }
+        Ok(Canvas {
+            width,
+            height,
+            rows,
+        })
+    }
+
     fn command(&mut self) -> LuaResult<Command> {
         let opcode = self.int()?;
         Ok(match opcode {
@@ -557,6 +612,10 @@ impl<'a> Reader<'a> {
                         .collect(),
                 }
             }
+            12 => Command::SetCanvas {
+                id: self.id()?,
+                canvas: self.canvas()?,
+            },
             other => return Err(LuaError::runtime(format!("unknown opcode {other}"))),
         })
     }

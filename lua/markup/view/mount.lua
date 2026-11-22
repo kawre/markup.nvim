@@ -622,6 +622,117 @@ function M.image(props)
 	return element(Image, props)
 end
 
+local Canvas = { typeof = "control" }
+
+--- An explicit cell count (`0` or `>= 1`), or nil for layout-derived sizes
+--- (`"auto"`, `"full"`, `"fit"`, or fractional shares `0 < v < 1`).
+---@param value any
+---@return integer?
+local function cell_size(value)
+	if type(value) == "number" and (value == 0 or value >= 1) then
+		return math.floor(value)
+	end
+end
+
+function Canvas.mount(view, parent, before, props)
+	if props.position == "fixed" then
+		return mount_fixed(view, parent, before, element(Canvas, props))
+	end
+
+	local canvas = require("markup.view.canvas")
+	local id = view:next_id()
+	view.commands:create(id, DISPLAY.canvas)
+	view.commands:insert(parent, id, before)
+
+	apply_props(view, id, "canvas", props)
+
+	local draw = props.draw
+	if not draw then
+		return
+	end
+
+	local constrained = props.min_width ~= nil
+		or props.max_width ~= nil
+		or props.min_height ~= nil
+		or props.max_height ~= nil
+		or props.grow ~= nil
+		or props.shrink ~= nil
+		or props.basis ~= nil
+	local fixed_w = cell_size(props.width) ~= nil
+	local fixed_h = cell_size(props.height) ~= nil
+	local track_layout = constrained or not (fixed_w and fixed_h)
+
+	local laid_width = reactive.signal(nil)
+	local laid_height = reactive.signal(nil)
+
+	if track_layout then
+		local prev_w, prev_h
+		local unsubscribe = view:on_commit(function()
+			local ok, node = pcall(view.engine.describe, view.engine, id)
+			if not ok then
+				return
+			end
+			if node.content_width ~= prev_w or node.content_height ~= prev_h then
+				prev_w, prev_h = node.content_width, node.content_height
+				laid_width(prev_w)
+				laid_height(prev_h)
+				if reactive.forced() then
+					reactive.flush()
+				end
+			end
+		end)
+		reactive.on_cleanup(unsubscribe)
+	end
+
+	local ctx = canvas.context(0, 0)
+	effect(function()
+		local raw_w = type(props.width) == "function" and props.width() or props.width
+		local raw_h = type(props.height) == "function" and props.height() or props.height
+		local w = cell_size(raw_w)
+		local h = cell_size(raw_h)
+
+		if constrained then
+			w = laid_width() or w
+			h = laid_height() or h
+		else
+			if not w then
+				w = laid_width()
+			end
+			if not h then
+				h = laid_height()
+			end
+		end
+
+		if not w or not h then
+			return
+		end
+
+		if ctx.width ~= w or ctx.height ~= h then
+			ctx:resize(w, h)
+		elseif not props.retain then
+			ctx:clear()
+		end
+
+		if w > 0 and h > 0 then
+			draw(ctx)
+		end
+		ctx:flush(view.commands, id)
+		view:request_commit()
+	end)
+end
+
+---@class markup.canvas.props: markup.node.props
+---@field draw? fun(ctx: markup.canvas.context) called inside a reactive effect to paint the surface; redrawing runs no layout
+---@field retain? boolean keep previous cells between redraws instead of clearing first
+
+--- A 2D cell surface drawn directly by `draw(ctx)`, independent of the layout
+--- engine for its contents. Takes all standard box props (`width`, `height`,
+--- `border`, `padding`, `margin`, `style`, `on_press`, ...).
+---@param props markup.canvas.props
+function M.canvas(props)
+	return element(Canvas, props)
+end
+
 local Slide = { typeof = "control" }
 
 local SLIDE_DURATION = 320

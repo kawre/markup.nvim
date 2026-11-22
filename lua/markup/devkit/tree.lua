@@ -255,6 +255,7 @@ local KIND_GROUPS = {
 	inline = "MarkupInspectorInline",
 	flex = "MarkupInspectorFlex",
 	grid = "MarkupInspectorFlex",
+	canvas = "MarkupInspectorFlex",
 }
 
 ---@param node markup.core.node
