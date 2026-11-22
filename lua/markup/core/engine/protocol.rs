@@ -17,7 +17,7 @@ use super::style::{
     Align, Border, Direction, Display, Distribute, Edges, Length, Overflow, Position, Style,
     TextOverflow, Track, WhiteSpace,
 };
-use super::tree::{Canvas, CanvasRow, ClientId};
+use super::tree::{Canvas, CanvasRow, CanvasRun, ClientId};
 use mlua::ffi;
 use mlua::prelude::*;
 
@@ -534,28 +534,45 @@ impl<'a> Reader<'a> {
     fn canvas(&mut self) -> LuaResult<Canvas> {
         let width = self.int()?.max(0);
         let height = self.int()?.max(0);
+        let transparent = self.int()? != 0;
         let count = self.int()?.max(0) as usize;
-        let mut rows = Vec::with_capacity(count);
+        let mut rows = Vec::with_capacity(count.min(height as usize));
         for _ in 0..count {
-            let (text, row_width) = self.text()?;
-            let digits = self.string()?;
-            let cells = (!digits.is_empty()).then(|| {
-                digits
-                    .bytes()
-                    .map(|digit| digit.saturating_sub(b'0'))
-                    .collect()
-            });
-            let ranges = self.canvas_ranges()?;
-            rows.push(CanvasRow {
-                text,
-                width: row_width,
-                cells,
-                ranges,
-            });
+            // An opaque row is one run from the left edge, sent without its
+            // count and start.
+            let runs = if transparent {
+                self.int()?.max(0) as usize
+            } else {
+                1
+            };
+            let mut row = CanvasRow {
+                runs: Vec::with_capacity(runs.min(width as usize)),
+                ranges: Vec::new(),
+            };
+            for _ in 0..runs {
+                let start = if transparent { self.int()? } else { 0 };
+                let (text, run_width) = self.text()?;
+                let digits = self.string()?;
+                let cells = (!digits.is_empty()).then(|| {
+                    digits
+                        .bytes()
+                        .map(|digit| digit.saturating_sub(b'0'))
+                        .collect()
+                });
+                row.runs.push(CanvasRun {
+                    start,
+                    text,
+                    width: run_width,
+                    cells,
+                });
+            }
+            row.ranges = self.canvas_ranges()?;
+            rows.push(row);
         }
         Ok(Canvas {
             width,
             height,
+            transparent,
             rows,
         })
     }

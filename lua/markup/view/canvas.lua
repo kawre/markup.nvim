@@ -11,6 +11,7 @@ local floor = math.floor
 local min, max = math.min, math.max
 local concat = table.concat
 local sub, byte = string.sub, string.byte
+local clear_table = require("table.clear")
 
 local TAB = "    "
 
@@ -39,6 +40,28 @@ local function utf8_len(text, offset)
 		return 4
 	end
 	return 1
+end
+
+--- The highlight id of a style. A table is looked up by identity: interning
+--- one serializes it, which a draw doing it per cell cannot afford. The cache
+--- lasts one draw, so a table changed between frames is seen again.
+---@param self markup.canvas.context
+---@param style? markup.factory.element.style
+---@return integer
+local function style_id(self, style)
+	if style == nil then
+		return 0
+	end
+	if type(style) ~= "table" then
+		return hl.id(style)
+	end
+	local cache = self._style_ids
+	local id = cache[style]
+	if not id then
+		id = hl.id(style)
+		cache[style] = id
+	end
+	return id
 end
 
 --- Clears the partner cell of any wide character occupying `index`.
@@ -118,7 +141,7 @@ function Context:clear(char, style)
 	end
 
 	local fill_char = char or " "
-	local hl_id = style ~= nil and hl.id(style) or 0
+	local hl_id = style_id(self, style)
 	if #fill_char == 1 and byte(fill_char, 1) < 128 then
 		for i = 1, total do
 			chars[i], widths[i], hls[i] = fill_char, 1, hl_id
@@ -146,7 +169,7 @@ function Context:set(x, y, char, style)
 		return
 	end
 
-	local hl_id = style ~= nil and hl.id(style) or 0
+	local hl_id = style_id(self, style)
 	if char == nil then
 		local i = y * w + x + 1
 		local cell_w = self.widths[i]
@@ -254,7 +277,7 @@ function Context:text(x, y, text, style)
 	end
 
 	x, y = floor(x), floor(y)
-	local hl_id = style ~= nil and hl.id(style) or 0
+	local hl_id = style_id(self, style)
 	if not text:find("\n", 1, true) then
 		draw_line(self, x, y, text, hl_id)
 		return
@@ -286,7 +309,7 @@ function Context:fill(x, y, width, height, char, style)
 		return
 	end
 
-	local hl_id = style ~= nil and hl.id(style) or 0
+	local hl_id = style_id(self, style)
 	if char == nil then
 		local fill_char = " "
 		local chars, widths, hls = self.chars, self.widths, self.hls
@@ -333,7 +356,7 @@ end
 function Context:line(x0, y0, x1, y1, char, style)
 	x0, y0, x1, y1 = floor(x0), floor(y0), floor(x1), floor(y1)
 	local glyph = char or "█"
-	local hl_id = style ~= nil and hl.id(style) or 0
+	local hl_id = style_id(self, style)
 	local cw = #glyph == 1 and byte(glyph, 1) < 128 and 1 or protocol.char_width(glyph)
 	if cw <= 0 then
 		return
@@ -399,7 +422,7 @@ function Context:rect(x, y, width, height, border, style)
 	end
 
 	local b = border_chars(border)
-	local hl_id = style ~= nil and hl.id(style) or 0
+	local hl_id = style_id(self, style)
 	local x1, y1 = x + width - 1, y + height - 1
 	local cw_w, cw_h = self.width, self.height
 
@@ -437,20 +460,52 @@ function Context:rect(x, y, width, height, border, style)
 	end
 end
 
---- Packs the canvas surface into a single `set_canvas` engine command.
+--- Forgets the styles of the last draw, before the next one.
+function Context:begin()
+	clear_table(self._style_ids)
+end
+
+--- Whether the cell at `i` was drawn: anything but a blank with no style.
+local function drawn(chars, hls, i)
+	return chars[i] ~= " " or hls[i] ~= 0
+end
+
+--- Adds the cells `first..last` of a row (1-indexed, from `base`) as the
+--- `k + 1`th run, returning `k + 1`.
+local function add_run(self, runs, k, row, base, first, last)
+	local chars, widths, scratch = self.chars, self.widths, self._scratch
+	local n = 0
+	for col = first, last do
+		local i = base + col
+		if widths[i] ~= 0 then
+			n = n + 1
+			scratch[n] = chars[i]
+		end
+	end
+	local text = concat(scratch, "", 1, n)
+	k = k + 1
+	runs.starts[k], runs.texts[k], runs.widths[k] = first - 1, text, last - first + 1
+	runs.cells[k] = self.row_non_unit[row] and protocol.cell_digits(text) or ""
+	runs.count[row] = runs.count[row] + 1
+	return k
+end
+
+--- Packs the canvas surface into a single `set_canvas` engine command. An
+--- opaque canvas sends each row as one run from its left edge; a transparent
+--- one sends only the runs of cells it drew, so the rest shows through.
 ---@param commands markup.view.commands
 ---@param id integer
 function Context:flush(commands, id)
 	local w, h = self.width, self.height
+	local transparent = self.transparent and 1 or 0
+	local runs = self._runs
 	if w == 0 or h == 0 then
-		commands:set_canvas(id, w, h, self._texts, self._widths, self._cells, self._ranges, 0)
+		commands:set_canvas(id, w, h, transparent, 0, runs)
 		return
 	end
 
-	local chars, widths, hls = self.chars, self.widths, self.hls
-	local non_unit = self.row_non_unit
-	local texts, row_widths, cells, ranges = self._texts, self._widths, self._cells, self._ranges
-	local scratch = self._scratch
+	local chars, hls = self.chars, self.hls
+	local row_runs, ranges = runs.count, runs.ranges
 	local u32 = self._u32
 	if self._u32_cap < w * 3 then
 		self._u32_cap = w * 3
@@ -458,32 +513,39 @@ function Context:flush(commands, id)
 		self._u32 = u32
 	end
 
+	local k = 0
 	for row = 1, h do
 		local base = (row - 1) * w
 		local last = 0
 		for col = w, 1, -1 do
-			local i = base + col
-			if chars[i] ~= " " or hls[i] ~= 0 then
+			if drawn(chars, hls, base + col) then
 				last = col
 				break
 			end
 		end
 
+		row_runs[row] = 0
 		if last == 0 then
-			texts[row], row_widths[row], cells[row], ranges[row] = "", 0, "", ""
+			ranges[row] = ""
 		else
-			local n = 0
-			local has_wide = non_unit[row]
+			if transparent == 0 then
+				k = add_run(self, runs, k, row, base, 1, last)
+			else
+				local first
+				for col = 1, last + 1 do
+					if col <= last and drawn(chars, hls, base + col) then
+						first = first or col
+					elseif first then
+						k = add_run(self, runs, k, row, base, first, col - 1)
+						first = nil
+					end
+				end
+			end
+
 			local r_len = 0
 			local cur_hl, cur_start = 0, 0
-
 			for col = 1, last do
-				local i = base + col
-				if widths[i] ~= 0 then
-					n = n + 1
-					scratch[n] = chars[i]
-				end
-				local cell_hl = hls[i]
+				local cell_hl = hls[base + col]
 				if cell_hl ~= cur_hl then
 					if cur_hl ~= 0 then
 						u32[r_len], u32[r_len + 1], u32[r_len + 2] = cur_start, col - 1, cur_hl
@@ -497,16 +559,11 @@ function Context:flush(commands, id)
 				u32[r_len], u32[r_len + 1], u32[r_len + 2] = cur_start, last, cur_hl
 				r_len = r_len + 3
 			end
-
-			local text = concat(scratch, "", 1, n)
-			texts[row] = text
-			row_widths[row] = last
-			cells[row] = has_wide and protocol.cell_digits(text) or ""
 			ranges[row] = r_len > 0 and ffi.string(u32, r_len * 4) or ""
 		end
 	end
 
-	commands:set_canvas(id, w, h, texts, row_widths, cells, ranges, h)
+	commands:set_canvas(id, w, h, transparent, h, runs)
 end
 
 --- Creates a reusable drawing context of `width` × `height` cells.
@@ -521,10 +578,10 @@ function M.context(width, height)
 		widths = {},
 		hls = {},
 		row_non_unit = {},
-		_texts = {},
-		_widths = {},
-		_cells = {},
-		_ranges = {},
+		transparent = false,
+		-- Rows by run count and ranges; runs flat, in row order.
+		_runs = { count = {}, ranges = {}, starts = {}, texts = {}, widths = {}, cells = {} },
+		_style_ids = {},
 		_scratch = {},
 		_u32 = nil,
 		_u32_cap = 0,

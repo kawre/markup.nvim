@@ -431,15 +431,41 @@ function Commands:set_border(id, preset, sides, hl_id)
 	self.len = n + 6
 end
 
-function Commands:set_canvas(id, width, height, texts, row_widths, cells, ranges, count)
+--- Replaces a canvas's surface with `count` rows. An opaque row is one run
+--- from the left edge: its text, width and cells. A transparent row is the
+--- number of its runs, then each one's start, text, width and cells. Either
+--- ends in its packed highlight ranges.
+---@param runs { count: integer[], ranges: string[], starts: integer[], texts: string[], widths: integer[], cells: string[] }
+function Commands:set_canvas(id, width, height, transparent, count, runs)
 	local ops, n = self.ops, self.len
-	ops[n + 1], ops[n + 2], ops[n + 3], ops[n + 4], ops[n + 5] =
-		OP.set_canvas, id, width, height, count
-	n = n + 5
-	for i = 1, count do
-		ops[n + 1], ops[n + 2], ops[n + 3], ops[n + 4] =
-			texts[i], row_widths[i], cells[i], ranges[i]
-		n = n + 4
+	ops[n + 1], ops[n + 2], ops[n + 3], ops[n + 4], ops[n + 5], ops[n + 6] =
+		OP.set_canvas, id, width, height, transparent, count
+	n = n + 6
+	local row_runs, ranges = runs.count, runs.ranges
+	local starts, texts, widths, cells = runs.starts, runs.texts, runs.widths, runs.cells
+	local k = 0
+	for row = 1, count do
+		local total = row_runs[row]
+		if transparent == 0 then
+			if total == 0 then
+				ops[n + 1], ops[n + 2], ops[n + 3] = "", 0, ""
+			else
+				k = k + 1
+				ops[n + 1], ops[n + 2], ops[n + 3] = texts[k], widths[k], cells[k]
+			end
+			n = n + 3
+		else
+			ops[n + 1] = total
+			n = n + 1
+			for _ = 1, total do
+				k = k + 1
+				ops[n + 1], ops[n + 2], ops[n + 3], ops[n + 4] =
+					starts[k], texts[k], widths[k], cells[k]
+				n = n + 4
+			end
+		end
+		ops[n + 1] = ranges[row]
+		n = n + 1
 	end
 	self.len = n
 end

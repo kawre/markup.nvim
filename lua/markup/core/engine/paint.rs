@@ -56,6 +56,22 @@ impl<'a> Segment<'a> {
     /// The part between two cells. A wide character on the edge cannot be
     /// halved, so the half that remains becomes a blank.
     fn slice(&self, from: i32, to: i32) -> Segment<'a> {
+        debug_assert!(self.cell <= from && from <= to && to <= self.end());
+        // A byte per cell: the cells are a substring, borrowed if the text is.
+        if self.text.len() == self.width as usize {
+            let (start, end) = ((from - self.cell) as usize, (to - self.cell) as usize);
+            let text = match &self.text {
+                Cow::Borrowed(text) => Cow::Borrowed(&text[start..end]),
+                Cow::Owned(text) => Cow::Owned(text[start..end].to_owned()),
+            };
+            return Segment {
+                cell: from,
+                width: to - from,
+                text,
+                cells: Cow::Borrowed(&[]),
+            };
+        }
+
         let mut text = String::new();
         let mut cells = Vec::new();
 
@@ -98,6 +114,25 @@ impl<'a> Segment<'a> {
         self.characters()
             .find(|&(_, _, cell, width)| cell + width > target)
             .map_or(self.text.len(), |(byte, ..)| byte)
+    }
+}
+
+/// Calls `keep` with each piece of `start..end` that no span covers. Spans are
+/// sorted and apart.
+fn uncovered(start: i32, end: i32, spans: &[(i32, i32)], mut keep: impl FnMut(i32, i32)) {
+    let mut at = start;
+    let first = spans.partition_point(|&(_, to)| to <= start);
+    for &(from, to) in &spans[first..] {
+        if from >= end {
+            break;
+        }
+        if from > at {
+            keep(at, from);
+        }
+        at = at.max(to);
+    }
+    if at < end {
+        keep(at, end);
     }
 }
 
@@ -234,6 +269,63 @@ impl<'a> Row<'a> {
         }
         self.cut_text(from, to);
         self.cut_backdrop_ranges(from, to);
+    }
+
+    /// Lays a canvas row's runs over what is here, in one pass however many
+    /// there are. The runs are sorted, apart and already clipped. Each hides
+    /// the text under it, and the highlights too when `owns_ranges`, else
+    /// only those of a `z < 0` layer, as flow text does.
+    fn place_runs(&mut self, runs: Vec<Segment<'a>>, owns_ranges: bool) {
+        if runs.is_empty() {
+            return;
+        }
+        let spans: Vec<(i32, i32)> = runs.iter().map(|run| (run.cell, run.end())).collect();
+
+        let mut kept = Vec::with_capacity(self.segments.len() + runs.len());
+        for segment in self.segments.drain(..) {
+            let mut pieces = Vec::new();
+            uncovered(segment.cell, segment.end(), &spans, |from, to| {
+                pieces.push((from, to));
+            });
+            if pieces == [(segment.cell, segment.end())] {
+                kept.push(segment);
+            } else {
+                kept.extend(pieces.into_iter().map(|(from, to)| segment.slice(from, to)));
+            }
+        }
+
+        // Both are sorted and do not overlap now: merge them.
+        let mut merged = Vec::with_capacity(kept.len() + runs.len());
+        let mut runs = runs.into_iter().peekable();
+        for segment in kept {
+            while let Some(run) = runs.next_if(|run| run.cell < segment.cell) {
+                merged.push(run);
+            }
+            merged.push(segment);
+        }
+        merged.extend(runs);
+        self.segments = merged;
+
+        let cut = if owns_ranges {
+            self.ranges.len()
+        } else {
+            self.backdrop_ranges
+        };
+        if cut == 0 {
+            return;
+        }
+        let tail = self.ranges.split_off(cut);
+        let mut ranges = Vec::with_capacity(self.ranges.len() + tail.len() + 1);
+        for (start, end, hl) in self.ranges.drain(..) {
+            uncovered(start, end, &spans, |from, to| ranges.push((from, to, hl)));
+        }
+        if owns_ranges {
+            self.backdrop_ranges = 0;
+        } else {
+            self.backdrop_ranges = ranges.len();
+        }
+        ranges.extend(tail);
+        self.ranges = ranges;
     }
 
     /// Removes everything under a box, so an overlay hides what it covers.
@@ -627,25 +719,31 @@ impl<'a> Painter<'a> {
                 Some(columns) => columns.start.max(content_x)..columns.end.min(content_right),
                 None => content_x..content_right,
             });
+            // Painted after flow, an overlay owns the cells it draws outright;
+            // in flow, it leaves the parent's background under them.
+            let replaces = canvas.transparent && node.style.position() == Position::Absolute;
             for (offset, line) in canvas.rows.iter().enumerate() {
                 if let Some(row) = self.row(content_y + offset as i32) {
-                    if !line.text.is_empty() {
-                        // Like flow text, what the canvas draws hides a
-                        // `z < 0` layer's highlights under it.
-                        if row.backdrop_ranges > 0 {
-                            let (from, to) = row.clipped(content_x, content_x + line.width);
-                            if from < to {
-                                row.cut_backdrop_ranges(from, to);
-                            }
+                    let mut runs = Vec::with_capacity(line.runs.len());
+                    for run in &line.runs {
+                        let cell = content_x + run.start;
+                        let (from, to) = row.clipped(cell, cell + run.width);
+                        if run.text.is_empty() || from >= to {
+                            continue;
                         }
-                        let cells = line.cells.as_deref().unwrap_or(&[]);
-                        row.write(
-                            content_x,
-                            Cow::Borrowed(&line.text),
-                            line.width,
-                            Cow::Borrowed(cells),
-                        );
+                        let segment = Segment {
+                            cell,
+                            width: run.width,
+                            text: Cow::Borrowed(&run.text),
+                            cells: Cow::Borrowed(run.cells.as_deref().unwrap_or(&[])),
+                        };
+                        runs.push(if from > cell || to < cell + run.width {
+                            segment.slice(from, to)
+                        } else {
+                            segment
+                        });
                     }
+                    row.place_runs(runs, replaces);
                     for &(start, end, hl) in &line.ranges {
                         row.add_range(content_x + start, content_x + end, hl);
                     }
@@ -750,9 +848,11 @@ impl<'a> Painter<'a> {
             let geometry = &self.tree.node(index).geometry;
             self.snap = snaps(self.tree, index);
 
-            for row in y..y + geometry.outer.height {
-                if let Some(row) = self.rows.get_mut(row as usize) {
-                    row.cover(x, x + geometry.outer.width);
+            if !see_through(self.tree, index) {
+                for row in y..y + geometry.outer.height {
+                    if let Some(row) = self.rows.get_mut(row as usize) {
+                        row.cover(x, x + geometry.outer.width);
+                    }
                 }
             }
             self.paint_box(index, x, y);
@@ -785,15 +885,26 @@ impl<'a> Painter<'a> {
             // Painted apart from its ancestors, so it looks up what they say.
             self.snap = snaps(tree, index);
 
-            for row in y..y + geometry.outer.height {
-                if let Some(row) = self.rows.get_mut(row as usize) {
-                    row.cover(x, x + geometry.outer.width);
+            if !see_through(tree, index) {
+                for row in y..y + geometry.outer.height {
+                    if let Some(row) = self.rows.get_mut(row as usize) {
+                        row.cover(x, x + geometry.outer.width);
+                    }
                 }
             }
 
             self.paint_box(index, x, y);
         }
     }
+}
+
+/// Whether a box leaves what is under it showing: a transparent canvas hides
+/// only the cells it draws, so nothing is wiped before it.
+fn see_through(tree: &Tree, index: Index) -> bool {
+    tree.node(index)
+        .canvas
+        .as_deref()
+        .is_some_and(|canvas| canvas.transparent)
 }
 
 /// Paints the subtree under `root` into `height` lines.
@@ -1286,25 +1397,11 @@ mod tests {
             node.canvas = Some(Box::new(Canvas {
                 width: 4,
                 height: 2,
+                transparent: false,
                 rows: vec![
-                    CanvasRow {
-                        text: "abcdef".into(),
-                        width: 6,
-                        cells: None,
-                        ranges: vec![(0, 6, 7)],
-                    },
-                    CanvasRow {
-                        text: "123456".into(),
-                        width: 6,
-                        cells: None,
-                        ranges: vec![],
-                    },
-                    CanvasRow {
-                        text: "clipped".into(),
-                        width: 7,
-                        cells: None,
-                        ranges: vec![],
-                    },
+                    CanvasRow::opaque("abcdef", vec![(0, 6, 7)]),
+                    CanvasRow::opaque("123456", vec![]),
+                    CanvasRow::opaque("clipped", vec![]),
                 ],
             }));
         }
@@ -1340,15 +1437,8 @@ mod tests {
             node.canvas = Some(Box::new(Canvas {
                 width: 10,
                 height: 3,
-                rows: vec![
-                    CanvasRow {
-                        text: "**********".into(),
-                        width: 10,
-                        cells: None,
-                        ranges: vec![(0, 10, 1)],
-                    };
-                    3
-                ],
+                transparent: false,
+                rows: vec![CanvasRow::opaque("**********", vec![(0, 10, 1)]); 3],
             }));
         }
         tree.sync_position(bg);

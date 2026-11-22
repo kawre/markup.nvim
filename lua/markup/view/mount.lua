@@ -744,7 +744,9 @@ function Canvas.mount(view, parent, before, props)
 			ctx:clear()
 		end
 
+		ctx.transparent = props.transparent == true
 		if w > 0 and h > 0 then
+			ctx:begin()
 			draw(ctx)
 		end
 		ctx:flush(view.commands, id)
@@ -755,6 +757,7 @@ end
 ---@class markup.canvas.props: markup.node.props
 ---@field draw? fun(ctx: markup.canvas.context) called inside a reactive effect to paint the surface; redrawing runs no layout
 ---@field retain? boolean keep previous cells between redraws instead of clearing first
+---@field transparent? boolean cells left blank with no style show what is under the canvas, and let presses through to it
 
 --- A 2D cell surface drawn directly by `draw(ctx)`, independent of the layout
 --- engine for its contents. Takes all standard box props (`width`, `height`,

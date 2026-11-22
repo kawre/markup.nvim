@@ -400,6 +400,20 @@ impl Engine {
         let content_x = x + style.margin.left + style.inner().left;
         let content_y = y + style.margin.top + style.inner().top;
 
+        // A transparent canvas lets presses through the cells it did not draw.
+        // Its border and padding are still its own.
+        if let Some(canvas) = node.canvas.as_deref().filter(|canvas| canvas.transparent) {
+            let (col, row) = (col - content_x, row - content_y);
+            let content = node.geometry.content;
+            if inside
+                && (0..content.width).contains(&col)
+                && (0..content.height).contains(&row)
+                && !canvas.drew(col, row)
+            {
+                return false;
+            }
+        }
+
         if !inside {
             // An inline split around a block holds it outside its own pieces:
             // the cell can still be on what it holds.
@@ -861,6 +875,7 @@ mod tests {
                     num(2),
                     num(6),
                     num(2),
+                    num(0),
                     num(2),
                     text("abcd"),
                     num(-1),
@@ -917,12 +932,22 @@ mod tests {
                     num(2),
                     num(6),
                     num(2),
+                    num(1),
                     num(2),
+                    num(1),
+                    num(0),
                     text("WXYZ"),
                     num(-1),
                     text(""),
                     pack(&[(1, 3, 11)]),
-                    text("ok"),
+                    // A transparent row of two runs, with a gap between them.
+                    num(2),
+                    num(0),
+                    text("o"),
+                    num(-1),
+                    text(""),
+                    num(3),
+                    text("k"),
                     num(-1),
                     text(""),
                     text(""),
@@ -939,10 +964,15 @@ mod tests {
                 hl: 11
             }]
         );
-        assert_eq!(engine.lines[1].text, "ok");
+        assert_eq!(engine.lines[1].text, "o  k");
 
         // Changing canvas dimensions triggers layout again.
-        assert!(apply_ops(&mut engine, vec![num(12), num(2), num(6), num(3), num(0)],) > 0);
+        assert!(
+            apply_ops(
+                &mut engine,
+                vec![num(12), num(2), num(6), num(3), num(0), num(0)],
+            ) > 0
+        );
         assert_eq!(engine.lines.len(), 3);
     }
 }

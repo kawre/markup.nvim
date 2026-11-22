@@ -784,4 +784,233 @@ T["with blocks"]["an overlay covers both flow and a negative z canvas"] = functi
 	})
 end
 
+T["transparent"] = new_set()
+
+T["transparent"]["an overlay shows what is under the cells it leaves blank"] = function()
+	run([[
+		view:render(m.block({
+			m.block({ m.inline({ "0123456789", style = "CursorLine" }) }),
+			m.canvas({
+				position = "absolute",
+				top = 0,
+				left = 0,
+				transparent = true,
+				width = 10,
+				height = 1,
+				draw = function(ctx)
+					ctx:text(2, 0, "AB", "Title")
+					ctx:set(5, 0, "x")
+					ctx:set(8, 0, nil, "Search")
+				end,
+			}),
+		}))
+	]])
+	-- A drawn cell owns its text and highlight: "x" has none, and the styled
+	-- blank at 8 hides the "8" under it.
+	eq(lines(), { "01AB4x67 9" })
+	eq(marks(), {
+		{ 0, 0, 2, "CursorLine" },
+		{ 0, 2, 4, "Title" },
+		{ 0, 4, 5, "CursorLine" },
+		{ 0, 6, 8, "CursorLine" },
+		{ 0, 8, 9, "Search" },
+		{ 0, 9, 10, "CursorLine" },
+	})
+end
+
+T["transparent"]["an opaque overlay still hides everything under it"] = function()
+	run([[
+		view:render(m.block({
+			m.block("0123456789"),
+			m.canvas({
+				position = "absolute",
+				top = 0,
+				left = 0,
+				width = 10,
+				height = 1,
+				draw = function(ctx)
+					ctx:text(2, 0, "AB")
+				end,
+			}),
+		}))
+	]])
+	eq(lines(), { "  AB" })
+end
+
+T["transparent"]["blank cells pass presses to what is under them"] = function()
+	run([[
+		pressed = nil
+		view:render(m.block({
+			m.block({ on_press = function() pressed = "block" end, "press me here" }),
+			m.canvas({
+				position = "absolute",
+				top = 0,
+				left = 0,
+				transparent = true,
+				width = 13,
+				height = 1,
+				on_press = function() pressed = "canvas" end,
+				draw = function(ctx)
+					ctx:text(6, 0, "[]")
+				end,
+			}),
+		}))
+		vim.api.nvim_win_set_cursor(win.win, { 1, 0 })
+		view:press()
+		on_blank = pressed
+		vim.api.nvim_win_set_cursor(win.win, { 1, 6 })
+		view:press()
+		on_drawn = pressed
+	]])
+	eq(lines(), { "press [] here" })
+	eq(child.lua_get("on_blank"), "block")
+	eq(child.lua_get("on_drawn"), "canvas")
+end
+
+T["transparent"]["its border stays and takes presses"] = function()
+	run([[
+		pressed = nil
+		view:render(m.block({
+			m.block({ on_press = function() pressed = "block" end, m.block("aaaaaa"), m.block("bbbbbb"), m.block("cccccc") }),
+			m.canvas({
+				position = "absolute",
+				top = 0,
+				left = 0,
+				transparent = true,
+				border = "single",
+				width = 4,
+				height = 1,
+				on_press = function() pressed = "canvas" end,
+				draw = function(ctx)
+					ctx:set(1, 0, "o")
+				end,
+			}),
+		}))
+		vim.api.nvim_win_set_cursor(win.win, { 1, 0 })
+		view:press()
+		on_border = pressed
+		-- Byte 3 is the cell after the 3 byte border.
+		vim.api.nvim_win_set_cursor(win.win, { 2, 3 })
+		view:press()
+		inside = pressed
+	]])
+	eq(lines(), { "┌────┐", "│bobb│", "└────┘" })
+	eq(child.lua_get("on_border"), "canvas")
+	eq(child.lua_get("inside"), "block")
+end
+
+T["transparent"]["layers behind flow show through each other"] = function()
+	run([[
+		local function layer(z, transparent, draw)
+			return m.canvas({
+				position = "absolute",
+				top = 0,
+				left = 0,
+				z = z,
+				inert = true,
+				transparent = transparent,
+				width = 10,
+				height = 1,
+				draw = draw,
+			})
+		end
+		view:render(m.block({
+			layer(-2, false, function(ctx)
+				ctx:fill(0, 0, 10, 1, ".", "Comment")
+			end),
+			layer(-1, true, function(ctx)
+				ctx:text(3, 0, "**", "Title")
+			end),
+			"x",
+		}))
+	]])
+	eq(lines(), { "x..**....." })
+	eq(marks(), {
+		{ 0, 1, 3, "Comment" },
+		{ 0, 3, 5, "Title" },
+		{ 0, 5, 10, "Comment" },
+	})
+end
+
+T["transparent"]["in flow, it shows a negative z layer through its blanks"] = function()
+	run([[
+		view:render(m.block({
+			m.canvas({
+				position = "absolute",
+				top = 0,
+				left = 0,
+				z = -1,
+				inert = true,
+				width = 10,
+				height = 1,
+				draw = function(ctx)
+					ctx:fill(0, 0, 10, 1, ".", "Comment")
+				end,
+			}),
+			m.canvas({
+				transparent = true,
+				width = 10,
+				height = 1,
+				draw = function(ctx)
+					ctx:text(1, 0, "a")
+					ctx:text(6, 0, "b")
+				end,
+			}),
+		}))
+	]])
+	eq(lines(), { ".a....b..." })
+	eq(marks(), {
+		{ 0, 0, 1, "Comment" },
+		{ 0, 2, 6, "Comment" },
+		{ 0, 7, 10, "Comment" },
+	})
+end
+
+T["transparent"]["keeps wide characters whole in its runs"] = function()
+	run([[
+		view:render(m.block({
+			m.block("0123456789"),
+			m.canvas({
+				position = "absolute",
+				top = 0,
+				left = 0,
+				transparent = true,
+				width = 10,
+				height = 1,
+				draw = function(ctx)
+					ctx:text(1, 0, "你")
+					ctx:text(6, 0, "好x")
+				end,
+			}),
+		}))
+	]])
+	eq(lines(), { "0你345好x9" })
+end
+
+T["drawing"]["a style table changed between draws is seen again"] = function()
+	run([[
+		tick = m.signal(0)
+		style = { fg = "#ff0000" }
+		view:render(m.canvas({
+			width = 2,
+			height = 1,
+			draw = function(ctx)
+				tick()
+				ctx:set(0, 0, "a", style)
+				ctx:set(1, 0, "b", style)
+			end,
+		}))
+		first = view:highlights()[1][4].hl_group
+		style.fg = "#00ff00"
+		tick(1)
+		reactive.flush()
+		second = view:highlights()[1][4].hl_group
+		second_fg = vim.api.nvim_get_hl(0, { name = second }).fg
+	]])
+	eq(child.lua_get("first") ~= child.lua_get("second"), true)
+	eq(child.lua_get("second_fg"), 0x00ff00)
+	-- Both cells share one highlight.
+	eq(#child.lua_get("view:highlights()"), 1)
+end
+
 return T

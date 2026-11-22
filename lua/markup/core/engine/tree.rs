@@ -78,13 +78,23 @@ pub struct Fragment {
     pub end: u32,
 }
 
-/// One row of a canvas, painted straight onto the frame without layout.
+/// A run of drawn cells in a canvas row.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct CanvasRow {
+pub struct CanvasRun {
+    /// First cell, relative to the canvas's content left.
+    pub start: i32,
     pub text: String,
     pub width: i32,
     /// Width of each non ASCII character, when any differs from one.
     pub cells: Option<Box<[u8]>>,
+}
+
+/// One row of a canvas, painted straight onto the frame without layout.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct CanvasRow {
+    /// What the row draws, left to right. An opaque canvas sends one run from
+    /// its left edge; a transparent one only the cells it drew.
+    pub runs: Vec<CanvasRun>,
     /// Highlight ranges `(start, end, hl)` in cells, relative to the canvas's content left.
     pub ranges: Vec<(i32, i32, u32)>,
 }
@@ -95,7 +105,39 @@ pub struct CanvasRow {
 pub struct Canvas {
     pub width: i32,
     pub height: i32,
+    /// Cells it did not draw show what is under it and pass presses through.
+    pub transparent: bool,
     pub rows: Vec<CanvasRow>,
+}
+
+#[cfg(test)]
+impl CanvasRow {
+    /// One run of ASCII from the left edge, as an opaque canvas sends it.
+    pub fn opaque(text: &str, ranges: Vec<(i32, i32, u32)>) -> Self {
+        CanvasRow {
+            runs: vec![CanvasRun {
+                start: 0,
+                text: text.into(),
+                width: text.len() as i32,
+                cells: None,
+            }],
+            ranges,
+        }
+    }
+}
+
+impl Canvas {
+    /// Whether the canvas drew the cell at `col`, `row` of its content box.
+    pub fn drew(&self, col: i32, row: i32) -> bool {
+        usize::try_from(row)
+            .ok()
+            .and_then(|row| self.rows.get(row))
+            .is_some_and(|line| {
+                line.runs
+                    .iter()
+                    .any(|run| col >= run.start && col < run.start + run.width)
+            })
+    }
 }
 
 #[derive(Debug)]
