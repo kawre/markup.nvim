@@ -88,6 +88,22 @@ T["shows the root and its first level"] = function()
 	eq(contains("block"), true)
 end
 
+T["labels inline and block canvases in the tree and details"] = function()
+	for _, display in ipairs({ "inline", "block" }) do
+		child.lua(
+			[[
+			view:render(m.canvas({ display = ..., width = 3, height = 1 }))
+			if not inspector then open() end
+			inspector:select(view.last_id)
+			reactive.flush()
+		]],
+			{ display }
+		)
+		eq(contains("canvas"), true)
+		eq(child.lua_get("detail('node'):find(' canvas ', 1, true) ~= nil"), true)
+	end
+end
+
 T["marks a node that reaches past the edge"] = function()
 	child.lua([[
 		errors = {}
