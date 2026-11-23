@@ -92,8 +92,8 @@ pub struct CanvasRun {
 /// One row of a canvas, painted straight onto the frame without layout.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct CanvasRow {
-    /// What the row draws, left to right. An opaque canvas sends one run from
-    /// its left edge; a transparent one only the cells it drew.
+    /// The runs of cells the row drew, left to right. What is between them
+    /// shows what is under the canvas.
     pub runs: Vec<CanvasRun>,
     /// Highlight ranges `(start, end, hl)` in cells, relative to the canvas's content left.
     pub ranges: Vec<(i32, i32, u32)>,
@@ -105,14 +105,12 @@ pub struct CanvasRow {
 pub struct Canvas {
     pub width: i32,
     pub height: i32,
-    /// Cells it did not draw show what is under it and pass presses through.
-    pub transparent: bool,
     pub rows: Vec<CanvasRow>,
 }
 
 #[cfg(test)]
 impl CanvasRow {
-    /// One run of ASCII from the left edge, as an opaque canvas sends it.
+    /// One run of ASCII from the left edge.
     pub fn opaque(text: &str, ranges: Vec<(i32, i32, u32)>) -> Self {
         CanvasRow {
             runs: vec![CanvasRun {
@@ -123,20 +121,6 @@ impl CanvasRow {
             }],
             ranges,
         }
-    }
-}
-
-impl Canvas {
-    /// Whether the canvas drew the cell at `col`, `row` of its content box.
-    pub fn drew(&self, col: i32, row: i32) -> bool {
-        usize::try_from(row)
-            .ok()
-            .and_then(|row| self.rows.get(row))
-            .is_some_and(|line| {
-                line.runs
-                    .iter()
-                    .any(|run| col >= run.start && col < run.start + run.width)
-            })
     }
 }
 

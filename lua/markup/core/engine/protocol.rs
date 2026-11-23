@@ -152,6 +152,10 @@ impl StyleProperty {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Command {
+    CreateCanvas {
+        id: ClientId,
+        display: Display,
+    },
     Create {
         id: ClientId,
         display: Display,
@@ -534,23 +538,23 @@ impl<'a> Reader<'a> {
     fn canvas(&mut self) -> LuaResult<Canvas> {
         let width = self.int()?.max(0);
         let height = self.int()?.max(0);
-        let transparent = self.int()? != 0;
         let count = self.int()?.max(0) as usize;
         let mut rows = Vec::with_capacity(count.min(height as usize));
         for _ in 0..count {
-            // An opaque row is one run from the left edge, sent without its
-            // count and start.
-            let runs = if transparent {
-                self.int()?.max(0) as usize
-            } else {
+            // A row of one run from the left edge starts with its text; any
+            // other with how many runs it has.
+            let whole = matches!(self.slots.get(self.position), Some(Slot::Text(..)));
+            let runs = if whole {
                 1
+            } else {
+                self.int()?.max(0) as usize
             };
             let mut row = CanvasRow {
                 runs: Vec::with_capacity(runs.min(width as usize)),
                 ranges: Vec::new(),
             };
             for _ in 0..runs {
-                let start = if transparent { self.int()? } else { 0 };
+                let start = if whole { 0 } else { self.int()? };
                 let (text, run_width) = self.text()?;
                 let digits = self.string()?;
                 let cells = (!digits.is_empty()).then(|| {
@@ -572,7 +576,6 @@ impl<'a> Reader<'a> {
         Ok(Canvas {
             width,
             height,
-            transparent,
             rows,
         })
     }
@@ -581,6 +584,10 @@ impl<'a> Reader<'a> {
         let opcode = self.int()?;
         Ok(match opcode {
             1 => Command::Create {
+                id: self.id()?,
+                display: self.display()?,
+            },
+            13 => Command::CreateCanvas {
                 id: self.id()?,
                 display: self.display()?,
             },

@@ -20,6 +20,7 @@ local OP = {
 	set_cells = 10,
 	set_border = 11,
 	set_canvas = 12,
+	create_canvas = 13,
 }
 
 M.display = { block = 1, inline = 2, contents = 3, flex = 4, grid = 5 }
@@ -229,9 +230,9 @@ function M.commands()
 	return setmetatable({ ops = {}, len = 0 }, Commands)
 end
 
-function Commands:create(id, display)
+function Commands:create(id, display, canvas)
 	local ops, n = self.ops, self.len
-	ops[n + 1], ops[n + 2], ops[n + 3] = OP.create, id, display
+	ops[n + 1], ops[n + 2], ops[n + 3] = canvas and OP.create_canvas or OP.create, id, display
 	self.len = n + 3
 end
 
@@ -431,38 +432,35 @@ function Commands:set_border(id, preset, sides, hl_id)
 	self.len = n + 6
 end
 
---- Replaces a canvas's surface with `count` rows. An opaque row is one run
---- from the left edge: its text, width and cells. A transparent row is the
---- number of its runs, then each one's start, text, width and cells. Either
---- ends in its packed highlight ranges.
+--- Replaces a canvas's surface with `count` rows, each the number of its runs,
+--- then each one's start, text, width and cells, then its packed highlight
+--- ranges. A row of one run from the left edge, the most common, leaves out
+--- the count and the start: it starts with its text.
 ---@param runs { count: integer[], ranges: string[], starts: integer[], texts: string[], widths: integer[], cells: string[] }
-function Commands:set_canvas(id, width, height, transparent, count, runs)
+function Commands:set_canvas(id, width, height, count, runs)
 	local ops, n = self.ops, self.len
-	ops[n + 1], ops[n + 2], ops[n + 3], ops[n + 4], ops[n + 5], ops[n + 6] =
-		OP.set_canvas, id, width, height, transparent, count
-	n = n + 6
+	ops[n + 1], ops[n + 2], ops[n + 3], ops[n + 4], ops[n + 5] =
+		OP.set_canvas, id, width, height, count
+	n = n + 5
 	local row_runs, ranges = runs.count, runs.ranges
 	local starts, texts, widths, cells = runs.starts, runs.texts, runs.widths, runs.cells
 	local k = 0
 	for row = 1, count do
 		local total = row_runs[row]
-		if transparent == 0 then
-			if total == 0 then
-				ops[n + 1], ops[n + 2], ops[n + 3] = "", 0, ""
-			else
-				k = k + 1
-				ops[n + 1], ops[n + 2], ops[n + 3] = texts[k], widths[k], cells[k]
-			end
+		if total == 1 and starts[k + 1] == 0 then
+			k = k + 1
+			ops[n + 1], ops[n + 2], ops[n + 3] = texts[k], widths[k], cells[k]
 			n = n + 3
+			total = 0
 		else
 			ops[n + 1] = total
 			n = n + 1
-			for _ = 1, total do
-				k = k + 1
-				ops[n + 1], ops[n + 2], ops[n + 3], ops[n + 4] =
-					starts[k], texts[k], widths[k], cells[k]
-				n = n + 4
-			end
+		end
+		for _ = 1, total do
+			k = k + 1
+			ops[n + 1], ops[n + 2], ops[n + 3], ops[n + 4] =
+				starts[k], texts[k], widths[k], cells[k]
+			n = n + 4
 		end
 		ops[n + 1] = ranges[row]
 		n = n + 1

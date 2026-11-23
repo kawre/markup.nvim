@@ -38,9 +38,13 @@ local function lines()
 	return child.lua_get("lines()")
 end
 
+--- Highlights as `{ row, start, end, group }`. A canvas cell's group is named
+--- by the style it comes from, `canvas` for none.
 local function marks()
 	return child.lua_get([[vim.tbl_map(function(mark)
-		return { mark[2], mark[3], mark[4].end_col, mark[4].hl_group }
+		local group = mark[4].hl_group
+		group = group == "MarkupCanvas" and "canvas" or group:gsub("^MarkupCanvas_", "")
+		return { mark[2], mark[3], mark[4].end_col, group }
 	end, view:highlights())]])
 end
 
@@ -381,7 +385,7 @@ T["layout"]["negative z canvas takes presses where flow has nothing interactive"
 	eq(child.lua_get("on_card"), "card")
 end
 
-T["layout"]["inert flow keeps presses from a negative z canvas"] = function()
+T["layout"]["a canvas inside an inert box takes no presses"] = function()
 	run([[
 		pressed = false
 		view:render(m.block({
@@ -407,7 +411,32 @@ T["layout"]["inert flow keeps presses from a negative z canvas"] = function()
 	eq(child.lua_get("pressed"), false)
 end
 
-T["layout"]["canvas over a negative z canvas hides its highlights"] = function()
+T["layout"]["inert flow lets presses through to a negative z canvas"] = function()
+	run([[
+		pressed = nil
+		view:render(m.block({
+			m.canvas({
+				position = "absolute",
+				top = 0,
+				left = 0,
+				z = -1,
+				width = 10,
+				height = 1,
+				on_press = function() pressed = "canvas" end,
+				draw = function(ctx)
+					ctx:fill(0, 0, 10, 1, ".")
+				end,
+			}),
+			m.block({ inert = true, on_press = function() pressed = "block" end, "inert" }),
+		}))
+		vim.api.nvim_win_set_cursor(win.win, { 1, 1 })
+		view:press()
+	]])
+	-- As HTML's `inert`, the block is not there to take it.
+	eq(child.lua_get("pressed"), "canvas")
+end
+
+T["layout"]["canvas text over a negative z canvas keeps its background"] = function()
 	run([[
 		view:render(m.block({
 			m.canvas({
@@ -432,10 +461,12 @@ T["layout"]["canvas over a negative z canvas hides its highlights"] = function()
 			}),
 		}))
 	]])
+	-- The layer's highlight stays under the text, whose own takes nothing from
+	-- it but its background.
 	eq(lines(), { "##ab######" })
 	eq(marks(), {
-		{ 0, 0, 2, "Comment" },
-		{ 0, 4, 10, "Comment" },
+		{ 0, 0, 10, "Comment" },
+		{ 0, 2, 4, "canvas" },
 	})
 end
 
@@ -589,7 +620,7 @@ T["with blocks"]["is cut off by a block that clips"] = function()
 	eq(marks(), { { 0, 0, 4, "Title" } })
 end
 
-T["with blocks"]["an absolute canvas above flow hides what it covers"] = function()
+T["with blocks"]["an absolute canvas with a style hides what it covers"] = function()
 	run([[
 		view:render(m.block({
 			m.block({ style = "CursorLine", "0123456789" }),
@@ -600,19 +631,22 @@ T["with blocks"]["an absolute canvas above flow hides what it covers"] = functio
 				left = 2,
 				width = 3,
 				height = 2,
+				style = "NormalFloat",
 				draw = function(ctx)
 					ctx:text(0, 0, "AB", "Title")
 				end,
 			}),
 		}))
 	]])
-	-- The canvas hides text and highlights under all its cells, even the ones
-	-- it leaves blank.
+	-- Its background is opaque, as a CSS one is: it hides text and highlights
+	-- under all its cells, even the ones it leaves blank.
 	eq(lines(), { "01AB 56789", "se   d line" })
 	eq(marks(), {
 		{ 0, 0, 2, "CursorLine" },
+		{ 0, 2, 5, "NormalFloat" },
 		{ 0, 2, 4, "Title" },
 		{ 0, 5, 60, "CursorLine" },
+		{ 1, 2, 5, "NormalFloat" },
 	})
 end
 
@@ -792,9 +826,9 @@ T["with blocks"]["an overlay covers both flow and a negative z canvas"] = functi
 	})
 end
 
-T["transparent"] = new_set()
+T["see through"] = new_set()
 
-T["transparent"]["an overlay shows what is under the cells it leaves blank"] = function()
+T["see through"]["an overlay shows what is under the cells it leaves blank"] = function()
 	run([[
 		view:render(m.block({
 			m.block({ m.inline({ "0123456789", style = "CursorLine" }) }),
@@ -802,7 +836,6 @@ T["transparent"]["an overlay shows what is under the cells it leaves blank"] = f
 				position = "absolute",
 				top = 0,
 				left = 0,
-				transparent = true,
 				width = 10,
 				height = 1,
 				draw = function(ctx)
@@ -813,20 +846,18 @@ T["transparent"]["an overlay shows what is under the cells it leaves blank"] = f
 			}),
 		}))
 	]])
-	-- A drawn cell owns its text and highlight: "x" has none, and the styled
-	-- blank at 8 hides the "8" under it.
+	-- A drawn cell takes the place of the text under it, the styled blank at 8
+	-- too. Highlights under it stay, and its own takes only their background.
 	eq(lines(), { "01AB4x67 9" })
 	eq(marks(), {
-		{ 0, 0, 2, "CursorLine" },
+		{ 0, 0, 10, "CursorLine" },
 		{ 0, 2, 4, "Title" },
-		{ 0, 4, 5, "CursorLine" },
-		{ 0, 6, 8, "CursorLine" },
+		{ 0, 5, 6, "canvas" },
 		{ 0, 8, 9, "Search" },
-		{ 0, 9, 10, "CursorLine" },
 	})
 end
 
-T["transparent"]["an opaque overlay still hides everything under it"] = function()
+T["see through"]["a styled overlay hides everything under it"] = function()
 	run([[
 		view:render(m.block({
 			m.block("0123456789"),
@@ -836,6 +867,7 @@ T["transparent"]["an opaque overlay still hides everything under it"] = function
 				left = 0,
 				width = 10,
 				height = 1,
+				style = "NormalFloat",
 				draw = function(ctx)
 					ctx:text(2, 0, "AB")
 				end,
@@ -845,7 +877,91 @@ T["transparent"]["an opaque overlay still hides everything under it"] = function
 	eq(lines(), { "  AB" })
 end
 
-T["transparent"]["blank cells pass presses to what is under them"] = function()
+T["see through"]["an empty canvas is transparent with or without a draw callback"] = function()
+	run([[
+		view:render(m.block({
+			"ABCDE",
+			m.canvas({ position = "absolute", left = 0, top = 0, width = 3, height = 1 }),
+		}))
+	]])
+	eq(lines(), { "ABCDE" })
+end
+
+T["see through"]["only a background reveals the canvas box after a colorscheme change"] = function()
+	run([[
+		vim.api.nvim_set_hl(0, "CanvasBox", { fg = "#ff0000" })
+		view:render(m.block({
+			"ABCDE",
+			m.canvas({ position = "absolute", left = 0, top = 0, width = 3, height = 1,
+				style = "CanvasBox", draw = function() end }),
+		}))
+	]])
+	eq(lines(), { "ABCDE" })
+	eq(marks(), {})
+	run([[
+		vim.api.nvim_set_hl(0, "CanvasBox", { bg = "#ff0000" })
+		vim.api.nvim_exec_autocmds("ColorScheme", {})
+		reactive.flush()
+	]])
+	eq(lines(), { "   DE" })
+end
+
+T["see through"]["a canvas background leaves its margins visible"] = function()
+	run([[
+		view:render(m.block({ "ABCDE", m.canvas({
+			position = "absolute", left = 0, top = 0, margin_left = 1,
+			width = 1, height = 1, style = { bg = "#ff0000" },
+		}) }))
+	]])
+	eq(lines(), { "A CDE" })
+end
+
+T["see through"]["an inline canvas background covers a lower drawing"] = function()
+	run([[
+		view:render(m.block({
+			m.canvas({ position = "absolute", left = 0, top = 0, z = -1, width = 3, height = 1,
+				draw = function(ctx) ctx:text(0, 0, "123") end }),
+			m.canvas({ width = 3, height = 1, style = { bg = "#ff0000" } }),
+		}))
+	]])
+	eq(lines(), { "" })
+end
+
+T["see through"]["an absolute descendant of an inert box leaves the button beneath clickable"] = function()
+	run([[
+		view:render(m.block({
+			m.block({ on_press = function() pressed = "button" end, "ABCDE" }),
+			m.block({ inert = true, m.canvas({ position = "absolute", left = 0, top = 0,
+				width = 3, height = 1, on_press = function() pressed = "overlay" end }) }),
+		}))
+		vim.api.nvim_win_set_cursor(win.win, { 1, 0 })
+		view:press()
+	]])
+	eq(child.lua_get("pressed"), "button")
+end
+
+T["see through"]["the last painted canvas takes presses at equal z"] = function()
+	for _, z in ipairs({ -1, 0 }) do
+		child.lua(
+			[[
+			local z = ...
+			local function layer(text)
+				return m.canvas({ position = "absolute", left = 0, top = 0, z = z,
+					width = 3, height = 1, draw = function(ctx) ctx:text(0, 0, text) end,
+					on_press = function() pressed = text end })
+			end
+			view:render(m.block({ layer("111"), layer("222") }))
+			pressed = nil
+			vim.api.nvim_win_set_cursor(win.win, { 1, 0 })
+			view:press()
+		]],
+			{ z }
+		)
+		eq(child.lua_get("pressed"), lines()[1])
+	end
+end
+
+T["see through"]["takes presses on its whole box, as in CSS"] = function()
 	run([[
 		pressed = nil
 		view:render(m.block({
@@ -854,7 +970,6 @@ T["transparent"]["blank cells pass presses to what is under them"] = function()
 				position = "absolute",
 				top = 0,
 				left = 0,
-				transparent = true,
 				width = 13,
 				height = 1,
 				on_press = function() pressed = "canvas" end,
@@ -871,11 +986,35 @@ T["transparent"]["blank cells pass presses to what is under them"] = function()
 		on_drawn = pressed
 	]])
 	eq(lines(), { "press [] here" })
-	eq(child.lua_get("on_blank"), "block")
+	eq(child.lua_get("on_blank"), "canvas")
 	eq(child.lua_get("on_drawn"), "canvas")
 end
 
-T["transparent"]["its border stays and takes presses"] = function()
+T["see through"]["an inert canvas lets presses through"] = function()
+	run([[
+		pressed = nil
+		view:render(m.block({
+			m.block({ on_press = function() pressed = "block" end, "press me here" }),
+			m.canvas({
+				position = "absolute",
+				top = 0,
+				left = 0,
+				inert = true,
+				width = 13,
+				height = 1,
+				on_press = function() pressed = "canvas" end,
+				draw = function(ctx)
+					ctx:text(6, 0, "[]")
+				end,
+			}),
+		}))
+		vim.api.nvim_win_set_cursor(win.win, { 1, 6 })
+		view:press()
+	]])
+	eq(child.lua_get("pressed"), "block")
+end
+
+T["see through"]["its border stays and takes presses"] = function()
 	run([[
 		pressed = nil
 		view:render(m.block({
@@ -884,7 +1023,6 @@ T["transparent"]["its border stays and takes presses"] = function()
 				position = "absolute",
 				top = 0,
 				left = 0,
-				transparent = true,
 				border = "single",
 				width = 4,
 				height = 1,
@@ -904,10 +1042,10 @@ T["transparent"]["its border stays and takes presses"] = function()
 	]])
 	eq(lines(), { "┌────┐", "│bobb│", "└────┘" })
 	eq(child.lua_get("on_border"), "canvas")
-	eq(child.lua_get("inside"), "block")
+	eq(child.lua_get("inside"), "canvas")
 end
 
-T["transparent"]["layers behind flow show through each other"] = function()
+T["see through"]["layers behind flow show through each other"] = function()
 	run([[
 		local function layer(z, transparent, draw)
 			return m.canvas({
@@ -934,13 +1072,12 @@ T["transparent"]["layers behind flow show through each other"] = function()
 	]])
 	eq(lines(), { "x..**....." })
 	eq(marks(), {
-		{ 0, 1, 3, "Comment" },
+		{ 0, 1, 10, "Comment" },
 		{ 0, 3, 5, "Title" },
-		{ 0, 5, 10, "Comment" },
 	})
 end
 
-T["transparent"]["in flow, it shows a negative z layer through its blanks"] = function()
+T["see through"]["in flow, it shows a negative z layer through its blanks"] = function()
 	run([[
 		view:render(m.block({
 			m.canvas({
@@ -956,7 +1093,6 @@ T["transparent"]["in flow, it shows a negative z layer through its blanks"] = fu
 				end,
 			}),
 			m.canvas({
-				transparent = true,
 				width = 10,
 				height = 1,
 				draw = function(ctx)
@@ -968,13 +1104,13 @@ T["transparent"]["in flow, it shows a negative z layer through its blanks"] = fu
 	]])
 	eq(lines(), { ".a....b..." })
 	eq(marks(), {
-		{ 0, 0, 1, "Comment" },
-		{ 0, 2, 6, "Comment" },
-		{ 0, 7, 10, "Comment" },
+		{ 0, 0, 10, "Comment" },
+		{ 0, 1, 2, "canvas" },
+		{ 0, 6, 7, "canvas" },
 	})
 end
 
-T["transparent"]["keeps wide characters whole in its runs"] = function()
+T["see through"]["keeps wide characters whole in its runs"] = function()
 	run([[
 		view:render(m.block({
 			m.block("0123456789"),
@@ -982,7 +1118,6 @@ T["transparent"]["keeps wide characters whole in its runs"] = function()
 				position = "absolute",
 				top = 0,
 				left = 0,
-				transparent = true,
 				width = 10,
 				height = 1,
 				draw = function(ctx)
@@ -1132,6 +1267,67 @@ T["display"]["a canvas with no rows sits at the bottom of its line"] = function(
 		end
 	]])
 	eq(y, 1)
+end
+
+T["inheritance"] = new_set()
+
+--- The colors and attributes Neovim draws the cell at `row`, `col` with.
+local function cell(row, col)
+	local found = child.lua_get("vim.api.nvim__inspect_cell(1, ...)", { row, col })[2]
+	return {
+		fg = found.foreground,
+		bg = found.background,
+		bold = found.bold or false,
+		italic = found.italic or false,
+	}
+end
+
+T["inheritance"]["what a canvas draws takes nothing from around it but the background"] = function()
+	run([[
+		vim.o.termguicolors = true
+		vim.api.nvim_set_hl(0, "Normal", { fg = "#cccccc" })
+		vim.api.nvim_set_hl(0, "Parent", { fg = "#ff0000", bg = "#003300", bold = true })
+		vim.api.nvim_set_hl(0, "Own", { fg = "#0000ff", italic = true })
+		view:render(m.block({
+			style = "Parent",
+			"x",
+			m.canvas({
+				width = 3,
+				height = 1,
+				style = { fg = "#00ff00", bold = true },
+				draw = function(ctx)
+					ctx:set(0, 0, "a")
+					ctx:set(1, 0, "b", "Own")
+				end,
+			}),
+		}))
+		vim.cmd("redraw")
+	]])
+	-- Text beside it inherits all of its parent.
+	eq(cell(0, 0), { fg = 0xff0000, bg = 0x003300, bold = true, italic = false })
+	-- Unstyled, a cell is `Normal`: not its parent's red nor bold, nor its
+	-- canvas's green, over the background under it.
+	eq(cell(0, 1), { fg = 0xcccccc, bg = 0x003300, bold = false, italic = false })
+	-- Styled, it is only its style.
+	eq(cell(0, 2), { fg = 0x0000ff, bg = 0x003300, bold = false, italic = true })
+end
+
+T["inheritance"]["follows a colorscheme change"] = function()
+	run([[
+		vim.o.termguicolors = true
+		vim.api.nvim_set_hl(0, "Own", { fg = "#0000ff" })
+		view:render(m.canvas({
+			width = 1,
+			height = 1,
+			draw = function(ctx)
+				ctx:set(0, 0, "a", "Own")
+			end,
+		}))
+		vim.api.nvim_set_hl(0, "Own", { fg = "#00ff00" })
+		vim.api.nvim_exec_autocmds("ColorScheme", {})
+		vim.cmd("redraw")
+	]])
+	eq(cell(0, 0).fg, 0x00ff00)
 end
 
 return T

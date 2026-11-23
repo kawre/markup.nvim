@@ -1,7 +1,7 @@
 //! Turns a laid out tree into lines of text with highlight ranges.
 
 use super::style::{Border, Display, Position};
-use super::tree::{Index, Tree};
+use super::tree::{ClientId, Index, Tree};
 use std::borrow::Cow;
 use std::collections::HashMap;
 
@@ -272,10 +272,10 @@ impl<'a> Row<'a> {
     }
 
     /// Lays a canvas row's runs over what is here, in one pass however many
-    /// there are. The runs are sorted, apart and already clipped. Each hides
-    /// the text under it, and the highlights too when `owns_ranges`, else
-    /// only those of a `z < 0` layer, as flow text does.
-    fn place_runs(&mut self, runs: Vec<Segment<'a>>, owns_ranges: bool) {
+    /// there are. The runs are sorted, apart and already clipped. Each takes
+    /// the place of the text under it, and leaves the highlights: a canvas
+    /// cell's own does not combine, so only their background shows through.
+    fn place_runs(&mut self, runs: Vec<Segment<'a>>) {
         if runs.is_empty() {
             return;
         }
@@ -305,27 +305,6 @@ impl<'a> Row<'a> {
         }
         merged.extend(runs);
         self.segments = merged;
-
-        let cut = if owns_ranges {
-            self.ranges.len()
-        } else {
-            self.backdrop_ranges
-        };
-        if cut == 0 {
-            return;
-        }
-        let tail = self.ranges.split_off(cut);
-        let mut ranges = Vec::with_capacity(self.ranges.len() + tail.len() + 1);
-        for (start, end, hl) in self.ranges.drain(..) {
-            uncovered(start, end, &spans, |from, to| ranges.push((from, to, hl)));
-        }
-        if owns_ranges {
-            self.backdrop_ranges = 0;
-        } else {
-            self.backdrop_ranges = ranges.len();
-        }
-        ranges.extend(tail);
-        self.ranges = ranges;
     }
 
     /// Removes everything under a box, so an overlay hides what it covers.
@@ -520,6 +499,7 @@ struct Painter<'a> {
     rows: Vec<Row<'a>>,
     /// Absolute nodes found so far, painted after everything in flow.
     pending: Vec<Index>,
+    layers: Vec<ClientId>,
     /// Rows a clipping ancestor leaves visible.
     visible: std::ops::Range<i32>,
     /// Columns a clipping ancestor leaves visible.
@@ -644,10 +624,14 @@ impl<'a> Painter<'a> {
                 top += edges.top;
                 bottom -= edges.bottom;
             }
-            let cover_bg = self.has_backdrop && !node.display.is_inline();
+            let canvas = node.canvas.is_some();
+            let opaque_overlay = canvas && style.position() == Position::Absolute;
+            let cover_bg = self.has_backdrop && (canvas || !node.display.is_inline());
             for row in top..bottom {
                 if let Some(row) = self.row(row) {
-                    if cover_bg {
+                    if opaque_overlay {
+                        row.cover(left, right);
+                    } else if cover_bg {
                         row.cover_backdrop(left, right);
                     }
                     row.add_range(left, right, style.hl);
@@ -719,9 +703,6 @@ impl<'a> Painter<'a> {
                 Some(columns) => columns.start.max(content_x)..columns.end.min(content_right),
                 None => content_x..content_right,
             });
-            // Painted after flow, an overlay owns the cells it draws outright;
-            // in flow, it leaves the parent's background under them.
-            let replaces = canvas.transparent && node.style.position() == Position::Absolute;
             for (offset, line) in canvas.rows.iter().enumerate() {
                 if let Some(row) = self.row(content_y + offset as i32) {
                     let mut runs = Vec::with_capacity(line.runs.len());
@@ -743,7 +724,7 @@ impl<'a> Painter<'a> {
                             segment
                         });
                     }
-                    row.place_runs(runs, replaces);
+                    row.place_runs(runs);
                     for &(start, end, hl) in &line.ranges {
                         row.add_range(content_x + start, content_x + end, hl);
                     }
@@ -848,7 +829,8 @@ impl<'a> Painter<'a> {
             let geometry = &self.tree.node(index).geometry;
             self.snap = snaps(self.tree, index);
 
-            if !see_through(self.tree, index) {
+            self.layers.push(self.tree.node(index).client);
+            if self.tree.node(index).canvas.is_none() {
                 for row in y..y + geometry.outer.height {
                     if let Some(row) = self.rows.get_mut(row as usize) {
                         row.cover(x, x + geometry.outer.width);
@@ -885,7 +867,8 @@ impl<'a> Painter<'a> {
             // Painted apart from its ancestors, so it looks up what they say.
             self.snap = snaps(tree, index);
 
-            if !see_through(tree, index) {
+            self.layers.push(tree.node(index).client);
+            if tree.node(index).canvas.is_none() {
                 for row in y..y + geometry.outer.height {
                     if let Some(row) = self.rows.get_mut(row as usize) {
                         row.cover(x, x + geometry.outer.width);
@@ -898,21 +881,13 @@ impl<'a> Painter<'a> {
     }
 }
 
-/// Whether a box leaves what is under it showing: a transparent canvas hides
-/// only the cells it draws, so nothing is wiped before it.
-fn see_through(tree: &Tree, index: Index) -> bool {
-    tree.node(index)
-        .canvas
-        .as_deref()
-        .is_some_and(|canvas| canvas.transparent)
-}
-
 /// Paints the subtree under `root` into `height` lines.
-pub fn paint(tree: &Tree, root: Index, height: i32) -> Vec<Line> {
+pub fn paint(tree: &Tree, root: Index, height: i32) -> (Vec<Line>, Vec<ClientId>) {
     let mut painter = Painter {
         tree,
         rows: (0..height.max(0)).map(|_| Row::default()).collect(),
         pending: Vec::new(),
+        layers: Vec::new(),
         visible: 0..height.max(0),
         columns: None,
         origins: HashMap::new(),
@@ -921,10 +896,14 @@ pub fn paint(tree: &Tree, root: Index, height: i32) -> Vec<Line> {
     };
 
     painter.paint_backgrounds();
+    painter.layers.push(tree.node(root).client);
     painter.snap = true;
     painter.paint_box(root, 0, 0);
     painter.paint_absolutes();
-    painter.rows.into_iter().map(Row::finish).collect()
+    (
+        painter.rows.into_iter().map(Row::finish).collect(),
+        painter.layers,
+    )
 }
 
 #[cfg(test)]
@@ -950,7 +929,7 @@ mod tests {
 
     fn render(tree: &mut Tree, root: Index) -> Vec<Line> {
         let height = measure(tree, root, Constraints::available(20)).height;
-        paint(tree, root, height)
+        paint(tree, root, height).0
     }
 
     #[test]
@@ -1028,7 +1007,7 @@ mod tests {
     fn render_with_absolutes(tree: &mut Tree, root: Index) -> Vec<Line> {
         let height = measure(tree, root, Constraints::available(20)).height;
         crate::engine::layout::absolute::layout(tree);
-        paint(tree, root, height)
+        paint(tree, root, height).0
     }
 
     #[test]
@@ -1397,7 +1376,6 @@ mod tests {
             node.canvas = Some(Box::new(Canvas {
                 width: 4,
                 height: 2,
-                transparent: false,
                 rows: vec![
                     CanvasRow::opaque("abcdef", vec![(0, 6, 7)]),
                     CanvasRow::opaque("123456", vec![]),
@@ -1437,7 +1415,6 @@ mod tests {
             node.canvas = Some(Box::new(Canvas {
                 width: 10,
                 height: 3,
-                transparent: false,
                 rows: vec![CanvasRow::opaque("**********", vec![(0, 10, 1)]); 3],
             }));
         }
@@ -1458,7 +1435,7 @@ mod tests {
 
         measure(&mut tree, root, Constraints::available(20));
         crate::engine::layout::absolute::layout(&mut tree);
-        let lines = paint(&tree, root, 3);
+        let lines = paint(&tree, root, 3).0;
 
         assert_eq!(
             texts(&lines),

@@ -35,6 +35,8 @@ pub struct Engine {
     root: Index,
     width: i32,
     lines: Vec<Line>,
+    /// Painted layers from back to front, including the root for normal flow.
+    layers: Vec<ClientId>,
     /// Whether a command came since the last frame. Without one the next is
     /// the same, so it is not laid out, painted or diffed at all.
     changed: bool,
@@ -79,6 +81,7 @@ impl Engine {
             root,
             width,
             lines: vec![Line::default()],
+            layers: Vec::new(),
             changed: true,
         }
     }
@@ -104,6 +107,10 @@ impl Engine {
         match command {
             Command::Create { id, display } => {
                 tree.create(id, display)?;
+            }
+            Command::CreateCanvas { id, display } => {
+                let index = tree.create(id, display)?;
+                tree.node_mut(index).canvas = Some(Box::default());
             }
             Command::CreateText { id, text, width } => {
                 let index = tree.create(id, Display::Text)?;
@@ -220,7 +227,8 @@ impl Engine {
 
         let started = Instant::now();
         // A buffer always has a line, so a frame does too.
-        let lines = paint::paint(&self.tree, self.root, height.max(1));
+        let (lines, layers) = paint::paint(&self.tree, self.root, height.max(1));
+        self.layers = layers;
         timings.paint = elapsed_ms(started);
 
         let started = Instant::now();
@@ -279,8 +287,14 @@ impl Engine {
     /// Finds the innermost interactive node on a cell. Nothing under an inert
     /// node counts.
     pub fn node_at(&self, row: i32, col: i32) -> Option<ClientId> {
+        self.interactive_in(&self.path_at(row, col))
+    }
+
+    /// The innermost interactive node on a path from the root, short of
+    /// anything inert.
+    fn interactive_in(&self, path: &[ClientId]) -> Option<ClientId> {
         let mut found = None;
-        for id in self.path_at(row, col) {
+        for &id in path {
             let Ok(index) = self.tree.index_of(id) else {
                 continue;
             };
@@ -297,53 +311,39 @@ impl Engine {
 
     /// Every node on a cell, from the root down to the innermost one. Absolute
     /// boxes with non-negative `z` sit on top, highest `z` first. Negative `z`
-    /// sits behind flow, and takes the cell when nothing in flow there is
-    /// interactive or inert.
+    /// sits behind flow, and takes the cell when nothing in flow there takes
+    /// presses. As HTML's `inert`, an inert box is not there to be found.
     pub fn path_at(&self, row: i32, col: i32) -> Vec<ClientId> {
         let tree = &self.tree;
 
-        let mut overlays: Vec<Index> = tree.attached_absolutes().collect();
-        overlays.sort_by_key(|&index| std::cmp::Reverse(tree.node(index).style.extra().z));
-
-        for &index in overlays
-            .iter()
-            .filter(|&&i| tree.node(i).style.extra().z >= 0)
-        {
-            let (x, y) = self.origin(index);
+        let mut flow = Vec::new();
+        for &id in self.layers.iter().rev() {
+            let Ok(index) = tree.index_of(id) else {
+                continue;
+            };
+            if index == self.root {
+                if self.descend(index, 0, 0, row, col, &mut flow)
+                    && self.interactive_in(&flow).is_some()
+                {
+                    return flow;
+                }
+                continue;
+            }
             let mut path = self.ancestors(index);
+            if tree.node(index).style.extra().inert
+                || path.iter().any(|&id| {
+                    tree.index_of(id)
+                        .is_ok_and(|ancestor| tree.node(ancestor).style.extra().inert)
+                })
+            {
+                continue;
+            }
+            let (x, y) = self.origin(index);
             if self.descend(index, x, y, row, col, &mut path) {
                 return path;
             }
         }
-
-        let mut path = Vec::new();
-        if self.descend(self.root, 0, 0, row, col, &mut path) && self.claims(&path) {
-            return path;
-        }
-
-        for &index in overlays
-            .iter()
-            .filter(|&&i| tree.node(i).style.extra().z < 0)
-        {
-            let (x, y) = self.origin(index);
-            let mut path = self.ancestors(index);
-            if self.descend(index, x, y, row, col, &mut path) {
-                return path;
-            }
-        }
-
-        path
-    }
-
-    /// Whether a flow path keeps a cell from the `z < 0` layers behind it: it
-    /// holds a node that takes presses, or an inert one that stops them.
-    fn claims(&self, path: &[ClientId]) -> bool {
-        path.iter().any(|&id| {
-            self.tree.index_of(id).is_ok_and(|index| {
-                let style = &self.tree.node(index).style;
-                style.interactive || style.extra().inert
-            })
-        })
+        flow
     }
 
     fn ancestors(&self, index: Index) -> Vec<ClientId> {
@@ -391,20 +391,6 @@ impl Engine {
         let style = &node.style;
         let content_x = x + style.margin.left + style.inner().left;
         let content_y = y + style.margin.top + style.inner().top;
-
-        // A transparent canvas lets presses through the cells it did not draw.
-        // Its border and padding are still its own.
-        if let Some(canvas) = node.canvas.as_deref().filter(|canvas| canvas.transparent) {
-            let (col, row) = (col - content_x, row - content_y);
-            let content = node.geometry.content;
-            if inside
-                && (0..content.width).contains(&col)
-                && (0..content.height).contains(&row)
-                && !canvas.drew(col, row)
-            {
-                return false;
-            }
-        }
 
         if !inside {
             // An inline split around a block holds it outside its own pieces:
@@ -871,12 +857,14 @@ mod tests {
                     num(2),
                     num(6),
                     num(2),
-                    num(0),
                     num(2),
+                    // One run from the left edge starts with its text.
                     text("abcd"),
                     num(-1),
                     text(""),
                     pack(&[(0, 2, 7), (2, 4, 8)]),
+                    num(1),
+                    num(0),
                     text("你x"),
                     num(3),
                     text("2"),
@@ -928,7 +916,6 @@ mod tests {
                     num(2),
                     num(6),
                     num(2),
-                    num(1),
                     num(2),
                     num(1),
                     num(0),
@@ -936,7 +923,7 @@ mod tests {
                     num(-1),
                     text(""),
                     pack(&[(1, 3, 11)]),
-                    // A transparent row of two runs, with a gap between them.
+                    // Two runs, with a gap between them.
                     num(2),
                     num(0),
                     text("o"),
@@ -972,16 +959,21 @@ mod tests {
                     num(2),
                     num(6),
                     num(3),
-                    num(0),
                     num(3),
+                    num(1),
+                    num(0),
                     text("a"),
                     num(-1),
                     text(""),
                     text(""),
+                    num(1),
+                    num(0),
                     text("b"),
                     num(-1),
                     text(""),
                     text(""),
+                    num(1),
+                    num(0),
                     text("c"),
                     num(-1),
                     text(""),

@@ -173,7 +173,19 @@ local function apply_props(view, id, tag, props)
 	if style == nil then
 		style = defaults[tag]
 	end
-	if style ~= nil then
+	if tag == "canvas" and style ~= nil then
+		effect(function()
+			local current = style
+			if type(style) == "function" then
+				current = style()
+			end
+			local unsubscribe = hl.canvas_background(hl.id(current), function(background)
+				view.commands:set_style(id, "hl", background)
+				view:request_commit()
+			end)
+			reactive.on_cleanup(unsubscribe)
+		end)
+	elseif style ~= nil then
 		bind_style(view, id, "hl", style)
 	end
 
@@ -670,7 +682,7 @@ function Canvas.mount(view, parent, before, props)
 		display = "block"
 	end
 	local id = view:next_id()
-	view.commands:create(id, DISPLAY[display])
+	view.commands:create(id, DISPLAY[display], true)
 	view.commands:insert(parent, id, before)
 
 	apply_props(view, id, "canvas", props)
@@ -754,7 +766,6 @@ function Canvas.mount(view, parent, before, props)
 			ctx:clear()
 		end
 
-		ctx.transparent = props.transparent == true
 		if w > 0 and h > 0 then
 			ctx:begin()
 			draw(ctx)
@@ -768,13 +779,16 @@ end
 ---@field display? "inline"|"block" `inline` (the default) sits in a line, as an inline-block; `block` takes lines of its own
 ---@field draw? fun(ctx: markup.canvas.context) called inside a reactive effect to paint the surface; redrawing runs no layout
 ---@field retain? boolean keep previous cells between redraws instead of clearing first
----@field transparent? boolean cells left blank with no style show what is under the canvas, and let presses through to it
 
 --- A 2D cell surface drawn directly by `draw(ctx)`, which never lays anything
 --- out. As a CSS `<canvas>`, it is inline unless `display = "block"`, and its
 --- size is what `width` and `height` say: cells, `"full"`, a share, or `auto`
---- with a min, `grow` or `basis`. Takes all standard box props (`border`,
---- `padding`, `margin`, `style`, `on_press`, ...).
+--- with a min, `grow` or `basis`. What it leaves blank shows what is under it,
+--- and what it draws takes nothing from the boxes around it: a cell's style
+--- is all it has, with `Normal`'s foreground when that sets none, over the
+--- background under it. A background in its own `style` hides what
+--- is under it. Takes all standard box props (`border`, `padding`, `margin`,
+--- `on_press`, ...).
 ---@param props markup.canvas.props
 function M.canvas(props)
 	return element(Canvas, props)

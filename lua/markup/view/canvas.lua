@@ -490,17 +490,16 @@ local function add_run(self, runs, k, row, base, first, last)
 	return k
 end
 
---- Packs the canvas surface into a single `set_canvas` engine command. An
---- opaque canvas sends each row as one run from its left edge; a transparent
---- one sends only the runs of cells it drew, so the rest shows through.
+--- Packs the canvas surface into a single `set_canvas` engine command: each
+--- row as the runs of cells it drew, so what is between them shows through,
+--- and their highlights, which take nothing from around the canvas.
 ---@param commands markup.view.commands
 ---@param id integer
 function Context:flush(commands, id)
 	local w, h = self.width, self.height
-	local transparent = self.transparent and 1 or 0
 	local runs = self._runs
 	if w == 0 or h == 0 then
-		commands:set_canvas(id, w, h, transparent, 0, runs)
+		commands:set_canvas(id, w, h, 0, runs)
 		return
 	end
 
@@ -525,45 +524,31 @@ function Context:flush(commands, id)
 		end
 
 		row_runs[row] = 0
-		if last == 0 then
-			ranges[row] = ""
-		else
-			if transparent == 0 then
-				k = add_run(self, runs, k, row, base, 1, last)
-			else
-				local first
-				for col = 1, last + 1 do
-					if col <= last and drawn(chars, hls, base + col) then
-						first = first or col
-					elseif first then
-						k = add_run(self, runs, k, row, base, first, col - 1)
-						first = nil
-					end
+		local r_len = 0
+		-- The style of the run so far, `-1` while nothing is drawn.
+		local first, style, style_start = nil, -1, 0
+		for col = 1, last + 1 do
+			local i = base + col
+			local cell = col <= last and drawn(chars, hls, i) and hls[i] or -1
+			if cell ~= -1 then
+				first = first or col
+			elseif first then
+				k = add_run(self, runs, k, row, base, first, col - 1)
+				first = nil
+			end
+			if cell ~= style then
+				if style ~= -1 then
+					u32[r_len], u32[r_len + 1], u32[r_len + 2] =
+						style_start, col - 1, hl.canvas(style)
+					r_len = r_len + 3
 				end
+				style, style_start = cell, col - 1
 			end
-
-			local r_len = 0
-			local cur_hl, cur_start = 0, 0
-			for col = 1, last do
-				local cell_hl = hls[base + col]
-				if cell_hl ~= cur_hl then
-					if cur_hl ~= 0 then
-						u32[r_len], u32[r_len + 1], u32[r_len + 2] = cur_start, col - 1, cur_hl
-						r_len = r_len + 3
-					end
-					cur_hl = cell_hl
-					cur_start = col - 1
-				end
-			end
-			if cur_hl ~= 0 then
-				u32[r_len], u32[r_len + 1], u32[r_len + 2] = cur_start, last, cur_hl
-				r_len = r_len + 3
-			end
-			ranges[row] = r_len > 0 and ffi.string(u32, r_len * 4) or ""
 		end
+		ranges[row] = r_len > 0 and ffi.string(u32, r_len * 4) or ""
 	end
 
-	commands:set_canvas(id, w, h, transparent, h, runs)
+	commands:set_canvas(id, w, h, h, runs)
 end
 
 --- Creates a reusable drawing context of `width` × `height` cells.
@@ -578,7 +563,6 @@ function M.context(width, height)
 		widths = {},
 		hls = {},
 		row_non_unit = {},
-		transparent = false,
 		-- Rows by run count and ranges; runs flat, in row order.
 		_runs = { count = {}, ranges = {}, starts = {}, texts = {}, widths = {}, cells = {} },
 		_style_ids = {},
