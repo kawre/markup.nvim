@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.8.0](https://github.com/kawre/markup.nvim/compare/v0.7.1...v0.8.0) (2026-11-23)
+
+
+### Features
+
+* **canvas:** add 2D cell canvas element independent of layout ([#53](https://github.com/kawre/markup.nvim/issues/53)) ([f0a1370](https://github.com/kawre/markup.nvim/commit/f0a13703ba4e5ca41a8b5b2357c78bf0dbf69097))
+* **playground:** run a playground file when it is saved ([#51](https://github.com/kawre/markup.nvim/issues/51)) ([e5b3046](https://github.com/kawre/markup.nvim/commit/e5b30466e4b7ee58a261048939983a0b99b82f41))
+
 ## [0.7.1](https://github.com/kawre/markup.nvim/compare/v0.7.0...v0.7.1) (2026-11-22)
 
 
