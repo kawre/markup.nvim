@@ -163,10 +163,13 @@ local function is_blank(child)
 end
 
 local function is_inline(child)
-	return type(child) ~= "table" or child.type == "inline" or not child.type
+	return type(child) ~= "table"
+		or child.type == "inline"
+		or not child.type
+		or (child.type == "canvas" and child.props.display == "inline")
 end
 
-local tags = { block = "div", inline = "span", flex = "div", grid = "div" }
+local tags = { block = "div", inline = "span", flex = "div", grid = "div", canvas = "div" }
 local escape_widths
 --- Runs of code points of one width, as the page's font has them: Neovim's
 --- widths with the options it starts with.
@@ -241,7 +244,22 @@ local function html(node, profile)
 	end
 	local tag = assert(tags[node.type], "unsupported element: " .. tostring(node.type))
 	local props = node.props
-	local display = node.type
+	if node.type == "canvas" then
+		-- What it drew never sizes a canvas, unlike a CSS canvas's bitmap: a
+		-- side nothing else sizes has no CSS.
+		for _, axis in ipairs({ "width", "height" }) do
+			local value = props[axis]
+			assert(
+				props["min_" .. axis] ~= nil
+					or props.grow ~= nil
+					or props.basis ~= nil
+					or (value ~= nil and value ~= "auto" and value ~= "fit"),
+				"unsupported: canvas " .. axis .. " sized by its surface"
+			)
+		end
+	end
+	-- A canvas is inline or block as the engine made it, as CSS would.
+	local display = node.type == "canvas" and props.display or node.type
 	if display == "inline" and sized_inline(props) then
 		-- markup.nvim sizes an inline that has a width; CSS sizes only an
 		-- inline-block.
@@ -251,7 +269,8 @@ local function html(node, profile)
 	if
 		profile
 		and (
-			props.border_sides
+			node.type == "canvas"
+			or props.border_sides
 			or props.border_cells
 			or (props.overflow or "visible") ~= "visible"
 			or (props.overflow_x or "visible") ~= "visible"
@@ -289,6 +308,8 @@ local function html(node, profile)
 		elseif name == "spacing" then
 			css[#css + 1] = "row-gap:" .. length(math.max(value, props.row_gap or 0), "row")
 			css[#css + 1] = "column-gap:" .. length(math.max(value, props.column_gap or 0), "col")
+		elseif name == "display" and node.type == "canvas" then
+			-- Already the element's `display`, above.
 		elseif name ~= "children" then
 			css[#css + 1] = style(name, value)
 		end
@@ -422,7 +443,7 @@ end
 local function snapshot(engine, styles, text)
 	local boxes = {}
 	local limit = engine:node_count()
-	local function visit(id, path, content)
+	local function visit(id, path, content, parent)
 		local index = 0
 		for _, child in ipairs(engine:children(id, 0, limit, true)) do
 			if child.display == "text" then
@@ -432,11 +453,17 @@ local function snapshot(engine, styles, text)
 			else
 				index = index + 1
 				local child_path = path .. "/" .. index
-				if child.display ~= "inline" then
+				-- A canvas is a box even inline, as an inline-block is.
+				if child.display ~= "inline" or child.canvas then
 					local top, right, bottom, left = unpack(child.margin)
 					boxes[#boxes + 1] = {
 						path = child_path,
-						display = child.display,
+						-- An inline canvas is sized, so laid out as an inline-block,
+						-- unless a flex or grid makes it an item, which CSS makes a block.
+						display = not child.canvas and child.display
+							or (parent == "flex" or parent == "grid") and "block"
+							or child.display == "inline" and "inline-block"
+							or child.display,
 						rect = {
 							child.x + left,
 							child.y + top,
@@ -458,9 +485,13 @@ local function snapshot(engine, styles, text)
 				if edges and (edges[1] + edges[2] + edges[3] + edges[4]) > 0 then
 					props.border_cells = edges
 				end
-				content[#content + 1] = { type = child.display, props = props }
+				if child.canvas then
+					props.display = child.display
+				end
+				content[#content + 1] =
+					{ type = child.canvas and "canvas" or child.display, props = props }
 				if child.children > 0 then
-					visit(child.id, child_path, children)
+					visit(child.id, child_path, children, child.display)
 				end
 			end
 		end

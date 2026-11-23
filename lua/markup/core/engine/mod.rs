@@ -35,6 +35,8 @@ pub struct Engine {
     root: Index,
     width: i32,
     lines: Vec<Line>,
+    /// Painted layers from back to front, including the root for normal flow.
+    layers: Vec<ClientId>,
     /// Whether a command came since the last frame. Without one the next is
     /// the same, so it is not laid out, painted or diffed at all.
     changed: bool,
@@ -79,6 +81,7 @@ impl Engine {
             root,
             width,
             lines: vec![Line::default()],
+            layers: Vec::new(),
             changed: true,
         }
     }
@@ -104,6 +107,10 @@ impl Engine {
         match command {
             Command::Create { id, display } => {
                 tree.create(id, display)?;
+            }
+            Command::CreateCanvas { id, display } => {
+                let index = tree.create(id, display)?;
+                tree.node_mut(index).canvas = Some(Box::default());
             }
             Command::CreateText { id, text, width } => {
                 let index = tree.create(id, Display::Text)?;
@@ -188,6 +195,10 @@ impl Engine {
                 }
                 tree.mark_dirty(index);
             }
+            Command::SetCanvas { id, canvas } => {
+                let index = tree.index_of(id)?;
+                tree.node_mut(index).canvas = Some(Box::new(canvas));
+            }
         }
         Ok(())
     }
@@ -216,7 +227,8 @@ impl Engine {
 
         let started = Instant::now();
         // A buffer always has a line, so a frame does too.
-        let lines = paint::paint(&self.tree, self.root, height.max(1));
+        let (lines, layers) = paint::paint(&self.tree, self.root, height.max(1));
+        self.layers = layers;
         timings.paint = elapsed_ms(started);
 
         let started = Instant::now();
@@ -269,41 +281,20 @@ impl Engine {
 
     /// Top left of a node's margin box, in buffer cells.
     pub fn origin(&self, index: Index) -> (i32, i32) {
-        let tree = &self.tree;
-        let node = tree.node(index);
-        let geometry = &node.geometry;
-
-        if node.style.position() == Position::Absolute {
-            let block = tree.containing_block(index);
-            let (x, y) = self.origin(block);
-            let margin = tree.node(block).style.margin;
-            return (x + margin.left + geometry.x, y + margin.top + geometry.y);
-        }
-
-        let own_shift = node.style.relative_offset();
-        let mut parent = node.parent;
-        while let Some(index) = parent {
-            let node = tree.node(index);
-            if node.display != Display::Contents {
-                let (x, y) = self.origin(index);
-                let style = &node.style;
-                let (shift_x, shift_y) = own_shift;
-                return (
-                    x + style.margin.left + style.inner().left + geometry.x + shift_x,
-                    y + style.margin.top + style.inner().top + geometry.y + shift_y,
-                );
-            }
-            parent = node.parent;
-        }
-
-        (geometry.x, geometry.y)
+        self.tree.origin(index)
     }
 
     /// Finds the innermost interactive node on a cell. Nothing under an inert
     /// node counts.
     pub fn node_at(&self, row: i32, col: i32) -> Option<ClientId> {
+        self.interactive_in(&self.path_at(row, col))
+    }
+
+    /// The innermost interactive node on a path from the root, short of
+    /// anything inert.
+    fn interactive_in(&self, path: &[ClientId]) -> Option<ClientId> {
         let mut found = None;
-        for id in self.path_at(row, col) {
+        for &id in path {
             let Ok(index) = self.tree.index_of(id) else {
                 continue;
             };
@@ -319,24 +310,40 @@ impl Engine {
     }
 
     /// Every node on a cell, from the root down to the innermost one. Absolute
-    /// boxes sit on top, so they are tried first, highest `z` before lower.
+    /// boxes with non-negative `z` sit on top, highest `z` first. Negative `z`
+    /// sits behind flow, and takes the cell when nothing in flow there takes
+    /// presses. As HTML's `inert`, an inert box is not there to be found.
     pub fn path_at(&self, row: i32, col: i32) -> Vec<ClientId> {
         let tree = &self.tree;
 
-        let mut overlays: Vec<Index> = tree.attached_absolutes().collect();
-        overlays.sort_by_key(|&index| std::cmp::Reverse(tree.node(index).style.extra().z));
-
-        for index in overlays {
-            let (x, y) = self.origin(index);
+        let mut flow = Vec::new();
+        for &id in self.layers.iter().rev() {
+            let Ok(index) = tree.index_of(id) else {
+                continue;
+            };
+            if index == self.root {
+                if self.descend(index, 0, 0, row, col, &mut flow)
+                    && self.interactive_in(&flow).is_some()
+                {
+                    return flow;
+                }
+                continue;
+            }
             let mut path = self.ancestors(index);
+            if tree.node(index).style.extra().inert
+                || path.iter().any(|&id| {
+                    tree.index_of(id)
+                        .is_ok_and(|ancestor| tree.node(ancestor).style.extra().inert)
+                })
+            {
+                continue;
+            }
+            let (x, y) = self.origin(index);
             if self.descend(index, x, y, row, col, &mut path) {
                 return path;
             }
         }
-
-        let mut path = Vec::new();
-        self.descend(self.root, 0, 0, row, col, &mut path);
-        path
+        flow
     }
 
     fn ancestors(&self, index: Index) -> Vec<ClientId> {
@@ -799,5 +806,183 @@ mod tests {
         block(&mut engine, 2, ROOT, "two");
 
         assert_eq!(engine.tree().len(), 3);
+    }
+
+    #[test]
+    fn canvas_surfaces_never_lay_out_and_decode_binary_ranges() {
+        let lua = mlua::Lua::new();
+        let mut engine = Engine::new(20);
+        let num = mlua::Value::Integer;
+        let text = |s: &str| mlua::Value::String(lua.create_string(s).unwrap());
+        let pack = |ranges: &[(u32, u32, u32)]| {
+            let mut bytes = Vec::with_capacity(ranges.len() * 12);
+            for &(start, end, hl) in ranges {
+                for value in [start, end, hl] {
+                    bytes.extend_from_slice(&value.to_ne_bytes());
+                }
+            }
+            mlua::Value::String(lua.create_string(&bytes).unwrap())
+        };
+
+        let apply_ops = |engine: &mut Engine, values: Vec<mlua::Value>| {
+            let ops = lua.create_table().unwrap();
+            for (i, v) in values.into_iter().enumerate() {
+                ops.raw_set(i + 1, v).unwrap();
+            }
+            protocol::decode(&lua, &ops, ops.raw_len(), |command| {
+                engine.apply(command).unwrap();
+                Ok(())
+            })
+            .unwrap();
+            layouts(engine)
+        };
+
+        // create block #2 two rows tall, insert into ROOT, set_canvas 6x2
+        assert!(
+            apply_ops(
+                &mut engine,
+                vec![
+                    num(1),
+                    num(2),
+                    num(1),
+                    num(4),
+                    num(2),
+                    num(10),
+                    num(2),
+                    num(5),
+                    num(1),
+                    num(2),
+                    num(0),
+                    num(12),
+                    num(2),
+                    num(6),
+                    num(2),
+                    num(2),
+                    // One run from the left edge starts with its text.
+                    text("abcd"),
+                    num(-1),
+                    text(""),
+                    pack(&[(0, 2, 7), (2, 4, 8)]),
+                    num(1),
+                    num(0),
+                    text("你x"),
+                    num(3),
+                    text("2"),
+                    pack(&[(0, 2, 9), (2, 3, 10)]),
+                ],
+            ) > 0
+        );
+        assert_eq!(engine.describe(2).unwrap().display, "block");
+        assert_eq!(engine.lines.len(), 2);
+        assert_eq!(engine.lines[0].text, "abcd");
+        assert_eq!(
+            engine.lines[0].marks,
+            vec![
+                paint::Mark {
+                    start: 0,
+                    end: 2,
+                    hl: 7
+                },
+                paint::Mark {
+                    start: 2,
+                    end: 4,
+                    hl: 8
+                },
+            ]
+        );
+        assert_eq!(engine.lines[1].text, "你x");
+        assert_eq!(
+            engine.lines[1].marks,
+            vec![
+                paint::Mark {
+                    start: 0,
+                    end: 3,
+                    hl: 9
+                },
+                paint::Mark {
+                    start: 3,
+                    end: 4,
+                    hl: 10
+                },
+            ]
+        );
+
+        // Updating content at the same size causes zero layouts.
+        assert_eq!(
+            apply_ops(
+                &mut engine,
+                vec![
+                    num(12),
+                    num(2),
+                    num(6),
+                    num(2),
+                    num(2),
+                    num(1),
+                    num(0),
+                    text("WXYZ"),
+                    num(-1),
+                    text(""),
+                    pack(&[(1, 3, 11)]),
+                    // Two runs, with a gap between them.
+                    num(2),
+                    num(0),
+                    text("o"),
+                    num(-1),
+                    text(""),
+                    num(3),
+                    text("k"),
+                    num(-1),
+                    text(""),
+                    text(""),
+                ],
+            ),
+            0
+        );
+        assert_eq!(engine.lines[0].text, "WXYZ");
+        assert_eq!(
+            engine.lines[0].marks,
+            vec![paint::Mark {
+                start: 1,
+                end: 3,
+                hl: 11
+            }]
+        );
+        assert_eq!(engine.lines[1].text, "o  k");
+
+        // The surface never sizes the node: a taller one lays nothing out, and
+        // the box cuts it off.
+        assert_eq!(
+            apply_ops(
+                &mut engine,
+                vec![
+                    num(12),
+                    num(2),
+                    num(6),
+                    num(3),
+                    num(3),
+                    num(1),
+                    num(0),
+                    text("a"),
+                    num(-1),
+                    text(""),
+                    text(""),
+                    num(1),
+                    num(0),
+                    text("b"),
+                    num(-1),
+                    text(""),
+                    text(""),
+                    num(1),
+                    num(0),
+                    text("c"),
+                    num(-1),
+                    text(""),
+                    text(""),
+                ],
+            ),
+            0
+        );
+        let texts: Vec<&str> = engine.lines.iter().map(|line| line.text.as_str()).collect();
+        assert_eq!(texts, vec!["a", "b"]);
     }
 }

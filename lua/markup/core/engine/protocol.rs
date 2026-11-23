@@ -17,7 +17,7 @@ use super::style::{
     Align, Border, Direction, Display, Distribute, Edges, Length, Overflow, Position, Style,
     TextOverflow, Track, WhiteSpace,
 };
-use super::tree::ClientId;
+use super::tree::{Canvas, CanvasRow, CanvasRun, ClientId};
 use mlua::ffi;
 use mlua::prelude::*;
 
@@ -152,6 +152,10 @@ impl StyleProperty {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Command {
+    CreateCanvas {
+        id: ClientId,
+        display: Display,
+    },
     Create {
         id: ClientId,
         display: Display,
@@ -197,6 +201,12 @@ pub enum Command {
     SetCells {
         id: ClientId,
         cells: Vec<u8>,
+    },
+    /// Replaces a canvas node's cell surface. Its size is its style's, so this
+    /// never lays anything out.
+    SetCanvas {
+        id: ClientId,
+        canvas: Canvas,
     },
 }
 
@@ -503,10 +513,81 @@ impl<'a> Reader<'a> {
         })
     }
 
+    fn canvas_ranges(&mut self) -> LuaResult<Vec<(i32, i32, u32)>> {
+        let decode = |raw: &[u8]| -> Vec<(i32, i32, u32)> {
+            raw.as_chunks::<12>()
+                .0
+                .iter()
+                .map(|chunk| {
+                    let start = u32::from_ne_bytes(chunk[0..4].try_into().unwrap()) as i32;
+                    let end = u32::from_ne_bytes(chunk[4..8].try_into().unwrap()) as i32;
+                    let hl = u32::from_ne_bytes(chunk[8..12].try_into().unwrap());
+                    (start, end, hl)
+                })
+                .collect()
+        };
+        match self.next() {
+            Slot::Text(start, size) => Ok(decode(&self.bytes[start..start + size])),
+            _ => {
+                let value: LuaString = self.ops.raw_get(self.position)?;
+                Ok(decode(&value.as_bytes()))
+            }
+        }
+    }
+
+    fn canvas(&mut self) -> LuaResult<Canvas> {
+        let width = self.int()?.max(0);
+        let height = self.int()?.max(0);
+        let count = self.int()?.max(0) as usize;
+        let mut rows = Vec::with_capacity(count.min(height as usize));
+        for _ in 0..count {
+            // A row of one run from the left edge starts with its text; any
+            // other with how many runs it has.
+            let whole = matches!(self.slots.get(self.position), Some(Slot::Text(..)));
+            let runs = if whole {
+                1
+            } else {
+                self.int()?.max(0) as usize
+            };
+            let mut row = CanvasRow {
+                runs: Vec::with_capacity(runs.min(width as usize)),
+                ranges: Vec::new(),
+            };
+            for _ in 0..runs {
+                let start = if whole { 0 } else { self.int()? };
+                let (text, run_width) = self.text()?;
+                let digits = self.string()?;
+                let cells = (!digits.is_empty()).then(|| {
+                    digits
+                        .bytes()
+                        .map(|digit| digit.saturating_sub(b'0'))
+                        .collect()
+                });
+                row.runs.push(CanvasRun {
+                    start,
+                    text,
+                    width: run_width,
+                    cells,
+                });
+            }
+            row.ranges = self.canvas_ranges()?;
+            rows.push(row);
+        }
+        Ok(Canvas {
+            width,
+            height,
+            rows,
+        })
+    }
+
     fn command(&mut self) -> LuaResult<Command> {
         let opcode = self.int()?;
         Ok(match opcode {
             1 => Command::Create {
+                id: self.id()?,
+                display: self.display()?,
+            },
+            13 => Command::CreateCanvas {
                 id: self.id()?,
                 display: self.display()?,
             },
@@ -557,6 +638,10 @@ impl<'a> Reader<'a> {
                         .collect(),
                 }
             }
+            12 => Command::SetCanvas {
+                id: self.id()?,
+                canvas: self.canvas()?,
+            },
             other => return Err(LuaError::runtime(format!("unknown opcode {other}"))),
         })
     }
@@ -614,6 +699,7 @@ pub fn encode_node(lua: &Lua, info: &NodeInfo) -> LuaResult<LuaTable> {
     node.raw_set("reverse", info.reverse)?;
     node.raw_set("hl", info.hl)?;
     node.raw_set("interactive", info.interactive)?;
+    node.raw_set("canvas", info.canvas)?;
     node.raw_set("dirty", info.dirty)?;
     node.raw_set("position", info.position)?;
     Ok(node)

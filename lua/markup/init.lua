@@ -108,6 +108,12 @@ function M.image(...)
 	return require("markup.view.mount").image(...)
 end
 
+--- A 2D cell surface drawn directly, independent of the layout engine.
+---@see markup.view.mount.canvas
+function M.canvas(...)
+	return require("markup.view.mount").canvas(...)
+end
+
 --- An animated mark for work in progress, a random one unless named.
 ---@see markup.view.components.loader
 function M.loader(...)

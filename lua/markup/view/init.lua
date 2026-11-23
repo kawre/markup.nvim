@@ -603,10 +603,19 @@ function M:after_commit(listener)
 	self:request_commit()
 end
 
---- Calls `listener` after every commit.
+--- Calls `listener` after every commit, returning a function that removes it.
 ---@param listener function
+---@return fun() unsubscribe
 function M:on_commit(listener)
 	table.insert(self.commit_listeners, listener)
+	return function()
+		for i, other in ipairs(self.commit_listeners) do
+			if other == listener then
+				table.remove(self.commit_listeners, i)
+				break
+			end
+		end
+	end
 end
 
 ---@return integer
@@ -763,8 +772,10 @@ function M:commit()
 
 	self:place_held()
 
-	for _, listener in ipairs(self.commit_listeners) do
-		listener()
+	if #self.commit_listeners > 0 then
+		for _, listener in ipairs(vim.list_slice(self.commit_listeners, 1)) do
+			listener()
+		end
 	end
 
 	self:update_hover()

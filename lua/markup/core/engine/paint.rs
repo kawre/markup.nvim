@@ -1,7 +1,7 @@
 //! Turns a laid out tree into lines of text with highlight ranges.
 
 use super::style::{Border, Display, Position};
-use super::tree::{Index, Tree};
+use super::tree::{ClientId, Index, Tree};
 use std::borrow::Cow;
 use std::collections::HashMap;
 
@@ -56,6 +56,22 @@ impl<'a> Segment<'a> {
     /// The part between two cells. A wide character on the edge cannot be
     /// halved, so the half that remains becomes a blank.
     fn slice(&self, from: i32, to: i32) -> Segment<'a> {
+        debug_assert!(self.cell <= from && from <= to && to <= self.end());
+        // A byte per cell: the cells are a substring, borrowed if the text is.
+        if self.text.len() == self.width as usize {
+            let (start, end) = ((from - self.cell) as usize, (to - self.cell) as usize);
+            let text = match &self.text {
+                Cow::Borrowed(text) => Cow::Borrowed(&text[start..end]),
+                Cow::Owned(text) => Cow::Owned(text[start..end].to_owned()),
+            };
+            return Segment {
+                cell: from,
+                width: to - from,
+                text,
+                cells: Cow::Borrowed(&[]),
+            };
+        }
+
         let mut text = String::new();
         let mut cells = Vec::new();
 
@@ -101,12 +117,34 @@ impl<'a> Segment<'a> {
     }
 }
 
+/// Calls `keep` with each piece of `start..end` that no span covers. Spans are
+/// sorted and apart.
+fn uncovered(start: i32, end: i32, spans: &[(i32, i32)], mut keep: impl FnMut(i32, i32)) {
+    let mut at = start;
+    let first = spans.partition_point(|&(_, to)| to <= start);
+    for &(from, to) in &spans[first..] {
+        if from >= end {
+            break;
+        }
+        if from > at {
+            keep(at, from);
+        }
+        at = at.max(to);
+    }
+    if at < end {
+        keep(at, end);
+    }
+}
+
 /// One row while it is painted, in cells. Segments stay sorted and never
 /// overlap, which is what lets later paint cover earlier paint.
 #[derive(Default)]
 struct Row<'a> {
     segments: Vec<Segment<'a>>,
     ranges: Vec<(i32, i32, u32)>,
+    /// Leading ranges from `z < 0` background layers, which in-flow opaque boxes
+    /// and text clip without disturbing in-flow parent highlights.
+    backdrop_ranges: usize,
     spans: Vec<(i32, i32)>,
     /// Columns a clipping ancestor leaves visible, for what comes next.
     clip: Option<std::ops::Range<i32>>,
@@ -123,6 +161,13 @@ impl<'a> Row<'a> {
             let (start, end) = self.clipped(cell + leading as i32, cell + width - trailing as i32);
             if start < end {
                 self.spans.push((start, end));
+            }
+        }
+
+        if self.backdrop_ranges > 0 {
+            let (from, to) = self.clipped(cell, cell + width);
+            if from < to {
+                self.cut_backdrop_ranges(from, to);
             }
         }
 
@@ -190,6 +235,78 @@ impl<'a> Row<'a> {
         self.segments = kept;
     }
 
+    /// Clips highlight ranges from `z < 0` background layers in `from..to`,
+    /// keeping in-flow parent highlights intact.
+    fn cut_backdrop_ranges(&mut self, from: i32, to: i32) {
+        if self.backdrop_ranges == 0 {
+            return;
+        }
+        let tail = self.ranges.split_off(self.backdrop_ranges);
+        let mut kept = Vec::with_capacity(self.ranges.len() + 1);
+        for (start, end, hl) in self.ranges.drain(..) {
+            if end <= from || start >= to {
+                kept.push((start, end, hl));
+                continue;
+            }
+            if start < from {
+                kept.push((start, from, hl));
+            }
+            if end > to {
+                kept.push((to, end, hl));
+            }
+        }
+        self.backdrop_ranges = kept.len();
+        kept.extend(tail);
+        self.ranges = kept;
+    }
+
+    /// Removes `z < 0` background text and highlights in `from..to` without
+    /// touching in-flow parent highlights.
+    fn cover_backdrop(&mut self, from: i32, to: i32) {
+        let (from, to) = self.clipped(from, to);
+        if from >= to {
+            return;
+        }
+        self.cut_text(from, to);
+        self.cut_backdrop_ranges(from, to);
+    }
+
+    /// Lays a canvas row's runs over what is here, in one pass however many
+    /// there are. The runs are sorted, apart and already clipped. Each takes
+    /// the place of the text under it, and leaves the highlights: a canvas
+    /// cell's own does not combine, so only their background shows through.
+    fn place_runs(&mut self, runs: Vec<Segment<'a>>) {
+        if runs.is_empty() {
+            return;
+        }
+        let spans: Vec<(i32, i32)> = runs.iter().map(|run| (run.cell, run.end())).collect();
+
+        let mut kept = Vec::with_capacity(self.segments.len() + runs.len());
+        for segment in self.segments.drain(..) {
+            let mut pieces = Vec::new();
+            uncovered(segment.cell, segment.end(), &spans, |from, to| {
+                pieces.push((from, to));
+            });
+            if pieces == [(segment.cell, segment.end())] {
+                kept.push(segment);
+            } else {
+                kept.extend(pieces.into_iter().map(|(from, to)| segment.slice(from, to)));
+            }
+        }
+
+        // Both are sorted and do not overlap now: merge them.
+        let mut merged = Vec::with_capacity(kept.len() + runs.len());
+        let mut runs = runs.into_iter().peekable();
+        for segment in kept {
+            while let Some(run) = runs.next_if(|run| run.cell < segment.cell) {
+                merged.push(run);
+            }
+            merged.push(segment);
+        }
+        merged.extend(runs);
+        self.segments = merged;
+    }
+
     /// Removes everything under a box, so an overlay hides what it covers.
     fn cover(&mut self, from: i32, to: i32) {
         self.cut_text(from, to);
@@ -208,6 +325,7 @@ impl<'a> Row<'a> {
             }
         }
         self.ranges = kept;
+        self.backdrop_ranges = 0;
     }
 
     fn finish(self) -> Line {
@@ -381,6 +499,7 @@ struct Painter<'a> {
     rows: Vec<Row<'a>>,
     /// Absolute nodes found so far, painted after everything in flow.
     pending: Vec<Index>,
+    layers: Vec<ClientId>,
     /// Rows a clipping ancestor leaves visible.
     visible: std::ops::Range<i32>,
     /// Columns a clipping ancestor leaves visible.
@@ -389,6 +508,8 @@ struct Painter<'a> {
     origins: HashMap<Index, (i32, i32)>,
     /// Whether text here is a place a snapping cursor lands on.
     snap: bool,
+    /// Whether any `z < 0` background layer was painted before flow.
+    has_backdrop: bool,
 }
 
 impl<'a> Painter<'a> {
@@ -417,7 +538,9 @@ impl<'a> Painter<'a> {
         }
 
         if node.style.position() == Position::Absolute {
-            self.pending.push(index);
+            if node.style.extra().z >= 0 {
+                self.pending.push(index);
+            }
             return;
         }
 
@@ -501,8 +624,16 @@ impl<'a> Painter<'a> {
                 top += edges.top;
                 bottom -= edges.bottom;
             }
+            let canvas = node.canvas.is_some();
+            let opaque_overlay = canvas && style.position() == Position::Absolute;
+            let cover_bg = self.has_backdrop && (canvas || !node.display.is_inline());
             for row in top..bottom {
                 if let Some(row) = self.row(row) {
+                    if opaque_overlay {
+                        row.cover(left, right);
+                    } else if cover_bg {
+                        row.cover_backdrop(left, right);
+                    }
                     row.add_range(left, right, style.hl);
                 }
             }
@@ -563,6 +694,45 @@ impl<'a> Painter<'a> {
                 .expect("horizontal clipping has columns");
             clip.end = right;
         }
+        if let Some(canvas) = node.canvas.as_deref() {
+            let canvas_visible = self.visible.clone();
+            let canvas_columns = self.columns.clone();
+            self.visible = self.visible.start.max(content_y)
+                ..self.visible.end.min(content_y + geometry.content.height);
+            self.columns = Some(match &self.columns {
+                Some(columns) => columns.start.max(content_x)..columns.end.min(content_right),
+                None => content_x..content_right,
+            });
+            for (offset, line) in canvas.rows.iter().enumerate() {
+                if let Some(row) = self.row(content_y + offset as i32) {
+                    let mut runs = Vec::with_capacity(line.runs.len());
+                    for run in &line.runs {
+                        let cell = content_x + run.start;
+                        let (from, to) = row.clipped(cell, cell + run.width);
+                        if run.text.is_empty() || from >= to {
+                            continue;
+                        }
+                        let segment = Segment {
+                            cell,
+                            width: run.width,
+                            text: Cow::Borrowed(&run.text),
+                            cells: Cow::Borrowed(run.cells.as_deref().unwrap_or(&[])),
+                        };
+                        runs.push(if from > cell || to < cell + run.width {
+                            segment.slice(from, to)
+                        } else {
+                            segment
+                        });
+                    }
+                    row.place_runs(runs);
+                    for &(start, end, hl) in &line.ranges {
+                        row.add_range(content_x + start, content_x + end, hl);
+                    }
+                }
+            }
+            self.visible = canvas_visible;
+            self.columns = canvas_columns;
+        }
         for &child in &node.children {
             self.visit(child, content_x, content_y);
         }
@@ -593,7 +763,14 @@ impl<'a> Painter<'a> {
     }
 
     fn put(&mut self, row: i32, cell: i32, text: String, width: i32, hl: u32) {
+        let has_backdrop = self.has_backdrop;
         if let Some(line) = self.row(row) {
+            if has_backdrop {
+                let (from, to) = line.clipped(cell, cell + width);
+                if from < to {
+                    line.cut_backdrop_ranges(from, to);
+                }
+            }
             line.write(cell, Cow::Owned(text), width, Cow::Borrowed(&[]));
             if hl != 0 {
                 line.add_range(cell, cell + width, hl);
@@ -635,6 +812,40 @@ impl<'a> Painter<'a> {
         }
     }
 
+    /// Paints absolute nodes with negative `z` behind everything in flow.
+    fn paint_backgrounds(&mut self) {
+        let mut backgrounds: Vec<Index> = self
+            .tree
+            .attached_absolutes()
+            .filter(|&index| self.tree.node(index).style.extra().z < 0)
+            .collect();
+        if backgrounds.is_empty() {
+            return;
+        }
+        backgrounds.sort_by_key(|&index| self.tree.node(index).style.extra().z);
+
+        for index in backgrounds {
+            let (x, y) = self.tree.origin(index);
+            let geometry = &self.tree.node(index).geometry;
+            self.snap = snaps(self.tree, index);
+
+            self.layers.push(self.tree.node(index).client);
+            if self.tree.node(index).canvas.is_none() {
+                for row in y..y + geometry.outer.height {
+                    if let Some(row) = self.rows.get_mut(row as usize) {
+                        row.cover(x, x + geometry.outer.width);
+                    }
+                }
+            }
+            self.paint_box(index, x, y);
+        }
+
+        for row in &mut self.rows {
+            row.backdrop_ranges = row.ranges.len();
+        }
+        self.has_backdrop = true;
+    }
+
     /// Paints absolute nodes from the lowest `z` up. Each one hides what it
     /// covers, and may reveal more absolute nodes inside it.
     fn paint_absolutes(&mut self) {
@@ -656,9 +867,12 @@ impl<'a> Painter<'a> {
             // Painted apart from its ancestors, so it looks up what they say.
             self.snap = snaps(tree, index);
 
-            for row in y..y + geometry.outer.height {
-                if let Some(row) = self.rows.get_mut(row as usize) {
-                    row.cover(x, x + geometry.outer.width);
+            self.layers.push(tree.node(index).client);
+            if tree.node(index).canvas.is_none() {
+                for row in y..y + geometry.outer.height {
+                    if let Some(row) = self.rows.get_mut(row as usize) {
+                        row.cover(x, x + geometry.outer.width);
+                    }
                 }
             }
 
@@ -668,20 +882,28 @@ impl<'a> Painter<'a> {
 }
 
 /// Paints the subtree under `root` into `height` lines.
-pub fn paint(tree: &Tree, root: Index, height: i32) -> Vec<Line> {
+pub fn paint(tree: &Tree, root: Index, height: i32) -> (Vec<Line>, Vec<ClientId>) {
     let mut painter = Painter {
         tree,
         rows: (0..height.max(0)).map(|_| Row::default()).collect(),
         pending: Vec::new(),
+        layers: Vec::new(),
         visible: 0..height.max(0),
         columns: None,
         origins: HashMap::new(),
         snap: true,
+        has_backdrop: false,
     };
 
+    painter.paint_backgrounds();
+    painter.layers.push(tree.node(root).client);
+    painter.snap = true;
     painter.paint_box(root, 0, 0);
     painter.paint_absolutes();
-    painter.rows.into_iter().map(Row::finish).collect()
+    (
+        painter.rows.into_iter().map(Row::finish).collect(),
+        painter.layers,
+    )
 }
 
 #[cfg(test)]
@@ -707,7 +929,7 @@ mod tests {
 
     fn render(tree: &mut Tree, root: Index) -> Vec<Line> {
         let height = measure(tree, root, Constraints::available(20)).height;
-        paint(tree, root, height)
+        paint(tree, root, height).0
     }
 
     #[test]
@@ -785,7 +1007,7 @@ mod tests {
     fn render_with_absolutes(tree: &mut Tree, root: Index) -> Vec<Line> {
         let height = measure(tree, root, Constraints::available(20)).height;
         crate::engine::layout::absolute::layout(tree);
-        paint(tree, root, height)
+        paint(tree, root, height).0
     }
 
     #[test]
@@ -1129,5 +1351,115 @@ mod tests {
 
         assert_eq!(lines[0].text, "ab   ");
         assert_eq!(lines[0].marks[0].end, 5);
+    }
+
+    #[test]
+    fn canvas_clips_to_its_content_box_inside_border_and_allows_overlays() {
+        use crate::engine::style::{Border, Length};
+        use crate::engine::tree::{Canvas, CanvasRow};
+
+        let mut tree = Tree::default();
+        let canvas = tree.create(2, Display::Block).unwrap();
+        {
+            let node = tree.node_mut(canvas);
+            node.style.width = Length::Cells(4);
+            node.style.height = Length::Cells(2);
+            node.style.extra_mut().border = Some(Border {
+                chars: ['┌', '─', '┐', '│', '┘', '─', '└', '│'],
+                top: true,
+                right: true,
+                bottom: true,
+                left: true,
+                hl: 3,
+                outside_background: false,
+            });
+            node.canvas = Some(Box::new(Canvas {
+                width: 4,
+                height: 2,
+                rows: vec![
+                    CanvasRow::opaque("abcdef", vec![(0, 6, 7)]),
+                    CanvasRow::opaque("123456", vec![]),
+                    CanvasRow::opaque("clipped", vec![]),
+                ],
+            }));
+        }
+        let root = tree.create(1, Display::Block).unwrap();
+        tree.insert(root, canvas, None).unwrap();
+        let top = overlay(&mut tree, 5, "XY", 2, 9);
+        tree.node_mut(top).style.extra_mut().inset.top = Some(1);
+        tree.insert(root, top, None).unwrap();
+
+        let lines = render_with_absolutes(&mut tree, root);
+
+        assert_eq!(texts(&lines), vec!["┌────┐", "│aXYd│", "│1234│", "└────┘"]);
+    }
+
+    #[test]
+    fn negative_z_canvas_paints_behind_flow_and_cards_cover_it() {
+        use crate::engine::style::Length;
+        use crate::engine::tree::{Canvas, CanvasRow};
+
+        let mut tree = Tree::default();
+        let root = tree.create(1, Display::Block).unwrap();
+
+        let bg = tree.create(2, Display::Block).unwrap();
+        {
+            let node = tree.node_mut(bg);
+            node.style.width = Length::Cells(10);
+            node.style.height = Length::Cells(3);
+            let extra = node.style.extra_mut();
+            extra.position = Position::Absolute;
+            extra.inset.top = Some(0);
+            extra.inset.left = Some(0);
+            extra.z = -1;
+            node.canvas = Some(Box::new(Canvas {
+                width: 10,
+                height: 3,
+                rows: vec![CanvasRow::opaque("**********", vec![(0, 10, 1)]); 3],
+            }));
+        }
+        tree.sync_position(bg);
+        tree.insert(root, bg, None).unwrap();
+
+        let label = text(&mut tree, 4, "hi", 2);
+        let card = tree.create(3, Display::Block).unwrap();
+        {
+            let style = &mut tree.node_mut(card).style;
+            style.margin.top = 1;
+            style.margin.left = 2;
+            style.width = Length::Cells(4);
+            style.hl = 5;
+        }
+        tree.insert(card, label, None).unwrap();
+        tree.insert(root, card, None).unwrap();
+
+        measure(&mut tree, root, Constraints::available(20));
+        crate::engine::layout::absolute::layout(&mut tree);
+        let lines = paint(&tree, root, 3).0;
+
+        assert_eq!(
+            texts(&lines),
+            vec!["**********", "**hi  ****", "**********"]
+        );
+        assert_eq!(
+            lines[1].marks,
+            vec![
+                Mark {
+                    start: 0,
+                    end: 2,
+                    hl: 1
+                },
+                Mark {
+                    start: 6,
+                    end: 10,
+                    hl: 1
+                },
+                Mark {
+                    start: 2,
+                    end: 6,
+                    hl: 5
+                },
+            ]
+        );
     }
 }

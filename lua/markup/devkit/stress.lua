@@ -3,6 +3,7 @@
 --- than a real UI would ever ask for:
 ---
 --- - wave: cells recolored on every frame
+--- - canvas: the same wave, drawn straight onto a canvas with no layout per cell
 --- - meters: progress bars animating to new values on their own timers
 --- - churn: a long list that shuffles, inserts and removes rows
 --- - accordion: panels that open and close in turn
@@ -69,6 +70,7 @@ local TEXT = (
 ---@type { key: string, label: string, unit: string, values: number[], presets: integer[] }[]
 M.settings = {
 	{ key = "wave", label = "Wave", unit = "rows", values = { 0, 2, 4, 6, 12, 18, 24 } },
+	{ key = "canvas", label = "Canvas", unit = "rows", values = { 0, 2, 4, 6, 12, 18, 24 } },
 	{ key = "meters", label = "Meters", unit = "bars", values = { 0, 6, 12, 24, 48, 96, 160 } },
 	{
 		key = "churn",
@@ -99,11 +101,11 @@ M.settings = {
 
 --- Presets pick a step of every slider, in the order of `M.settings`.
 M.presets = {
-	{ name = "idle", steps = { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 } },
-	{ name = "light", steps = { 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2 } },
-	{ name = "medium", steps = { 4, 3, 4, 4, 3, 2, 3, 2, 3, 3, 3, 3 } },
-	{ name = "heavy", steps = { 5, 5, 6, 5, 4, 4, 5, 3, 5, 4, 5, 5 } },
-	{ name = "insane", steps = { 7, 7, 9, 7, 6, 6, 7, 5, 7, 6, 7, 7 } },
+	{ name = "idle", steps = { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 } },
+	{ name = "light", steps = { 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2 } },
+	{ name = "medium", steps = { 4, 4, 3, 4, 4, 3, 2, 3, 2, 3, 3, 3, 3 } },
+	{ name = "heavy", steps = { 5, 5, 5, 6, 5, 4, 4, 5, 3, 5, 4, 5, 5 } },
+	{ name = "insane", steps = { 7, 7, 7, 9, 7, 6, 6, 7, 5, 7, 6, 7, 7 } },
 }
 
 local paused = m.signal(false)
@@ -317,6 +319,30 @@ local function Wave(now, rows)
 		end
 		return m.block(cells)
 	end)
+end
+
+--- The same wave as `Wave`, drawn straight onto a canvas with no layout per cell.
+local function Canvas(now, rows)
+	return m.canvas({
+		width = 64,
+		height = rows,
+		draw = function(ctx)
+			local t = now() / 400
+			for y = 1, ctx.height do
+				local cy = math.cos(y / 2 + t * 0.5)
+				for x = 1, ctx.width do
+					local v = math.sin(x / 5 + t) + math.sin((x + y * 3) / 9 - t * 0.7) + cy
+					local level = (v + 3) / 6
+					ctx:set(
+						x - 1,
+						y - 1,
+						LEVELS[math.min(math.floor(level * #LEVELS) + 1, #LEVELS)],
+						PALETTE[math.min(math.floor(level * #PALETTE) + 1, #PALETTE)]
+					)
+				end
+			end
+		end,
+	})
 end
 
 --- A meter that keeps animating to a new random value on its own timer.
@@ -734,6 +760,9 @@ local Stress = m.component(function()
 				shrink = 0,
 				section("wave", "Wave", "64 cells a row, recolored every frame", function(rows)
 					return Wave(now, rows)
+				end),
+				section("canvas", "Canvas", "64 cells a row, drawn on a canvas", function(rows)
+					return Canvas(now, rows)
 				end),
 				section("meters", "Meters", "each animates on its own timer", Meters),
 				section("cards", "Cards", "borders, tints, spinners and meters", Cards),

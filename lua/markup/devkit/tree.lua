@@ -240,13 +240,18 @@ local function compact(value)
 end
 
 ---@param node markup.core.node
+local function kind_of(node)
+	return node.canvas and "canvas" or node.display
+end
+
+---@param node markup.core.node
 local function label_of(node)
 	if node.display == "text" then
 		return ("%q"):format(short(node.text or "", 40))
 	elseif node.display == "contents" then
 		return "group"
 	end
-	return node.display
+	return kind_of(node)
 end
 
 local KIND_GROUPS = {
@@ -255,11 +260,12 @@ local KIND_GROUPS = {
 	inline = "MarkupInspectorInline",
 	flex = "MarkupInspectorFlex",
 	grid = "MarkupInspectorFlex",
+	canvas = "MarkupInspectorFlex",
 }
 
 ---@param node markup.core.node
 local function group_of(node)
-	return KIND_GROUPS[node.display] or "MarkupInspectorBlock"
+	return KIND_GROUPS[kind_of(node)] or "MarkupInspectorBlock"
 end
 
 ---@param node markup.core.node

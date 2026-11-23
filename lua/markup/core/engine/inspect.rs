@@ -33,6 +33,8 @@ pub struct NodeInfo {
     pub reverse: bool,
     pub hl: u32,
     pub interactive: bool,
+    /// Whether it holds a canvas surface.
+    pub canvas: bool,
     pub dirty: bool,
     pub position: &'static str,
 }
@@ -91,6 +93,7 @@ impl Engine {
             reverse: style.reverse,
             hl: style.hl,
             interactive: style.interactive,
+            canvas: node.canvas.is_some(),
             dirty: node.dirty,
             position: match style.extra().position {
                 Position::Static => "static",

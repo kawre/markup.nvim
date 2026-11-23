@@ -19,6 +19,8 @@ local OP = {
 	set_tracks = 9,
 	set_cells = 10,
 	set_border = 11,
+	set_canvas = 12,
+	create_canvas = 13,
 }
 
 M.display = { block = 1, inline = 2, contents = 3, flex = 4, grid = 5 }
@@ -174,6 +176,24 @@ function M.check_cell_widths()
 	end
 end
 
+--- Display width of one UTF-8 character, cached until `ambiwidth` or cell widths change.
+---@param character string
+---@return integer
+function M.char_width(character)
+	if #character == 1 and character:byte(1) < 128 then
+		return 1
+	end
+	if not known_cell_widths then
+		M.check_cell_widths()
+	end
+	local width = char_widths[character]
+	if not width then
+		width = vim_fn.strdisplaywidth("a" .. character) - 1
+		char_widths[character] = width
+	end
+	return width
+end
+
 --- Measured once per character, and only for text that is not ASCII.
 local function cell_digits(text)
 	local digits, n = {}, 0
@@ -190,6 +210,8 @@ local function cell_digits(text)
 	end
 	return table.concat(digits)
 end
+
+M.cell_digits = cell_digits
 
 vim.api.nvim_create_autocmd("OptionSet", {
 	group = vim.api.nvim_create_augroup("markup.view.widths", { clear = true }),
@@ -208,9 +230,9 @@ function M.commands()
 	return setmetatable({ ops = {}, len = 0 }, Commands)
 end
 
-function Commands:create(id, display)
+function Commands:create(id, display, canvas)
 	local ops, n = self.ops, self.len
-	ops[n + 1], ops[n + 2], ops[n + 3] = OP.create, id, display
+	ops[n + 1], ops[n + 2], ops[n + 3] = canvas and OP.create_canvas or OP.create, id, display
 	self.len = n + 3
 end
 
@@ -408,6 +430,42 @@ function Commands:set_border(id, preset, sides, hl_id)
 	ops[n + 1], ops[n + 2], ops[n + 3], ops[n + 4] = OP.set_border, id, border.chars, mask
 	ops[n + 5], ops[n + 6] = hl_id, flag(border.outside_background)
 	self.len = n + 6
+end
+
+--- Replaces a canvas's surface with `count` rows, each the number of its runs,
+--- then each one's start, text, width and cells, then its packed highlight
+--- ranges. A row of one run from the left edge, the most common, leaves out
+--- the count and the start: it starts with its text.
+---@param runs { count: integer[], ranges: string[], starts: integer[], texts: string[], widths: integer[], cells: string[] }
+function Commands:set_canvas(id, width, height, count, runs)
+	local ops, n = self.ops, self.len
+	ops[n + 1], ops[n + 2], ops[n + 3], ops[n + 4], ops[n + 5] =
+		OP.set_canvas, id, width, height, count
+	n = n + 5
+	local row_runs, ranges = runs.count, runs.ranges
+	local starts, texts, widths, cells = runs.starts, runs.texts, runs.widths, runs.cells
+	local k = 0
+	for row = 1, count do
+		local total = row_runs[row]
+		if total == 1 and starts[k + 1] == 0 then
+			k = k + 1
+			ops[n + 1], ops[n + 2], ops[n + 3] = texts[k], widths[k], cells[k]
+			n = n + 3
+			total = 0
+		else
+			ops[n + 1] = total
+			n = n + 1
+		end
+		for _ = 1, total do
+			k = k + 1
+			ops[n + 1], ops[n + 2], ops[n + 3], ops[n + 4] =
+				starts[k], texts[k], widths[k], cells[k]
+			n = n + 4
+		end
+		ops[n + 1] = ranges[row]
+		n = n + 1
+	end
+	self.len = n
 end
 
 function Commands:resize(width)
