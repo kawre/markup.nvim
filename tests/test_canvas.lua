@@ -1282,6 +1282,28 @@ local function cell(row, col)
 	}
 end
 
+T["inheritance"]["overlay borders do not pick up the covered text's foreground"] = function()
+	for _, tag in ipairs({ "canvas", "block" }) do
+		child.lua(
+			[[
+			local tag = ...
+			vim.o.termguicolors = true
+			vim.api.nvim_set_hl(0, "Normal", { fg = "#cccccc" })
+			view:render(m.block({
+				m.inline({ "covered", style = { fg = "#ff0000", bold = true } }),
+				m[tag]({ position = "absolute", left = 0, top = 0,
+					width = 3, height = 1, border = "single" }),
+			}))
+			vim.cmd("redraw")
+		]],
+			{ tag }
+		)
+		local border = cell(0, 1)
+		eq(border.fg or 0xcccccc, 0xcccccc)
+		eq(border.bold, false)
+	end
+end
+
 T["inheritance"]["what a canvas draws takes nothing from around it but the background"] = function()
 	run([[
 		vim.o.termguicolors = true

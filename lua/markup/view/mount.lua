@@ -197,7 +197,11 @@ local function apply_props(view, id, tag, props)
 			if border_style == nil and props.border == "half" and type(current) == "string" then
 				border_style = hl.edge(current)
 			end
-			view.commands:set_border(id, props.border, props.border_sides, hl.id(border_style))
+			local border_hl = hl.id(border_style)
+			if tag == "canvas" then
+				border_hl = hl.canvas(border_hl)
+			end
+			view.commands:set_border(id, props.border, props.border_sides, border_hl)
 			view:request_commit()
 		end
 
