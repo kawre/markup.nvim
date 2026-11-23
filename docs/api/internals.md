@@ -36,6 +36,7 @@ Source: `lua/markup/core/init.lua`
 Fields:
 
 - `border`: `integer[]` - cells each side of the border takes, between margin and padding
+- `canvas`: `boolean` - whether it holds a canvas surface
 - `children`: `integer`
 - `content_height`: `integer`
 - `content_width`: `integer`
@@ -115,7 +116,7 @@ markup.view.commands:clear(id: any)
 ### markup.view.commands:create()
 
 ```lua
-markup.view.commands:create(id: any, display: any)
+markup.view.commands:create(id: any, display: any, canvas: any)
 ```
 
 ### markup.view.commands:create_text()
@@ -148,6 +149,17 @@ markup.view.commands:resize(width: any)
 markup.view.commands:set_border(id: any, preset: string|{ chars: string }, sides?: string[], hl_id: integer)
 ```
 
+### markup.view.commands:set_canvas()
+
+```lua
+markup.view.commands:set_canvas(id: any, width: any, height: any, count: any, runs: { count: integer[], ranges: string[], starts: integer[], texts: string[], widths: integer[], cells: string[] })
+```
+
+Replaces a canvas's surface with `count` rows, each the number of its runs,
+then each one's start, text, width and cells, then its packed highlight
+ranges. A row of one run from the left edge, the most common, leaves out
+the count and the start: it starts with its text.
+
 ### markup.view.commands:set_style()
 
 ```lua
@@ -177,6 +189,23 @@ axis:
 ## markup.view.hl
 
 Source: `lua/markup/view/hl.lua`
+
+### markup.view.hl.canvas()
+
+```lua
+function markup.view.hl.canvas(id: integer)
+  -> integer
+```
+
+The group a canvas cell of style `id` draws with, `0` for no style. See
+`define_canvas`.
+
+### markup.view.hl.canvas_background()
+
+```lua
+function markup.view.hl.canvas_background(id: any, apply: any)
+  -> function
+```
 
 ### markup.view.hl.edge()
 
@@ -214,6 +243,23 @@ Redraws the edge of a group whose colors just changed, such as an animated one.
 ## markup.view.mount
 
 Source: `lua/markup/view/mount.lua`
+
+### markup.view.mount.canvas()
+
+```lua
+function markup.view.mount.canvas(props: markup.canvas.props)
+  -> markup.element
+```
+
+A 2D cell surface drawn directly by `draw(ctx)`, which never lays anything
+out. As a CSS `<canvas>`, it is inline unless `display = "block"`, and its
+size is what `width` and `height` say: cells, `"full"`, a share, or `auto`
+with a min, `grow` or `basis`. What it leaves blank shows what is under it,
+and what it draws takes nothing from the boxes around it: a cell's style
+is all it has, with `Normal`'s foreground when that sets none, over the
+background under it. A background in its own `style` hides what
+is under it. Takes all standard box props (`border`, `padding`, `margin`,
+`on_press`, ...).
 
 ### markup.view.mount.collapse()
 
@@ -276,6 +322,15 @@ Fields:
 - `borders`: `table` - Top left, top, top right, right, bottom right, bottom, bottom left, left.
 - `style`: `table` - Style properties by name, with the encoder for each value.
 - `valid_utf8`: `function` - Text with every byte that is not part of a UTF-8 character replaced, as what is drawn holds it.
+
+### markup.view.protocol.char_width()
+
+```lua
+function markup.view.protocol.char_width(character: string)
+  -> integer
+```
+
+Display width of one UTF-8 character, cached until `ambiwidth` or cell widths change.
 
 ### markup.view.protocol.check_cell_widths()
 

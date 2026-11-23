@@ -11,6 +11,8 @@ CONTENTS                                                     *markup-contents*
     markup.animate.opts................................|markup.animate.opts|
     markup.animation......................................|markup.animation|
     markup.border............................................|markup.border|
+    markup.canvas.context............................|markup.canvas.context|
+    markup.canvas.props................................|markup.canvas.props|
     markup.cmd..................................................|markup.cmd|
     markup.config............................................|markup.config|
     markup.core................................................|markup.core|
@@ -66,6 +68,7 @@ CONTENTS                                                     *markup-contents*
     markup.track..............................................|markup.track|
     markup.util................................................|markup.util|
     markup.view................................................|markup.view|
+    markup.view.canvas..................................|markup.view.canvas|
     markup.view.commands..............................|markup.view.commands|
     markup.view.components..........................|markup.view.components|
     markup.view.fixed....................................|markup.view.fixed|
@@ -109,6 +112,11 @@ markup.block()                                                *markup.block()*
 markup.call()                                                  *markup.call()*
     function markup.factory.element.call(type: any, props?: markup.factory.element.props, style?: markup.factory.element.style)
       -> markup.element
+
+markup.canvas()                                              *markup.canvas()*
+    function markup.canvas(...any)
+    A 2D cell surface drawn directly, independent of the layout engine.
+    See: `markup.view.mount.canvas`
 
 markup.class()                                                *markup.class()*
     function markup.factory.element.class(Class: table)
@@ -328,6 +336,309 @@ markup.border                                                  *markup.border*
 <
 
 ==============================================================================
+markup.canvas.context                                  *markup.canvas.context*
+
+    lua/markup/view/canvas.lua
+
+markup.canvas.context.height                    *markup.canvas.context.height*
+    integer
+    content height in cells
+
+markup.canvas.context.width                      *markup.canvas.context.width*
+    integer
+    content width in cells
+
+markup.canvas.context:begin()                  *markup.canvas.context:begin()*
+    markup.canvas.context:begin()
+    Forgets the styles of the last draw, before the next one.
+
+markup.canvas.context:clear()                  *markup.canvas.context:clear()*
+    markup.canvas.context:clear(char?: string, style?: markup.factory.element.style)
+    Fills the whole canvas with `char` (a blank by default) and optional `style`.
+
+markup.canvas.context:fill()                    *markup.canvas.context:fill()*
+    markup.canvas.context:fill(x: integer, y: integer, width: integer, height: integer, char?: string, style?: markup.factory.element.style)
+    Fills a rectangle at `(x, y)` of size `width` × `height` with `char` (blank
+    by default) and optional `style`.
+
+markup.canvas.context:flush()                  *markup.canvas.context:flush()*
+    markup.canvas.context:flush(commands: markup.view.commands, id: integer)
+    Packs the canvas surface into a single `set_canvas` engine command: each
+    row as the runs of cells it drew, so what is between them shows through,
+    and their highlights, which take nothing from around the canvas.
+
+markup.canvas.context:line()                    *markup.canvas.context:line()*
+    markup.canvas.context:line(x0: integer, y0: integer, x1: integer, y1: integer, char?: string, style?: markup.factory.element.style)
+    Draws a line from `(x0, y0)` to `(x1, y1)` using Bresenham's algorithm.
+
+markup.canvas.context:rect()                    *markup.canvas.context:rect()*
+    markup.canvas.context:rect(x: integer, y: integer, width: integer, height: integer, border?: string|markup.border, style?: markup.factory.element.style)
+    Draws an outlined rectangle at `(x, y)` of size `width` × `height`.
+
+>lua
+    border:
+       | "single"
+       | "rounded"
+       | "double"
+       | "heavy"
+       | "half"
+<
+
+markup.canvas.context:resize()                *markup.canvas.context:resize()*
+    markup.canvas.context:resize(width: integer, height: integer)
+    Resizes the backing grid, resetting all cells when the dimensions change.
+
+markup.canvas.context:set()                      *markup.canvas.context:set()*
+    markup.canvas.context:set(x: integer, y: integer, char?: string, style?: markup.factory.element.style)
+    Draws one character at zero-indexed `(x, y)`. With `char == nil`, keeps the
+    character already there and only sets its highlight.
+
+markup.canvas.context:text()                    *markup.canvas.context:text()*
+    markup.canvas.context:text(x: integer, y: integer, text: string|number, style?: markup.factory.element.style)
+    Draws `text` starting at zero-indexed `(x, y)`. Newlines advance to the next
+    row at the same `x`, and anything outside the canvas is clipped cleanly.
+
+==============================================================================
+markup.canvas.props                                      *markup.canvas.props*
+
+    lua/markup/view/mount.lua
+
+markup.canvas.props.align                          *markup.canvas.props.align*
+    (fun():markup.align|markup.align)?
+
+markup.canvas.props.align_content          *markup.canvas.props.align_content*
+    (fun():markup.justify|markup.justify)?
+
+markup.canvas.props.align_self                *markup.canvas.props.align_self*
+    ("auto"|fun():"auto"|markup.align|markup.align)?
+
+markup.canvas.props.auto_flow                  *markup.canvas.props.auto_flow*
+    ("column"|"row"|fun():"column"|"row")?
+
+markup.canvas.props.basis                          *markup.canvas.props.basis*
+    (fun():markup.length|markup.length)?
+
+markup.canvas.props.border                        *markup.canvas.props.border*
+    (markup.border)?
+    drawn inside the box, around the padding
+
+markup.canvas.props.border_sides            *markup.canvas.props.border_sides*
+    ("bottom"|"left"|"right"|"top")[]?
+    the sides to draw, all by default
+
+markup.canvas.props.border_style            *markup.canvas.props.border_style*
+    string?
+    highlight of the border
+
+markup.canvas.props.bottom                        *markup.canvas.props.bottom*
+    (integer|fun():integer)?
+
+markup.canvas.props.children                    *markup.canvas.props.children*
+    (markup.factory.element.children)?
+
+markup.canvas.props.click                          *markup.canvas.props.click*
+    ("double"|"single"|false)?
+    which click of the mouse presses it, single by default
+
+markup.canvas.props.column                        *markup.canvas.props.column*
+    (integer|fun():integer)?
+    grid column to start in
+
+markup.canvas.props.column_gap                *markup.canvas.props.column_gap*
+    (integer|fun():integer)?
+
+markup.canvas.props.column_span              *markup.canvas.props.column_span*
+    (integer|fun():integer)?
+
+markup.canvas.props.columns                      *markup.canvas.props.columns*
+    (integer|markup.track[])?
+    grid columns, or how many equal ones
+
+markup.canvas.props.direction                  *markup.canvas.props.direction*
+    ("column"|"row"|fun():"column"|"row")?
+    Flex and grid
+
+markup.canvas.props.display                      *markup.canvas.props.display*
+    ("block"|"inline")?
+    `inline` (the default) sits in a line, as an inline-block; `block` takes lines of its own
+
+markup.canvas.props.draw                            *markup.canvas.props.draw*
+    fun(ctx: markup.canvas.context)?
+    called inside a reactive effect to paint the surface; redrawing runs no layout
+
+markup.canvas.props.gap                              *markup.canvas.props.gap*
+    (integer|fun():integer|integer[]|integer[])?
+    between children, or `{ rows, columns }`
+
+markup.canvas.props.grow                            *markup.canvas.props.grow*
+    (number|fun():number)?
+
+markup.canvas.props.height                        *markup.canvas.props.height*
+    (fun():markup.length|markup.length)?
+    as in CSS, the box keeps it, and what is taller shows below it; `min_height` grows with the content
+
+markup.canvas.props.inert                          *markup.canvas.props.inert*
+    (boolean|fun():boolean)?
+    the element and all in it take no cursor: no snapping onto them, no hover, no press
+
+markup.canvas.props.inset                          *markup.canvas.props.inset*
+    (fun():markup.edges|markup.edges)?
+    shorthand for `top`, `right`, `bottom` and `left`
+
+markup.canvas.props.interactive              *markup.canvas.props.interactive*
+    (boolean|fun():boolean)?
+    a place the cursor can land, without `on_press`
+
+markup.canvas.props.justify                      *markup.canvas.props.justify*
+    (fun():markup.justify|markup.justify)?
+
+markup.canvas.props.justify_items          *markup.canvas.props.justify_items*
+    (fun():markup.align|markup.align)?
+
+markup.canvas.props.justify_self            *markup.canvas.props.justify_self*
+    ("auto"|fun():"auto"|markup.align|markup.align)?
+
+markup.canvas.props.left                            *markup.canvas.props.left*
+    (integer|fun():integer)?
+
+markup.canvas.props.margin                        *markup.canvas.props.margin*
+    (fun():markup.edges|markup.edges)?
+    vertical margins between blocks collapse, as in CSS: siblings share the larger, and a first or last child's passes through a parent with no padding or border there
+
+markup.canvas.props.margin_bottom          *markup.canvas.props.margin_bottom*
+    (integer|fun():integer)?
+
+markup.canvas.props.margin_left              *markup.canvas.props.margin_left*
+    (integer|fun():integer)?
+
+markup.canvas.props.margin_right            *markup.canvas.props.margin_right*
+    (integer|fun():integer)?
+
+markup.canvas.props.margin_top                *markup.canvas.props.margin_top*
+    (integer|fun():integer)?
+
+markup.canvas.props.max_height                *markup.canvas.props.max_height*
+    (fun():markup.length|markup.length)?
+
+markup.canvas.props.max_width                  *markup.canvas.props.max_width*
+    (fun():markup.length|markup.length)?
+
+markup.canvas.props.min_height                *markup.canvas.props.min_height*
+    (fun():markup.length|markup.length)?
+
+markup.canvas.props.min_width                  *markup.canvas.props.min_width*
+    (fun():markup.length|markup.length)?
+
+markup.canvas.props.on_hover                    *markup.canvas.props.on_hover*
+    fun(hovered: boolean)?
+    called as the cursor comes onto the element and leaves it
+
+markup.canvas.props.on_press                    *markup.canvas.props.on_press*
+    fun()?
+    called on <CR>, or on a click, which makes the element a place the cursor can land
+
+markup.canvas.props.order                          *markup.canvas.props.order*
+    (integer|fun():integer)?
+
+markup.canvas.props.overflow                    *markup.canvas.props.overflow*
+    (fun():markup.overflow|markup.overflow)?
+    sets `overflow_x` and `overflow_y`, as in CSS
+
+markup.canvas.props.overflow_x                *markup.canvas.props.overflow_x*
+    (fun():markup.overflow|markup.overflow)?
+    cuts off what is too wide. As in CSS, `hidden` on either axis cuts off both, whatever the other one says, and makes the box a scroll container: as a flex or grid item, it may shrink below its content. `clip` cuts off only this axis, unless `overflow_y` is `hidden`
+
+markup.canvas.props.overflow_y                *markup.canvas.props.overflow_y*
+    (fun():markup.overflow|markup.overflow)?
+    cuts off what is too tall. As in CSS, `hidden` on either axis cuts off both, whatever the other one says, and makes the box a scroll container: as a flex or grid item, it may shrink below its content. `clip` cuts off only this axis, unless `overflow_x` is `hidden`
+
+markup.canvas.props.overlay                      *markup.canvas.props.overlay*
+    boolean?
+    with `fixed`, float over the content rather than pushing it down
+
+markup.canvas.props.padding                      *markup.canvas.props.padding*
+    (fun():markup.edges|markup.edges)?
+
+markup.canvas.props.padding_bottom        *markup.canvas.props.padding_bottom*
+    (integer|fun():integer)?
+
+markup.canvas.props.padding_left            *markup.canvas.props.padding_left*
+    (integer|fun():integer)?
+
+markup.canvas.props.padding_right          *markup.canvas.props.padding_right*
+    (integer|fun():integer)?
+
+markup.canvas.props.padding_top              *markup.canvas.props.padding_top*
+    (integer|fun():integer)?
+
+markup.canvas.props.position                    *markup.canvas.props.position*
+    ("absolute"|"fixed"|"relative"|"static")?
+    `fixed` pins the element above the view, in a float of its own
+
+markup.canvas.props.retain                        *markup.canvas.props.retain*
+    boolean?
+    keep previous cells between redraws instead of clearing first
+
+markup.canvas.props.reverse                      *markup.canvas.props.reverse*
+    (boolean|fun():boolean)?
+
+markup.canvas.props.right                          *markup.canvas.props.right*
+    (integer|fun():integer)?
+
+markup.canvas.props.row                              *markup.canvas.props.row*
+    (integer|fun():integer)?
+    grid row to start in
+
+markup.canvas.props.row_gap                      *markup.canvas.props.row_gap*
+    (integer|fun():integer)?
+
+markup.canvas.props.row_span                    *markup.canvas.props.row_span*
+    (integer|fun():integer)?
+
+markup.canvas.props.rows                            *markup.canvas.props.rows*
+    (integer|markup.track[])?
+    grid rows, or how many equal ones
+
+markup.canvas.props.shrink                        *markup.canvas.props.shrink*
+    (number|fun():number)?
+
+markup.canvas.props.snap                            *markup.canvas.props.snap*
+    (boolean|fun():boolean)?
+    with `false`, a view with `snap = "text"` moves the cursor
+
+markup.canvas.props.spacing                      *markup.canvas.props.spacing*
+    (integer|fun():integer)?
+    the least gap between children
+
+markup.canvas.props.style                          *markup.canvas.props.style*
+    (fun():(markup.factory.element.style)?|markup.factory.element.style)?
+    highlight group, or attributes of one
+
+markup.canvas.props.text_overflow          *markup.canvas.props.text_overflow*
+    (string|"clip"|"ellipsis"|fun():string|"clip"|"ellipsis")?
+    as CSS `text-overflow`, what single-line text ends in where its width is cut off, by `overflow_x` or by `hidden` on either axis: "clip" (default) or "" cuts it, "ellipsis" ends it in …, and any other string ends it in that string. Needs `white_space = "nowrap"`, or text wraps and nothing is cut. The marker takes the style of this element
+
+markup.canvas.props.top                              *markup.canvas.props.top*
+    (integer|fun():integer)?
+
+markup.canvas.props.vertical                    *markup.canvas.props.vertical*
+    (boolean|fun():boolean)?
+    shorthand for `direction = "column"`
+
+markup.canvas.props.white_space              *markup.canvas.props.white_space*
+    ("normal"|"nowrap"|fun():"normal"|"nowrap")?
+    whether text wraps, inherited
+
+markup.canvas.props.width                          *markup.canvas.props.width*
+    (fun():markup.length|markup.length)?
+
+markup.canvas.props.wrap                            *markup.canvas.props.wrap*
+    (boolean|fun():boolean)?
+
+markup.canvas.props.z                                  *markup.canvas.props.z*
+    (integer|fun():integer)?
+
+==============================================================================
 markup.cmd                                                        *markup.cmd*
 
     lua/markup/cmd.lua
@@ -419,6 +730,10 @@ markup.core.node                                            *markup.core.node*
 markup.core.node.border                              *markup.core.node.border*
     integer[]
     cells each side of the border takes, between margin and padding
+
+markup.core.node.canvas                              *markup.core.node.canvas*
+    boolean
+    whether it holds a canvas surface
 
 markup.core.node.children                          *markup.core.node.children*
     integer
@@ -2585,7 +2900,8 @@ markup.view:node_at_cursor()                    *markup.view:node_at_cursor()*
 
 markup.view:on_commit()                              *markup.view:on_commit()*
     markup.view:on_commit(listener: function)
-    Calls `listener` after every commit.
+      -> unsubscribe: fun()
+    Calls `listener` after every commit, returning a function that removes it.
 
 markup.view:place_held()                            *markup.view:place_held()*
     markup.view:place_held()
@@ -2669,6 +2985,16 @@ markup.view:width()                                      *markup.view:width()*
     Width to lay out at, which hidden windows can only estimate.
 
 ==============================================================================
+markup.view.canvas                                        *markup.view.canvas*
+
+    lua/markup/view/canvas.lua
+
+markup.view.canvas.context()                    *markup.view.canvas.context()*
+    function markup.view.canvas.context(width: integer, height: integer)
+      -> markup.canvas.context
+    Creates a reusable drawing context of `width` × `height` cells.
+
+==============================================================================
 markup.view.commands                                    *markup.view.commands*
 
     lua/markup/view/protocol.lua
@@ -2677,7 +3003,7 @@ markup.view.commands:clear()                    *markup.view.commands:clear()*
     markup.view.commands:clear(id: any)
 
 markup.view.commands:create()                  *markup.view.commands:create()*
-    markup.view.commands:create(id: any, display: any)
+    markup.view.commands:create(id: any, display: any, canvas: any)
 
 markup.view.commands:create_text()        *markup.view.commands:create_text()*
     markup.view.commands:create_text(id: any, text: any)
@@ -2693,6 +3019,13 @@ markup.view.commands:resize()                  *markup.view.commands:resize()*
 
 markup.view.commands:set_border()          *markup.view.commands:set_border()*
     markup.view.commands:set_border(id: any, preset: string|{ chars: string }, sides?: string[], hl_id: integer)
+
+markup.view.commands:set_canvas()          *markup.view.commands:set_canvas()*
+    markup.view.commands:set_canvas(id: any, width: any, height: any, count: any, runs: { count: integer[], ranges: string[], starts: integer[], texts: string[], widths: integer[], cells: string[] })
+    Replaces a canvas's surface with `count` rows, each the number of its runs,
+    then each one's start, text, width and cells, then its packed highlight
+    ranges. A row of one run from the left edge, the most common, leaves out
+    the count and the start: it starts with its text.
 
 markup.view.commands:set_style()            *markup.view.commands:set_style()*
     markup.view.commands:set_style(id: any, name: string, value: any)
@@ -2802,6 +3135,16 @@ markup.view.hl                                                *markup.view.hl*
 
     lua/markup/view/hl.lua
 
+markup.view.hl.canvas()                              *markup.view.hl.canvas()*
+    function markup.view.hl.canvas(id: integer)
+      -> integer
+    The group a canvas cell of style `id` draws with, `0` for no style. See
+    `define_canvas`.
+
+markup.view.hl.canvas_background()        *markup.view.hl.canvas_background()*
+    function markup.view.hl.canvas_background(id: any, apply: any)
+      -> function
+
 markup.view.hl.edge()                                  *markup.view.hl.edge()*
     function markup.view.hl.edge(group: string)
       -> string
@@ -2877,6 +3220,19 @@ markup.view.loader_pick.width                  *markup.view.loader_pick.width*
 markup.view.mount                                          *markup.view.mount*
 
     lua/markup/view/mount.lua
+
+markup.view.mount.canvas()                        *markup.view.mount.canvas()*
+    function markup.view.mount.canvas(props: markup.canvas.props)
+      -> markup.element
+    A 2D cell surface drawn directly by `draw(ctx)`, which never lays anything
+    out. As a CSS `<canvas>`, it is inline unless `display = "block"`, and its
+    size is what `width` and `height` say: cells, `"full"`, a share, or `auto`
+    with a min, `grow` or `basis`. What it leaves blank shows what is under it,
+    and what it draws takes nothing from the boxes around it: a cell's style
+    is all it has, with `Normal`'s foreground when that sets none, over the
+    background under it. A background in its own `style` hides what
+    is under it. Takes all standard box props (`border`, `padding`, `margin`,
+    `on_press`, ...).
 
 markup.view.mount.collapse()                    *markup.view.mount.collapse()*
     function markup.view.mount.collapse(when: fun():any, content: any, opts?: { duration: number })
@@ -2964,6 +3320,11 @@ markup.view.protocol.valid_utf8              *markup.view.protocol.valid_utf8*
     function
     Text with every byte that is not part of a UTF-8 character replaced, as
     what is drawn holds it.
+
+markup.view.protocol.char_width()          *markup.view.protocol.char_width()*
+    function markup.view.protocol.char_width(character: string)
+      -> integer
+    Display width of one UTF-8 character, cached until `ambiwidth` or cell widths change.
 
 markup.view.protocol.check_cell_widths()
                                     *markup.view.protocol.check_cell_widths()*

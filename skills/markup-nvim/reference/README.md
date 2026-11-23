@@ -10,7 +10,7 @@ signatures and types, from the LuaCATS annotations in `lua/`.
 - [reactive.md](reactive.md): Signals, memos, effects, owners and scopes: what makes a view update.
   Classes: `markup.reactive`, `markup.reactive.computation`, `markup.reactive.owner`
 - [view.md](view.md): `Markup.view`: drawing elements in a window, pressing, components, loaders and progress bars.
-  Classes: `markup.view`, `markup.view.components`, `markup.view.fixed`, `markup.view.loader`, `markup.view.loader_def`, `markup.view.loader_pick`, `markup.view.opts`, `markup.view.progress`
+  Classes: `markup.view`, `markup.view.canvas`, `markup.view.components`, `markup.view.fixed`, `markup.view.loader`, `markup.view.loader_def`, `markup.view.loader_pick`, `markup.view.opts`, `markup.view.progress`
 - [window.md](window.md): `Markup.window`: floats and splits, their options, backdrop and dimming, keys and events.
   Classes: `markup.window`, `markup.window.Action`, `markup.window.Action.fn`, `markup.window.Action.spec`, `markup.window.Backdrop`, `markup.window.config`, `markup.window.Dim`, `markup.window.Event`, `markup.window.Keys`
 - [animate.md](animate.md): `Markup.animate`: animated values, frames, the clock and easings.
@@ -22,7 +22,7 @@ signatures and types, from the LuaCATS annotations in `lua/`.
 - [layout.md](layout.md): `Markup.layout`: windows arranged in boxes.
   Classes: `markup.layout`, `markup.layout.box`, `markup.layout.config`, `markup.layout.widget`, `markup.layout.window`
 - [misc.md](misc.md): Setup and config, commands, logging, lists and utilities.
-  Classes: `markup.cmd`, `markup.config`, `markup.list`, `markup.logger`, `markup.overflow`, `markup.util`
+  Classes: `markup.canvas.context`, `markup.canvas.props`, `markup.cmd`, `markup.config`, `markup.list`, `markup.logger`, `markup.overflow`, `markup.util`
 - [devkit.md](devkit.md): Tools for working on markup.nvim: the inspector, the stress test and the playground.
   Classes: `markup.devkit`, `markup.devkit.part`, `markup.devkit.tree`, `markup.playground`, `markup.playground.opts`
 - [internals.md](internals.md): What the view, the engine and the object system use inside. Plugins built on markup.nvim do not need these.

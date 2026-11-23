@@ -81,10 +81,17 @@ A snapshot of one node. Contents nodes have no box of their own.
 0
 
 ```rust
-pub border: Edges, pub padding: Edges, pub width: String, pub height: String, pub spacing: i32, pub reverse: bool, pub hl: u32, pub interactive: bool, pub dirty: bool,
+pub border: Edges, pub padding: Edges, pub width: String, pub height: String, pub spacing: i32, pub reverse: bool, pub hl: u32, pub interactive: bool, /// Whether it holds a canvas surface.
 ```
 
 Cells of each side the border takes, between the margin and the padding.
+0
+
+```rust
+pub canvas: bool, pub dirty: bool, pub position: &'static str, }  fn display_name(display: Display) -> &'static str
+```
+
+Whether it holds a canvas surface.
 0
 
 ```rust
@@ -418,7 +425,9 @@ pub fn path_at(&self, row: i32, col: i32) -> Vec<ClientId>
 ```
 
 Every node on a cell, from the root down to the innermost one. Absolute
-boxes sit on top, so they are tried first, highest `z` before lower.
+boxes with non-negative `z` sit on top, highest `z` first. Negative `z`
+sits behind flow, and takes the cell when nothing in flow there takes
+presses. As HTML's `inert`, an inert box is not there to be found.
 0
 
 ## `engine/paint.rs`
@@ -442,7 +451,7 @@ Cells holding text, from start to end. Borders and padding are left out.
 0
 
 ```rust
-pub fn paint(tree: &Tree, root: Index, height: i32) -> Vec<Line>
+pub fn paint(tree: &Tree, root: Index, height: i32) -> (Vec<Line>, Vec<ClientId>)
 ```
 
 Paints the subtree under `root` into `height` lines.
@@ -812,153 +821,54 @@ Text uses `start` and `end` as a byte range of its text.
 0
 
 ```rust
-pub text_width: i32, /// Width of each non ASCII character, for line breaking. pub cells: Option<Box<[u8]>>, /// Set when line breaking cut this node into pieces. pub fragments: Option<Vec<Fragment>>, pub parent: Option<Index>, pub children: Vec<Index>, pub dirty: bool, pub geometry: Geometry,
+pub struct CanvasRun
 ```
 
-Display width of `text`, measured by Neovim when it is not ASCII.
+A run of drawn cells in a canvas row.
 0
 
 ```rust
-pub cells: Option<Box<[u8]>>, /// Set when line breaking cut this node into pieces. pub fragments: Option<Vec<Fragment>>, pub parent: Option<Index>, pub children: Vec<Index>, pub dirty: bool, pub geometry: Geometry, /// Sizes found for other constraints since the node was last dirty. pub memo: Vec<(Constraints, Memo)>,
+pub start: i32, pub text: String, pub width: i32, /// Width of each non ASCII character, when any differs from one. pub cells: Option<Box<[u8]>>, }  /// One row of a canvas, painted straight onto the frame without layout. #[derive(Debug, Clone, Default, PartialEq, Eq)]
 ```
 
-Width of each non ASCII character, for line breaking.
+First cell, relative to the canvas's content left.
 0
 
 ```rust
-pub fragments: Option<Vec<Fragment>>, pub parent: Option<Index>, pub children: Vec<Index>, pub dirty: bool, pub geometry: Geometry, /// Sizes found for other constraints since the node was last dirty. pub memo: Vec<(Constraints, Memo)>, /// How the node was last placed, put aside while a sizing pass answers /// from `memo`: nothing under it moved, so placing it the same way again
+pub cells: Option<Box<[u8]>>, }  /// One row of a canvas, painted straight onto the frame without layout. #[derive(Debug, Clone, Default, PartialEq, Eq)] pub struct CanvasRow
 ```
 
-Set when line breaking cut this node into pieces.
+Width of each non ASCII character, when any differs from one.
 0
 
 ```rust
-pub memo: Vec<(Constraints, Memo)>, /// How the node was last placed, put aside while a sizing pass answers /// from `memo`: nothing under it moved, so placing it the same way again /// takes this back rather than laying it all out anew. pub placed: Option<(Constraints, Memo)>, }  /// What a measure leaves for its parent, kept so sizing again is free. #[derive(Debug, Clone, Copy)]
+pub struct CanvasRow
 ```
 
-Sizes found for other constraints since the node was last dirty.
+One row of a canvas, painted straight onto the frame without layout.
 0
 
 ```rust
-pub placed: Option<(Constraints, Memo)>, }  /// What a measure leaves for its parent, kept so sizing again is free. #[derive(Debug, Clone, Copy)] pub struct Memo
+pub runs: Vec<CanvasRun>, /// Highlight ranges `(start, end, hl)` in cells, relative to the canvas's content left. pub ranges: Vec<(i32, i32, u32)>, }  /// A 2D cell surface owned by a canvas node. Updating its contents never runs /// layout as long as its dimensions stay the same. #[derive(Debug, Clone, Default, PartialEq, Eq)] pub struct Canvas
 ```
 
-How the node was last placed, put aside while a sizing pass answers
-from `memo`: nothing under it moved, so placing it the same way again
-takes this back rather than laying it all out anew.
+The runs of cells the row drew, left to right. What is between them
+shows what is under the canvas.
 0
 
 ```rust
-pub struct Memo
+pub ranges: Vec<(i32, i32, u32)>, }  /// A 2D cell surface owned by a canvas node. Updating its contents never runs /// layout as long as its dimensions stay the same. #[derive(Debug, Clone, Default, PartialEq, Eq)] pub struct Canvas
 ```
 
-What a measure leaves for its parent, kept so sizing again is free.
+Highlight ranges `(start, end, hl)` in cells, relative to the canvas's content left.
 0
 
 ```rust
-pub fn of(geometry: &Geometry) -> Self
+pub struct Canvas
 ```
 
-What `geometry` leaves for the parent.
-0
-
-```rust
-pub fn restore(&mut self, memo: &Memo)
-```
-
-Leaves what `memo` kept for the parent, as a measure would.
-0
-
-```rust
-pub sizing: bool, /// Nodes laid out, counted for the frame stats. pub arranged: usize, }  impl Tree
-```
-
-Set while a node is only sized, not placed.
-0
-
-```rust
-pub arranged: usize, }  impl Tree
-```
-
-Nodes laid out, counted for the frame stats.
-0
-
-```rust
-pub fn attached_absolutes(&self) -> impl Iterator<Item = Index> + '_
-```
-
-Absolute nodes that have a parent to be placed against. One created but
-not inserted yet, as when a mount fails halfway, would be its own
-containing block, and finding where it is would never end.
-0
-
-```rust
-pub fn sync_position(&mut self, index: Index)
-```
-
-Call after a style change, to keep `absolutes` current.
-0
-
-```rust
-pub fn containing_block(&self, index: Index) -> Index
-```
-
-The box an absolute node is placed against: its nearest positioned
-ancestor, or the root.
-0
-
-```rust
-pub fn mark_dirty(&mut self, index: Index)
-```
-
-Marks a node and its ancestors for layout. Stops at a dirty node whose
-parent is dirty too, because everything above it is already marked.
-`Contents` nodes never go through layout, so their flag proves nothing.
-0
-
-```rust
-pub fn text_wraps(&self, index: Index) -> bool
-```
-
-Whether text under a node may wrap, from the nearest `white_space`.
-0
-
-```rust
-pub fn mark_subtree_dirty(&mut self, index: Index)
-```
-
-Marks a whole subtree, for changes that its descendants inherit.
-0
-
-```rust
-pub fn insert( &mut self, parent: Index, child: Index, before: Option<Index>, ) -> Result<(), TreeError>
-```
-
-Inserts `child` into `parent` before `before`, or last without one.
-A child that already has a parent is moved.
-0
-
-```rust
-pub fn remove(&mut self, index: Index)
-```
-
-Detaches a node and frees it with its whole subtree.
-0
-
-```rust
-pub fn clear(&mut self, index: Index)
-```
-
-Frees every child of a node, keeping the node itself.
-0
-
-```rust
-pub fn for_each_flow_child( &mut self, index: Index, reverse: bool, visit: &mut impl FnMut(&mut Tree, Index), )
-```
-
-Calls `visit` for each child that takes part in flow, looking through
-`Contents` nodes and skipping absolute ones. Indexes into the list, so
-`visit` may mutate the tree.
+A 2D cell surface owned by a canvas node. Updating its contents never runs
+layout as long as its dimensions stay the same.
 0
 
 ## `engine/visible.rs`

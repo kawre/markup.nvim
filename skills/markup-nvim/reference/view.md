@@ -166,9 +166,10 @@ Innermost interactive node under the cursor.
 
 ```lua
 markup.view:on_commit(listener: function)
+  -> unsubscribe: fun()
 ```
 
-Calls `listener` after every commit.
+Calls `listener` after every commit, returning a function that removes it.
 
 ### markup.view:place_held()
 
@@ -317,6 +318,19 @@ markup.view:width()
 ```
 
 Width to lay out at, which hidden windows can only estimate.
+
+## markup.view.canvas
+
+Source: `lua/markup/view/canvas.lua`
+
+### markup.view.canvas.context()
+
+```lua
+function markup.view.canvas.context(width: integer, height: integer)
+  -> markup.canvas.context
+```
+
+Creates a reusable drawing context of `width` × `height` cells.
 
 ## markup.view.components
 

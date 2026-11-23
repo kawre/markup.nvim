@@ -4,6 +4,176 @@
 
 Setup and config, commands, logging, lists and utilities.
 
+## markup.canvas.context
+
+Source: `lua/markup/view/canvas.lua`
+
+Fields:
+
+- `height`: `integer` - content height in cells
+- `width`: `integer` - content width in cells
+
+### markup.canvas.context:begin()
+
+```lua
+markup.canvas.context:begin()
+```
+
+Forgets the styles of the last draw, before the next one.
+
+### markup.canvas.context:clear()
+
+```lua
+markup.canvas.context:clear(char?: string, style?: markup.factory.element.style)
+```
+
+Fills the whole canvas with `char` (a blank by default) and optional `style`.
+
+### markup.canvas.context:fill()
+
+```lua
+markup.canvas.context:fill(x: integer, y: integer, width: integer, height: integer, char?: string, style?: markup.factory.element.style)
+```
+
+Fills a rectangle at `(x, y)` of size `width` × `height` with `char` (blank
+by default) and optional `style`.
+
+### markup.canvas.context:flush()
+
+```lua
+markup.canvas.context:flush(commands: markup.view.commands, id: integer)
+```
+
+Packs the canvas surface into a single `set_canvas` engine command: each
+row as the runs of cells it drew, so what is between them shows through,
+and their highlights, which take nothing from around the canvas.
+
+### markup.canvas.context:line()
+
+```lua
+markup.canvas.context:line(x0: integer, y0: integer, x1: integer, y1: integer, char?: string, style?: markup.factory.element.style)
+```
+
+Draws a line from `(x0, y0)` to `(x1, y1)` using Bresenham's algorithm.
+
+### markup.canvas.context:rect()
+
+```lua
+markup.canvas.context:rect(x: integer, y: integer, width: integer, height: integer, border?: string|markup.border, style?: markup.factory.element.style)
+```
+
+Draws an outlined rectangle at `(x, y)` of size `width` × `height`.
+
+```lua
+border:
+   | "single"
+   | "rounded"
+   | "double"
+   | "heavy"
+   | "half"
+```
+
+### markup.canvas.context:resize()
+
+```lua
+markup.canvas.context:resize(width: integer, height: integer)
+```
+
+Resizes the backing grid, resetting all cells when the dimensions change.
+
+### markup.canvas.context:set()
+
+```lua
+markup.canvas.context:set(x: integer, y: integer, char?: string, style?: markup.factory.element.style)
+```
+
+Draws one character at zero-indexed `(x, y)`. With `char == nil`, keeps the
+character already there and only sets its highlight.
+
+### markup.canvas.context:text()
+
+```lua
+markup.canvas.context:text(x: integer, y: integer, text: string|number, style?: markup.factory.element.style)
+```
+
+Draws `text` starting at zero-indexed `(x, y)`. Newlines advance to the next
+row at the same `x`, and anything outside the canvas is clipped cleanly.
+
+## markup.canvas.props
+
+Source: `lua/markup/view/mount.lua`
+
+Fields:
+
+- `align`: `(fun():markup.align|markup.align)?`
+- `align_content`: `(fun():markup.justify|markup.justify)?`
+- `align_self`: `("auto"|fun():"auto"|markup.align|markup.align)?`
+- `auto_flow`: `("column"|"row"|fun():"column"|"row")?`
+- `basis`: `(fun():markup.length|markup.length)?`
+- `border`: `(markup.border)?` - drawn inside the box, around the padding
+- `border_sides`: `("bottom"|"left"|"right"|"top")[]?` - the sides to draw, all by default
+- `border_style`: `string?` - highlight of the border
+- `bottom`: `(integer|fun():integer)?`
+- `children`: `(markup.factory.element.children)?`
+- `click`: `("double"|"single"|false)?` - which click of the mouse presses it, single by default
+- `column`: `(integer|fun():integer)?` - grid column to start in
+- `column_gap`: `(integer|fun():integer)?`
+- `column_span`: `(integer|fun():integer)?`
+- `columns`: `(integer|markup.track[])?` - grid columns, or how many equal ones
+- `direction`: `("column"|"row"|fun():"column"|"row")?` - Flex and grid
+- `display`: `("block"|"inline")?` - `inline` (the default) sits in a line, as an inline-block; `block` takes lines of its own
+- `draw`: `fun(ctx: markup.canvas.context)?` - called inside a reactive effect to paint the surface; redrawing runs no layout
+- `gap`: `(integer|fun():integer|integer[]|integer[])?` - between children, or `{ rows, columns }`
+- `grow`: `(number|fun():number)?`
+- `height`: `(fun():markup.length|markup.length)?` - as in CSS, the box keeps it, and what is taller shows below it; `min_height` grows with the content
+- `inert`: `(boolean|fun():boolean)?` - the element and all in it take no cursor: no snapping onto them, no hover, no press
+- `inset`: `(fun():markup.edges|markup.edges)?` - shorthand for `top`, `right`, `bottom` and `left`
+- `interactive`: `(boolean|fun():boolean)?` - a place the cursor can land, without `on_press`
+- `justify`: `(fun():markup.justify|markup.justify)?`
+- `justify_items`: `(fun():markup.align|markup.align)?`
+- `justify_self`: `("auto"|fun():"auto"|markup.align|markup.align)?`
+- `left`: `(integer|fun():integer)?`
+- `margin`: `(fun():markup.edges|markup.edges)?` - vertical margins between blocks collapse, as in CSS: siblings share the larger, and a first or last child's passes through a parent with no padding or border there
+- `margin_bottom`: `(integer|fun():integer)?`
+- `margin_left`: `(integer|fun():integer)?`
+- `margin_right`: `(integer|fun():integer)?`
+- `margin_top`: `(integer|fun():integer)?`
+- `max_height`: `(fun():markup.length|markup.length)?`
+- `max_width`: `(fun():markup.length|markup.length)?`
+- `min_height`: `(fun():markup.length|markup.length)?`
+- `min_width`: `(fun():markup.length|markup.length)?`
+- `on_hover`: `fun(hovered: boolean)?` - called as the cursor comes onto the element and leaves it
+- `on_press`: `fun()?` - called on <CR>, or on a click, which makes the element a place the cursor can land
+- `order`: `(integer|fun():integer)?`
+- `overflow`: `(fun():markup.overflow|markup.overflow)?` - sets `overflow_x` and `overflow_y`, as in CSS
+- `overflow_x`: `(fun():markup.overflow|markup.overflow)?` - cuts off what is too wide. As in CSS, `hidden` on either axis cuts off both, whatever the other one says, and makes the box a scroll container: as a flex or grid item, it may shrink below its content. `clip` cuts off only this axis, unless `overflow_y` is `hidden`
+- `overflow_y`: `(fun():markup.overflow|markup.overflow)?` - cuts off what is too tall. As in CSS, `hidden` on either axis cuts off both, whatever the other one says, and makes the box a scroll container: as a flex or grid item, it may shrink below its content. `clip` cuts off only this axis, unless `overflow_x` is `hidden`
+- `overlay`: `boolean?` - with `fixed`, float over the content rather than pushing it down
+- `padding`: `(fun():markup.edges|markup.edges)?`
+- `padding_bottom`: `(integer|fun():integer)?`
+- `padding_left`: `(integer|fun():integer)?`
+- `padding_right`: `(integer|fun():integer)?`
+- `padding_top`: `(integer|fun():integer)?`
+- `position`: `("absolute"|"fixed"|"relative"|"static")?` - `fixed` pins the element above the view, in a float of its own
+- `retain`: `boolean?` - keep previous cells between redraws instead of clearing first
+- `reverse`: `(boolean|fun():boolean)?`
+- `right`: `(integer|fun():integer)?`
+- `row`: `(integer|fun():integer)?` - grid row to start in
+- `row_gap`: `(integer|fun():integer)?`
+- `row_span`: `(integer|fun():integer)?`
+- `rows`: `(integer|markup.track[])?` - grid rows, or how many equal ones
+- `shrink`: `(number|fun():number)?`
+- `snap`: `(boolean|fun():boolean)?` - with `false`, a view with `snap = "text"` moves the cursor
+- `spacing`: `(integer|fun():integer)?` - the least gap between children
+- `style`: `(fun():(markup.factory.element.style)?|markup.factory.element.style)?` - highlight group, or attributes of one
+- `text_overflow`: `(string|"clip"|"ellipsis"|fun():string|"clip"|"ellipsis")?` - as CSS `text-overflow`, what single-line text ends in where its width is cut off, by `overflow_x` or by `hidden` on either axis: "clip" (default) or "" cuts it, "ellipsis" ends it in …, and any other string ends it in that string. Needs `white_space = "nowrap"`, or text wraps and nothing is cut. The marker takes the style of this element
+- `top`: `(integer|fun():integer)?`
+- `vertical`: `(boolean|fun():boolean)?` - shorthand for `direction = "column"`
+- `white_space`: `("normal"|"nowrap"|fun():"normal"|"nowrap")?` - whether text wraps, inherited
+- `width`: `(fun():markup.length|markup.length)?`
+- `wrap`: `(boolean|fun():boolean)?`
+- `z`: `(integer|fun():integer)?`
+
 ## markup.cmd
 
 Source: `lua/markup/cmd.lua`

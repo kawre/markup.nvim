@@ -35,6 +35,15 @@ function markup.factory.element.call(type: any, props?: markup.factory.element.p
   -> markup.element
 ```
 
+### markup.canvas()
+
+```lua
+function markup.canvas(...any)
+```
+
+A 2D cell surface drawn directly, independent of the layout engine.
+See: `markup.view.mount.canvas`
+
 ### markup.class()
 
 ```lua
